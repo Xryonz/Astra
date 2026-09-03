@@ -31,7 +31,8 @@ aplicativo e morre com ele.
 **Backend** (`apps/api`) — 34 grupos de rota
 - Express 4 · TypeScript · Drizzle ORM 0.45
 - PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
-- LiveKit — voz do **web e do Android**; o desktop não passa por ele (ver `sidecar-voz`)
+- LiveKit — voz e tela dos **três** clientes; o desktop entra na mesma sala por um
+  processo à parte (ver `sidecar-voz`)
 - Armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
 - IA da bot: Groq (Gemini como alternativa; `IA_PROVIDER` desempata)
 
@@ -43,14 +44,18 @@ aplicativo e morre com ele.
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
 
 **Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
-- **pion/webrtc** · malha ponto a ponto (sem servidor de mídia no meio). STUN para
-  atravessar NAT e, quando o servidor oferece, **TURN com credencial temporária** —
-  sem relay, quem está atrás de NAT simétrico não consegue conectar
+- **pion/webrtc** por baixo e **livekit/server-sdk-go** por cima: o sidecar entra na
+  sala do LiveKit como um participante e publica lá, igual aos outros clientes. O SFU
+  encaminha — não há malha ponto a ponto nem travessia de NAT por conta própria
 - Captura de tela inteira por **DXGI Desktop Duplication** e de **uma janela** por
   **Windows.Graphics.Capture**; compressão H.264 pelo **Media Foundation**, na placa
-  quando há uma e em software quando não há
-- A tela vai **só para quem está assistindo**: uma faixa por par, e quem sai do palco
-  ou minimiza a janela deixa de custar banda de quem transmite
+  quando há uma e em software quando não há. Baixa latência, taxa variável com pico
+  limitado e CABAC quando o compressor aceita
+- A tela pode subir em **duas qualidades** (a cheia e uma pela metade a 30 fps), para
+  que quem está com a rede curta receba a menor em vez de derrubar a de todo mundo.
+  Exige placa com aceleração e **começa desligado** — Configurações › Voz
+- A banda se ajusta sozinha pelo que o TWCC e os relatórios de recepção contam, e o
+  pedido de quadro-chave de quem acabou de chegar é atendido na hora
 - Áudio em Opus a 64 kbps em banda cheia, com cancelamento de eco, supressão de ruído e
   ganho do Windows. Pacote perdido é reconstruído a partir da redundância que o próprio
   Opus embute em cada pacote, e o colchão contra engasgo se dimensiona pela rede — em
@@ -81,9 +86,7 @@ Go independente — o Gradle do desktop o compila e empacota junto do aplicativo
 > já custou tempo aqui.
 
 **Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Neon ·
-Redis → Upstash · arquivos → bucket S3 · voz do web e do Android → LiveKit Cloud.
-A voz do **desktop** não é hospedada: ela vai direto de máquina a máquina, e o
-servidor só carrega o aperto de mão.
+Redis → Upstash · arquivos → bucket S3 · voz e tela dos três clientes → LiveKit Cloud.
 
 ---
 
@@ -99,6 +102,8 @@ histórico de destinos, tradução, fixar mensagem e menus de botão-direito em 
 Sala de voz por órbita com antessala, chamada de voz e vídeo dentro do sussurro
 com registro no histórico ("Chamada perdida", "Chamada de 12 min"), transmissão
 de tela, painel flutuante da call ao navegar, soundboard por constelação.
+Volume de entrada e de saída, volume por pessoa no botão-direito do cartão, e um
+sinal de três barras no rodapé que mostra ida e volta, tremor e perda da chamada.
 
 **Pessoas**
 Amigos com pedidos nos dois sentidos, presença ao vivo (online/ausente/ocupado/
@@ -282,13 +287,11 @@ npm run img:encolher -- --vai # executa de verdade
 A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
 fallback, e não quebra o boot:
 
-- `LIVEKIT_*` — sem isso, voz/vídeo off no web e no Android
-- `TURN_URLS` + (`TURN_SECRET` **ou** `TURN_USERNAME`/`TURN_PASSWORD`) — o relay das
-  chamadas do desktop. Sem isso a chamada ainda funciona pela maioria das redes, mas
-  **não conecta atrás de NAT simétrico** (CGNAT, rede de faculdade, rede corporativa).
-  Com `TURN_SECRET` a API emite usuário e senha temporários (coturn `use-auth-secret`,
-  validade em `TURN_TTL`, padrão 12h) e o segredo nunca sai do servidor.
-  `STUN_URLS` substitui a lista de fábrica; vazio, o desktop usa a própria
+- `LIVEKIT_*` — sem isso, voz/vídeo off nos três clientes
+- `TURN_URLS` / `STUN_URLS` / `TURN_SECRET` — sobra da época em que a chamada do
+  desktop era ponto a ponto. Hoje o desktop entra na sala do LiveKit como os outros,
+  e a travessia de rede é problema do SFU. A rota `/voice/ice` ainda existe e ninguém
+  a chama; ficou anotada para remoção
 - `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
 - `S3_*` / `R2_*` — em desenvolvimento, o upload cai pro disco local
   (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do
@@ -391,7 +394,8 @@ segue como resposta.
 | Biblioteca | Para quê | Licença |
 | --- | --- | --- |
 | [Opus](https://opus-codec.org) (`opus-0.dll`) | codec de voz das chamadas | BSD 3-Clause |
-| [Pion WebRTC](https://github.com/pion/webrtc) | transporte das chamadas ponto a ponto | MIT |
+| [Pion WebRTC](https://github.com/pion/webrtc) | transporte de mídia das chamadas | MIT |
+| [LiveKit server-sdk-go](https://github.com/livekit/server-sdk-go) | entrar na sala e publicar voz e tela | Apache 2.0 |
 | [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
 | [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
@@ -405,6 +409,7 @@ segue como resposta.
 - **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
   também no sussurro.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
-- **Segurança do upload e do refresh token** — ver o backlog abaixo.
-- **Backlog de segurança** auditado e ainda não corrigido (escalação de cargos,
-  refresh token no localStorage, rate limiter fail-open, upload).
+- **Câmera na chamada** — voz e tela já sobem; falta a webcam.
+- **Refresh token no `localStorage`** do web — o único item de segurança que segue
+  aberto, e só lá: o `apps/web` está congelado. Desktop e Android guardam a sessão
+  fora do alcance de script de página.

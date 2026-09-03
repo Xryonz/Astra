@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
@@ -130,6 +131,7 @@ import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.VozNaBandeja
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.CallNaSala
+import app.astra.desktop.voice.LeituraDoCaminho
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.CacheDeConversas
 import app.astra.desktop.shell.ChatTarget
@@ -609,6 +611,11 @@ fun ShellScreen(
             )
         }
         }
+        val chamadaViva = voice.call
+        val caminhoDaChamada by produceState<LeituraDoCaminho?>(null, chamadaViva) {
+            value = null
+            chamadaViva?.caminhoDaVoz?.collect { value = it }
+        }
         UserFooter(
             me = state.me,
             fallbackName = session.displayName,
@@ -620,7 +627,7 @@ fun ShellScreen(
             ensurdecido = voice.ensurdecido,
             onAlternarMudo = voice::alternarMudo,
             onAlternarEnsurdecer = voice::alternarEnsurdecer,
-            caminho = voice.call?.caminhoDaVoz?.collectAsState()?.value,
+            caminho = caminhoDaChamada,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .width(LARGURA_RAIL + LARGURA_SIDEBAR)

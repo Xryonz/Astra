@@ -235,7 +235,7 @@ func (s *Sala) PublicarTela(largura, altura int, comCamadaFina bool) error {
 		VideoHeight: altura,
 	}
 
-	if !comCamadaFina {
+	umaCamadaSo := func() error {
 		faixa, err := lksdk.NewLocalTrack(CapacidadeH264, escutarRtcp)
 		if err != nil {
 			return fmt.Errorf("criar faixa de tela: %w", err)
@@ -250,6 +250,18 @@ func (s *Sala) PublicarTela(largura, altura int, comCamadaFina bool) error {
 		return nil
 	}
 
+	if !comCamadaFina {
+		return umaCamadaSo()
+	}
+
+	desistir := func(motivo error) error {
+		s.saida.Manda(Evento{
+			Ev: EvTransmissao, V: "1", Tipo: "camadas",
+			Msg: fmt.Sprintf("as duas camadas não subiram (%v); indo com uma só", motivo),
+		})
+		return umaCamadaSo()
+	}
+
 	finaL, finaA := tamanhoDaCamadaFina(largura, altura)
 	const mesmaTela = "astra-tela"
 
@@ -259,7 +271,7 @@ func (s *Sala) PublicarTela(largura, altura int, comCamadaFina bool) error {
 			Width:   uint32(largura), Height: uint32(altura),
 		}))
 	if err != nil {
-		return fmt.Errorf("criar a camada cheia: %w", err)
+		return desistir(err)
 	}
 
 	fina, err := lksdk.NewLocalTrack(CapacidadeH264,
@@ -268,13 +280,13 @@ func (s *Sala) PublicarTela(largura, altura int, comCamadaFina bool) error {
 			Width:   uint32(finaL), Height: uint32(finaA),
 		}))
 	if err != nil {
-		return fmt.Errorf("criar a camada fina: %w", err)
+		return desistir(err)
 	}
 
 	pub, err := quarto.LocalParticipant.PublishSimulcastTrack(
 		[]*lksdk.LocalTrack{grossa, fina}, opcoes)
 	if err != nil {
-		return fmt.Errorf("publicar a tela em duas camadas: %w", err)
+		return desistir(err)
 	}
 
 	s.mu.Lock()

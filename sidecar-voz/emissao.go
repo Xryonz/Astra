@@ -279,6 +279,7 @@ func (e *Emissor) transmitir(
 		bytesEnviados += len(quadroPronto)
 	}
 
+	vezDaFina := false
 	avisouDaFina := false
 	avisarDaCamadaFina := func(err error) {
 		if avisouDaFina {
@@ -358,7 +359,8 @@ func (e *Emissor) transmitir(
 			}
 		}
 
-		vaiAFina := fina != nil && capturados%2 == 0
+		vezDaFina = !vezDaFina
+		vaiAFina := fina != nil && vezDaFina
 
 		aoCopiar := tela.SoltarQuadro
 		if vaiAFina {

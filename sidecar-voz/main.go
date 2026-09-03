@@ -181,6 +181,25 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		}()
 		return nil
 
+	case CmdCameras:
+		go func() {
+			defer PrenderNaThread()()
+
+			if err := abrirCOM(); err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar câmeras: " + err.Error()})
+				a.saida.Manda(Evento{Ev: EvCameras})
+				return
+			}
+			defer fecharCOM()
+
+			lista, err := ListarCameras()
+			if err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar câmeras: " + err.Error()})
+			}
+			a.saida.Manda(Evento{Ev: EvCameras, Cameras: lista})
+		}()
+		return nil
+
 	case CmdJanelas:
 		go func() {
 			defer PrenderNaThread()()

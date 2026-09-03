@@ -46,6 +46,8 @@ type Evento struct {
 
 	Janelas []JanelaDaTela `json:"janelas,omitempty"`
 
+	Cameras []CameraDaMaquina `json:"cameras,omitempty"`
+
 	Caminho *LeituraDoCaminho `json:"caminho,omitempty"`
 }
 
@@ -64,6 +66,7 @@ const (
 
 	CmdMonitores = "monitores"
 	CmdJanelas   = "janelas"
+	CmdCameras   = "cameras"
 
 	CmdAssistir = "assistir"
 
@@ -86,6 +89,7 @@ const (
 
 	EvMonitores = "monitores"
 	EvJanelas   = "janelas"
+	EvCameras   = "cameras"
 	EvErro      = "erro"
 
 	EvCaminho = "caminho"

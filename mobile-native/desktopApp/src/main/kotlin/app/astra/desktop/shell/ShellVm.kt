@@ -1313,8 +1313,12 @@ class ShellVm(
         if (!eraOAberto) return
         val proximo = _state.value.servers.find { it.id == serverId }
             ?.channels?.firstOrNull { it.type != "VOICE" }
-        if (proximo == null) _state.update { it.copy(chat = null) }
-        else openChat(ChatTarget.Channel(proximo.id, proximo.name))
+        if (proximo == null) {
+            _state.update { it.copy(chat = null) }
+            saveLocation()
+        } else {
+            openChat(ChatTarget.Channel(proximo.id, proximo.name))
+        }
     }
 
     private fun refreshMyPerms(serverId: String) {

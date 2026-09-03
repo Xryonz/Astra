@@ -29,10 +29,6 @@ enum class Permissao(val titulo: String, val oQueE: String) {
         "Som",
         "A saída de áudio — é por onde você escuta as outras pessoas.",
     ),
-    CAMERA(
-        "Câmera",
-        "Só é usada quando você liga o vídeo. A luz dela acende nessa hora, nunca antes.",
-    ),
     TELA(
         "Transmitir a tela",
         "Mostrar o que está na sua tela para quem está na call.",
@@ -57,12 +53,11 @@ data class Checagem(
 object PermissoesWindows {
 
     fun todas(): List<Checagem> =
-        listOf(microfone(), saida(), camera(), tela(), rede(), notificacoes())
+        listOf(microfone(), saida(), tela(), rede(), notificacoes())
 
     fun uma(p: Permissao): Checagem = when (p) {
         Permissao.MICROFONE -> microfone()
         Permissao.SOM -> saida()
-        Permissao.CAMERA -> camera()
         Permissao.TELA -> tela()
         Permissao.REDE -> rede()
         Permissao.AVISOS -> notificacoes()
@@ -144,30 +139,6 @@ object PermissoesWindows {
                 "ms-settings:privacy-microphone",
             )
             else -> Checagem(Permissao.MICROFONE, Acesso.OK, "Ouvindo normalmente (${nomes.first()}).")
-        }
-    }
-
-    fun camera(): Checagem {
-        val valor = runCatching {
-            Advapi32Util.registryGetStringValue(
-                WinReg.HKEY_CURRENT_USER,
-                "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam",
-                "Value",
-            )
-        }.getOrNull()
-
-        return when (valor) {
-            "Deny" -> Checagem(
-                Permissao.CAMERA, Acesso.BLOQUEADO,
-                "O Windows está bloqueando a câmera para os aplicativos.",
-                "ms-settings:privacy-webcam",
-            )
-            "Allow" -> Checagem(Permissao.CAMERA, Acesso.OK, "Liberada pelo Windows.")
-            else -> Checagem(
-                Permissao.CAMERA, Acesso.PENDENTE,
-                "O Windows ainda não decidiu — ele vai perguntar no primeiro uso.",
-                "ms-settings:privacy-webcam",
-            )
         }
     }
 

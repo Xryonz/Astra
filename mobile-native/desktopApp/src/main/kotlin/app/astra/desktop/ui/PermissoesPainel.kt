@@ -46,7 +46,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MonitorUp
 import com.composables.icons.lucide.Volume2
-import com.composables.icons.lucide.Webcam
 import com.composables.icons.lucide.Wifi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -142,7 +141,6 @@ fun PainelDePermissoes(
 private fun icone(p: Permissao): ImageVector = when (p) {
     Permissao.MICROFONE -> Lucide.Mic
     Permissao.SOM -> Lucide.Volume2
-    Permissao.CAMERA -> Lucide.Webcam
     Permissao.TELA -> Lucide.MonitorUp
     Permissao.REDE -> Lucide.Wifi
     Permissao.AVISOS -> Lucide.BellRing

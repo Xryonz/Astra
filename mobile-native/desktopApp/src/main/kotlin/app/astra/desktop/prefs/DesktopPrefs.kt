@@ -3,6 +3,7 @@ package app.astra.desktop.prefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import app.astra.desktop.Placas
 import app.astra.desktop.auth.SessionStore
 import com.sun.management.OperatingSystemMXBean
 import java.lang.management.ManagementFactory
@@ -129,8 +130,14 @@ class DesktopPrefs(private val store: SessionStore) {
         return when {
             ram > 0 && ram < 5L * 1024 * 1024 * 1024 -> "%.1f GB de memória".format(gb)
             nucleos <= 2 -> "$nucleos núcleos de processador"
+            placaApertada(nucleos) -> "placa de vídeo integrada"
             else -> null
         }
+    }
+
+    private fun placaApertada(nucleos: Int): Boolean {
+        val placa = runCatching { Placas.daTela }.getOrNull() ?: return false
+        return !placa.dedicada && nucleos <= 4
     }
 
     fun dispensarAvisoDePerf() {

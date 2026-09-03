@@ -50,7 +50,6 @@ dependencies {
     implementation(libs.rikkaui.foundation)
     implementation(libs.rikkaui.components)
     implementation(libs.jna.platform)
-    implementation(libs.haze)
     implementation(libs.mp3spi)
     implementation(libs.vorbisspi)
 }

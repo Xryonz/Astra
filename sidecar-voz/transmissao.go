@@ -147,6 +147,7 @@ type Compressor struct {
 
 	TaxaVariavel  bool
 	BaixaLatencia bool
+	Cabac         bool
 
 	t        objeto
 	eventos  objeto
@@ -379,6 +380,7 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 		c.comandos = api
 		c.pedirBaixaLatencia()
 		c.pedirTaxaVariavel()
+		c.pedirCabac()
 	}
 
 	if err := configurarSaida(t, saidaL, saidaA, fps, kbps); err != nil {
@@ -1028,6 +1030,9 @@ var chaveModoDeTaxa = guid(0x1C0608E9, 0x370C, 0x4710,
 var chaveTaxaMaxima = guid(0x9651EAE4, 0x39B9, 0x4EBF,
 	[8]byte{0x85, 0xEF, 0xD7, 0xF4, 0x44, 0xEC, 0x74, 0x65})
 
+var chaveCabac = guid(0xEE6CAD62, 0xD305, 0x4248,
+	[8]byte{0xA5, 0x0E, 0xE1, 0xB2, 0x55, 0xF7, 0xCA, 0xF8})
+
 const taxaVbrComPico = 1
 
 func (c *Compressor) definirComando(chave windows.GUID, valor uintptr) bool {
@@ -1059,6 +1064,17 @@ func (c *Compressor) pedirTaxaVariavel() {
 	c.definirComando(chaveBandaMediaDoCodec, uintptr(c.kbps)*1000)
 	c.definirComando(chaveTaxaMaxima, uintptr(c.kbps)*2000)
 	c.TaxaVariavel = true
+}
+
+func (c *Compressor) pedirCabac() {
+	if c.comandos == 0 {
+		return
+	}
+	v := variante{tipo: varBooleano, valor: verdadeiro}
+	k := chaveCabac
+	r := c.comandos.chamar(codecDefinirValor,
+		uintptr(unsafe.Pointer(&k)), uintptr(unsafe.Pointer(&v)))
+	c.Cabac = uint32(r)&0x80000000 == 0
 }
 
 func (c *Compressor) ForcarQuadroChave() bool {

@@ -52,6 +52,7 @@ type MedidorDoCaminho struct {
 	soma      time.Duration
 	pico      time.Duration
 	tremor    time.Duration
+	perda     float64
 	amostras  int
 }
 
@@ -63,6 +64,9 @@ func (m *MedidorDoCaminho) Anotar(relato *rtcp.ReceiverReport, agora time.Time) 
 	for _, r := range relato.Reports {
 		if t := tremorDoRelato(r, m.taxa); t > m.tremor {
 			m.tremor = t
+		}
+		if f := float64(r.FractionLost) / 256; f > m.perda {
+			m.perda = f
 		}
 		d, ok := idaEVolta(r, agora)
 		if !ok {
@@ -76,22 +80,29 @@ func (m *MedidorDoCaminho) Anotar(relato *rtcp.ReceiverReport, agora time.Time) 
 	}
 }
 
-func (m *MedidorDoCaminho) Fechar(agora time.Time) (string, bool) {
-	if agora.Sub(m.relatorio) < relatarOCaminhoACada || m.amostras == 0 {
-		return "", false
-	}
-	linha := fmt.Sprintf("%s: ida e volta %d ms (pico %d ms) · tremor %d ms",
-		m.oQue,
-		(m.soma / time.Duration(m.amostras)).Milliseconds(),
-		m.pico.Milliseconds(),
-		m.tremor.Milliseconds())
-
-	m.relatorio = agora
-	m.soma, m.pico, m.tremor, m.amostras = 0, 0, 0, 0
-	return linha, true
+type LeituraDoCaminho struct {
+	Ida    int `json:"ida"`
+	Pico   int `json:"pico"`
+	Tremor int `json:"tremor"`
+	Perda  int `json:"perda"`
 }
 
-func medidorDeCaminho(oQue string, taxa uint32) func(rtcp.Packet) {
+func (m *MedidorDoCaminho) Fechar(agora time.Time) (LeituraDoCaminho, bool) {
+	if agora.Sub(m.relatorio) < relatarOCaminhoACada || m.amostras == 0 {
+		return LeituraDoCaminho{}, false
+	}
+	leitura := LeituraDoCaminho{
+		Ida:    int((m.soma / time.Duration(m.amostras)).Milliseconds()),
+		Pico:   int(m.pico.Milliseconds()),
+		Tremor: int(m.tremor.Milliseconds()),
+		Perda:  int(m.perda*100 + 0.5),
+	}
+	m.relatorio = agora
+	m.soma, m.pico, m.tremor, m.amostras, m.perda = 0, 0, 0, 0, 0
+	return leitura, true
+}
+
+func medidorDeCaminho(oQue string, taxa uint32, contar func(LeituraDoCaminho)) func(rtcp.Packet) {
 	medidor := NovoMedidorDoCaminho(oQue, taxa)
 
 	return func(pacote rtcp.Packet) {
@@ -99,8 +110,12 @@ func medidorDeCaminho(oQue string, taxa uint32) func(rtcp.Packet) {
 		if relato, ok := pacote.(*rtcp.ReceiverReport); ok {
 			medidor.Anotar(relato, agora)
 		}
-		if linha, pronto := medidor.Fechar(agora); pronto {
-			fmt.Fprintf(os.Stderr, "caminho da %s · %s\n", oQue, linha)
+		if leitura, pronto := medidor.Fechar(agora); pronto {
+			fmt.Fprintf(os.Stderr, "caminho da %s · ida e volta %d ms (pico %d) · tremor %d ms · perda %d%%\n",
+				oQue, leitura.Ida, leitura.Pico, leitura.Tremor, leitura.Perda)
+			if contar != nil {
+				contar(leitura)
+			}
 		}
 	}
 }

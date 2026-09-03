@@ -63,6 +63,14 @@ data class JanelaDaTela(
 )
 
 @Serializable
+data class LeituraDoCaminho(
+    val ida: Int = 0,
+    val pico: Int = 0,
+    val tremor: Int = 0,
+    val perda: Int = 0,
+)
+
+@Serializable
 data class EventoDeVoz(
     val ev: String,
     val par: String? = null,
@@ -73,6 +81,7 @@ data class EventoDeVoz(
     val aparelhos: List<AparelhoDeAudio>? = null,
     val monitores: List<MonitorDaTela>? = null,
     val janelas: List<JanelaDaTela>? = null,
+    val caminho: LeituraDoCaminho? = null,
 )
 
 class SidecarDeVoz(private val scope: CoroutineScope) {

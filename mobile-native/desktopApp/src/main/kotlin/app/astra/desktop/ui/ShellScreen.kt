@@ -620,6 +620,7 @@ fun ShellScreen(
             ensurdecido = voice.ensurdecido,
             onAlternarMudo = voice::alternarMudo,
             onAlternarEnsurdecer = voice::alternarEnsurdecer,
+            caminho = voice.call?.caminhoDaVoz?.collectAsState()?.value,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .width(LARGURA_RAIL + LARGURA_SIDEBAR)

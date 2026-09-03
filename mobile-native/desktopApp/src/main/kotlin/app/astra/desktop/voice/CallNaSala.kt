@@ -55,6 +55,12 @@ class CallNaSala(
     private val _ritmoDeQuemMostra = MutableStateFlow<Map<String, String>>(emptyMap())
     val ritmoDeQuemMostra = _ritmoDeQuemMostra.asStateFlow()
 
+    private val _caminhoDaVoz = MutableStateFlow<LeituraDoCaminho?>(null)
+    val caminhoDaVoz = _caminhoDaVoz.asStateFlow()
+
+    private val _caminhoDaTela = MutableStateFlow<LeituraDoCaminho?>(null)
+    val caminhoDaTela = _caminhoDaTela.asStateFlow()
+
     private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
     val monitores = _monitores.asStateFlow()
 
@@ -267,6 +273,10 @@ class CallNaSala(
                 "aparelhos" -> {
                     val lista = ev.aparelhos.orEmpty()
                     if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
+                }
+                "caminho" -> {
+                    val leitura = ev.caminho ?: return@collect
+                    if (ev.tipo == "voz") _caminhoDaVoz.value = leitura else _caminhoDaTela.value = leitura
                 }
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()
                 "janelas" -> _janelas.value = ev.janelas.orEmpty()

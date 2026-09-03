@@ -59,7 +59,7 @@ func (s *Sala) Entrar(url, token string) error {
 	s.Sair()
 
 	mic, err := lksdk.NewLocalTrack(CapacidadeOpus,
-		lksdk.WithRTCPHandler(medidorDeCaminho("voz", TaxaDeAmostragem)))
+		lksdk.WithRTCPHandler(medidorDeCaminho("voz", TaxaDeAmostragem, s.relatarCaminho("voz"))))
 	if err != nil {
 		return fmt.Errorf("criar faixa de microfone: %w", err)
 	}
@@ -128,6 +128,12 @@ func (s *Sala) Entrar(url, token string) error {
 		s.saida.Manda(Evento{Ev: EvEstado, Par: rp.Identity(), V: "connected"})
 	}
 	return nil
+}
+
+func (s *Sala) relatarCaminho(oQue string) func(LeituraDoCaminho) {
+	return func(leitura LeituraDoCaminho) {
+		s.saida.Manda(Evento{Ev: EvCaminho, Tipo: oQue, Caminho: &leitura})
+	}
 }
 
 func (s *Sala) Sair() {
@@ -199,7 +205,7 @@ func (s *Sala) PublicarTela(largura, altura int) error {
 		return nil
 	}
 
-	ritmo := medidorDeCaminho("tela", 90000)
+	ritmo := medidorDeCaminho("tela", 90000, s.relatarCaminho("tela"))
 	faixa, err := lksdk.NewLocalTrack(CapacidadeH264, lksdk.WithRTCPHandler(func(p rtcp.Packet) {
 		ritmo(p)
 		s.aoChegarRtcp(p)

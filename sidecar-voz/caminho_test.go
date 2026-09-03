@@ -99,11 +99,16 @@ func TestOMedidorSoFalaNoPrazoESoComAmostra(t *testing.T) {
 		t.Fatal("falou antes do prazo")
 	}
 
-	linha, pronto := m.Fechar(comeco.Add(relatarOCaminhoACada))
+	leitura, pronto := m.Fechar(comeco.Add(relatarOCaminhoACada))
 	if !pronto {
 		t.Fatal("não falou no prazo, tendo amostra")
 	}
-	t.Logf("linha: %s", linha)
+	if leitura.Ida < 25 || leitura.Ida > 35 {
+		t.Errorf("ida e volta %d ms, esperava perto de 30 (40 de ida menos 10 de espera)", leitura.Ida)
+	}
+	if leitura.Tremor != 10 {
+		t.Errorf("tremor %d ms, esperava 10 (900 passos a 90000 Hz)", leitura.Tremor)
+	}
 
 	if _, pronto := m.Fechar(comeco.Add(relatarOCaminhoACada * 3)); pronto {
 		t.Error("falou de novo sem amostra nova: os contadores não foram zerados")

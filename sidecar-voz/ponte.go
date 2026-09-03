@@ -43,6 +43,8 @@ type Evento struct {
 	Monitores []MonitorDaTela `json:"monitores,omitempty"`
 
 	Janelas []JanelaDaTela `json:"janelas,omitempty"`
+
+	Caminho *LeituraDoCaminho `json:"caminho,omitempty"`
 }
 
 const (
@@ -83,6 +85,8 @@ const (
 	EvMonitores = "monitores"
 	EvJanelas   = "janelas"
 	EvErro      = "erro"
+
+	EvCaminho = "caminho"
 
 	EvTransmissao = "transmissao"
 

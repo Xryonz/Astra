@@ -87,6 +87,10 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.astra.desktop.voice.LeituraDoCaminho
 
 private val UserPalette = listOf(
     Color(0xFFC9A96E), Color(0xFF7C6FC4), Color(0xFF6FA8C9), Color(0xFFC97C6E), Color(0xFF6EC98A),
@@ -129,6 +133,7 @@ fun UserFooter(
     ensurdecido: Boolean,
     onAlternarMudo: () -> Unit,
     onAlternarEnsurdecer: () -> Unit,
+    caminho: LeituraDoCaminho? = null,
     modifier: Modifier = Modifier,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
@@ -259,6 +264,10 @@ fun UserFooter(
                     }
                 }
             }
+        }
+        if (caminho != null) {
+            SinalDaChamada(caminho)
+            Spacer(Modifier.width(4.dp))
         }
         FooterIcon(
             icon = if (mudo) Lucide.MicOff else Lucide.Mic,
@@ -534,5 +543,71 @@ private fun EditField(label: String, value: String, single: Boolean, onChange: (
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 7.dp),
         )
+    }
+}
+
+private fun forcaDoSinal(c: LeituraDoCaminho): Int = when {
+    c.perda >= 8 || c.ida >= 300 || c.tremor >= 60 -> 1
+    c.perda >= 3 || c.ida >= 150 || c.tremor >= 30 -> 2
+    else -> 3
+}
+
+@Composable
+private fun SinalDaChamada(caminho: LeituraDoCaminho) {
+    val forca = forcaDoSinal(caminho)
+    val cor = when (forca) {
+        1 -> Obsidian.danger
+        2 -> Obsidian.warning
+        else -> Obsidian.text3
+    }
+    val comoEsta = when (forca) {
+        1 -> "chamada instável"
+        2 -> "chamada oscilando"
+        else -> "chamada estável"
+    }
+    val detalhe = "$comoEsta — ida e volta ${caminho.ida} ms, tremor ${caminho.tremor} ms, perda ${caminho.perda}%"
+
+    val interacao = remember { MutableInteractionSource() }
+    val sobHover by interacao.collectIsHoveredAsState()
+
+    Box(contentAlignment = Alignment.Center) {
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .height(26.dp)
+                .padding(horizontal = 5.dp)
+                .hoverable(interacao)
+                .semantics { contentDescription = detalhe }
+                .wrapContentHeight(Alignment.CenterVertically),
+        ) {
+            for (barra in 1..3) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .height((4 + barra * 3).dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(if (barra <= forca) cor else Obsidian.borderDim),
+                )
+            }
+        }
+        if (sobHover) {
+            Popup(popupPositionProvider = AboveAnchor) {
+                Column(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    Text(comoEsta, style = Tipo.rotulo)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        "ida e volta ${caminho.ida} ms · tremor ${caminho.tremor} ms · perda ${caminho.perda}%",
+                        style = Tipo.nota,
+                    )
+                }
+            }
+        }
     }
 }

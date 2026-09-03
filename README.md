@@ -409,7 +409,6 @@ segue como resposta.
 - **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
   também no sussurro.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
-- **Câmera na chamada** — voz e tela já sobem; falta a webcam.
 - **Refresh token no `localStorage`** do web — o único item de segurança que segue
   aberto, e só lá: o `apps/web` está congelado. Desktop e Android guardam a sessão
   fora do alcance de script de página.

@@ -2985,18 +2985,24 @@ private fun VoiceSection(
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic — ao custo de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
     ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
-    if (!p.micEchoCancel) {
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "sem o cancelamento de eco, os dois ajustes acima não têm efeito: no " +
-                "Windows os três vivem no mesmo componente, e sem ele o microfone entra cru.",
-            style = Tipo.apoio,
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
-    }
+    Spacer(Modifier.height(10.dp))
+    Text(
+        if (p.micEchoCancel) {
+            "o cancelador do Windows trabalha a 16 kHz, e a sua voz sai de lá nessa taxa: " +
+                "limpa, porém sem os agudos. Desligado, ela sobe para 48 kHz, a taxa cheia. " +
+                "Quem usa fone não tem eco para cancelar — aí desligar só melhora."
+        } else {
+            "sua voz está indo a 48 kHz, a taxa cheia. Em compensação os dois ajustes acima " +
+                "não têm efeito: no Windows os três vivem no mesmo componente, e sem ele o " +
+                "microfone entra cru. Se alguém reclamar de ouvir a própria voz de volta, " +
+                "é isto que precisa voltar."
+        },
+        style = Tipo.apoio,
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
     Spacer(Modifier.height(12.dp))
     MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
     Spacer(Modifier.height(4.dp))

@@ -248,6 +248,15 @@ class CallNaSala(
         sidecar.entrarNaSala(dados.url, dados.token)
     }
 
+    private fun aoEntrarNaSala() {
+        voltando?.cancel()
+        voltando = null
+        pronto = true
+        aplicarPreferencias()
+        for ((par, nivel) in _volumes.value) sidecar.volume(par, nivel)
+        publicar()
+    }
+
     private fun aoCairDaSala(podeVoltar: Boolean, motivo: String) {
         naSala.clear()
         falando.clear()
@@ -257,6 +266,7 @@ class CallNaSala(
         if (salaAtual == null) return
 
         if (!podeVoltar) {
+            if (voltando?.isActive == true) return
             VoiceLog.nota("[call] a sala não aceita mais a gente ($motivo)")
             _status.value = VoiceStatus.Failed("A chamada terminou")
             return
@@ -309,10 +319,7 @@ class CallNaSala(
                         VoiceLog.nota("[call] sala: $valor")
                         when (valor) {
                             "disconnected" -> aoCairDaSala(ev.tipo == "queda", ev.msg.orEmpty())
-                            "connected" -> {
-                                voltando?.cancel()
-                                voltando = null
-                            }
+                            "connected" -> aoEntrarNaSala()
                         }
                     } else {
                         VoiceLog.nota("[call] $quem: $valor")

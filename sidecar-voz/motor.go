@@ -87,8 +87,14 @@ func (m *Motor) DefinirSurdo(on bool) { m.surdo.Store(on) }
 
 func (m *Motor) DefinirAparelho(sentido int, id string) {
 	if sentido == sentidoEntrada {
+		if m.idEntrada() == id {
+			return
+		}
 		m.aparelhoEntrada.Store(id)
 		m.geracaoEntrada.Add(1)
+		return
+	}
+	if m.idSaida() == id {
 		return
 	}
 	m.aparelhoSaida.Store(id)

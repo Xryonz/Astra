@@ -252,7 +252,6 @@ class CallNaSala(
         voltando?.cancel()
         voltando = null
         pronto = true
-        aplicarPreferencias()
         for ((par, nivel) in _volumes.value) sidecar.volume(par, nivel)
         publicar()
     }

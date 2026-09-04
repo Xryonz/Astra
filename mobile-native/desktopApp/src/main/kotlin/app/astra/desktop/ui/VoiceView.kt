@@ -338,10 +338,16 @@ fun VoiceView(
             val janelas by call.janelas.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
             Box {
+                val salaDePe = connected != null
                 CallIconButton(
                     icon = Lucide.ScreenShare,
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
-                    rotulo = if (transmitindo) "Parar a transmissão" else "Transmitir a tela",
+                    rotulo = when {
+                        transmitindo -> "Parar a transmissão"
+                        !salaDePe -> "A chamada está se restabelecendo"
+                        else -> "Transmitir a tela"
+                    },
+                    habilitado = transmitindo || salaDePe,
                     onClick = {
                         if (transmitindo) {
                             call.pararDeTransmitir()
@@ -661,7 +667,7 @@ private fun CallIconButton(
             .background(bg)
             .border(1.dp, border, CircleShape)
             .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, enabled = habilitado, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)

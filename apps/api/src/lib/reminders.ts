@@ -1,5 +1,5 @@
 
-import { and, eq, isNull, lte } from 'drizzle-orm'
+import { and, inArray, isNull, lte } from 'drizzle-orm'
 import { db } from '../db'
 import { reminders, users } from '../db/schema'
 import { logger } from './logger'
@@ -50,19 +50,23 @@ export function startReminderWorker(io: SocketServer) {
 
       if (due.length === 0) return
 
-      const claimed: typeof due = []
-      for (const r of due) {
-        const updated = await db.update(reminders)
-          .set({ deliveredAt: now })
-          .where(and(eq(reminders.id, r.id), isNull(reminders.deliveredAt)))
-          .returning({ id: reminders.id })
-        if (updated.length > 0) claimed.push(r)
-      }
+      const meus = await db.update(reminders)
+        .set({ deliveredAt: now })
+        .where(and(inArray(reminders.id, due.map(r => r.id)), isNull(reminders.deliveredAt)))
+        .returning({ id: reminders.id })
+
+      const pegos = new Set(meus.map(r => r.id))
+      const claimed = due.filter(r => pegos.has(r.id))
+      if (claimed.length === 0) return
+
+      const autores = await db.select({
+        id: users.id, displayName: users.displayName, avatarUrl: users.avatarUrl,
+      }).from(users).where(inArray(users.id, [...new Set(claimed.map(r => r.creatorId))]))
+
+      const autorPorId = new Map(autores.map(a => [a.id, a]))
 
       for (const r of claimed) {
-        const [creator] = await db.select({
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-        }).from(users).where(eq(users.id, r.creatorId)).limit(1)
+        const creator = autorPorId.get(r.creatorId)
 
         const isSelf  = r.creatorId === r.targetUserId
         const title   = isSelf ? '⏰ Lembrete' : `⏰ Lembrete de ${creator?.displayName ?? 'alguém'}`
@@ -86,7 +90,7 @@ export function startReminderWorker(io: SocketServer) {
         })
       }
 
-      if (claimed.length > 0) logger.info('Reminders', `delivered ${claimed.length}`)
+      logger.info('Reminders', `delivered ${claimed.length}`)
     } catch (e: any) {
       logger.error('Reminders', 'tick falhou', e)
     }

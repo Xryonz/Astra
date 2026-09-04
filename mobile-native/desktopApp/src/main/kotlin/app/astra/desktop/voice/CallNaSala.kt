@@ -5,7 +5,9 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -47,6 +49,9 @@ class CallNaSala(
         const val VOLUME_CHEIO = 100
         private const val ALVO_DO_MICROFONE = "meu-microfone"
         private const val ALVO_DA_ESCUTA = "minha-escuta"
+        private const val TENTATIVAS_DE_VOLTA = 6
+        private const val ESPERA_INICIAL_MS = 1_000L
+        private const val ESPERA_MAXIMA_MS = 15_000L
     }
 
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
@@ -75,6 +80,7 @@ class CallNaSala(
     @Volatile private var pronto = false
     @Volatile private var credencial: VoiceTokenRequest? = null
     private val tarefas = mutableListOf<Job>()
+    private var voltando: Job? = null
 
     fun entrar(tipo: String, channelId: String) {
         if (salaAtual == channelId) return
@@ -95,6 +101,8 @@ class CallNaSala(
         salaAtual = null
         credencial = null
         pronto = false
+        voltando?.cancel()
+        voltando = null
 
         if (_transmitindo.value) pararDeTransmitir()
 
@@ -240,6 +248,41 @@ class CallNaSala(
         sidecar.entrarNaSala(dados.url, dados.token)
     }
 
+    private fun aoCairDaSala(podeVoltar: Boolean, motivo: String) {
+        naSala.clear()
+        falando.clear()
+        pronto = false
+        publicar()
+
+        if (salaAtual == null) return
+
+        if (!podeVoltar) {
+            VoiceLog.nota("[call] a sala não aceita mais a gente ($motivo)")
+            _status.value = VoiceStatus.Failed("A chamada terminou")
+            return
+        }
+        if (voltando?.isActive == true) return
+
+        VoiceLog.nota("[call] a conexão com a sala caiu ($motivo); voltando")
+        _status.value = VoiceStatus.Connecting
+        voltando = scope.launch { voltarParaSala() }
+    }
+
+    private suspend fun voltarParaSala() {
+        var espera = ESPERA_INICIAL_MS
+        for (tentativa in 1..TENTATIVAS_DE_VOLTA) {
+            delay(espera)
+            if (salaAtual == null || credencial == null) return
+            VoiceLog.nota("[call] tentativa $tentativa de voltar para a sala")
+            pedirCredencialEEntrar()
+            if (!currentCoroutineContext().isActive) return
+            _status.value = VoiceStatus.Connecting
+            espera = (espera * 2).coerceAtMost(ESPERA_MAXIMA_MS)
+        }
+        VoiceLog.nota("[call] desisti de voltar para a sala")
+        _status.value = VoiceStatus.Failed("Não consegui voltar para a chamada")
+    }
+
     private suspend fun manterPresenca(channelId: String) {
         while (true) {
             delay(20_000)
@@ -264,9 +307,12 @@ class CallNaSala(
                     val valor = ev.valor.orEmpty()
                     if (quem.isEmpty()) {
                         VoiceLog.nota("[call] sala: $valor")
-                        if (valor == "disconnected") {
-                            naSala.clear()
-                            falando.clear()
+                        when (valor) {
+                            "disconnected" -> aoCairDaSala(ev.tipo == "queda", ev.msg.orEmpty())
+                            "connected" -> {
+                                voltando?.cancel()
+                                voltando = null
+                            }
                         }
                     } else {
                         VoiceLog.nota("[call] $quem: $valor")

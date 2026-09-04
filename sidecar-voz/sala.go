@@ -66,9 +66,7 @@ func (s *Sala) Entrar(url, token string) error {
 	}
 
 	retorno := &lksdk.RoomCallback{
-		OnDisconnected: func() {
-			s.saida.Manda(Evento{Ev: EvEstado, V: "disconnected"})
-		},
+		OnDisconnectedWithReason: s.aoCairDaSala,
 		ParticipantCallback: lksdk.ParticipantCallback{
 			OnTrackSubscribed:   s.aoAssinar,
 			OnTrackUnsubscribed: s.aoDesassinar,
@@ -129,6 +127,33 @@ func (s *Sala) Entrar(url, token string) error {
 		s.saida.Manda(Evento{Ev: EvEstado, Par: rp.Identity(), V: "connected"})
 	}
 	return nil
+}
+
+func adiantaVoltar(motivo lksdk.DisconnectionReason) bool {
+	switch motivo {
+	case lksdk.LeaveRequested, lksdk.DuplicateIdentity, lksdk.ParticipantRemoved,
+		lksdk.RoomClosed, lksdk.RejectedByUser, lksdk.UserUnavailable:
+		return false
+	}
+	return true
+}
+
+func (s *Sala) aoCairDaSala(motivo lksdk.DisconnectionReason) {
+	s.mu.Lock()
+	tinhaSala := s.sala != nil
+	transmitia := s.tela != nil
+	s.tela, s.telaFina, s.pubTela = nil, nil, nil
+	s.mu.Unlock()
+
+	if transmitia && s.emissor != nil {
+		go s.emissor.Desligar()
+	}
+
+	tipo := "fim"
+	if tinhaSala && adiantaVoltar(motivo) {
+		tipo = "queda"
+	}
+	s.saida.Manda(Evento{Ev: EvEstado, V: "disconnected", Tipo: tipo, Msg: string(motivo)})
 }
 
 func (s *Sala) relatarCaminho(oQue string) func(LeituraDoCaminho) {

@@ -15,6 +15,8 @@ import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
+import app.astra.mobile.core.network.dto.ChannelVisibilityDto
+import app.astra.mobile.core.network.dto.ChannelVisibilityRequest
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
@@ -871,6 +873,38 @@ class ShellVm(
                 onResult(null)
             } else {
                 onResult(apiMessage(r.exceptionOrNull(), "Não foi possível gerar um convite novo"))
+            }
+        }
+    }
+
+    fun carregarVisibilidade(
+        serverId: String,
+        channelId: String,
+        onResult: (ChannelVisibilityDto?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val r = runCatching { serverApi.channelVisibility(serverId, channelId).data }
+            r.onSuccess { onResult(it, null) }
+                .onFailure { onResult(null, apiMessage(it, "Não foi possível ler quem vê esta órbita")) }
+        }
+    }
+
+    fun salvarVisibilidade(
+        serverId: String,
+        channelId: String,
+        privada: Boolean,
+        cargos: List<String>,
+        onResult: (String?) -> Unit,
+    ) {
+        scope.launch {
+            val r = runCatching {
+                serverApi.setChannelVisibility(serverId, channelId, ChannelVisibilityRequest(privada, cargos))
+            }
+            if (r.isSuccess) {
+                reloadServers()
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível salvar quem vê esta órbita"))
             }
         }
     }

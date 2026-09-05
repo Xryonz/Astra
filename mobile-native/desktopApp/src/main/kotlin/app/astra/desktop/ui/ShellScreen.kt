@@ -161,6 +161,7 @@ import com.composables.icons.lucide.Folder
 import com.composables.icons.lucide.FolderPlus
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Link
+import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
@@ -189,6 +190,8 @@ import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
+import app.astra.mobile.core.network.dto.ChannelVisibilityDto
+import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
@@ -551,6 +554,13 @@ fun ShellScreen(
             onToggleMembers = vm::toggleMembers,
             canManageSelected = podeConfigurar,
             onOpenServerSettings = abrirConfigDaConstelacao,
+            visibilidade = remember(vm) {
+                QuemVeAOrbita(
+                    ler = vm::carregarVisibilidade,
+                    cargos = vm::loadRoles,
+                    salvar = vm::salvarVisibilidade,
+                )
+            },
             firstSteps = firstSteps,
         )
         }
@@ -1755,6 +1765,7 @@ private fun Sidebar(
     onToggleMembers: () -> Unit,
     canManageSelected: (String) -> Boolean,
     onOpenServerSettings: (String) -> Unit,
+    visibilidade: QuemVeAOrbita,
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
     var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
@@ -1834,6 +1845,7 @@ private fun Sidebar(
                                     onMoveToCategory = { cid, catId -> srv?.let { onMoveChannelToCategory(it.id, cid, catId) } },
                                     onReorderCategories = { ids -> srv?.let { onReorderCategories(it.id, ids) } },
                                     onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
+                                    onOpenChannelVisibility = { cid, name -> srv?.let { chanDialog = ChanDialog.Visibilidade(it.id, cid, name) } },
                                     onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
                                     onMarkChannelRead = onMarkChannelRead,
                                     silenciada = silenciada,
@@ -1913,6 +1925,16 @@ private fun Sidebar(
             onDismiss = { chanDialog = null },
             onConfirm = { onDeleteChannel(d.serverId, d.channelId) },
         )
+        is ChanDialog.Visibilidade -> VisibilidadeDaOrbitaDialog(
+            nomeDaOrbita = "#${d.name}",
+            aoCentro = CenterInWindow,
+            carregar = { pronto -> visibilidade.ler(d.serverId, d.channelId, pronto) },
+            carregarCargos = { pronto -> visibilidade.cargos(d.serverId, pronto) },
+            salvar = { privada, cargos, pronto ->
+                visibilidade.salvar(d.serverId, d.channelId, privada, cargos, pronto)
+            },
+            onDismiss = { chanDialog = null },
+        )
         null -> Unit
     }
 }
@@ -1988,6 +2010,7 @@ private fun OrbitList(
     onMoveToCategory: (channelId: String, categoryId: String) -> Unit,
     onReorderCategories: (orderedIds: List<String>) -> Unit,
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
+    onOpenChannelVisibility: (channelId: String, name: String) -> Unit,
     onOpenChannelDelete: (channelId: String, name: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
     silenciada: (channelId: String) -> Boolean,
@@ -2010,7 +2033,8 @@ private fun OrbitList(
     val looseIds = remember(loose) { loose.map { it.id } }
     val drag = remember(server.id) { ChannelDragState() }
     val chMenu = ChannelMenu(
-        isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute,
+        isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
+        onOpenChannelDelete, onToggleChannelMute,
         botAtende = { ch ->
             ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
         },
@@ -2364,6 +2388,11 @@ private fun OrbitEntry(
                         ) { menu.onToggleKeepBot(ch.id, !ch.botKeepReplies) },
                     )
                     add(MenuEntry.Item("renomear", icon = Lucide.Pencil) { menu.onRename(ch.id, ch.name) })
+                    add(
+                        MenuEntry.Item("quem vê esta órbita", icon = Lucide.Lock) {
+                            menu.onOpenVisibility(ch.id, ch.name)
+                        },
+                    )
                     add(MenuEntry.Item("excluir órbita", danger = true, icon = Lucide.Trash2) { confirmDelCh = true })
                 }
             }
@@ -2443,12 +2472,19 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
     }
 }
 
+internal class QuemVeAOrbita(
+    val ler: (String, String, (ChannelVisibilityDto?, String?) -> Unit) -> Unit,
+    val cargos: (String, (List<RoleDto>?, String?) -> Unit) -> Unit,
+    val salvar: (String, String, Boolean, List<String>, (String?) -> Unit) -> Unit,
+)
+
 private sealed interface ChanDialog {
     data class NewChannel(val serverId: String, val categoryId: String?) : ChanDialog
     data class NewCategory(val serverId: String) : ChanDialog
     data class RenameCategory(val serverId: String, val categoryId: String, val current: String) : ChanDialog
     data class RenameChannel(val serverId: String, val channelId: String, val current: String) : ChanDialog
     data class DeleteChannel(val serverId: String, val channelId: String, val name: String) : ChanDialog
+    data class Visibilidade(val serverId: String, val channelId: String, val name: String) : ChanDialog
 }
 
 private class ChannelMenu(
@@ -2456,6 +2492,7 @@ private class ChannelMenu(
     val silenciada: (channelId: String) -> Boolean,
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,
+    val onOpenVisibility: (channelId: String, name: String) -> Unit,
     val onDelete: (channelId: String, name: String) -> Unit,
     val onToggleMute: (channelId: String) -> Unit,
     val botAtende: (ChannelDto) -> Boolean,
@@ -2670,6 +2707,10 @@ private fun OrbitItem(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            if (ch.isPrivate) {
+                Spacer(Modifier.width(6.dp))
+                LIcon(Lucide.Lock, tint = Obsidian.text3, size = 11.dp, rotulo = "órbita privada")
+            }
             if (!active && unreadCount > 0) {
                 Spacer(Modifier.width(6.dp))
                 UnreadCountBadge(unreadCount)

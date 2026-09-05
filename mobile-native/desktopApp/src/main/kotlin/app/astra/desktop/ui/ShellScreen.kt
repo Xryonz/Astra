@@ -489,6 +489,10 @@ fun ShellScreen(
             (state.selection as? Selection.Server)?.id == id &&
                 state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_SERVER" in it.permissions } == true
         }
+        val podeGerenciarOrbitas: (String) -> Boolean = { id ->
+            (state.selection as? Selection.Server)?.id == id &&
+                state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_CHANNELS" in it.permissions } == true
+        }
         val abrirConfigDaConstelacao: (String) -> Unit = { id ->
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
@@ -553,6 +557,7 @@ fun ShellScreen(
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
             canManageSelected = podeConfigurar,
+            podeGerenciarOrbitas = podeGerenciarOrbitas,
             onOpenServerSettings = abrirConfigDaConstelacao,
             visibilidade = remember(vm) {
                 QuemVeAOrbita(
@@ -1764,6 +1769,7 @@ private fun Sidebar(
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
     canManageSelected: (String) -> Boolean,
+    podeGerenciarOrbitas: (String) -> Boolean,
     onOpenServerSettings: (String) -> Unit,
     visibilidade: QuemVeAOrbita,
     firstSteps: (@Composable () -> Unit)? = null,
@@ -1799,12 +1805,13 @@ private fun Sidebar(
                 }
                 if (srv != null) {
                     val isOwnerHere = srv.ownerId == myId
+                    val podeMexerNasOrbitas = isOwnerHere || podeGerenciarOrbitas(srv.id)
                     EditorialContextMenu(entries = {
                         buildList {
                             add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) {
                                 srv.channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
                             })
-                            if (isOwnerHere) {
+                            if (podeMexerNasOrbitas) {
                                 add(MenuEntry.Separator)
                                 add(MenuEntry.Item("criar órbita", icon = Lucide.Plus) { chanDialog = ChanDialog.NewChannel(srv.id, null) })
                                 add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
@@ -1838,6 +1845,7 @@ private fun Sidebar(
                                 OrbitList(
                                     srv, activeChatId, unread, unreadCounts, members, voicePresence, myId, myVoiceChannelId,
                                     onOpenChat, onOpenVoice,
+                                    podeGerenciarOrbitas = podeGerenciarOrbitas,
                                     onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
                                     onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
                                     onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
@@ -1856,13 +1864,13 @@ private fun Sidebar(
                                 )
                             }
                             if (srv != null) {
-                                val ownerHere = srv.ownerId == myId
+                                val podeMexerAqui = srv.ownerId == myId || podeGerenciarOrbitas(srv.id)
                                 EditorialContextMenu(entries = {
                                     buildList {
                                         add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) {
                                             srv.channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
                                         })
-                                        if (ownerHere) {
+                                        if (podeMexerAqui) {
                                             add(MenuEntry.Separator)
                                             add(MenuEntry.Item("criar órbita", icon = Lucide.Plus) { chanDialog = ChanDialog.NewChannel(srv.id, null) })
                                             add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
@@ -1945,6 +1953,7 @@ private fun OrbitList(
     myVoiceChannelId: String?,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    podeGerenciarOrbitas: (String) -> Boolean,
     onNewChannelInCat: (categoryId: String) -> Unit,
     onRenameCat: (categoryId: String, current: String) -> Unit,
     onDeleteCat: (categoryId: String) -> Unit,
@@ -1962,7 +1971,7 @@ private fun OrbitList(
     onToggleCatBot: (categoryId: String, ligar: Boolean) -> Unit,
 ) {
     if (server == null) return
-    val isOwner = server.ownerId == myId
+    val podeGerenciar = server.ownerId == myId || podeGerenciarOrbitas(server.id)
     val clipboard = LocalClipboardManager.current
     var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
     val pessoaPorId = remember(members) { members.associateBy { it.userId } }
@@ -1975,7 +1984,7 @@ private fun OrbitList(
     val looseIds = remember(loose) { loose.map { it.id } }
     val drag = remember(server.id) { ChannelDragState() }
     val chMenu = ChannelMenu(
-        isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
+        podeGerenciar, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
         onExcluirCanal, onToggleChannelMute,
         botAtende = { ch ->
             ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
@@ -1991,7 +2000,7 @@ private fun OrbitList(
                 OrbitEntry(
                     ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                     pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
-                    dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
+                    dragCtx = if (podeGerenciar) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
                     menu = chMenu,
                 )
             }
@@ -2033,7 +2042,7 @@ private fun OrbitList(
                                     collapsedCats =
                                         if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
                                 },
-                                dragCtx = if (isOwner) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null,
+                                dragCtx = if (podeGerenciar) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null,
                             )
                         }
                         val catUnread = channels.any { it.id in unread }
@@ -2044,7 +2053,7 @@ private fun OrbitList(
                                     channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
                                 })
                                 add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
-                                if (isOwner) {
+                                if (podeGerenciar) {
                                     add(MenuEntry.Separator)
                                     add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
                                     val botNaCat = cat.botEnabled ?: true
@@ -2078,7 +2087,7 @@ private fun OrbitList(
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                                 pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
-                                dragCtx = if (isOwner && !collapsed)
+                                dragCtx = if (podeGerenciar && !collapsed)
                                     ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
                                 menu = chMenu,
                             )
@@ -2314,7 +2323,7 @@ private fun OrbitEntry(
                 val calada = menu.silenciada(ch.id)
                 add(MenuEntry.Item(if (calada) "reativar órbita" else "silenciar órbita", icon = if (calada) Lucide.Bell else Lucide.BellOff) { menu.onToggleMute(ch.id) })
                 add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(ch.id)) })
-                if (menu.isOwner) {
+                if (menu.podeGerenciar) {
                     add(MenuEntry.Separator)
                     val temBot = menu.botAtende(ch)
                     add(
@@ -2429,7 +2438,7 @@ private sealed interface ChanDialog {
 }
 
 private class ChannelMenu(
-    val isOwner: Boolean,
+    val podeGerenciar: Boolean,
     val silenciada: (channelId: String) -> Boolean,
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,

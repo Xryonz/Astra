@@ -75,3 +75,12 @@ data class UserDto(
     val avatarUrl: String? = null,
     val displayFont: String? = null,
 )
+
+@Serializable
+data class CartaoDeLinkDto(
+    val url: String,
+    val titulo: String? = null,
+    val descricao: String? = null,
+    val imagem: String? = null,
+    val site: String? = null,
+)

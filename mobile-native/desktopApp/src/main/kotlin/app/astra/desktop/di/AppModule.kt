@@ -19,6 +19,7 @@ import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.GifApi
+import app.astra.mobile.core.network.UnfurlApi
 import app.astra.mobile.core.network.BlockApi
 import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.BotPersonaApi
@@ -98,6 +99,7 @@ val appModule = module {
     single<UploadApi> { get<Retrofit>(named("authed")).create(UploadApi::class.java) }
     single<VoiceApi> { get<Retrofit>(named("authed")).create(VoiceApi::class.java) }
     single<GifApi> { get<Retrofit>(named("authed")).create(GifApi::class.java) }
+    single<UnfurlApi> { get<Retrofit>(named("authed")).create(UnfurlApi::class.java) }
     single<DiscoverApi> { get<Retrofit>(named("authed")).create(DiscoverApi::class.java) }
     single<InviteApi> { get<Retrofit>(named("authed")).create(InviteApi::class.java) }
     single<FriendApi> { get<Retrofit>(named("authed")).create(FriendApi::class.java) }

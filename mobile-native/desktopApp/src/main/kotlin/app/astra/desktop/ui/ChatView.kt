@@ -60,6 +60,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -149,12 +150,15 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
+import app.astra.mobile.core.network.UnfurlApi
 import app.astra.mobile.core.network.dto.AttachmentDto
+import app.astra.mobile.core.network.dto.CartaoDeLinkDto
 import app.astra.mobile.core.network.dto.EmojiDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.shared.AstraShared
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Desktop
@@ -921,6 +925,13 @@ private fun ContentBlock(
             }
         }
     }
+    if (msg.attachments.isEmpty() && !msg.pending) {
+        val link = remember(msg.content) { primeiroLink(msg.content) }
+        if (link != null) {
+            Spacer(Modifier.height(6.dp))
+            PreviaDeLink(link)
+        }
+    }
     msg.attachments.forEach { att ->
         Spacer(Modifier.height(4.dp))
         AttachmentBlock(att)
@@ -1057,6 +1068,61 @@ private fun AttachmentBlock(att: AttachmentDto) {
                     Text(sizeLabel(it), style = Tipo.nota)
                 }
             }
+        }
+    }
+}
+
+private val REGEX_LINK = Regex("""https?://[^\s<>"']{4,512}""")
+
+private fun primeiroLink(texto: String): String? =
+    REGEX_LINK.find(texto)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'')
+        ?.takeIf { it.length > 10 }
+
+private val cartoesVistos = mutableMapOf<String, CartaoDeLinkDto?>()
+
+@Composable
+private fun PreviaDeLink(url: String) {
+    val api = remember { GlobalContext.get().get<UnfurlApi>() }
+    val cartao by produceState(cartoesVistos[url], url) {
+        if (cartoesVistos.containsKey(url)) return@produceState
+        val achado = runCatching { api.cartao(url).data }.getOrNull()
+        cartoesVistos[url] = achado
+        value = achado
+    }
+    val c = cartao ?: return
+    if (c.titulo == null && c.descricao == null && c.imagem == null) return
+
+    val fonte = remember { MutableInteractionSource() }
+    val hover by fonte.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .widthIn(max = 420.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (hover) Obsidian.hover else Obsidian.base)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .hoverable(fonte)
+            .clickable(interactionSource = fonte, indication = null) { openAttachment(c.url) }
+            .padding(10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            c.site?.let {
+                Text(it, style = Tipo.nota)
+                Spacer(Modifier.height(3.dp))
+            }
+            c.titulo?.let {
+                Text(it, style = Tipo.rotulo.copy(color = Obsidian.accent), maxLines = 2)
+                Spacer(Modifier.height(3.dp))
+            }
+            c.descricao?.let { Text(it, style = Tipo.apoio, maxLines = 3) }
+        }
+        c.imagem?.let {
+            Spacer(Modifier.width(10.dp))
+            AsyncImage(
+                model = it,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(6.dp)),
+            )
         }
     }
 }

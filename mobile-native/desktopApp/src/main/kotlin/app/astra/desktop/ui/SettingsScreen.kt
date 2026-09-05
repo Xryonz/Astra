@@ -202,6 +202,7 @@ import app.astra.desktop.ui.theme.Tipo
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
+    NAME_COLORS("Cores do nome", "sua cor em cada constelação", Lucide.Palette),
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
@@ -344,6 +345,7 @@ fun SettingsScreen(
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
+                        SettingsTab.NAME_COLORS -> CoresDoNomeSection(me)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             BlocoDeAjustes(
@@ -458,6 +460,7 @@ private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS,
     SettingsTab.SHORTCUTS,
     SettingsTab.PETS,
+    SettingsTab.NAME_COLORS,
     SettingsTab.ACCOUNT -> false
     else -> true
 }
@@ -483,7 +486,7 @@ private fun SettingsPreview(
                 SettingsTab.VOICE -> VoicePreview(p)
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
                 SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
-                SettingsTab.PETS, SettingsTab.ACCOUNT -> Unit
+                SettingsTab.PETS, SettingsTab.NAME_COLORS, SettingsTab.ACCOUNT -> Unit
             }
             if (tab != SettingsTab.PROFILE) {
                 Box(Modifier.matchParentSize().engoleOPonteiro())

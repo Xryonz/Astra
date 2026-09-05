@@ -228,6 +228,7 @@ data class MyPermsDto(
     val isOwner: Boolean = false,
     val isAdmin: Boolean = false,
     val permissions: List<String> = emptyList(),
+    val nameColor: String? = null,
 )
 
 @Serializable

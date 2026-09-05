@@ -655,10 +655,16 @@ serversRouter.get(
     const { serverId } = req.params
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId && !m.isOwner) return res.status(403).json({ error: 'Você não é membro' })
+
+    const [meu] = await db.select({ nameColor: serverMembers.nameColor }).from(serverMembers)
+      .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
+      .limit(1)
+
     res.json({ data: {
       isOwner:     m.isOwner,
       isAdmin:     m.isAdmin,
       permissions: Array.from(m.permissions),
+      nameColor:   meu?.nameColor ?? null,
     } })
   })
 )

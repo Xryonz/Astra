@@ -76,6 +76,27 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # VERSAO FIXA, DE PROPOSITO — nao trocar por "stable".
+      #
+      # O astra-voz.exe tem 27,76 MB crus / 9,58 MB comprimidos, e a atualizacao
+      # incremental so reaproveita arquivo cujo CRC bate com o que ja esta
+      # instalado. Binario de Go diferente = 9,58 MB baixados a toa, que eram 64%
+      # de TODO o delta de uma atualizacao (15,0 MB medidos no 1.0.22 -> 1.0.23).
+      #
+      # O `go build` ja usa -trimpath e agora -buildvcs=false, entao o binario e
+      # reproduzivel DESDE QUE o compilador seja o mesmo. Sem este passo, o Go e o
+      # que vier na imagem do runner naquela semana — e quando a imagem trocar de
+      # versao, o sidecar volta a ser reconstruido diferente sem ninguem ter
+      # tocado nele.
+      #
+      # Manter igual ao `go` do sidecar-voz/go.mod.
+      - name: Setup Go 1.26.5
+        if: steps.checar.outputs.existe == 'False'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache-dependency-path: sidecar-voz/go.sum
+
       # O ffmpeg (ddagrab) e grande e fica FORA do git — cachear evita rebaixar
       # ~100MB a cada release.
       - name: Cache do ffmpeg

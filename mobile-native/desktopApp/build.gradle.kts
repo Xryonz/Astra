@@ -62,7 +62,10 @@ val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
     doLast {
         sidecarSaida.parentFile.mkdirs()
         logger.lifecycle("Compilando o sidecar de voz (Go) ...")
-        val p = ProcessBuilder("go", "build", "-trimpath", "-ldflags=-s -w", "-o", sidecarSaida.absolutePath, ".")
+        val p = ProcessBuilder(
+            "go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w",
+            "-o", sidecarSaida.absolutePath, ".",
+        )
             .directory(sidecarFonte)
             .redirectErrorStream(true)
             .start()

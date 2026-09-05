@@ -19,6 +19,7 @@ import app.astra.mobile.core.network.dto.GifResultDto
 import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
+import app.astra.mobile.core.network.dto.MessagePinnedEventDto
 import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.MsgAuthorDto
 import app.astra.mobile.core.network.dto.CallLogDto
@@ -67,6 +68,7 @@ data class ChatMessage(
     val createdAt: String?,
     val mine: Boolean = false,
     val edited: Boolean = false,
+    val pinned: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
     val mentions: List<String> = emptyList(),
     val replyTo: ReplyToDto? = null,
@@ -602,11 +604,27 @@ class ChatVm(
         }
     }
 
+    private fun marcarFixada(messageId: String, fixada: Boolean) {
+        _state.update { st ->
+            st.copy(messages = st.messages.map {
+                if (it.id == messageId) it.copy(pinned = fixada) else it
+            })
+        }
+    }
+
     fun pin(messageId: String) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        val estava = _state.value.messages.firstOrNull { it.id == messageId }?.pinned ?: false
         scope.launch {
-            runCatching { channelApi.pin(channelId, messageId) }
-                .onFailure { _state.update { it.copy(error = "Não foi possível fixar") } }
+            runCatching {
+                if (estava) channelApi.unpin(channelId, messageId) else channelApi.pin(channelId, messageId)
+            }
+                .onSuccess { marcarFixada(messageId, !estava) }
+                .onFailure {
+                    _state.update {
+                        it.copy(error = if (estava) "Não foi possível desafixar" else "Não foi possível fixar")
+                    }
+                }
         }
     }
 
@@ -728,6 +746,12 @@ class ChatVm(
                         }
                     }
                     launch {
+                        socket.messagePinned.collect { raw ->
+                            val ev = decode<MessagePinnedEventDto>(raw) ?: return@collect
+                            if (ev.channelId == target.id) marcarFixada(ev.messageId, ev.pinned)
+                        }
+                    }
+                    launch {
                         socket.channelTyping.collect { raw ->
                             val ev = decode<ChannelTypingEventDto>(raw) ?: return@collect
                             if (ev.channelId == target.id) userTyping(ev.userId, ev.username)
@@ -820,6 +844,7 @@ class ChatVm(
             createdAt = createdAt,
             mine = autor.isNotBlank() && autor == myId,
             edited = edited,
+            pinned = pinned,
             reactions = reactions, mentions = mentions, replyTo = replyTo,
             attachments = attachments,
             poll = poll,

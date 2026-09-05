@@ -208,6 +208,12 @@ class MencaoClicavel {
 }
 val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
 
+class PuloParaMensagem {
+    var estaCarregada: (messageId: String) -> Boolean = { false }
+    var pular: (messageId: String) -> Unit = {}
+}
+val LocalPuloParaMensagem = staticCompositionLocalOf { PuloParaMensagem() }
+
 val LocalWindowActive = compositionLocalOf { true }
 
 val LocalJanelaNaTela = compositionLocalOf { true }

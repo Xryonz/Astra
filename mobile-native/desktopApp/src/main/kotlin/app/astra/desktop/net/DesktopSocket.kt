@@ -53,6 +53,7 @@ class DesktopSocket(
     val messageDeleted = evento("message_deleted", folga = 64)
     val reactionUpdate = evento("reaction_update", folga = 64)
     val pollUpdated = evento("poll_updated", folga = 64)
+    val messagePinned = evento("message_pinned", folga = 32)
     val dmDeleted = evento("dm_deleted", folga = 64)
 
     val channelTyping = evento("user_typing", folga = 64)

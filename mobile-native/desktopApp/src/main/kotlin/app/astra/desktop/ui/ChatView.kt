@@ -362,6 +362,12 @@ fun ChatView(
     var lightboxUrl by remember { mutableStateOf<String?>(null) }
     lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
 
+    val pulo = LocalPuloParaMensagem.current
+    SideEffect {
+        pulo.estaCarregada = { id -> ondeEsta(linhas, id) >= 0 }
+        pulo.pular = { id -> jumpTo(id) }
+    }
+
     val mencao = remember { MencaoClicavel() }
     var perfilDaMencao by remember(target.id) { mutableStateOf<Pair<String, IntOffset>?>(null) }
     val ponteiro = remember { intArrayOf(0, 0) }
@@ -808,7 +814,10 @@ private fun MessageRow(
                 add(MenuEntry.Item("copiar texto", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.content)) })
             }
             add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.id)) })
-            if (isChannel) add(MenuEntry.Item("fixar mensagem", icon = Lucide.Pin) { onPin() })
+            if (isChannel) {
+                val rotuloDoAlfinete = if (msg.pinned) "desafixar mensagem" else "fixar mensagem"
+                add(MenuEntry.Item(rotuloDoAlfinete, icon = Lucide.Pin) { onPin() })
+            }
             if (isChannel && msg.mine && msg.content.isNotBlank()) {
                 add(MenuEntry.Item("editar", icon = Lucide.Pencil) { onStartEdit() })
             }

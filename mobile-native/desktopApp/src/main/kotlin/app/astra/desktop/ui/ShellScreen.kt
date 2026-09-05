@@ -3062,6 +3062,8 @@ private fun Stage(
     leiturasAoEntrar: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
+    val pulo = remember { PuloParaMensagem() }
+    androidx.compose.runtime.CompositionLocalProvider(LocalPuloParaMensagem provides pulo) {
     Column(modifier.fillMaxHeight().panelSurface(Obsidian.raised, 0.52f)) {
         if (showFriends) {
             FriendsView(onStartDm, Modifier.fillMaxSize())
@@ -3110,6 +3112,9 @@ private fun Stage(
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
                     )
+                }
+                if (chat is ChatTarget.Channel && voiceChannel == null) {
+                    AlfineteDoCanal(chat.id)
                 }
                 if (chat is ChatTarget.Dm && voiceChannel == null && !botDoOutroLado) {
                     BotaoDeLigar(Lucide.Phone, "ligar") { onLigarSussurro(chat, false) }
@@ -3168,6 +3173,7 @@ private fun Stage(
                 }
             }
         }
+    }
     }
 }
 

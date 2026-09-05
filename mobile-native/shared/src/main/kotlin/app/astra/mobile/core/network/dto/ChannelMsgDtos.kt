@@ -83,6 +83,13 @@ data class MessageDeletedEventDto(
 )
 
 @Serializable
+data class MessagePinnedEventDto(
+    val messageId: String,
+    val channelId: String,
+    val pinned: Boolean = false,
+)
+
+@Serializable
 data class ChannelTypingEventDto(
     val userId: String,
     val username: String? = null,

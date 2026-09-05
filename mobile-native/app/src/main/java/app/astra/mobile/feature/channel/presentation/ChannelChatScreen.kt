@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
-import app.astra.mobile.feature.channel.domain.model.MessageEdit
 import app.astra.mobile.feature.gif.presentation.GifPicker
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.ChatInputBar
@@ -171,7 +170,6 @@ fun ChannelChatScreen(
                             onTranslate = { viewModel.translate(it.id, it.content) },
                             onVotePoll = { row, optionId -> viewModel.votePoll(row.id, optionId) },
                             onClosePoll = { viewModel.closePoll(it.id) },
-                            onHistory = { viewModel.loadEditHistory(it.id) },
                             onOpenProfile = onOpenProfile,
                         )
                     }
@@ -276,68 +274,6 @@ fun ChannelChatScreen(
         items = state.pinned.map { it.authorName to it.content },
         onDismiss = { pinnedOpen = false },
     )
-
-    EditHistoryDialog(
-        open = state.editHistory != null || state.editHistoryLoading,
-        loading = state.editHistoryLoading,
-        edits = state.editHistory.orEmpty(),
-        onDismiss = viewModel::closeEditHistory,
-    )
-}
-
-@Composable
-private fun EditHistoryDialog(
-    open: Boolean,
-    loading: Boolean,
-    edits: List<MessageEdit>,
-    onDismiss: () -> Unit,
-) {
-    AstraDialog(
-        open = open,
-        onDismiss = onDismiss,
-        title = "Historico de edicoes",
-        confirmText = "Fechar",
-        onConfirm = onDismiss,
-        dismissText = null,
-    ) {
-        when {
-            loading -> Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                Text("Carregando…", style = MaterialTheme.typography.bodyMedium, color = astraColors.text3)
-            }
-            edits.isEmpty() -> Text(
-                "Sem versoes anteriores guardadas.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = astraColors.text2,
-            )
-            else -> Column(
-                modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                edits.forEach { e ->
-                    Column {
-                        MarginaliaLabel("versao anterior · ${editRelTime(e.editedAt)}")
-                        Spacer(Modifier.height(3.dp))
-                        Text(e.content, style = MaterialTheme.typography.bodyMedium, color = astraColors.text1)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun editRelTime(iso: String?): String {
-    if (iso == null) return ""
-    return runCatching {
-        val then = java.time.Instant.parse(iso)
-        val sec = java.time.Duration.between(then, java.time.Instant.now()).seconds.coerceAtLeast(0)
-        when {
-            sec < 60 -> "agora"
-            sec < 3600 -> "${sec / 60}m atras"
-            sec < 86400 -> "${sec / 3600}h atras"
-            sec < 2592000 -> "${sec / 86400}d atras"
-            else -> "${sec / 2592000}mes atras"
-        }
-    }.getOrDefault("")
 }
 
 @Composable

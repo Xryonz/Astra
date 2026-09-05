@@ -19,7 +19,6 @@ import CodeBlock from '@/components/chat/CodeBlock'
 import Lightbox from '@/components/Lightbox'
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
 import PollCard from '@/components/chat/PollCard'
-import EditHistoryPopover from '@/components/chat/EditHistoryPopover'
 import { cn } from '@/lib/utils'
 import { FONT_FAMILY, type DisplayFont } from '@/components/profile/profileFonts'
 import type { MessageWithAuthor } from '@astra/types'
@@ -440,7 +439,6 @@ function MessageItemImpl({
   const [showEdit,          setShowEdit]           = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm]  = useState(false)
   const [showMobileActions, setShowMobileActions]  = useState(false)
-  const [showEditHistory,   setShowEditHistory]    = useState(false)
   const [lightboxIdx,       setLightboxIdx]        = useState<number | null>(null)
 
   const [profileUserId,     setProfileUserId]      = useState<string | null>(null)
@@ -743,24 +741,7 @@ function MessageItemImpl({
             {content && renderContent(content, emojiMap)}
 
             {message.edited && !isPending && (
-              <span className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setShowEditHistory(true)}
-                  className="ed-marg ml-2 cursor-pointer hover:text-(--accent) transition-colors"
-                  title={t('chat.editHistory.viewHistory')}
-                >
-                  {t('chat.editHistory.marker')}
-                </button>
-                {showEditHistory && (
-                  <EditHistoryPopover
-                    channelId={(message as any).channelId}
-                    messageId={message.id}
-                    currentContent={content}
-                    onClose={() => setShowEditHistory(false)}
-                  />
-                )}
-              </span>
+              <span className="ed-marg ml-2">{t('chat.editHistory.marker')}</span>
             )}
           </div>
 

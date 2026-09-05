@@ -5,7 +5,6 @@ import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelMessagesPageDto
 import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.EditChannelRequest
-import app.astra.mobile.core.network.dto.MessageEditDto
 import app.astra.mobile.core.network.dto.PollUpdateDto
 import app.astra.mobile.core.network.dto.ReactRequest
 import app.astra.mobile.core.network.dto.ReactResultDto
@@ -61,12 +60,6 @@ interface ChannelApi {
 
     @GET("api/channels/{cid}/messages/pinned")
     suspend fun pinned(@Path("cid") channelId: String): ApiEnvelope<List<ChannelMessageDto>>
-
-    @GET("api/channels/{cid}/messages/{mid}/edits")
-    suspend fun edits(
-        @Path("cid") channelId: String,
-        @Path("mid") messageId: String,
-    ): ApiEnvelope<List<MessageEditDto>>
 
     @POST("api/channels/{cid}/read")
     suspend fun markRead(@Path("cid") channelId: String)

@@ -59,13 +59,6 @@ data class SendChannelRequest(
 data class EditChannelRequest(val content: String)
 
 @Serializable
-data class MessageEditDto(
-    val id: String,
-    val content: String = "",
-    val editedAt: String? = null,
-)
-
-@Serializable
 data class ReactRequest(val emoji: String)
 
 @Serializable

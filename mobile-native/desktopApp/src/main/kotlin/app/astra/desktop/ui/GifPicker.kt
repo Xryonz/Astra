@@ -48,21 +48,38 @@ import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
+private val gifLigado = mutableStateOf<Boolean?>(null)
+
+@Composable
+internal fun gifDisponivel(): Boolean {
+    val ligado by gifLigado
+    LaunchedEffect(Unit) {
+        if (gifLigado.value != null) return@LaunchedEffect
+        gifLigado.value = runCatching {
+            GlobalContext.get().get<GifApi>().enabled().data?.enabled
+        }.getOrNull() ?: return@LaunchedEffect
+    }
+    return ligado != false
+}
+
 @Composable
 internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
     val koin = GlobalContext.get()
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<GifResultDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var falhou by remember { mutableStateOf(false) }
 
     LaunchedEffect(query) {
         loading = true
         if (query.isNotBlank()) delay(400)
-        results = runCatching {
+        val busca = runCatching {
             val api = koin.get<GifApi>()
             if (query.isBlank()) api.featured(limit = 24).data?.results
             else api.search(query.trim(), limit = 24).data?.results
-        }.getOrNull().orEmpty()
+        }
+        falhou = busca.isFailure
+        results = busca.getOrNull().orEmpty()
         loading = false
     }
 
@@ -101,6 +118,9 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 TypingDots(Obsidian.text3, dotSize = 5.dp)
+            }
+            falhou -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("não foi possível buscar os gifs agora", style = Tipo.descricao)
             }
             results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("nada encontrado", style = Tipo.descricao)

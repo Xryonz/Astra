@@ -122,6 +122,10 @@ internal fun ComposerPickerButton(
     onPickSticker: (ServerStickerDto) -> Unit = {},
     emojisDaSala: List<EmojiDto> = emptyList(),
 ) {
+    if (tipo == Seletor.GIF) {
+        if (!gifDisponivel()) return
+    }
+
     var open by remember { mutableStateOf(false) }
     Box {
         when (tipo) {

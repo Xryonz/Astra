@@ -91,19 +91,12 @@ private const val prazoDoReinicio = 25_000L
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
 
-    val gateStart = remember { System.currentTimeMillis() }
-    val holdMs = 1200L
-    suspend fun holdThenDone() {
-        val left = holdMs - (System.currentTimeMillis() - gateStart)
-        if (left > 0) delay(left)
-        onDone()
-    }
+    val duracaoDaBarra = 1200
 
-    LaunchedEffect(Unit) { updater.check() }
     LaunchedEffect(st) {
         when (val s = st) {
             is UpdateState.Available -> updater.downloadAndStage(s)
-            is UpdateState.UpToDate -> holdThenDone()
+            is UpdateState.UpToDate -> onDone()
             is UpdateState.Failed -> { delay(1300); onDone() }
             is UpdateState.Ready -> { delay(700); updater.restartToInstall() }
             else -> {}
@@ -130,7 +123,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         LaunchedEffect(Unit) { go = true }
         animateFloatAsState(
             targetValue = if (go) 1f else 0f,
-            animationSpec = tween(holdMs.toInt(), easing = LinearEasing),
+            animationSpec = tween(duracaoDaBarra, easing = LinearEasing),
             label = "gateFill",
         )
     }

@@ -46,6 +46,7 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
+import app.astra.desktop.update.UpdateState
 import app.astra.desktop.voice.Transmitindo
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -225,6 +226,8 @@ const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
 const val ARG_MINIMIZADO = "--minimizado"
 
+private const val PRAZO_DO_PORTAO_MS = 8_000L
+
 fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
@@ -271,7 +274,22 @@ fun main(args: Array<String>) {
             Obsidian.aplicarContraste(bootPrefs.altoContraste)
             Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
         }
-        var gateDone by remember { mutableStateOf(!updater.installed || nascerEscondido) }
+        val podeMostrarPortao = updater.installed && !nascerEscondido
+        val estadoDaAtualizacao by updater.state.collectAsState()
+        var portaoConvocado by remember { mutableStateOf(false) }
+        var portaoFechado by remember { mutableStateOf(false) }
+        var prazoDoPortaoVenceu by remember { mutableStateOf(!podeMostrarPortao) }
+        val portaoNaTela = portaoConvocado && !portaoFechado
+        LaunchedEffect(Unit) { if (podeMostrarPortao) updater.check(mostrarFalha = false) }
+        LaunchedEffect(Unit) {
+            if (podeMostrarPortao) { delay(PRAZO_DO_PORTAO_MS); prazoDoPortaoVenceu = true }
+        }
+        LaunchedEffect(estadoDaAtualizacao, prazoDoPortaoVenceu) {
+            val noticia = estadoDaAtualizacao.let {
+                it is UpdateState.Available || it is UpdateState.Downloading || it is UpdateState.Ready
+            }
+            if (noticia && !prazoDoPortaoVenceu && !portaoFechado) portaoConvocado = true
+        }
         val escopoDaJanela = rememberCoroutineScope()
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
@@ -310,14 +328,14 @@ fun main(args: Array<String>) {
 
         AvisosDeMensagem()
 
-        if (!gateDone) {
+        if (portaoNaTela) {
             val gateState = rememberWindowState(
                 width = 380.dp,
                 height = 470.dp,
                 position = WindowPosition(Alignment.Center),
             )
             Window(
-                onCloseRequest = { gateDone = true },
+                onCloseRequest = { portaoFechado = true },
                 title = "Astra",
                 icon = appIcon,
                 state = gateState,
@@ -327,11 +345,9 @@ fun main(args: Array<String>) {
                 alwaysOnTop = true,
             ) {
                 marcoDoArranque("portao de atualizacao na tela")
-                UpdaterGate(updater, bootPrefs.reduceMotionEff, onDone = { gateDone = true })
+                UpdaterGate(updater, bootPrefs.reduceMotionEff, onDone = { portaoFechado = true })
             }
-            return@application
         }
-        marcoDoArranque("portao liberado")
 
         Window(
             onCloseRequest = onCloseApp,

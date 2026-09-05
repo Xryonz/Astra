@@ -4,7 +4,8 @@ import { urlUsavel, apontaParaForaDaRede } from './enderecoSeguro'
 
 const SALTOS_MAXIMOS = 3
 const PRAZO_MS = 5_000
-const TETO_DE_BYTES = 512 * 1024
+const TETO_DE_BYTES = 1024 * 1024
+const FIM_DA_CABECA = '</head'
 const VALIDADE_SEGUNDOS = 60 * 60 * 24
 const VALIDADE_DO_FRACASSO = 60 * 10
 
@@ -44,25 +45,31 @@ function encurtar(s: string | undefined, teto: number): string | undefined {
   return s.length <= teto ? s : `${s.slice(0, teto - 1)}…`
 }
 
-async function lerComTeto(resposta: Response): Promise<string> {
+async function lerCabeca(resposta: Response): Promise<string> {
   const tamanho = Number(resposta.headers.get('content-length') ?? 0)
   if (tamanho > TETO_DE_BYTES) throw new Error('resposta grande demais')
 
   const leitor = resposta.body?.getReader()
   if (!leitor) return ''
 
-  const pedacos: Uint8Array[] = []
+  const pedacos: Buffer[] = []
   let lidos = 0
+  let emenda = ''
   for (;;) {
     const { done, value } = await leitor.read()
     if (done) break
     if (!value) continue
-    lidos += value.length
-    if (lidos > TETO_DE_BYTES) {
+
+    const pedaco = Buffer.from(value)
+    pedacos.push(pedaco)
+    lidos += pedaco.length
+
+    const janela = emenda + pedaco.toString('latin1').toLowerCase()
+    if (janela.includes(FIM_DA_CABECA) || lidos >= TETO_DE_BYTES) {
       await leitor.cancel().catch(() => {})
       break
     }
-    pedacos.push(value)
+    emenda = janela.slice(-FIM_DA_CABECA.length)
   }
   return Buffer.concat(pedacos).toString('utf8')
 }
@@ -90,7 +97,7 @@ async function buscarPagina(inicial: URL): Promise<{ html: string; final: URL } 
 
     if (!resposta.ok) return null
     if (!(resposta.headers.get('content-type') ?? '').includes('html')) return null
-    return { html: await lerComTeto(resposta), final: atual }
+    return { html: await lerCabeca(resposta), final: atual }
   }
   return null
 }

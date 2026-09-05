@@ -315,7 +315,6 @@ fun InvitePeopleDialog(
 }
 
 private const val ESPERA_DA_PREVIA_MS = 350L
-private const val CODIGO_PLAUSIVEL = 8
 
 @Composable
 fun JoinByInviteDialog(
@@ -334,7 +333,7 @@ fun JoinByInviteDialog(
     LaunchedEffect(codigo) {
         previa = null
         procurando = false
-        if (codigo.length < CODIGO_PLAUSIVEL) return@LaunchedEffect
+        if (codigo.isEmpty()) return@LaunchedEffect
         delay(ESPERA_DA_PREVIA_MS)
         procurando = true
         val achada = runCatching { api.preview(codigo).data }.getOrNull()

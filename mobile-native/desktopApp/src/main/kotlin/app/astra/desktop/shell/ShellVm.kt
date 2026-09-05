@@ -1364,5 +1364,9 @@ class ShellVm(
     }
 }
 
+private const val CODIGO_DE_CONVITE_MINIMO = 8
+
 fun codigoDoConvite(cru: String): String =
     cru.trim().trimEnd('/').substringAfterLast('/').substringBefore('?')
+        .takeIf { it.length >= CODIGO_DE_CONVITE_MINIMO }
+        .orEmpty()

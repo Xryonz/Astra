@@ -8,7 +8,6 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { env } from '../lib/env'
-import { servidoresDeGelo } from '../lib/gelo'
 import { userCanSeeChannel } from '../lib/permissions'
 import { redis } from '../lib/redis'
 import { forbidden, badRequest } from '../lib/errors'
@@ -31,11 +30,6 @@ router.get('/config', requireAuth, asyncHandler(async (_req: Request, res: Respo
       url:     env.LIVEKIT_URL ?? null,
     },
   })
-}))
-
-router.get('/ice', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  res.set('Cache-Control', 'no-store')
-  res.json({ data: { iceServers: servidoresDeGelo(req.userId!) } })
 }))
 
 router.post('/token', requireAuth, validate(TokenSchema), asyncHandler(async (req: Request, res: Response) => {

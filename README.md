@@ -288,10 +288,6 @@ A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
 fallback, e não quebra o boot:
 
 - `LIVEKIT_*` — sem isso, voz/vídeo off nos três clientes
-- `TURN_URLS` / `STUN_URLS` / `TURN_SECRET` — sobra da época em que a chamada do
-  desktop era ponto a ponto. Hoje o desktop entra na sala do LiveKit como os outros,
-  e a travessia de rede é problema do SFU. A rota `/voice/ice` ainda existe e ninguém
-  a chama; ficou anotada para remoção
 - `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
 - `S3_*` / `R2_*` — em desenvolvimento, o upload cai pro disco local
   (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do

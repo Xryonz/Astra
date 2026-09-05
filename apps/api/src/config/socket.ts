@@ -383,18 +383,6 @@ export function setupSocket(io: Server) {
       void marcarNaVoz(channelId)
     })
 
-    const TETO_SINAL = 64 * 1024
-
-    socket.on('rtc_signal', (payload: unknown) => {
-      if (typeof payload !== 'object' || payload === null) return
-      const { para, tipo, dados } = payload as Record<string, unknown>
-      if (typeof para !== 'string' || !para) return
-      if (tipo !== 'oferta' && tipo !== 'resposta' && tipo !== 'candidato' && tipo !== 'tchau') return
-      if (typeof dados !== 'string' || dados.length > TETO_SINAL) return
-      if (para === userId) return
-      io.to(`user:${para}`).emit('rtc_signal', { de: userId, tipo, dados })
-    })
-
     socket.on('fast_send_dm', async (
       payload: { conversationId: string; content: string; clientNonce?: string },
       ack?: (r: { ok: boolean; error?: string; msg?: unknown }) => void,

@@ -17,7 +17,22 @@ fun parseNameColor(raw: String?): NameColor? {
         val c2 = parseHex6(parts[3]) ?: return null
         return NameColor.Gradient(Brush.linearGradient(listOf(c1, c2)))
     }
+    if (raw.startsWith("anim:")) return parseAnimatedAtRest(raw)
     return parseHex6(raw)?.let { NameColor.Solid(it) }
+}
+
+private fun parseAnimatedAtRest(raw: String): NameColor? {
+    val parts = raw.split(":")
+    return when {
+        parts.size == 3 && (parts[1] == "arcoiris" || parts[1] == "pulso") ->
+            parseHex6(parts[2])?.let { NameColor.Solid(it) }
+        parts.size == 4 && parts[1] == "varredura" -> {
+            val c1 = parseHex6(parts[2]) ?: return null
+            val c2 = parseHex6(parts[3]) ?: return null
+            NameColor.Gradient(Brush.linearGradient(listOf(c1, c2)))
+        }
+        else -> null
+    }
 }
 
 private fun parseHex6(raw: String): Color? {

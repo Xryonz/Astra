@@ -68,6 +68,14 @@ function parseColor(raw: string | null | undefined, fallback: string): ParsedCol
     if (parts.length === 4)
       return { type: 'gradient', angle: Number(parts[1]) || 135, from: parts[2], to: parts[3] }
   }
+  if (raw.startsWith('anim:')) {
+    const parts = raw.split(':')
+    if (parts.length === 4 && parts[1] === 'varredura')
+      return { type: 'gradient', angle: 135, from: parts[2], to: parts[3] }
+    if (parts.length === 3 && (parts[1] === 'arcoiris' || parts[1] === 'pulso'))
+      return { type: 'solid', value: parts[2] }
+    return { type: 'solid', value: fallback }
+  }
   return { type: 'solid', value: raw }
 }
 

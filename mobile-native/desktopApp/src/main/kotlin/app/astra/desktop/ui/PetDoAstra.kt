@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -49,6 +50,7 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.Sfx
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -260,7 +262,7 @@ fun PetDoAstra(
         while (true) {
             val inicio = System.nanoTime()
             if (congelado.value) {
-                esperarPeloTeto(FPS, inicio)
+                snapshotFlow { congelado.value }.first { !it }
                 continue
             }
             val dt = 1f / FPS

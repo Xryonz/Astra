@@ -1999,7 +1999,8 @@ private fun OrbitList(
             CascadeIn(i, server.id) {
                 OrbitEntry(
                     ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                    pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                    lembrarVozes(ch, voicePresence, pessoaPorId, myId, myVoiceChannelId),
+                    onOpenChat, onOpenVoice,
                     dragCtx = if (podeGerenciar) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
                     menu = chMenu,
                 )
@@ -2086,7 +2087,8 @@ private fun OrbitList(
                         ) {
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                                pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                                lembrarVozes(ch, voicePresence, pessoaPorId, myId, myVoiceChannelId),
+                                onOpenChat, onOpenVoice,
                                 dragCtx = if (podeGerenciar && !collapsed)
                                     ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
                                 menu = chMenu,
@@ -2299,16 +2301,35 @@ private fun ChannelDragBubble(d: ChannelDragState) {
     }
 }
 
+private data class VozNaOrbita(val nome: String, val avatarUrl: String?, val souEu: Boolean)
+
+@Composable
+private fun lembrarVozes(
+    ch: ChannelDto,
+    voicePresence: Map<String, List<String>>,
+    pessoaPorId: Map<String, ServerMemberDto>,
+    myId: String?,
+    myVoiceChannelId: String?,
+): List<VozNaOrbita> =
+    remember(ch.id, ch.type, voicePresence, pessoaPorId, myId, myVoiceChannelId) {
+        if (ch.type != "VOICE") return@remember emptyList()
+        val base = voicePresence[ch.id].orEmpty()
+        val ids =
+            if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base
+            else base
+        ids.map { uid ->
+            val u = pessoaPorId[uid]?.user
+            VozNaOrbita(u?.displayName ?: u?.username ?: "…", u?.avatarUrl, uid == myId)
+        }
+    }
+
 @Composable
 private fun OrbitEntry(
     ch: ChannelDto,
     active: Boolean,
     unread: Boolean,
     unreadCount: Int,
-    pessoaPorId: Map<String, ServerMemberDto>,
-    voicePresence: Map<String, List<String>>,
-    myId: String?,
-    myVoiceChannelId: String?,
+    naVoz: List<VozNaOrbita>,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     dragCtx: ChannelDragCtx? = null,
@@ -2356,19 +2377,8 @@ private fun OrbitEntry(
                 onDismiss = { confirmDelCh = false },
             )
         }
-        if (ch.type == "VOICE") {
-            val ids = remember(voicePresence, ch.id, myVoiceChannelId, myId) {
-                val base = voicePresence[ch.id].orEmpty()
-                if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
-            }
-            ids.forEach { uid ->
-                val user = pessoaPorId[uid]?.user
-                VoicePresenceRow(
-                    avatarUrl = user?.avatarUrl,
-                    name = user?.displayName ?: user?.username ?: "…",
-                    isMe = uid == myId,
-                )
-            }
+        naVoz.forEach { voz ->
+            VoicePresenceRow(avatarUrl = voz.avatarUrl, name = voz.nome, isMe = voz.souEu)
         }
     }
 }

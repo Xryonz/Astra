@@ -247,8 +247,8 @@ fun main(args: Array<String>) {
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         val transparentWindow = remember {
-            GlobalContext.get().get<DesktopPrefs>().state.value.windowTransparent &&
-                janelaAceitaTransparencia
+            val p = GlobalContext.get().get<DesktopPrefs>().state.value
+            p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia
         }
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose
@@ -360,7 +360,8 @@ fun main(args: Array<String>) {
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
                     }
                     .memoryCache {
-                        coil3.memory.MemoryCache.Builder().maxSizeBytes(48L * 1024 * 1024).build()
+                        val teto = if (bootPrefs.performanceMode) 16L else 48L
+                        coil3.memory.MemoryCache.Builder().maxSizeBytes(teto * 1024 * 1024).build()
                     }
                     .diskCache {
                         val home = System.getProperty("user.home")
@@ -370,9 +371,10 @@ fun main(args: Array<String>) {
                             os.contains("Mac", true) -> "$home/Library/Caches"
                             else -> System.getenv("XDG_CACHE_HOME") ?: "$home/.cache"
                         }
+                        val teto = if (bootPrefs.performanceMode) 120L else 300L
                         DiskCache.Builder()
                             .directory(java.io.File(base, "Astra/image-cache").absolutePath.toPath())
-                            .maxSizeBytes(300L * 1024 * 1024)
+                            .maxSizeBytes(teto * 1024 * 1024)
                             .build()
                     }
                     .build()

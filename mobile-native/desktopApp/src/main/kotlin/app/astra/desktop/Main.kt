@@ -453,7 +453,7 @@ fun main(args: Array<String>) {
                     }
 
                     val reveal = remember { Animatable(0f) }
-                    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(520, easing = EaseOutStd)) }
+                    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(220, easing = EaseOutStd)) }
                     Box(
                         Modifier.fillMaxSize().graphicsLayer {
                             alpha = reveal.value
@@ -465,7 +465,7 @@ fun main(args: Array<String>) {
                     ) {
                         Crossfade(
                             targetState = session,
-                            animationSpec = tween(420, easing = EaseOutStd),
+                            animationSpec = tween(180, easing = EaseOutStd),
                             label = "entrada",
                         ) { s ->
                             if (s == null) {
@@ -480,7 +480,7 @@ fun main(args: Array<String>) {
                             } else {
                                 Crossfade(
                                     targetState = needsOnboarding,
-                                    animationSpec = tween(420, easing = EaseOutStd),
+                                    animationSpec = tween(180, easing = EaseOutStd),
                                     label = "onboarding",
                                 ) { onb ->
                                     if (onb) {

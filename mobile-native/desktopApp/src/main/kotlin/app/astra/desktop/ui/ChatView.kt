@@ -20,6 +20,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.hoverable
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import app.astra.mobile.core.network.dto.CallLogDto
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.PhoneMissed
 import com.composables.icons.lucide.Video
@@ -57,6 +59,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -224,12 +227,21 @@ fun ChatView(
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
     var highlightId by remember(target.id) { mutableStateOf<String?>(null) }
 
+    val noPresente by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val ultimo = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf true
+            ultimo.index >= info.totalItemsCount - 3
+        }
+    }
+
     var prevCount by remember(target.id) { mutableStateOf(0) }
     LaunchedEffect(state.messages.size) {
-        if (state.messages.size > prevCount && state.messages.isNotEmpty()) {
-            listState.scrollToItem(state.messages.lastIndex)
-        }
+        val chegouMensagem = state.messages.size > prevCount && state.messages.isNotEmpty()
         prevCount = state.messages.size
+        if (!chegouMensagem) return@LaunchedEffect
+        val minha = state.messages.lastOrNull()?.authorId == vm.myId
+        if (noPresente || minha) listState.scrollToItem(state.messages.lastIndex)
     }
 
     val animatedIds = remember(target.id) { mutableSetOf<String>() }
@@ -353,6 +365,13 @@ fun ChatView(
                         )
                     }
                 }
+            }
+
+            VoltarAoPresente(
+                visivel = !noPresente && state.messages.isNotEmpty(),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 12.dp),
+            ) {
+                scope.launch { listState.animateScrollToItem(state.messages.lastIndex) }
             }
         }
 
@@ -1519,6 +1538,40 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+    }
+}
+
+@Composable
+private fun VoltarAoPresente(
+    visivel: Boolean,
+    modifier: Modifier = Modifier,
+    aoTocar: () -> Unit,
+) {
+    val reduzir = LocalReduceMotion.current
+    AnimatedVisibility(
+        visible = visivel,
+        enter = fadeIn(tween(if (reduzir) 0 else 120)) +
+            slideInVertically(tween(if (reduzir) 0 else 140, easing = EaseOutStd)) { it / 2 },
+        exit = fadeOut(tween(if (reduzir) 0 else 90)),
+        modifier = modifier,
+    ) {
+        val fonte = remember { MutableInteractionSource() }
+        val hover by fonte.collectIsHoveredAsState()
+        Row(
+            Modifier
+                .clickScale(fonte)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (hover) Obsidian.hover else Obsidian.overlay)
+                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .hoverable(fonte)
+                .clickable(interactionSource = fonte, indication = null, onClick = aoTocar)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text2, size = 14.dp)
+            Spacer(Modifier.width(6.dp))
+            Text("voltar ao presente", style = Tipo.rotulo)
+        }
     }
 }
 

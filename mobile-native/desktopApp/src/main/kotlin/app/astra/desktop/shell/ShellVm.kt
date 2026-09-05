@@ -849,7 +849,7 @@ class ShellVm(
     }
 
     fun joinByInvite(raw: String, onResult: (String?) -> Unit) {
-        val code = raw.trim().trimEnd('/').substringAfterLast('/').substringBefore('?')
+        val code = codigoDoConvite(raw)
         if (code.isBlank()) { onResult("Cole o convite ou o código"); return }
         scope.launch {
             val r = runCatching { inviteApi.join(code).data }
@@ -1363,3 +1363,6 @@ class ShellVm(
         }
     }
 }
+
+fun codigoDoConvite(cru: String): String =
+    cru.trim().trimEnd('/').substringAfterLast('/').substringBefore('?')

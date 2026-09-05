@@ -1,9 +1,12 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -55,8 +58,15 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.desktop.shell.codigoDoConvite
+import app.astra.mobile.core.network.InviteApi
+import app.astra.mobile.core.network.dto.InvitePreviewDto
 import app.astra.shared.AstraShared
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Users
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
 fun inviteLink(code: String): String = AstraShared.BASE_URL.trimEnd('/') + "/i/" + code
@@ -169,13 +179,28 @@ internal fun DialogField(
 }
 
 @Composable
-internal fun DialogButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
-    val cor = if (accent) Obsidian.accent else Obsidian.text2
+internal fun DialogButton(
+    label: String,
+    accent: Boolean,
+    icone: ImageVector? = null,
+    habilitado: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val cor = when {
+        !habilitado -> Obsidian.text3.copy(alpha = 0.5f)
+        accent -> Obsidian.accent
+        else -> Obsidian.text2
+    }
+    val borda = when {
+        !habilitado -> Obsidian.borderDim.copy(alpha = 0.5f)
+        accent -> Obsidian.accentDim
+        else -> Obsidian.borderDim
+    }
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .border(1.dp, borda, RoundedCornerShape(8.dp))
+            .clickable(enabled = habilitado, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -289,17 +314,40 @@ fun InvitePeopleDialog(
     }
 }
 
+private const val ESPERA_DA_PREVIA_MS = 350L
+private const val CODIGO_PLAUSIVEL = 8
+
 @Composable
 fun JoinByInviteDialog(
     onJoin: (raw: String, onResult: (String?) -> Unit) -> Unit,
     onClose: () -> Unit,
 ) {
+    val api = remember { GlobalContext.get().get<InviteApi>() }
     var raw by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
+    var previa by remember { mutableStateOf<InvitePreviewDto?>(null) }
+    var procurando by remember { mutableStateOf(false) }
+
+    val codigo = remember(raw) { codigoDoConvite(raw) }
+
+    LaunchedEffect(codigo) {
+        previa = null
+        procurando = false
+        if (codigo.length < CODIGO_PLAUSIVEL) return@LaunchedEffect
+        delay(ESPERA_DA_PREVIA_MS)
+        procurando = true
+        val achada = runCatching { api.preview(codigo).data }.getOrNull()
+        procurando = false
+        previa = achada
+        if (achada == null) err = "Convite inválido ou expirado"
+    }
+
+    val alvo = previa
+    val podeEntrar = alvo != null && !alvo.isGroup && !busy
 
     val submit = {
-        if (!busy && raw.isNotBlank()) {
+        if (podeEntrar) {
             busy = true
             err = null
             onJoin(raw) { e ->
@@ -321,6 +369,26 @@ fun JoinByInviteDialog(
         )
         Spacer(Modifier.height(14.dp))
         DialogField(raw, inviteLink("codigo-do-convite"), { raw = it; err = null }, submit)
+
+        if (procurando) {
+            Spacer(Modifier.height(10.dp))
+            Text("procurando a constelação…", style = Tipo.apoio)
+        }
+
+        val reduzir = LocalReduceMotion.current
+        AnimatedVisibility(
+            visible = alvo != null,
+            enter = fadeIn(tween(if (reduzir) 0 else 140, easing = EaseOutStd)) +
+                slideInVertically(tween(if (reduzir) 0 else 140, easing = EaseOutStd)) { it / 3 },
+        ) {
+            alvo?.let {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    CartaoDaConstelacao(it)
+                }
+            }
+        }
+
         err?.let {
             Spacer(Modifier.height(8.dp))
             Text(it, style = Tipo.erro)
@@ -328,7 +396,50 @@ fun JoinByInviteDialog(
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DialogButton("cancelar", accent = false) { onClose() }
-            DialogButton(if (busy) "entrando…" else "entrar", accent = true) { submit() }
+            DialogButton(
+                if (busy) "entrando…" else "entrar",
+                accent = true,
+                habilitado = podeEntrar,
+            ) { submit() }
         }
     }
 }
+
+@Composable
+private fun CartaoDaConstelacao(previa: InvitePreviewDto) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesktopAvatar(previa.iconUrl, previa.name, 34)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                previa.name,
+                style = TextStyle(color = Obsidian.text1, fontSize = 14.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            if (previa.isGroup) {
+                Text("grupo privado — peça para te adicionarem", style = Tipo.apoio)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        pessoasNaConstelacao(previa.count?.members ?: 0),
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, fontFamily = DmMono),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun pessoasNaConstelacao(quantas: Int): String =
+    if (quantas == 1) "1 pessoa" else "$quantas pessoas"

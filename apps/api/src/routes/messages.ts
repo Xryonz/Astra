@@ -4,7 +4,7 @@ import { and, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm'
 import { db } from '../db'
 import { alias } from 'drizzle-orm/pg-core'
 import {
-  channels, servers, serverMembers, messages, users, messageReactions, messageEdits,
+  channels, servers, serverMembers, messages, users, messageReactions,
 } from '../db/schema'
 import { parseMentions } from '../lib/mentions'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
@@ -466,13 +466,6 @@ export function createMessagesRouter(io: SocketServer) {
         .where(eq(channels.id, channelId)).limit(1)
       const mentionedIds = channel ? await parseMentions(content, channel.serverId) : []
 
-      if (message.content !== content) {
-        await db.insert(messageEdits).values({
-          messageId,
-          content: message.content,
-        })
-      }
-
       const [updated] = await db.update(messages)
         .set({ content, edited: true, mentions: mentionedIds.join(',') })
         .where(eq(messages.id, messageId))
@@ -580,33 +573,6 @@ export function createMessagesRouter(io: SocketServer) {
         .limit(50)
 
       res.json({ data: rows.map((r: any) => ({ ...r, mentions: mentionsArray(r.mentions) })) })
-    })
-  )
-
-  router.get(
-    '/:messageId/edits',
-    requireAuth,
-    asyncHandler(async (req: Request, res: Response) => {
-      const { channelId, messageId } = req.params
-      const channel = await assertChannelAccess(req.userId!, channelId)
-      if (!channel) return res.status(403).json({ error: 'Acesso negado' })
-
-      const [msg] = await db.select({ id: messages.id }).from(messages)
-        .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId)))
-        .limit(1)
-      if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada' })
-
-      const rows = await db.select({
-        id:       messageEdits.id,
-        content:  messageEdits.content,
-        editedAt: messageEdits.editedAt,
-      })
-        .from(messageEdits)
-        .where(eq(messageEdits.messageId, messageId))
-        .orderBy(desc(messageEdits.editedAt))
-        .limit(20)
-
-      res.json({ data: rows })
     })
   )
 

@@ -13,9 +13,18 @@ import javax.inject.Inject
 
 private val HEX_RE = Regex("^#[0-9a-fA-F]{6}$")
 private val HEX6 = Regex("#[0-9a-fA-F]{6}")
+private val DEGRADE_DO_SERVIDOR = Regex("^gradient:\\d+:#[0-9a-fA-F]{6}:#[0-9a-fA-F]{6}$")
+private val GRAUS = Regex("(-?\\d{1,3})deg")
 
-private fun isValidColorCss(v: String): Boolean =
-    HEX_RE.matches(v) || (v.startsWith("linear-gradient") && HEX6.findAll(v).count() >= 2)
+internal fun paraFormatoDoServidor(cru: String): String? {
+    val v = cru.trim()
+    if (HEX_RE.matches(v) || DEGRADE_DO_SERVIDOR.matches(v)) return v
+    if (!v.startsWith("linear-gradient")) return null
+    val cores = HEX6.findAll(v).map { it.value }.toList()
+    if (cores.size < 2) return null
+    val graus = GRAUS.find(v)?.groupValues?.get(1)?.toIntOrNull() ?: 135
+    return "gradient:${((graus % 360) + 360) % 360}:${cores.first()}:${cores.last()}"
+}
 
 data class NameColorServer(val id: String, val name: String, val isGroup: Boolean)
 
@@ -67,8 +76,13 @@ class NameColorsViewModel @Inject constructor(
 
     fun apply(serverId: String) {
         val st = _state.value
-        val color = st.customHex.trim().ifBlank { st.chosen }.ifBlank { null }
-        if (color != null && !isValidColorCss(color)) {
+        val escolhida = st.customHex.trim().ifBlank { st.chosen }.ifBlank { null }
+        if (escolhida == null) {
+            save(serverId, null)
+            return
+        }
+        val color = paraFormatoDoServidor(escolhida)
+        if (color == null) {
             _state.update { it.copy(error = "Cor invalida — confira o hex") }
             return
         }

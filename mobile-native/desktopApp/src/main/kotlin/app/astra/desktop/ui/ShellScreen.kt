@@ -1846,7 +1846,7 @@ private fun Sidebar(
                                     onReorderCategories = { ids -> srv?.let { onReorderCategories(it.id, ids) } },
                                     onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
                                     onOpenChannelVisibility = { cid, name -> srv?.let { chanDialog = ChanDialog.Visibilidade(it.id, cid, name) } },
-                                    onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
+                                    onExcluirCanal = { cid -> srv?.let { onDeleteChannel(it.id, cid) } },
                                     onMarkChannelRead = onMarkChannelRead,
                                     silenciada = silenciada,
                                     onToggleChannelMute = onToggleChannelMute,
@@ -1919,12 +1919,6 @@ private fun Sidebar(
             onDismiss = { chanDialog = null },
             onConfirm = { name, _ -> onRenameChannel(d.serverId, d.channelId, name) },
         )
-        is ChanDialog.DeleteChannel -> ConfirmDialog(
-            text = "excluir #${d.name}? apaga as mensagens dela — não há como desfazer.",
-            confirmLabel = "excluir",
-            onDismiss = { chanDialog = null },
-            onConfirm = { onDeleteChannel(d.serverId, d.channelId) },
-        )
         is ChanDialog.Visibilidade -> VisibilidadeDaOrbitaDialog(
             nomeDaOrbita = "#${d.name}",
             aoCentro = CenterInWindow,
@@ -1936,58 +1930,6 @@ private fun Sidebar(
             onDismiss = { chanDialog = null },
         )
         null -> Unit
-    }
-}
-
-@Composable
-private fun ConfirmDialog(
-    text: String,
-    confirmLabel: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    Popup(
-        popupPositionProvider = CenterInWindow,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
-    ) {
-        val entered = remember { MutableTransitionState(false).apply { targetState = true } }
-        AnimatedVisibility(
-            visibleState = entered,
-            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.96f),
-        ) {
-            Column(
-                Modifier
-                    .width(300.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    .padding(18.dp),
-            ) {
-                Text(text, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 18.sp))
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Text(
-                        "cancelar",
-                        style = Tipo.descricao,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onDismiss() }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        confirmLabel,
-                        style = Tipo.erro,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.danger, RoundedCornerShape(8.dp))
-                            .clickable { onDismiss(); onConfirm() }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -2011,7 +1953,7 @@ private fun OrbitList(
     onReorderCategories: (orderedIds: List<String>) -> Unit,
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
     onOpenChannelVisibility: (channelId: String, name: String) -> Unit,
-    onOpenChannelDelete: (channelId: String, name: String) -> Unit,
+    onExcluirCanal: (channelId: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
     silenciada: (channelId: String) -> Boolean,
     onToggleChannelMute: (channelId: String) -> Unit,
@@ -2034,7 +1976,7 @@ private fun OrbitList(
     val drag = remember(server.id) { ChannelDragState() }
     val chMenu = ChannelMenu(
         isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
-        onOpenChannelDelete, onToggleChannelMute,
+        onExcluirCanal, onToggleChannelMute,
         botAtende = { ch ->
             ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
         },
@@ -2401,7 +2343,7 @@ private fun OrbitEntry(
             if (confirmDelCh) ConfirmPopup(
                 message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não há como desfazer.",
                 confirmLabel = "excluir",
-                onConfirm = { menu.onDelete(ch.id, ch.name) },
+                onConfirm = { menu.onDelete(ch.id) },
                 onDismiss = { confirmDelCh = false },
             )
         }
@@ -2483,7 +2425,6 @@ private sealed interface ChanDialog {
     data class NewCategory(val serverId: String) : ChanDialog
     data class RenameCategory(val serverId: String, val categoryId: String, val current: String) : ChanDialog
     data class RenameChannel(val serverId: String, val channelId: String, val current: String) : ChanDialog
-    data class DeleteChannel(val serverId: String, val channelId: String, val name: String) : ChanDialog
     data class Visibilidade(val serverId: String, val channelId: String, val name: String) : ChanDialog
 }
 
@@ -2493,7 +2434,7 @@ private class ChannelMenu(
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,
     val onOpenVisibility: (channelId: String, name: String) -> Unit,
-    val onDelete: (channelId: String, name: String) -> Unit,
+    val onDelete: (channelId: String) -> Unit,
     val onToggleMute: (channelId: String) -> Unit,
     val botAtende: (ChannelDto) -> Boolean,
     val onToggleBot: (channelId: String, ligar: Boolean) -> Unit,

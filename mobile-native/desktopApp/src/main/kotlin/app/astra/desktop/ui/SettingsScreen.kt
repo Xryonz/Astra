@@ -807,7 +807,7 @@ private fun AtividadePreview(ligado: Boolean) {
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            if (ligado) "é isto que aparece pra quem te vê." else "ninguém vê nada além do seu nome.",
+            if (ligado) "é isto que aparece para quem vê você." else "ninguém vê nada além do seu nome.",
             style = Tipo.apoio,
         )
     }
@@ -2200,7 +2200,7 @@ private fun SessionsSection() {
     }
 
     Text(
-        "cada linha e um login ativo na sua conta. não reconhece algum? derruba.",
+        "cada linha é um acesso ativo na sua conta. não reconhece algum? derrube.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -2893,7 +2893,7 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
     PainelDePermissoes(onTestarAviso = onTestarAviso, modifier = Modifier.widthIn(max = 560.dp))
     Spacer(Modifier.height(20.dp))
     InfoNote(
-        "Por que não aparece a janelinha de \"permitir\"",
+        "Por que não aparece a caixa de \"permitir\"",
         "No navegador, um site pede permissão e você responde num pop-up. Programa " +
             "instalado no Windows não tem esse pedido: quem manda é um interruptor do " +
             "próprio sistema, o mesmo para todos os programas de área de trabalho.\n\n" +

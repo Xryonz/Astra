@@ -60,16 +60,14 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmail" text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmailCode" text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmailExpiresAt" timestamp (3);
 
--- ===== Poll + MessageEdit =====
+-- ===== Poll =====
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "poll" text;
 
-CREATE TABLE IF NOT EXISTS "MessageEdit" (
-  "id" text PRIMARY KEY NOT NULL,
-  "messageId" text NOT NULL REFERENCES "Message"("id") ON DELETE CASCADE,
-  "content" text NOT NULL,
-  "editedAt" timestamp (3) NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS "MessageEdit_messageId_idx" ON "MessageEdit" USING btree ("messageId", "editedAt" DESC);
+-- ===== MessageEdit: removida de propósito =====
+-- O histórico de edições saiu do produto. Guardar o que a pessoa apagou trabalha
+-- contra ela, então a tabela é derrubada com as linhas que já existiam. Esta
+-- linha fica: banco antigo que ainda tenha a tabela se limpa ao subir.
+DROP TABLE IF EXISTS "MessageEdit";
 
 -- ===== Read receipts (ChannelRead + DM lastRead) =====
 CREATE TABLE IF NOT EXISTS "ChannelRead" (

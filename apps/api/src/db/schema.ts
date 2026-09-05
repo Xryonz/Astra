@@ -335,15 +335,6 @@ export const serverNotifPrefs = pgTable('ServerNotifPref', {
   uniqUserServer: uniqueIndex('ServerNotifPref_userId_serverId_key').on(t.userId, t.serverId),
 }))
 
-export const messageEdits = pgTable('MessageEdit', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  messageId: text('messageId').notNull().references(() => messages.id, { onDelete: 'cascade' }),
-  content:   text('content').notNull(),
-  editedAt:  timestamp('editedAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byMessage: index('MessageEdit_messageId_idx').on(t.messageId, t.editedAt.desc()),
-}))
-
 export const messageReactions = pgTable('MessageReaction', {
   id:        text('id').primaryKey().$defaultFn(createId),
   messageId: text('messageId').notNull().references(() => messages.id, { onDelete: 'cascade' }),

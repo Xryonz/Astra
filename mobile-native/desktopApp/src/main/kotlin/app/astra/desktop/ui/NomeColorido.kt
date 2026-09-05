@@ -28,9 +28,9 @@ import app.astra.desktop.ui.theme.Text
 import kotlin.math.max
 
 private const val ABERTURA_MS = 260
-private const val GIRO_DO_ARCO_MS = 6000
-private const val VARREDURA_MS = 2800
-private const val PULSO_MS = 2400
+private const val GIRO_DO_ARCO_MS = 4000
+private const val VARREDURA_MS = 1900
+private const val PULSO_MS = 1600
 private const val PARADAS_DO_ARCO = 7
 private const val SATURACAO_MINIMA = 0.42f
 private const val CLARIDADE_MINIMA = 0.72f

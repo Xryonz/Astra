@@ -1,5 +1,6 @@
 import type { Server as SocketServer } from 'socket.io'
 import { salasQueMeVeem } from './quemMeVe'
+import { logger } from './logger'
 
 let io: SocketServer | null = null
 
@@ -25,14 +26,18 @@ export async function avisarQuemMeVe(
 ): Promise<void> {
   const servidor = io
   if (!servidor) return
-  const salas = await salasQueMeVeem(userId)
-  if (!salas || !salas.length) {
-    servidor.emit(evento, dados)
-    return
+  try {
+    const salas = await salasQueMeVeem(userId)
+    if (!salas || !salas.length) {
+      servidor.emit(evento, dados)
+      return
+    }
+    let alvo = servidor.to(salas[0])
+    for (const sala of salas.slice(1)) alvo = alvo.to(sala)
+    alvo.emit(evento, dados)
+  } catch (e) {
+    logger.error('Realtime', `Falha ao avisar ${evento}`, e as Error)
   }
-  let alvo = servidor.to(salas[0])
-  for (const sala of salas.slice(1)) alvo = alvo.to(sala)
-  alvo.emit(evento, dados)
 }
 
 export function profileChanged(userId: string, publico?: PerfilPublico): Promise<void> {

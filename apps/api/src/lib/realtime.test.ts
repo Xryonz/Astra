@@ -125,3 +125,23 @@ describe('sem io (boot, testes, worker)', () => {
     await expect(presenceChanged('u1', 'ONLINE')).resolves.toBeUndefined()
   })
 })
+
+describe('o aviso nunca derruba quem chamou', () => {
+  it('emissao que estoura vira log, nao promessa rejeitada', async () => {
+    const f = fakeIo()
+    f.emit.mockImplementation(() => { throw new Error('adaptador caiu') })
+    attachRealtime(f.io)
+    quemMeVe.mockReset()
+    quemMeVe.mockResolvedValue(['user:u1', 'server:s1'])
+    await expect(presenceChanged('u1', 'ONLINE')).resolves.toBeUndefined()
+  })
+
+  it('o plano B tambem nao pode rejeitar', async () => {
+    const f = fakeIo()
+    f.global.mockImplementation(() => { throw new Error('adaptador caiu') })
+    attachRealtime(f.io)
+    quemMeVe.mockReset()
+    quemMeVe.mockResolvedValue(null)
+    await expect(profileChanged('u1')).resolves.toBeUndefined()
+  })
+})

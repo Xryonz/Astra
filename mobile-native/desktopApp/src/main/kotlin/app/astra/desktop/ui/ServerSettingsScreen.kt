@@ -219,14 +219,15 @@ fun ServerSettingsScreen(
                         Box(
                             Modifier
                                 .size(30.dp)
+                                .clickScale(hov, formaDoFoco = FormaDeBotao)
                                 .clip(FormaDeBotao)
                                 .background(if (h) Obsidian.hover else Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, FormaDeBotao)
                                 .hoverable(hov)
-                                .clickable(onClick = onClose),
+                                .clickable(interactionSource = hov, indication = null, onClick = onClose),
                             contentAlignment = Alignment.Center,
                         ) {
-                            LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp)
+                            LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "fechar")
                         }
                     }
                     Spacer(Modifier.height(20.dp))

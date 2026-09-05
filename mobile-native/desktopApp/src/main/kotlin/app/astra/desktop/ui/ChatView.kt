@@ -548,7 +548,7 @@ fun ChatView(
                             Spacer(Modifier.width(6.dp))
                             Text(sizeLabel(pf.file.length()), style = Tipo.nota)
                             Spacer(Modifier.width(6.dp))
-                            HoverGlyph(Lucide.X) { vm.removePending(i) }
+                            HoverGlyph(Lucide.X, "remover anexo") { vm.removePending(i) }
                         }
                     }
                 }
@@ -581,7 +581,7 @@ fun ChatView(
                             style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                         )
                         Spacer(Modifier.weight(1f))
-                        HoverGlyph(Lucide.X) { vm.cancelReply() }
+                        HoverGlyph(Lucide.X, "cancelar resposta") { vm.cancelReply() }
                     }
                     Spacer(Modifier.height(6.dp))
                 }
@@ -1581,15 +1581,20 @@ private fun ActionPill(
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .padding(2.dp),
     ) {
-        PillButton(Lucide.Reply, onReply)
-        if (canReact) PillButton(Lucide.SmilePlus, onReact)
-        if (canEdit) PillButton(Lucide.Pencil, onEdit)
-        if (canDelete) PillButton(Lucide.Trash2, onDelete, danger = true)
+        PillButton(Lucide.Reply, "responder", onReply)
+        if (canReact) PillButton(Lucide.SmilePlus, "reagir", onReact)
+        if (canEdit) PillButton(Lucide.Pencil, "editar", onEdit)
+        if (canDelete) PillButton(Lucide.Trash2, "excluir", onDelete, danger = true)
     }
 }
 
 @Composable
-private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean = false) {
+private fun PillButton(
+    icon: ImageVector,
+    rotulo: String,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
@@ -1608,7 +1613,12 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = if (danger && hov) Obsidian.danger else Obsidian.text2, size = 15.dp)
+        LIcon(
+            icon,
+            tint = if (danger && hov) Obsidian.danger else Obsidian.text2,
+            size = 15.dp,
+            rotulo = rotulo,
+        )
     }
 }
 
@@ -1625,7 +1635,10 @@ internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<Emoji
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             QUICK_EMOJIS.forEach { e -> EmojiCell(e) { onPick(e) } }
-            EmojiCell(if (expanded) Lucide.Minus else Lucide.Plus) { expanded = !expanded }
+            EmojiCell(
+                if (expanded) Lucide.Minus else Lucide.Plus,
+                if (expanded) "menos emojis" else "mais emojis",
+            ) { expanded = !expanded }
         }
         if (expanded) {
             Spacer(Modifier.height(4.dp))
@@ -1652,36 +1665,38 @@ private fun EmojiCell(glyph: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmojiCell(icon: ImageVector, onClick: () -> Unit) {
+private fun EmojiCell(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
         modifier = Modifier
             .size(30.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = Obsidian.text2, size = 16.dp)
+        LIcon(icon, tint = Obsidian.text2, size = 16.dp, rotulo = rotulo)
     }
 }
 
 @Composable
-private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
+private fun HoverGlyph(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
         modifier = Modifier
-            .size(18.dp)
+            .size(24.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(4.dp))
             .clip(RoundedCornerShape(4.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = Obsidian.text3, size = 12.dp)
+        LIcon(icon, tint = Obsidian.text3, size = 12.dp, rotulo = rotulo)
     }
 }
 

@@ -485,6 +485,6 @@ private fun BannerClose(onClick: () -> Unit) {
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(Lucide.X, tint = Obsidian.text3, size = 14.dp)
+        LIcon(Lucide.X, tint = Obsidian.text3, size = 14.dp, rotulo = "dispensar")
     }
 }

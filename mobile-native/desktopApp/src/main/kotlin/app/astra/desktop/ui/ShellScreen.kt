@@ -3004,13 +3004,14 @@ private fun BotaoDeLigar(icone: ImageVector, titulo: String, onClick: () -> Unit
     Box(
         Modifier
             .size(28.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (hov) Obsidian.accentDim else Color.Transparent, RoundedCornerShape(8.dp))
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icone, tint = if (hov) Obsidian.accent else Obsidian.text3, size = 15.dp)
+        LIcon(icone, tint = if (hov) Obsidian.accent else Obsidian.text3, size = 15.dp, rotulo = titulo)
     }
 }
 

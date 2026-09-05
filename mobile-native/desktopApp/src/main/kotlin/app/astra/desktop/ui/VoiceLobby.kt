@@ -129,6 +129,6 @@ private fun JoinCallButton(onJoin: () -> Unit) {
             .clickable(interactionSource = interaction, indication = null, onClick = onJoin),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(Lucide.Phone, tint = Obsidian.textInv, size = 25.dp)
+        LIcon(Lucide.Phone, tint = Obsidian.textInv, size = 25.dp, rotulo = "entrar na chamada")
     }
 }

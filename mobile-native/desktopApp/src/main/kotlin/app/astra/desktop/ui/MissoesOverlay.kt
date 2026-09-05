@@ -357,7 +357,12 @@ private fun BotaoFechar(onClose: () -> Unit) {
             .clickable(interactionSource = interaction, indication = null, onClick = onClose),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(Lucide.X, tint = if (hovered) Obsidian.text1 else Obsidian.text3, size = 14.dp)
+        LIcon(
+            Lucide.X,
+            tint = if (hovered) Obsidian.text1 else Obsidian.text3,
+            size = 14.dp,
+            rotulo = "fechar",
+        )
     }
 }
 

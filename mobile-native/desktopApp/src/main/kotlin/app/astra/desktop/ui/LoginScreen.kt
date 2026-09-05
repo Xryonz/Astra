@@ -461,12 +461,26 @@ private fun EditorialField(
                     Box(Modifier.weight(1f)) { inner() }
                     if (onToggleReveal != null) {
                         Spacer(Modifier.width(8.dp))
-                        LIcon(
-                            if (reveal) Lucide.EyeOff else Lucide.Eye,
-                            tint = Obsidian.text3,
-                            size = 16.dp,
-                            modifier = Modifier.clickable(onClick = onToggleReveal),
-                        )
+                        val olho = remember { MutableInteractionSource() }
+                        Box(
+                            Modifier
+                                .size(24.dp)
+                                .clickScale(olho, formaDoFoco = RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable(
+                                    interactionSource = olho,
+                                    indication = null,
+                                    onClick = onToggleReveal,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LIcon(
+                                if (reveal) Lucide.EyeOff else Lucide.Eye,
+                                tint = Obsidian.text3,
+                                size = 16.dp,
+                                rotulo = if (reveal) "ocultar a senha" else "mostrar a senha",
+                            )
+                        }
                     }
                 }
             },

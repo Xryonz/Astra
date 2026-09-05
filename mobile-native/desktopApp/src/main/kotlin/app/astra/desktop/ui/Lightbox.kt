@@ -147,7 +147,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                     clipboard.setText(AnnotatedString(abs))
                     copied = true
                 }
-                LightboxAction(Lucide.X, onClose)
+                LightboxAction(Lucide.X, "fechar", onClose)
             }
         }
     }
@@ -168,16 +168,18 @@ private fun LightboxAction(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LightboxAction(icon: ImageVector, onClick: () -> Unit) {
+private fun LightboxAction(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
     Box(
         Modifier
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(Obsidian.raised.copy(alpha = 0.85f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = Obsidian.text2, size = 14.dp)
+        LIcon(icon, tint = Obsidian.text2, size = 14.dp, rotulo = rotulo)
     }
 }

@@ -50,7 +50,6 @@ import com.composables.icons.lucide.Video
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,9 +164,12 @@ import java.awt.Desktop
 import java.awt.datatransfer.DataFlavor
 import java.io.File
 import java.net.URI
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -183,12 +185,53 @@ private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "�
 private fun hhmm(iso: String?): String =
     iso?.let { runCatching { HHMM.format(Instant.parse(it)) }.getOrNull() } ?: ""
 
-private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
-    if (prev == null || prev.authorId != cur.authorId) return false
-    val a = runCatching { Instant.parse(prev.createdAt) }.getOrNull() ?: return false
-    val b = runCatching { Instant.parse(cur.createdAt) }.getOrNull() ?: return false
-    return java.time.Duration.between(a, b).toMinutes() < 5
+private val DIA_DO_MES = DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))
+private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
+
+private const val JANELA_DO_GRUPO_MIN = 5L
+
+private sealed interface LinhaDoChat {
+    data class Dia(val chave: String, val rotulo: String) : LinhaDoChat
+    data class Fala(val msg: ChatMessage, val agrupada: Boolean) : LinhaDoChat
 }
+
+private fun rotuloDoDia(dia: LocalDate, hoje: LocalDate): String = when (dia) {
+    hoje -> "hoje"
+    hoje.minusDays(1) -> "ontem"
+    else -> (if (dia.year == hoje.year) DIA_DO_MES else DIA_COM_ANO).format(dia)
+}
+
+private fun montarLinhas(mensagens: List<ChatMessage>): List<LinhaDoChat> {
+    if (mensagens.isEmpty()) return emptyList()
+    val zona = ZoneId.systemDefault()
+    val hoje = LocalDate.now(zona)
+    val linhas = ArrayList<LinhaDoChat>(mensagens.size + 4)
+    var diaAnterior: LocalDate? = null
+    var instanteAnterior: Instant? = null
+    var autorAnterior: String? = null
+
+    for (m in mensagens) {
+        val instante = runCatching { Instant.parse(m.createdAt) }.getOrNull()
+        val dia = instante?.atZone(zona)?.toLocalDate()
+        if (dia != null && dia != diaAnterior) {
+            linhas += LinhaDoChat.Dia(dia.toString(), rotuloDoDia(dia, hoje))
+            diaAnterior = dia
+            autorAnterior = null
+            instanteAnterior = null
+        }
+        val agrupada = m.replyTo == null &&
+            autorAnterior == m.authorId &&
+            instante != null && instanteAnterior != null &&
+            Duration.between(instanteAnterior, instante).toMinutes() < JANELA_DO_GRUPO_MIN
+        linhas += LinhaDoChat.Fala(m, agrupada)
+        autorAnterior = m.authorId
+        if (instante != null) instanteAnterior = instante
+    }
+    return linhas
+}
+
+private fun ondeEsta(linhas: List<LinhaDoChat>, messageId: String): Int =
+    linhas.indexOfFirst { it is LinhaDoChat.Fala && it.msg.id == messageId }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -244,6 +287,8 @@ fun ChatView(
         }?.id
     }
 
+    val linhas = remember(state.messages) { montarLinhas(state.messages) }
+
     val noPresente by remember {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -258,7 +303,7 @@ fun ChatView(
         prevCount = state.messages.size
         if (!chegouMensagem) return@LaunchedEffect
         val minha = state.messages.lastOrNull()?.authorId == vm.myId
-        if (noPresente || minha) listState.scrollToItem(state.messages.lastIndex)
+        if ((noPresente || minha) && linhas.isNotEmpty()) listState.scrollToItem(linhas.lastIndex)
     }
 
     val animatedIds = remember(target.id) { mutableSetOf<String>() }
@@ -271,7 +316,7 @@ fun ChatView(
     }
 
     fun jumpTo(id: String) {
-        val idx = state.messages.indexOfFirst { it.id == id }
+        val idx = ondeEsta(linhas, id)
         if (idx < 0) return
         scope.launch {
             listState.animateScrollToItem(idx)
@@ -344,43 +389,46 @@ fun ChatView(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
-                    itemsIndexed(
-                        state.messages,
-                        key = { _, m -> m.id },
-                        contentType = { _, m ->
-                            when {
-                                m.poll != null -> "enquete"
-                                m.attachments.isNotEmpty() -> "anexo"
-                                else -> "texto"
-                            }
-                        },
-                    ) { i, msg ->
-                        val enterAnim = remember(msg.id) {
-                            val fresh = animatedIds.add(msg.id)
-                            baselineDone && fresh
+                    for (linha in linhas) when (linha) {
+                        is LinhaDoChat.Dia -> stickyHeader(key = "dia:${linha.chave}") {
+                            PilulaDeDia(linha.rotulo)
                         }
-                        if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
-                        MessageRow(
-                            msg = msg,
-                            grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
-                            enterAnim = enterAnim,
-                            isChannel = isChannel,
-                            highlighted = msg.id == highlightId,
-                            editing = msg.id == editingId,
-                            myId = vm.myId,
-                            onReply = { vm.startReply(msg) },
-                            onReact = { emoji -> vm.react(msg.id, emoji) },
-                            onStartEdit = { editingId = msg.id },
-                            onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
-                            onCancelEdit = { editingId = null },
-                            onDelete = { vm.delete(msg.id) },
-                            onPin = { vm.pin(msg.id) },
-                            onVote = { opcao -> vm.vote(msg.id, opcao) },
-                            onClosePoll = { vm.closePoll(msg.id) },
-                            onRetry = { vm.retry(msg) },
-                            onJumpTo = { id -> jumpTo(id) },
-                            onStartDm = onStartDm,
-                        )
+                        is LinhaDoChat.Fala -> item(
+                            key = linha.msg.id,
+                            contentType = when {
+                                linha.msg.poll != null -> "enquete"
+                                linha.msg.attachments.isNotEmpty() -> "anexo"
+                                else -> "texto"
+                            },
+                        ) {
+                            val msg = linha.msg
+                            val enterAnim = remember(msg.id) {
+                                val fresh = animatedIds.add(msg.id)
+                                baselineDone && fresh
+                            }
+                            if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
+                            MessageRow(
+                                msg = msg,
+                                grouped = linha.agrupada,
+                                enterAnim = enterAnim,
+                                isChannel = isChannel,
+                                highlighted = msg.id == highlightId,
+                                editing = msg.id == editingId,
+                                myId = vm.myId,
+                                onReply = { vm.startReply(msg) },
+                                onReact = { emoji -> vm.react(msg.id, emoji) },
+                                onStartEdit = { editingId = msg.id },
+                                onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
+                                onCancelEdit = { editingId = null },
+                                onDelete = { vm.delete(msg.id) },
+                                onPin = { vm.pin(msg.id) },
+                                onVote = { opcao -> vm.vote(msg.id, opcao) },
+                                onClosePoll = { vm.closePoll(msg.id) },
+                                onRetry = { vm.retry(msg) },
+                                onJumpTo = { id -> jumpTo(id) },
+                                onStartDm = onStartDm,
+                            )
+                        }
                     }
                 }
             }
@@ -389,7 +437,7 @@ fun ChatView(
                 visivel = !noPresente && state.messages.isNotEmpty(),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 12.dp),
             ) {
-                scope.launch { listState.animateScrollToItem(state.messages.lastIndex) }
+                scope.launch { if (linhas.isNotEmpty()) listState.animateScrollToItem(linhas.lastIndex) }
             }
         }
 
@@ -1624,6 +1672,24 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+    }
+}
+
+@Composable
+private fun PilulaDeDia(rotulo: String) {
+    Box(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            rotulo,
+            style = Tipo.nota,
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim.copy(alpha = 0.6f), RoundedCornerShape(999.dp))
+                .padding(horizontal = 10.dp, vertical = 3.dp),
+        )
     }
 }
 

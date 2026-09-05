@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -92,7 +93,7 @@ data class DadosDoCartao(
     val criadoEm: String? = null,
     val atividade: String? = null,
     val atividadeDesde: Long = 0L,
-    val corDoNome: Color? = null,
+    val corDoNome: CorDoNome? = null,
 )
 
 fun ProfileUserDto.paraCartao() = DadosDoCartao(
@@ -460,7 +461,7 @@ private fun NomeELinha(
             Text(
                 dados.nome,
                 style = TextStyle(
-                    color = dados.corDoNome ?: Obsidian.text1,
+                    brush = dados.corDoNome?.pincel ?: SolidColor(Obsidian.text1),
                     fontSize = tamanhoNome.sp,
                     fontWeight = FontWeight.Medium,
                     fontFamily = profileFontFamily(dados.fonte),

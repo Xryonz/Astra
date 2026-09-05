@@ -3297,7 +3297,8 @@ private fun MemberRow(
 ) {
     val clipboard = LocalClipboardManager.current
     val name = m.user.displayName ?: m.user.username
-    val nameColor = if (online) (corDoMembro(m) ?: Obsidian.text2) else Obsidian.text3.copy(alpha = 0.65f)
+    val pincelDoNome = if (online) (corDoMembro(m)?.pincel ?: SolidColor(Obsidian.text2))
+    else SolidColor(Obsidian.text3.copy(alpha = 0.65f))
     val avatarAlpha = if (online) 1f else 0.4f
     CascadeIn(cascadeIndex, cascadeTotal) {
         var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
@@ -3333,7 +3334,7 @@ private fun MemberRow(
                         Text(
                             text = name,
                             style = TextStyle(
-                                color = nameColor, fontSize = 13.sp,
+                                brush = pincelDoNome, fontSize = 13.sp,
                                 fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
                             ),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -3368,10 +3369,10 @@ internal fun memberRoleColor(hex: String?): Color? {
     return Color(0xFF000000 or v)
 }
 
-internal fun corDoMembro(m: ServerMemberDto): Color? =
-    memberRoleColor(m.topColor) ?: memberRoleColor(m.nameColor)
+internal fun corDoMembro(m: ServerMemberDto): CorDoNome? =
+    lerCorDoNome(m.topColor) ?: lerCorDoNome(m.nameColor)
 
-internal fun coresDeCargo(membros: List<ServerMemberDto>): Map<String, Color> =
+internal fun coresDeCargo(membros: List<ServerMemberDto>): Map<String, CorDoNome> =
     membros.mapNotNull { m -> corDoMembro(m)?.let { m.userId to it } }.toMap()
 
 @Composable

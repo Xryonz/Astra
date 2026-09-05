@@ -201,7 +201,7 @@ val LocalReduceMotion = compositionLocalOf { false }
 data class MinhaConta(val id: String? = null, val usuario: String? = null)
 val LocalMinhaConta = staticCompositionLocalOf { MinhaConta() }
 
-val LocalCoresDeCargo = staticCompositionLocalOf<Map<String, Color>> { emptyMap() }
+val LocalCoresDeCargo = staticCompositionLocalOf<Map<String, CorDoNome>> { emptyMap() }
 
 class MencaoClicavel {
     var abrir: (usuario: String) -> Unit = {}

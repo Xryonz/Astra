@@ -24,13 +24,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.net.mensagemDaApi
+import app.astra.mobile.core.network.dto.PostWishRequest
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -52,7 +59,12 @@ fun DesejosPanel(onClose: () -> Unit) {
     var carregando by remember { mutableStateOf(true) }
     var acabou by remember { mutableStateOf(false) }
     var erro by remember { mutableStateOf(false) }
+    var rascunho by remember { mutableStateOf("") }
+    var enviando by remember { mutableStateOf(false) }
+    var erroAoEnviar by remember { mutableStateOf<String?>(null) }
     val lista = rememberLazyListState()
+    val escopo = rememberCoroutineScope()
+    val json = remember { GlobalContext.get().get<Json>() }
 
     suspend fun buscar(proximo: String?) {
         val r = runCatching { api.listar(limit = 20, cursor = proximo).data }.getOrNull()
@@ -107,8 +119,7 @@ fun DesejosPanel(onClose: () -> Unit) {
             }
             Box(Modifier.padding(horizontal = 14.dp)) {
                 Text(
-                    "o que as pessoas gostariam que o Astra tivesse. para deixar o seu, " +
-                        "peça à Sparxie: /sparxie desejo …",
+                    "o que as pessoas gostariam que o Astra tivesse.",
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
                 )
             }
@@ -128,8 +139,90 @@ fun DesejosPanel(onClose: () -> Unit) {
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(12.dp))
+            CampoDeDesejo(
+                texto = rascunho,
+                enviando = enviando,
+                aoDigitar = { rascunho = it; erroAoEnviar = null },
+                aoEnviar = {
+                    val desejo = rascunho.trim()
+                    enviando = true
+                    erroAoEnviar = null
+                    escopo.launch {
+                        val r = runCatching { api.publicar(PostWishRequest(desejo)) }
+                        enviando = false
+                        if (r.isSuccess) {
+                            rascunho = ""
+                            carregando = true
+                            buscar(null)
+                            if (itens.isNotEmpty()) lista.scrollToItem(0)
+                        } else {
+                            erroAoEnviar = mensagemDaApi(
+                                json,
+                                r.exceptionOrNull(),
+                                "Não foi possível lançar o desejo",
+                            )
+                        }
+                    }
+                },
+            )
+            erroAoEnviar?.let {
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.padding(horizontal = 14.dp)) { Text(it, style = Tipo.erro) }
+            }
+            Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+private const val DESEJO_MINIMO = 4
+private const val DESEJO_MAXIMO = 500
+
+@Composable
+private fun CampoDeDesejo(
+    texto: String,
+    enviando: Boolean,
+    aoDigitar: (String) -> Unit,
+    aoEnviar: () -> Unit,
+) {
+    val podeEnviar = texto.trim().length >= DESEJO_MINIMO && !enviando
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        BasicTextField(
+            value = texto,
+            onValueChange = { aoDigitar(it.take(DESEJO_MAXIMO)) },
+            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 18.sp),
+            cursorBrush = SolidColor(Obsidian.accent),
+            enabled = !enviando,
+            decorationBox = { interno ->
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Obsidian.base)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                ) {
+                    if (texto.isEmpty()) {
+                        Text(
+                            "deixe o seu desejo…",
+                            style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
+                        )
+                    }
+                    interno()
+                }
+            },
+            modifier = Modifier.weight(1f).heightIn(max = 96.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        DialogButton(
+            label = if (enviando) "lançando…" else "lançar",
+            accent = true,
+            habilitado = podeEnviar,
+            onClick = aoEnviar,
+        )
     }
 }
 

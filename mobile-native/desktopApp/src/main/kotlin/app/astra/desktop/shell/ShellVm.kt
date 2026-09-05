@@ -10,7 +10,7 @@ import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
-import app.astra.mobile.core.network.dto.ApiError
+import app.astra.desktop.net.mensagemDaApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.BanRequest
@@ -974,12 +974,8 @@ class ShellVm(
         }
     }
 
-    private fun apiMessage(t: Throwable?, fallback: String): String {
-        val http = t as? HttpException ?: return "$fallback — sem conexão"
-        val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
-            ?.let { runCatching { json.decodeFromString<ApiError>(it) }.getOrNull() }
-        return parsed?.error?.takeIf { it.isNotBlank() } ?: "$fallback (erro ${http.code()})"
-    }
+    private fun apiMessage(t: Throwable?, fallback: String): String =
+        mensagemDaApi(json, t, fallback)
 
     private var announcedVoice: String? = null
 

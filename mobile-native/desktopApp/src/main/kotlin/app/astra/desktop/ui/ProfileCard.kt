@@ -40,7 +40,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -458,16 +457,16 @@ private fun NomeELinha(
 ) {
     if (so != Parte.ARROBA) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                dados.nome,
-                style = TextStyle(
-                    brush = dados.corDoNome?.pincel ?: SolidColor(Obsidian.text1),
-                    fontSize = tamanhoNome.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = profileFontFamily(dados.fonte),
-                ),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            NomeColorido(
+                texto = dados.nome,
+                cor = dados.corDoNome,
+                padrao = Obsidian.text1,
+                fontSize = tamanhoNome.sp,
                 modifier = Modifier.weight(1f, fill = false),
+                fontWeight = FontWeight.Medium,
+                fontFamily = profileFontFamily(dados.fonte),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.width(6.dp))
             StatusDot(

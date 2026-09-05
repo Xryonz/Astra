@@ -3297,8 +3297,8 @@ private fun MemberRow(
 ) {
     val clipboard = LocalClipboardManager.current
     val name = m.user.displayName ?: m.user.username
-    val pincelDoNome = if (online) (corDoMembro(m)?.pincel ?: SolidColor(Obsidian.text2))
-    else SolidColor(Obsidian.text3.copy(alpha = 0.65f))
+    val corDoNome = if (online) corDoMembro(m) else null
+    val padraoDoNome = if (online) Obsidian.text2 else Obsidian.text3.copy(alpha = 0.65f)
     val avatarAlpha = if (online) 1f else 0.4f
     CascadeIn(cascadeIndex, cascadeTotal) {
         var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
@@ -3331,13 +3331,14 @@ private fun MemberRow(
                     }
                     Spacer(Modifier.width(9.dp))
                     Column {
-                        Text(
-                            text = name,
-                            style = TextStyle(
-                                brush = pincelDoNome, fontSize = 13.sp,
-                                fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
-                            ),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        NomeColorido(
+                            texto = name,
+                            cor = corDoNome,
+                            padrao = padraoDoNome,
+                            fontSize = 13.sp,
+                            fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (atividade != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {

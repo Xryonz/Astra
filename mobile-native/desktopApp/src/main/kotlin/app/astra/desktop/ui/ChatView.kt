@@ -911,14 +911,13 @@ private fun MessageRow(
                         ReplyRef(ref, onJumpTo)
                     }
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = msg.authorName,
-                            style = TextStyle(
-                                brush = LocalCoresDeCargo.current[msg.authorId]?.pincel
-                                    ?: SolidColor(Obsidian.text1),
-                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                fontFamily = msg.authorFont?.let { profileFontFamily(it) },
-                            ),
+                        NomeColorido(
+                            texto = msg.authorName,
+                            cor = LocalCoresDeCargo.current[msg.authorId],
+                            padrao = Obsidian.text1,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(hhmm(msg.createdAt), style = Tipo.nota)
@@ -1517,14 +1516,13 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     ) {
         LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)
         Spacer(Modifier.width(5.dp))
-        Text(
-            ref.authorName ?: "alguem",
-            style = TextStyle(
-                brush = ref.authorId?.let { LocalCoresDeCargo.current[it]?.pincel }
-                    ?: SolidColor(Obsidian.accent),
-                fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                fontFamily = ref.authorFont?.let { profileFontFamily(it) },
-            ),
+        NomeColorido(
+            texto = ref.authorName ?: "alguem",
+            cor = ref.authorId?.let { LocalCoresDeCargo.current[it] },
+            padrao = Obsidian.accent,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = ref.authorFont?.let { profileFontFamily(it) },
         )
         Spacer(Modifier.width(6.dp))
         Text(

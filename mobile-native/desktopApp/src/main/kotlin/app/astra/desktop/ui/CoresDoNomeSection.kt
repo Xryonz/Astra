@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,6 +57,13 @@ private val PREDEFINIDAS = listOf(
     "#c9a96e", "#9b7ac4", "#6aaeca", "#ca7a9b", "#6ec99b",
     "#e07a7a", "#7ac4c4", "#c4c47a", "#c47aaa", "#7ac4a0",
 )
+
+private enum class Movimento(val rotulo: String) {
+    NENHUM("nenhum"),
+    ARCO_IRIS("arco-íris"),
+    VARREDURA("varredura"),
+    PULSO("pulso"),
+}
 
 @Composable
 internal fun CoresDoNomeSection(me: ProfileUserDto?) {
@@ -116,6 +122,7 @@ private fun LinhaDeConstelacao(
     var erro by remember(servidor.id) { mutableStateOf<String?>(null) }
     var rascunho by remember(servidor.id) { mutableStateOf<String?>(null) }
     var segundaCor by remember(servidor.id) { mutableStateOf<String?>(null) }
+    var movimento by remember(servidor.id) { mutableStateOf(Movimento.NENHUM) }
 
     LaunchedEffect(servidor.id) {
         val vista = runCatching { api.myPerms(servidor.id).data?.nameColor }.getOrNull()
@@ -126,12 +133,26 @@ private fun LinhaDeConstelacao(
     LaunchedEffect(salva) {
         if (rascunho != null || salva == null) return@LaunchedEffect
         rascunho = emHex(salva.solida)
-        segundaCor = (salva as? CorDoNome.Degrade)?.let { emHex(it.fim) }
+        segundaCor = when (salva) {
+            is CorDoNome.Degrade -> emHex(salva.fim)
+            is CorDoNome.Animada.Varredura -> emHex(salva.fim)
+            else -> null
+        }
+        movimento = when (salva) {
+            is CorDoNome.Animada.ArcoIris -> Movimento.ARCO_IRIS
+            is CorDoNome.Animada.Varredura -> Movimento.VARREDURA
+            is CorDoNome.Animada.Pulso -> Movimento.PULSO
+            else -> Movimento.NENHUM
+        }
     }
 
     val escolhida = rascunho
+    val faltaSegunda = movimento == Movimento.VARREDURA && segundaCor == null
     val montada = when {
-        escolhida == null -> null
+        escolhida == null || faltaSegunda -> null
+        movimento == Movimento.ARCO_IRIS -> "anim:arcoiris:$escolhida"
+        movimento == Movimento.PULSO -> "anim:pulso:$escolhida"
+        movimento == Movimento.VARREDURA -> "anim:varredura:$escolhida:$segundaCor"
         segundaCor != null -> "gradient:0:$escolhida:$segundaCor"
         else -> escolhida
     }
@@ -164,14 +185,14 @@ private fun LinhaDeConstelacao(
                     style = Tipo.corpo,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    me?.displayName ?: me?.username ?: "seu nome",
-                    style = TextStyle(
-                        brush = lerCorDoNome(corAtual)?.pincel ?: SolidColor(Obsidian.text3),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                NomeColorido(
+                    texto = me?.displayName ?: me?.username ?: "seu nome",
+                    cor = lerCorDoNome(corAtual),
+                    padrao = Obsidian.text3,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(10.dp))
@@ -205,16 +226,38 @@ private fun LinhaDeConstelacao(
                     }
                 }
 
+                Spacer(Modifier.height(12.dp))
+                FieldLabel("movimento, ao passar o cursor")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Movimento.entries.forEach { m ->
+                        PastilhaDeMovimento(m.rotulo, selecionada = movimento == m) {
+                            movimento = m; erro = null
+                        }
+                    }
+                }
+
                 if (amostra != null) {
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        me?.displayName ?: me?.username ?: "seu nome",
-                        style = TextStyle(
-                            brush = amostra.pincel,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
+                    NomeColorido(
+                        texto = me?.displayName ?: me?.username ?: "seu nome",
+                        cor = amostra,
+                        padrao = Obsidian.text1,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
+                    if (movimento != Movimento.NENHUM) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "o movimento só acontece sob o cursor — em repouso, e no celular, o nome fica na cor parada.",
+                            style = Tipo.apoio,
+                            modifier = Modifier.widthIn(max = 380.dp),
+                        )
+                    }
+                }
+
+                if (faltaSegunda) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("a varredura precisa de uma segunda cor.", style = Tipo.apoio)
                 }
 
                 erro?.let {
@@ -233,6 +276,7 @@ private fun LinhaDeConstelacao(
                                 aoSalvar(r.getOrNull()?.nameColor)
                                 rascunho = null
                                 segundaCor = null
+                                movimento = Movimento.NENHUM
                             } else {
                                 erro = "Não foi possível aplicar essa cor"
                             }
@@ -247,6 +291,7 @@ private fun LinhaDeConstelacao(
                                 aoSalvar(null)
                                 rascunho = null
                                 segundaCor = null
+                                movimento = Movimento.NENHUM
                             } else {
                                 erro = "Não foi possível limpar a cor"
                             }
@@ -255,6 +300,40 @@ private fun LinhaDeConstelacao(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PastilhaDeMovimento(rotulo: String, selecionada: Boolean, aoTocar: () -> Unit) {
+    val interacao = remember { MutableInteractionSource() }
+    val hover by interacao.collectIsHoveredAsState()
+    Box(
+        Modifier
+            .clickScale(interacao, formaDoFoco = RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                when {
+                    selecionada -> Obsidian.active
+                    hover -> Obsidian.hover
+                    else -> Color.Transparent
+                },
+            )
+            .border(
+                1.dp,
+                if (selecionada) Obsidian.accent else Obsidian.borderDim,
+                RoundedCornerShape(8.dp),
+            )
+            .hoverable(interacao)
+            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        Text(
+            rotulo,
+            style = TextStyle(
+                color = if (selecionada) Obsidian.text1 else Obsidian.text3,
+                fontSize = 11.sp,
+            ),
+        )
     }
 }
 

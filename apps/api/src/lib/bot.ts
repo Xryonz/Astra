@@ -8,6 +8,13 @@ import { env } from './env'
 import { logger } from './logger'
 import { profileChanged } from './realtime'
 import {
+  DESEJOS_NA_JANELA,
+  DESEJO_MAXIMO,
+  DESEJO_MINIMO,
+  limparDesejo,
+  podeDesejar,
+} from './desejo'
+import {
   pushTurn, getHistory, countTurns, getSummary, setSummary, clearMemory,
   consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
 } from './botMemory'
@@ -536,11 +543,17 @@ export async function handleBotCommand(
       const escolha = PROGRAMAS_DE_FDS[Math.floor(Math.random() * PROGRAMAS_DE_FDS.length)]
       return `✧ Programa de fim de semana sorteado: **${escolha}**.`
     }
-    const desejo = arg.slice(verbo.length).trim()
-    if (desejo.length < 4) return '✧ Escreve o desejo junto: `/sparxie desejo quero...`'
     if (!extras.userId) return null
+    const desejo = limparDesejo(arg.slice(verbo.length))
+    if (desejo.length < DESEJO_MINIMO) return '✧ Escreve o desejo junto: `/sparxie desejo quero...`'
+    if (desejo.length > DESEJO_MAXIMO) {
+      return `✧ Esse desejo passou de ${DESEJO_MAXIMO} caracteres. Encurta e manda de novo.`
+    }
+    if (!podeDesejar(extras.userId)) {
+      return `✧ ${DESEJOS_NA_JANELA} desejos em dez minutos já é bastante. Volta daqui a pouco.`
+    }
     try {
-      await db.insert(wishingStars).values({ userId: extras.userId, content: desejo.slice(0, 500) })
+      await db.insert(wishingStars).values({ userId: extras.userId, content: desejo })
       return `✧ Desejo lançado, @${extras.username}. A estrela levou.`
     } catch {
       return '✧ A estrela passou rápido demais — tenta de novo.'

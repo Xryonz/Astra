@@ -8,46 +8,24 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { badRequest } from '../lib/errors'
+import {
+  DESEJOS_NA_JANELA,
+  DESEJO_MAXIMO,
+  DESEJO_MINIMO,
+  limparDesejo,
+  podeDesejar,
+} from '../lib/desejo'
 
 const router = Router()
 
-const WISH_MIN = 4
-const WISH_MAX = 500
-
 const PostSchema = z.object({
-  content: z.string().min(WISH_MIN).max(WISH_MAX),
+  content: z.string().min(DESEJO_MINIMO).max(DESEJO_MAXIMO),
 })
 
 const QuerySchema = z.object({
   limit:  z.coerce.number().int().min(1).max(50).optional().default(20),
   cursor: z.string().max(80).optional(),
 })
-
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g
-function sanitizeContent(raw: string): string {
-  return raw
-    .normalize('NFKC')
-    .replace(CONTROL_CHAR_RE, '')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-const RATE_WINDOW_MS = 10 * 60_000
-const RATE_MAX       = 3
-const recent         = new Map<string, number[]>()
-function rateOk(userId: string): boolean {
-  const now    = Date.now()
-  const stamps = (recent.get(userId) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
-  if (stamps.length >= RATE_MAX) {
-    recent.set(userId, stamps)
-    return false
-  }
-  stamps.push(now)
-  recent.set(userId, stamps)
-  return true
-}
 
 router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const parsed = QuerySchema.safeParse(req.query)
@@ -96,16 +74,18 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
 }))
 
 router.post('/', requireAuth, validate(PostSchema), asyncHandler(async (req: Request, res: Response) => {
-  if (!rateOk(req.userId!)) {
-    throw badRequest('Você atingiu o limite de sugestões por hora. Tenta de novo mais tarde.')
+  if (!podeDesejar(req.userId!)) {
+    throw badRequest(
+      `Você já deixou ${DESEJOS_NA_JANELA} desejos nos últimos dez minutos. Tente de novo daqui a pouco.`,
+    )
   }
   const raw     = (req.body as z.infer<typeof PostSchema>).content
-  const content = sanitizeContent(raw)
-  if (content.length < WISH_MIN) {
-    throw badRequest(`Mínimo ${WISH_MIN} caracteres de texto real.`)
+  const content = limparDesejo(raw)
+  if (content.length < DESEJO_MINIMO) {
+    throw badRequest(`Mínimo ${DESEJO_MINIMO} caracteres de texto real.`)
   }
-  if (content.length > WISH_MAX) {
-    throw badRequest(`Máximo ${WISH_MAX} caracteres.`)
+  if (content.length > DESEJO_MAXIMO) {
+    throw badRequest(`Máximo ${DESEJO_MAXIMO} caracteres.`)
   }
 
   const [inserted] = await db.insert(wishingStars).values({

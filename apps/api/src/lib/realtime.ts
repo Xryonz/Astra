@@ -1,4 +1,5 @@
 import type { Server as SocketServer } from 'socket.io'
+import { salasQueMeVeem } from './quemMeVe'
 
 let io: SocketServer | null = null
 
@@ -17,8 +18,25 @@ export type PerfilPublico = {
   displayFont: string | null
 }
 
-export function profileChanged(userId: string, publico?: PerfilPublico) {
-  io?.emit('profile_updated', publico ? { userId, publico } : { userId })
+export async function avisarQuemMeVe(
+  userId: string,
+  evento: string,
+  dados: unknown,
+): Promise<void> {
+  const servidor = io
+  if (!servidor) return
+  const salas = await salasQueMeVeem(userId)
+  if (!salas || !salas.length) {
+    servidor.emit(evento, dados)
+    return
+  }
+  let alvo = servidor.to(salas[0])
+  for (const sala of salas.slice(1)) alvo = alvo.to(sala)
+  alvo.emit(evento, dados)
+}
+
+export function profileChanged(userId: string, publico?: PerfilPublico): Promise<void> {
+  return avisarQuemMeVe(userId, 'profile_updated', publico ? { userId, publico } : { userId })
 }
 
 export function amizadeMudou(a: string, b: string, motivo: 'pedido' | 'aceito' | 'removido') {
@@ -49,8 +67,11 @@ export function missaoConcluida(userId: string, payload: unknown) {
   io?.to(`user:${userId}`).emit('mission_done', payload)
 }
 
-export function presenceChanged(userId: string, status: string) {
-  io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
+export function presenceChanged(userId: string, status: string): Promise<void> {
+  return avisarQuemMeVe(userId, 'presence_update', {
+    userId,
+    status: status === 'INVISIBLE' ? 'OFFLINE' : status,
+  })
 }
 
 export function serverGone(serverId: string) {

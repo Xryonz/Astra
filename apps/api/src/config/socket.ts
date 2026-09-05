@@ -35,6 +35,37 @@ function shouldPersistStatus(userId: string, status: string): boolean {
   return false
 }
 
+import { salasQueMeVeem } from '../lib/quemMeVe'
+
+function paraAsSalas(socket: Socket, salas: string[], evento: string, dados: unknown): void {
+  if (!salas.length) return
+  let alvo = socket.broadcast.to(salas[0])
+  for (const sala of salas.slice(1)) alvo = alvo.to(sala)
+  alvo.emit(evento, dados)
+}
+
+async function avisarQuemMeVe(
+  socket: Socket,
+  userId: string,
+  evento: string,
+  dados: unknown,
+): Promise<void> {
+  const salas = await salasQueMeVeem(userId)
+  if (!salas) socket.broadcast.emit(evento, dados)
+  else paraAsSalas(socket, salas, evento, dados)
+}
+
+async function avisarMinhasConstelacoes(
+  socket: Socket,
+  userId: string,
+  evento: string,
+  dados: unknown,
+): Promise<void> {
+  const salas = await salasQueMeVeem(userId)
+  if (!salas) socket.broadcast.emit(evento, dados)
+  else paraAsSalas(socket, salas.filter((s) => s.startsWith('server:')), evento, dados)
+}
+
 import { membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
 async function userCanAccessChannel(userId: string, channelId: string): Promise<boolean> {
   return userCanSeeChannel(userId, channelId)
@@ -87,7 +118,7 @@ export function setupSocket(io: Server) {
     await setUserOnline(userId, chosenStatus)
 
     const broadcastStatus = chosenStatus === 'INVISIBLE' ? 'OFFLINE' : chosenStatus
-    socket.broadcast.emit('presence_update', { userId, status: broadcastStatus })
+    void avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: broadcastStatus })
 
     socket.on('set_status', async (newStatus: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE') => {
       if (!['ONLINE','IDLE','DND','INVISIBLE'].includes(newStatus)) return
@@ -98,7 +129,7 @@ export function setupSocket(io: Server) {
         try { await db.update(users).set({ status: newStatus }).where(eq(users.id, userId)) } catch {}
       }
       const out = newStatus === 'INVISIBLE' ? 'OFFLINE' : newStatus
-      socket.broadcast.emit('presence_update', { userId, status: out })
+      await avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: out })
       socket.emit('presence_update', { userId, status: newStatus })
     })
 
@@ -578,9 +609,11 @@ export function setupSocket(io: Server) {
       if (!sockets?.size) {
         userSockets.delete(userId)
         await setUserOffline(userId)
-        socket.broadcast.emit('presence_update', { userId, status: 'OFFLINE' })
+        await avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: 'OFFLINE' })
         await clearUserActivity(userId)
-        socket.broadcast.emit('activity_update', { userId, activity: null, since: null })
+        await avisarMinhasConstelacoes(socket, userId, 'activity_update', {
+          userId, activity: null, since: null,
+        })
       }
       socketConnections.dec()
     })

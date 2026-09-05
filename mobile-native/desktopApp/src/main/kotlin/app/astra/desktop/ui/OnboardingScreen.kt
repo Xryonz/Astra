@@ -42,22 +42,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
+import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.profile.AvatarPicker
+import app.astra.desktop.shell.codigoDoConvite
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.InvitePreviewDto
+import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
-private enum class OnbStep { WELCOME, SKY, PHOTO, PERMS }
+private enum class OnbStep { WELCOME, SKY, ENTRAR, PHOTO, PERMS }
 
 private val ALTURA_PADRAO = 300.dp
+private val ALTURA_ENTRAR = 400.dp
 private val ALTURA_PERMS = 620.dp
+
+private const val ESPERA_DA_BUSCA_MS = 420L
 
 @Composable
 fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () -> Unit) {
@@ -65,6 +75,7 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
     var step by remember { mutableStateOf(OnbStep.WELCOME) }
     var avatarUrl by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var entrou by remember { mutableStateOf<ServerDto?>(null) }
     val scope = rememberCoroutineScope()
     val steps = OnbStep.entries
     val idx = steps.indexOf(step)
@@ -86,7 +97,11 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
     }
 
     val altura by animateDpAsState(
-        if (step == OnbStep.PERMS) ALTURA_PERMS else ALTURA_PADRAO,
+        when (step) {
+            OnbStep.PERMS -> ALTURA_PERMS
+            OnbStep.ENTRAR -> ALTURA_ENTRAR
+            else -> ALTURA_PADRAO
+        },
         tween(if (reduce) 0 else 320),
         label = "onbAltura",
     )
@@ -108,6 +123,14 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                     when (s) {
                         OnbStep.WELCOME -> WelcomeStep(reduce)
                         OnbStep.SKY -> SkyStep()
+                        OnbStep.ENTRAR -> EntrarStep(
+                            entrou = entrou,
+                            aoEntrar = { entrou = it },
+                            aoExplorar = {
+                                lembrarOndeAbrir("discover")
+                                step = OnbStep.PHOTO
+                            },
+                        )
                         OnbStep.PHOTO -> PhotoStep(displayName, avatarUrl, busy, ::pickPhoto)
                         OnbStep.PERMS -> PermsStep(onTestarAviso)
                     }
@@ -129,13 +152,18 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
             OnbButton(
                 text = when (step) {
                     OnbStep.WELCOME -> "começar"
+                    OnbStep.ENTRAR -> if (entrou == null) "deixar para depois" else "continuar"
                     OnbStep.SKY, OnbStep.PHOTO -> "continuar"
                     OnbStep.PERMS -> "concluir"
                 },
                 onClick = {
                     when (step) {
                         OnbStep.WELCOME -> step = OnbStep.SKY
-                        OnbStep.SKY -> step = OnbStep.PHOTO
+                        OnbStep.SKY -> step = OnbStep.ENTRAR
+                        OnbStep.ENTRAR -> {
+                            entrou?.let { lembrarOndeAbrir("server:${it.id}") }
+                            step = OnbStep.PHOTO
+                        }
                         OnbStep.PHOTO -> step = OnbStep.PERMS
                         OnbStep.PERMS -> onDone()
                     }
@@ -203,6 +231,130 @@ private fun SkyTerm(glyph: String, term: String, meaning: String) {
         Column {
             Text(term, style = TextStyle(color = Obsidian.accent, fontSize = 15.sp, fontFamily = DmSerif))
             Text(meaning, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 16.sp))
+        }
+    }
+}
+
+private fun lembrarOndeAbrir(destino: String) {
+    runCatching { GlobalContext.get().get<SessionStore>().setUiPref("lastSelection", destino) }
+}
+
+@Composable
+private fun EntrarStep(entrou: ServerDto?, aoEntrar: (ServerDto) -> Unit, aoExplorar: () -> Unit) {
+    val api = remember { GlobalContext.get().get<InviteApi>() }
+    var cru by remember { mutableStateOf("") }
+    var previa by remember { mutableStateOf<InvitePreviewDto?>(null) }
+    var procurando by remember { mutableStateOf(false) }
+    var entrando by remember { mutableStateOf(false) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val codigo = remember(cru) { codigoDoConvite(cru) }
+
+    LaunchedEffect(codigo) {
+        previa = null
+        procurando = false
+        if (codigo.isEmpty() || entrou != null) return@LaunchedEffect
+        delay(ESPERA_DA_BUSCA_MS)
+        procurando = true
+        val achada = withContext(Dispatchers.IO) { runCatching { api.preview(codigo).data }.getOrNull() }
+        procurando = false
+        previa = achada
+        if (achada == null) erro = "Convite inválido ou expirado"
+    }
+
+    val alvo = previa
+    val podeEntrar = alvo != null && !alvo.isGroup && !entrando
+    val entrar: () -> Unit = {
+        if (podeEntrar) {
+            entrando = true
+            erro = null
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { runCatching { api.join(codigo).data } }
+                entrando = false
+                val novo = r.getOrNull()
+                if (novo != null) aoEntrar(novo) else erro = "Convite inválido ou expirado"
+            }
+        }
+    }
+
+    Column(Modifier.width(400.dp)) {
+        Text(
+            "onde você vai entrar",
+            style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif, fontWeight = FontWeight.Light),
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Uma conta sozinha é um céu vazio. Cole o convite que te mandaram — ou " +
+                "veja as constelações abertas a qualquer pessoa.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 12.5.sp, lineHeight = 18.sp),
+        )
+        Spacer(Modifier.height(16.dp))
+
+        if (entrou != null) {
+            CartaoDeEntrada(entrou.name)
+            return@Column
+        }
+
+        DialogField(cru, inviteLink("codigo-do-convite"), { cru = it; erro = null }, entrar)
+
+        if (procurando) {
+            Spacer(Modifier.height(10.dp))
+            Text("procurando a constelação…", style = Tipo.apoio)
+        }
+        alvo?.let {
+            Spacer(Modifier.height(12.dp))
+            CartaoDaConstelacao(it)
+            Spacer(Modifier.height(12.dp))
+            DialogButton(
+                label = if (entrando) "entrando…" else "entrar",
+                accent = true,
+                habilitado = podeEntrar,
+                onClick = entrar,
+            )
+        }
+        erro?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, style = Tipo.erro)
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim))
+            Text("ou", style = Tipo.apoio)
+            Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim))
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            OnbButton("explorar constelações abertas", primary = false, onClick = aoExplorar)
+        }
+    }
+}
+
+@Composable
+private fun CartaoDeEntrada(nome: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.accent.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("✦", style = TextStyle(color = Obsidian.accent, fontSize = 16.sp))
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                "você entrou em $nome",
+                style = TextStyle(color = Obsidian.text1, fontSize = 14.sp),
+                maxLines = 1,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text("o Astra vai abrir por lá.", style = Tipo.apoio)
         }
     }
 }

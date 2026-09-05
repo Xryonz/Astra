@@ -363,7 +363,7 @@ fun JoinByInviteDialog(
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            "cole o link que te mandaram — ou so o código.",
+            "cole o link que te mandaram — ou só o código.",
             style = Tipo.apoio,
         )
         Spacer(Modifier.height(14.dp))
@@ -405,7 +405,7 @@ fun JoinByInviteDialog(
 }
 
 @Composable
-private fun CartaoDaConstelacao(previa: InvitePreviewDto) {
+internal fun CartaoDaConstelacao(previa: InvitePreviewDto) {
     Row(
         Modifier
             .fillMaxWidth()

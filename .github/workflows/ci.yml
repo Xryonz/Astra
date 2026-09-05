@@ -1,8 +1,12 @@
 name: CI
 
+# A astra-dev entra aqui porque main = PUBLICA. Rodando so na main, a primeira
+# conferencia de uma mudanca acontecia no mesmo instante em que ela ia pra todo
+# mundo — e o job android abaixo existe justamente pra pegar deriva do :shared,
+# que e mexido enquanto se trabalha no DESKTOP, ou seja: na astra-dev.
 on:
   push:
-    branches: [main]
+    branches: [main, astra-dev]
   pull_request:
     branches: [main]
 

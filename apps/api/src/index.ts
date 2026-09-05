@@ -51,6 +51,7 @@ import { initPush }                      from './lib/push'
 import { initFcm }                       from './lib/fcm'
 import { initMailer }                    from './lib/mailer'
 import gifRouter                         from './routes/gif'
+import unfurlRouter                      from './routes/unfurl'
 import { rolesRouter }                   from './routes/roles'
 import { bansRouter }                    from './routes/bans'
 import { serverBadgesRouter, userBadgesRouter } from './routes/badges'
@@ -151,6 +152,7 @@ app.use('/api/discover', discoverRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/gif',  gifRouter)
+app.use('/api',      unfurlRouter)
 app.use('/api/servers', rolesRouter)
 app.use('/api/servers', bansRouter)
 app.use('/api/servers', serverBadgesRouter)

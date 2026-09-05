@@ -10,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { saudarNovoMembro } from '../lib/botAvisos'
 import { CreateServerSchema, CreateChannelSchema } from '@astra/types'
 import { PERMS, getMemberPerms, filterVisibleChannels } from '../lib/permissions'
+import { COR_DE_NOME } from '../lib/corDoNome'
 import { AUDIT, audit } from '../lib/audit'
 import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
@@ -580,7 +581,7 @@ serversRouter.post(
 )
 
 const NameColorSchema = z.object({
-  nameColor: z.string().regex(/^(#[0-9a-fA-F]{6}|gradient:\d+:#[0-9a-fA-F]{6}:#[0-9a-fA-F]{6})$/, 'Formato inválido').nullable(),
+  nameColor: z.string().regex(COR_DE_NOME, 'Formato inválido').nullable(),
 })
 
 serversRouter.patch(

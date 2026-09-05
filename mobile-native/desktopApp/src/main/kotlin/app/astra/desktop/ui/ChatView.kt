@@ -1078,7 +1078,12 @@ private fun primeiroLink(texto: String): String? =
     REGEX_LINK.find(texto)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'')
         ?.takeIf { it.length > 10 }
 
-private val cartoesVistos = mutableMapOf<String, CartaoDeLinkDto?>()
+private const val CARTOES_LEMBRADOS = 120
+
+private val cartoesVistos = object : LinkedHashMap<String, CartaoDeLinkDto?>(16, 0.75f, true) {
+    override fun removeEldestEntry(eldest: Map.Entry<String, CartaoDeLinkDto?>) =
+        size > CARTOES_LEMBRADOS
+}
 
 @Composable
 private fun PreviaDeLink(url: String) {
@@ -1097,6 +1102,7 @@ private fun PreviaDeLink(url: String) {
     Row(
         Modifier
             .widthIn(max = 420.dp)
+            .clickScale(fonte)
             .clip(RoundedCornerShape(8.dp))
             .background(if (hover) Obsidian.hover else Obsidian.base)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))

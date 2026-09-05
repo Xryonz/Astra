@@ -233,6 +233,8 @@ private fun montarLinhas(mensagens: List<ChatMessage>): List<LinhaDoChat> {
 private fun ondeEsta(linhas: List<LinhaDoChat>, messageId: String): Int =
     linhas.indexOfFirst { it is LinhaDoChat.Fala && it.msg.id == messageId }
 
+private data class AncoraDoHistorico(val chave: String, val deslocamento: Int, val quantasTinha: Int)
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatView(
@@ -297,13 +299,44 @@ fun ChatView(
         }
     }
 
-    var prevCount by remember(target.id) { mutableStateOf(0) }
-    LaunchedEffect(state.messages.size) {
-        val chegouMensagem = state.messages.size > prevCount && state.messages.isNotEmpty()
-        prevCount = state.messages.size
-        if (!chegouMensagem) return@LaunchedEffect
-        val minha = state.messages.lastOrNull()?.authorId == vm.myId
-        if ((noPresente || minha) && linhas.isNotEmpty()) listState.scrollToItem(linhas.lastIndex)
+    var ultimaVista by remember(target.id) { mutableStateOf<String?>(null) }
+    var pousouNoFim by remember(target.id) { mutableStateOf(false) }
+    LaunchedEffect(state.messages.lastOrNull()?.id) {
+        val ultima = state.messages.lastOrNull() ?: return@LaunchedEffect
+        if (ultima.id == ultimaVista) return@LaunchedEffect
+        val primeiraCarga = ultimaVista == null
+        ultimaVista = ultima.id
+        if (primeiraCarga || noPresente || ultima.authorId == vm.myId) {
+            if (linhas.isNotEmpty()) listState.scrollToItem(linhas.lastIndex)
+        }
+        pousouNoFim = true
+    }
+
+    val pertoDoTopo by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            if (info.totalItemsCount == 0) false
+            else (info.visibleItemsInfo.firstOrNull()?.index ?: 0) <= 10
+        }
+    }
+
+    var ancora by remember(target.id) { mutableStateOf<AncoraDoHistorico?>(null) }
+    LaunchedEffect(pertoDoTopo, state.cursorAnterior, pousouNoFim) {
+        if (!pousouNoFim || !pertoDoTopo || state.cursorAnterior == null) return@LaunchedEffect
+        val alvo = listState.layoutInfo.visibleItemsInfo
+            .firstOrNull { (it.key as? String)?.startsWith("dia:") == false } ?: return@LaunchedEffect
+        val quantasTinha = state.messages.size
+        if (vm.carregarAnteriores()) {
+            ancora = AncoraDoHistorico(alvo.key as String, alvo.offset, quantasTinha)
+        }
+    }
+    LaunchedEffect(linhas, state.buscandoAnteriores) {
+        val marca = ancora ?: return@LaunchedEffect
+        if (state.buscandoAnteriores) return@LaunchedEffect
+        ancora = null
+        if (state.messages.size <= marca.quantasTinha) return@LaunchedEffect
+        val onde = ondeEsta(linhas, marca.chave)
+        if (onde >= 0) listState.scrollToItem(onde, -marca.deslocamento)
     }
 
     val animatedIds = remember(target.id) { mutableSetOf<String>() }

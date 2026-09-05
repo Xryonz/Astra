@@ -97,6 +97,8 @@ data class ChatUiState(
     val error: String? = null,
     val acordando: Boolean = false,
     val errorPermanente: Boolean = false,
+    val cursorAnterior: String? = null,
+    val buscandoAnteriores: Boolean = false,
 )
 
 private const val PAGE = 50
@@ -137,6 +139,7 @@ class ChatVm(
 
     private var liveJob: Job? = null
     private var cargaJob: Job? = null
+    private var anterioresJob: Job? = null
     private var typingIdleJob: Job? = null
     private var lastTypingEmit = 0L
     private val typingExpiry = mutableMapOf<String, Job>()
@@ -152,11 +155,43 @@ class ChatVm(
         cache.guardar(target, _state.value.messages)
         liveJob?.cancel()
         cargaJob?.cancel()
+        anterioresJob?.cancel()
         stopTypingEmit()
         if (target is ChatTarget.Channel) socket.leaveChannel(target.id)
     }
 
     fun tentarDeNovo() = load(forcar = true)
+
+    private suspend fun buscarPagina(cursor: String?): Pair<List<ChatMessage>, String?> = when (target) {
+        is ChatTarget.Channel -> channelApi.messages(target.id, cursor, PAGE).data
+            .let { p -> p?.items.orEmpty().map { it.toChat() } to p?.nextCursor }
+        is ChatTarget.Dm -> dmApi.messages(target.id, cursor, PAGE).data
+            .let { p -> p?.items.orEmpty().map { it.toChat() } to p?.nextCursor }
+    }
+
+    fun carregarAnteriores(): Boolean {
+        val cursor = _state.value.cursorAnterior ?: return false
+        if (anterioresJob?.isActive == true) return false
+        _state.update { it.copy(buscandoAnteriores = true) }
+        anterioresJob = scope.launch {
+            val pagina = runCatching { buscarPagina(cursor) }.getOrNull()
+            if (pagina == null) {
+                _state.update { it.copy(buscandoAnteriores = false) }
+                return@launch
+            }
+            val (antigas, proximo) = pagina
+            _state.update { atual ->
+                val jaEstao = atual.messages.mapTo(HashSet()) { it.id }
+                val novas = antigas.filterNot { it.id in jaEstao }.sortedBy { m -> m.createdAt ?: "" }
+                atual.copy(
+                    messages = novas + atual.messages,
+                    cursorAnterior = if (antigas.isEmpty()) null else proximo,
+                    buscandoAnteriores = false,
+                )
+            }
+        }
+        return true
+    }
 
     private fun load(forcar: Boolean = false) {
         if (!forcar && cargaJob?.isActive == true) return
@@ -167,20 +202,17 @@ class ChatVm(
                 oQue = "esta conversa",
                 aoTentarDeNovo = { _state.update { it.copy(acordando = true) } },
             ) {
-                when (target) {
-                    is ChatTarget.Channel ->
-                        channelApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
-                    is ChatTarget.Dm ->
-                        dmApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
-                }
+                buscarPagina(null)
             }
-                .onSuccess { list ->
+                .onSuccess { (list, cursor) ->
                     val frescas = list.sortedBy { m -> m.createdAt ?: "" }
                     cache.guardar(target, frescas)
                     _state.update {
                         it.copy(
                             loading = false, error = null, acordando = false,
                             messages = frescas,
+                            cursorAnterior = cursor,
+                            buscandoAnteriores = false,
                         )
                     }
                 }

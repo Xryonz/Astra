@@ -114,6 +114,7 @@ data class ShellUiState(
     val penalidade: Penalidade? = null,
     val unread: Set<String> = emptySet(),
     val unreadCounts: Map<String, Int> = emptyMap(),
+    val leiturasAoEntrar: Map<String, String> = emptyMap(),
     val mutedChannels: Set<String> = emptySet(),
     val mutedServers: Set<String> = emptySet(),
     val avisoForcado: Set<String> = emptySet(),
@@ -397,6 +398,8 @@ class ShellVm(
                     friendsOpen = restoredFriends,
                     unread = (unreadChannels + unreadDms).toSet() - setOfNotNull(restoredChat?.id),
                     unreadCounts = unreadCountsD.await().orEmpty() - setOfNotNull(restoredChat?.id),
+                    leiturasAoEntrar = channelReads +
+                        dmReads.mapNotNull { (id, r) -> r.mine?.let { id to it } },
                 )
             }
             store.setUiPref("lastSelection", finalSelection.encode())
@@ -445,7 +448,15 @@ class ShellVm(
     fun openChat(target: ChatTarget) {
         if (_state.value.chat == target) return
         registrarDestino(target)
-        _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id, unreadCounts = it.unreadCounts - target.id) }
+        val deixado = _state.value.chat?.id
+        _state.update {
+            it.copy(
+                chat = target, voiceChannel = null, friendsOpen = false,
+                unread = it.unread - target.id, unreadCounts = it.unreadCounts - target.id,
+                leiturasAoEntrar =
+                    if (deixado == null) it.leiturasAoEntrar else it.leiturasAoEntrar - deixado,
+            )
+        }
         saveLocation()
     }
 

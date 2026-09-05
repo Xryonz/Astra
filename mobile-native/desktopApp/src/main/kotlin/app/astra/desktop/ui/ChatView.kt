@@ -195,6 +195,7 @@ fun ChatView(
     botAqui: Boolean = true,
     serverId: String? = null,
     membros: List<ServerMemberDto> = emptyList(),
+    lidoAte: String? = null,
 ) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
@@ -226,6 +227,18 @@ fun ChatView(
 
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
     var highlightId by remember(target.id) { mutableStateOf<String?>(null) }
+
+    var marcaDeLeitura by remember(target.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(target.id, lidoAte) {
+        if (marcaDeLeitura == null) marcaDeLeitura = lidoAte
+    }
+    val primeiraNaoLida = remember(target.id, marcaDeLeitura, state.messages) {
+        val marca = marcaDeLeitura
+        if (marca == null) null
+        else state.messages.firstOrNull { m ->
+            m.authorId != vm.myId && (m.createdAt ?: "") > marca
+        }?.id
+    }
 
     val noPresente by remember {
         derivedStateOf {
@@ -342,6 +355,7 @@ fun ChatView(
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh
                         }
+                        if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
                         MessageRow(
                             msg = msg,
                             grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
@@ -1538,6 +1552,24 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+    }
+}
+
+@Composable
+private fun MarcaDeNovasMensagens() {
+    val accent = Obsidian.accent
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
+        Text(
+            "novas mensagens",
+            style = Tipo.nota.copy(color = accent),
+            modifier = Modifier.padding(horizontal = 10.dp),
+        )
+        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
     }
 }
 

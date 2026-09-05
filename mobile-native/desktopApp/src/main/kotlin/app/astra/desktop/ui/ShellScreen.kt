@@ -591,6 +591,7 @@ fun ShellScreen(
             onDiscoverJoined = vm::refreshServersAndSelect,
             joinedServerIds = remember(state.servers) { state.servers.map { it.id }.toSet() },
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
+            leiturasAoEntrar = state.leiturasAoEntrar,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -3058,6 +3059,7 @@ private fun Stage(
     onDiscoverJoined: (String) -> Unit,
     joinedServerIds: Set<String> = emptySet(),
     showFriends: Boolean,
+    leiturasAoEntrar: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxHeight().panelSurface(Obsidian.raised, 0.52f)) {
@@ -3141,6 +3143,7 @@ private fun Stage(
                     botAqui = botAqui,
                     serverId = server?.id,
                     membros = if (target is ChatTarget.Channel) members else emptyList(),
+                    lidoAte = leiturasAoEntrar[target.id],
                 )
                 }
             } else {

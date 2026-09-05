@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { userMissions } from '../db/schema'
 import { redis } from './redis'
@@ -125,9 +125,53 @@ async function fechar(userId: string, m: Missao, periodo: string): Promise<boole
     .returning({ missionId: userMissions.missionId })
   if (!linha) return false
 
-  await creditarXpDeMissao(userId, m.xp)
   missaoConcluida(userId, { id: m.id, titulo: m.titulo, xp: m.xp, tipo: m.tipo })
   return true
+}
+
+export interface Resgate {
+  id:     string
+  titulo: string
+  xp:     number
+  tipo:   Missao['tipo']
+}
+
+export async function resgatar(userId: string, missionId: string): Promise<Resgate | null> {
+  const m = POR_ID.get(missionId)
+  if (!m) return null
+
+  const [linha] = await db.update(userMissions)
+    .set({ resgatadaEm: new Date() })
+    .where(and(
+      eq(userMissions.userId, userId),
+      eq(userMissions.missionId, m.id),
+      eq(userMissions.periodo, periodoDe(m)),
+      isNotNull(userMissions.concluidaEm),
+      isNull(userMissions.resgatadaEm),
+    ))
+    .returning({ missionId: userMissions.missionId })
+  if (!linha) return null
+
+  await creditarXpDeMissao(userId, m.xp)
+  return { id: m.id, titulo: m.titulo, xp: m.xp, tipo: m.tipo }
+}
+
+export async function resgatarTudo(userId: string): Promise<Resgate[]> {
+  const prontas = await db.select({ missionId: userMissions.missionId })
+    .from(userMissions)
+    .where(and(
+      eq(userMissions.userId, userId),
+      isNotNull(userMissions.concluidaEm),
+      isNull(userMissions.resgatadaEm),
+      inArray(userMissions.periodo, [periodoDiario(), periodoSemanal(), PERIODO_SEMPRE]),
+    ))
+
+  const feitos: Resgate[] = []
+  for (const p of prontas) {
+    const r = await resgatar(userId, p.missionId)
+    if (r) feitos.push(r)
+  }
+  return feitos
 }
 
 async function aplicar(userId: string, avancos: Avanco[]): Promise<void> {
@@ -201,6 +245,7 @@ export interface ItemMissao {
   xp:         number
   progresso:  number
   concluida:  boolean
+  resgatada:  boolean
 }
 
 export interface PainelDeMissoes {
@@ -219,6 +264,7 @@ export async function painelDe(userId: string): Promise<PainelDeMissoes> {
     periodo:     userMissions.periodo,
     progresso:   userMissions.progresso,
     concluidaEm: userMissions.concluidaEm,
+    resgatadaEm: userMissions.resgatadaEm,
   })
     .from(userMissions)
     .where(and(
@@ -237,6 +283,7 @@ export async function painelDe(userId: string): Promise<PainelDeMissoes> {
       xp:        m.xp,
       progresso: Math.min(l?.progresso ?? 0, m.alvo),
       concluida: !!l?.concluidaEm,
+      resgatada: !!l?.resgatadaEm,
     }
   }
 

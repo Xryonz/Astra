@@ -496,6 +496,7 @@ export const userMissions = pgTable('UserMission', {
   periodo:     text('periodo').notNull(),
   progresso:   integer('progresso').notNull().default(0),
   concluidaEm: timestamp('concluidaEm', { precision: 3 }),
+  resgatadaEm: timestamp('resgatadaEm', { precision: 3 }),
 }, (t) => ({
   pk: primaryKey({ columns: [t.userId, t.missionId, t.periodo] }),
 }))

@@ -279,6 +279,16 @@ CREATE TABLE IF NOT EXISTS "UserMission" (
   PRIMARY KEY ("userId", "missionId", "periodo")
 );
 
+-- ===== Resgate manual das missoes =====
+-- O DEFAULT preenche as linhas que ja existem e o DROP DEFAULT faz as proximas
+-- nascerem nulas. Como o ADD COLUMN e IF NOT EXISTS, esse preenchimento acontece
+-- uma unica vez: as missoes fechadas antes desta versao JA receberam o xp e
+-- precisam nascer resgatadas, senao pagariam de novo.
+ALTER TABLE "UserMission" ADD COLUMN IF NOT EXISTS "resgatadaEm" timestamp (3) DEFAULT now();
+ALTER TABLE "UserMission" ALTER COLUMN "resgatadaEm" DROP DEFAULT;
+UPDATE "UserMission" SET "resgatadaEm" = NULL
+  WHERE "concluidaEm" IS NULL AND "resgatadaEm" IS NOT NULL;
+
 -- ===== Remoção da feature de threads (mensagens de thread viram normais) =====
 DROP INDEX IF EXISTS "Message_threadId_idx";
 ALTER TABLE "Message" DROP COLUMN IF EXISTS "threadId";

@@ -165,9 +165,11 @@ private fun writeDiagnostics() = runCatching {
         appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
         appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
-        if (Arranque.arranqueAnteriorFalhou) {
-            appendLine("MODO SEGURO  : ligado — o arranque anterior criou a janela e nao desenhou")
-            appendLine("   ^ janela opaca + desenho por CPU. arranque-anterior.txt tem a trilha que falhou")
+        if (Arranque.modoSeguro) {
+            appendLine("MODO SEGURO  : ligado — janela opaca e desenho por CPU")
+            appendLine("   ^ ligado porque uma abertura criou a janela e nao desenhou.")
+            appendLine("     Segue ligado ate ser desligado em Configuracoes > Diagnostico.")
+            appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
         }
         appendLine("transparencia: ${if (janelaAceitaTransparencia) "aceita" else "NAO aceita — janela opaca"}")
         appendLine("   ^ NAO aceita e janela transparente = janela invisivel, so o icone na barra")
@@ -243,7 +245,7 @@ fun main(args: Array<String>) {
     CrashLog.install()
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
-    if (Arranque.arranqueAnteriorFalhou) {
+    if (Arranque.modoSeguro) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
     Vigia.vigiar(nascerEscondido)
@@ -266,7 +268,7 @@ fun main(args: Array<String>) {
         val transparentWindow = remember {
             val p = GlobalContext.get().get<DesktopPrefs>().state.value
             p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia &&
-                !Arranque.arranqueAnteriorFalhou
+                !Arranque.modoSeguro
         }
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose

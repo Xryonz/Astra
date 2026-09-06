@@ -26,6 +26,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
+import app.astra.desktop.Arranque
 import app.astra.desktop.CrashLog
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.ui.theme.DmMono
@@ -135,6 +137,7 @@ internal fun DiagnosticsSection() {
             if (falhas.exists()) "TEM falhas registradas" else "nenhuma falha",
             ok = !falhas.exists(),
         )
+        ModoSeguroBloco()
 
         Spacer(Modifier.height(18.dp))
         DiagTitle("últimos avisos recebidos")
@@ -252,6 +255,42 @@ internal fun VoicePassos() {
             }
             .padding(horizontal = 14.dp, vertical = 7.dp),
     )
+}
+
+@Composable
+private fun ModoSeguroBloco() {
+    if (!Arranque.modoSeguro) return
+    var desligado by remember { mutableStateOf(false) }
+    Spacer(Modifier.height(10.dp))
+    CartaoInterno {
+        Text("Modo seguro ligado", style = Tipo.rotulo)
+        Spacer(Modifier.height(3.dp))
+        Text(
+            "Uma abertura criou a janela e não desenhou nada, então o Astra passou a desenhar " +
+                "pelo processador, com a janela opaca. É mais simples de ver e sempre aparece.",
+            style = Tipo.apoio,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (desligado) "desligado — vale na próxima abertura" else "voltar ao desenho normal",
+            style = TextStyle(
+                color = if (desligado) Obsidian.success else Obsidian.accent,
+                fontSize = 12.sp,
+            ),
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .border(
+                    1.dp,
+                    if (desligado) Color.Transparent else Obsidian.accentDim,
+                    RoundedCornerShape(8.dp),
+                )
+                .clickable(enabled = !desligado) {
+                    Arranque.sairDoModoSeguro()
+                    desligado = true
+                }
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+        )
+    }
 }
 
 @Composable

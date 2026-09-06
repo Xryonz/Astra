@@ -8,7 +8,7 @@ data class ProgressoDto(
     val nivel: Int = 0,
     val noNivel: Int = 0,
     val paraOProximo: Int = 100,
-    val brilho: Int = 0,
+    val estrelas: Int = 0,
 )
 
 @Serializable
@@ -16,7 +16,7 @@ data class GanhoXpDto(
     val ganho: Int = 0,
     val origem: String = "",
     val subiuDeNivel: Boolean = false,
-    val brilhoGanho: Int = 0,
+    val estrelasGanhas: Int = 0,
     val progresso: ProgressoDto = ProgressoDto(),
 )
 
@@ -24,7 +24,7 @@ data class GanhoXpDto(
 data class TrilhaTierDto(
     val nivel: Int = 0,
     val custo: Int = 0,
-    val brilho: Int = 0,
+    val estrelas: Int = 0,
 )
 
 @Serializable

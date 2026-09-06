@@ -210,7 +210,7 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
             )
             Spacer(Modifier.height(3.dp))
             Text(
-                "nível ${p.nivel} · ${p.xp} de brilho acumulado",
+                "nível ${p.nivel} · ${p.xp} de brilho · ${p.estrelas} estrelas",
                 style = Tipo.apoio,
                 maxLines = 1,
             )
@@ -230,7 +230,7 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
             }
             Spacer(Modifier.height(5.dp))
             Text(
-                "${p.noNivel} / ${p.paraOProximo} para o nível ${p.nivel + 1}",
+                "${p.noNivel} / ${p.paraOProximo} de brilho para o nível ${p.nivel + 1}",
                 style = Tipo.nota,
                 maxLines = 1,
             )

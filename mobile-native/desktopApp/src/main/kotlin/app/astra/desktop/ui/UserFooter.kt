@@ -244,7 +244,7 @@ fun UserFooter(
                     label = "statusOuNivel",
                 ) { emHover ->
                     Text(
-                        if (emHover) "nível ${progresso.nivel} · ${progresso.noNivel}/${progresso.paraOProximo}"
+                        if (emHover) "nível ${progresso.nivel} · ${progresso.noNivel}/${progresso.paraOProximo} de brilho"
                         else statusLabel(status),
                         style = TextStyle(
                             color = if (emHover) Obsidian.text2 else Obsidian.text3,

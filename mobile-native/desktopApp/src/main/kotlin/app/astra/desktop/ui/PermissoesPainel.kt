@@ -90,7 +90,7 @@ fun PainelDePermissoes(
         escopo.launch {
             try {
                 when {
-                    c.permissao == Permissao.AVISOS && c.acesso == Acesso.PENDENTE -> onTestarAviso()
+                    c.permissao == Permissao.AVISOS && c.acesso == Acesso.OK -> onTestarAviso()
                     c.permissao == Permissao.REDE ->
                         withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
                     else -> PermissoesWindows.abrirAjustes(c.ajustes ?: return@launch)
@@ -214,7 +214,9 @@ private fun LinhaPermissao(
 private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) {
     val temAcao = c.ajustes != null || c.permissao == Permissao.AVISOS
     val pronto = c.acesso == Acesso.OK
+    val ehTeste = pronto && c.permissao == Permissao.AVISOS
     val rotulo = when {
+        ehTeste -> "testar"
         pronto && c.permissao == Permissao.TELA -> "não precisa"
         pronto -> "permitido"
         esperando -> "esperando…"
@@ -222,7 +224,7 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
         c.permissao == Permissao.REDE -> "liberar"
         else -> "permitir"
     }
-    val ativo = !pronto && !esperando && temAcao
+    val ativo = (ehTeste || !pronto) && !esperando && temAcao
 
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
@@ -241,8 +243,8 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
             rotulo,
             style = TextStyle(
                 color = when {
-                    pronto -> Obsidian.success
                     ativo -> Obsidian.accent
+                    pronto -> Obsidian.success
                     else -> Obsidian.text3
                 },
                 fontSize = 11.5.sp,

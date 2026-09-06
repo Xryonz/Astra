@@ -78,19 +78,23 @@ object PermissoesWindows {
                 "ms-settings:notifications",
             )
         }
-        val conhecido = runCatching {
-            Advapi32Util.registryKeyExists(
+        val doAstra = runCatching {
+            Advapi32Util.registryGetIntValue(
                 WinReg.HKEY_CURRENT_USER,
                 "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${WindowsAppId.AUMID}",
+                "Enabled",
             )
-        }.getOrDefault(false)
-        return if (conhecido) {
-            Checagem(Permissao.AVISOS, Acesso.OK, "O Windows conhece o Astra e deixa ele avisar você.")
+        }.getOrDefault(1)
+        return if (doAstra == 0) {
+            Checagem(
+                Permissao.AVISOS, Acesso.BLOQUEADO,
+                "Os avisos do Astra estão desligados nas notificações do Windows.",
+                "ms-settings:notifications",
+            )
         } else {
             Checagem(
-                Permissao.AVISOS, Acesso.PENDENTE,
-                "O Windows registra o Astra no primeiro aviso. Clique em permitir para mandar um agora.",
-                "ms-settings:notifications",
+                Permissao.AVISOS, Acesso.OK,
+                "Nada bloqueia os avisos do Astra. O Windows registra o app sozinho no primeiro que ele mandar.",
             )
         }
     }

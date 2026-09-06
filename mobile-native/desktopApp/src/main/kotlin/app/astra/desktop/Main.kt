@@ -433,6 +433,7 @@ fun main(args: Array<String>) {
 
             LaunchedEffect(Unit) { DesktopShortcut.ensureWindows() }
             LaunchedEffect(Unit) { InicioComWindows.realinhar() }
+            LaunchedEffect(Unit) { WindowsAppId.registrarIdentidade() }
 
             val koin = GlobalContext.get()
             val windowInfo = LocalWindowInfo.current

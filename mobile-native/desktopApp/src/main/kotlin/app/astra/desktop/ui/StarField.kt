@@ -92,6 +92,8 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     }
 
     Canvas(modifier.fillMaxSize()) {
+        Quadros.marcar()
+        Quadros.cronometrar("estrelas") {
         val w = size.width
         val h = size.height
         val drift = time * (2f * PI.toFloat() / DRIFT_PERIOD)
@@ -128,6 +130,7 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
                     drawCircle(color, 2.2.dp.toPx(), Offset(headX, headY), alpha = alpha)
                 }
             }
+        }
         }
     }
 }

@@ -117,6 +117,10 @@ compose.desktop {
             jvmArgs += "-Dastra.multi=${providers.gradleProperty("astra.multi").get().ifBlank { "1" }}"
         }
 
+        if (providers.gradleProperty("astra.medir").isPresent) {
+            jvmArgs += "-Dastra.medir=${providers.gradleProperty("astra.medir").get()}"
+        }
+
         if (providers.gradleProperty("astra.diag").isPresent) {
             jvmArgs += "-Dskiko.fps.enabled=true"
             jvmArgs += "-Dskiko.fps.longFrames.show=true"

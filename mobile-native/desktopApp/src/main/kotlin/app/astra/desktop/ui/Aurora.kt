@@ -216,7 +216,9 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
     val chave = remember { FloatArray(8) { Float.NaN } }
     val lastShader = remember { arrayOfNulls<Shader>(1) }
     return drawBehind {
-        if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@drawBehind }
+        Quadros.marcar()
+        Quadros.cronometrar("aurora") {
+        if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@cronometrar }
         val boost = 1f + 0.15f * pulse().coerceIn(0f, 1f)
 
         val mesmo = chave[0] == timeSec && chave[1] == size.width && chave[2] == size.height &&
@@ -225,7 +227,7 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         if (mesmo && lastShader[0] != null) {
             paint.shader = lastShader[0]
             drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
-            return@drawBehind
+            return@cronometrar
         }
         chave[0] = timeSec; chave[1] = size.width; chave[2] = size.height; chave[3] = boost
         chave[4] = accent.red; chave[5] = accent.green; chave[6] = accent.blue; chave[7] = voidC.red
@@ -239,5 +241,6 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         lastShader[0] = shader
         paint.shader = shader
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
+        }
     }
 }

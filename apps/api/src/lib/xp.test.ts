@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { custoDoNivel, progressoDoXp, brilhoDaTrilha, XP_POR_MENSAGEM, XP_POR_MINUTO_CALL } from './xp'
+import { custoDoNivel, progressoDoXp, estrelasDaTrilha, XP_POR_MENSAGEM, XP_POR_MINUTO_CALL } from './xp'
 
 describe('curva de nivel', () => {
   it('cobra mais a cada nivel, sempre', () => {
@@ -53,15 +53,15 @@ describe('progressoDoXp', () => {
 
 describe('trilha', () => {
   it('paga a lista no comeco e a cauda fixa depois', () => {
-    expect(brilhoDaTrilha(1)).toBe(20)
-    expect(brilhoDaTrilha(12)).toBe(120)
-    expect(brilhoDaTrilha(13)).toBe(60)
-    expect(brilhoDaTrilha(500)).toBe(60)
+    expect(estrelasDaTrilha(1)).toBe(20)
+    expect(estrelasDaTrilha(12)).toBe(120)
+    expect(estrelasDaTrilha(13)).toBe(60)
+    expect(estrelasDaTrilha(500)).toBe(60)
   })
 
   it('nao paga nada pelo nivel 0 (ninguem "chega" nele)', () => {
-    expect(brilhoDaTrilha(0)).toBe(0)
-    expect(brilhoDaTrilha(-3)).toBe(0)
+    expect(estrelasDaTrilha(0)).toBe(0)
+    expect(estrelasDaTrilha(-3)).toBe(0)
   })
 })
 

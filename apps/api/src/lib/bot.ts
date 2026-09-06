@@ -376,7 +376,7 @@ const COMANDOS: ComandoBot[] = [
   { sufixo: 'ranking', category: 'Progressão', description: 'top 10 por nível desta constelação' },
   {
     sufixo: 'perfil', category: 'Progressão', args: '[@alguém]',
-    description: 'nível, XP e brilho', exemplo: 'perfil @ana',
+    description: 'nível, brilho e estrelas', exemplo: 'perfil @ana',
   },
   {
     sufixo: 'lembrete', category: 'Utilitários', args: '<quando> <o quê>',

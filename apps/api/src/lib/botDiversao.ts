@@ -154,15 +154,15 @@ export async function perfilXp(arg: string, quemPediu: string): Promise<string> 
         .from(users).where(eq(users.id, quemPediu)).limit(1))[0]
   if (!alvo) return `✧ Nao achei @${marcado}.`
 
-  const [linha] = await db.select({ xp: userXp.xp, brilho: userXp.brilho })
+  const [linha] = await db.select({ xp: userXp.xp, estrelas: userXp.estrelas })
     .from(userXp).where(eq(userXp.userId, alvo.id)).limit(1)
-  const p = progressoDoXp(linha?.xp ?? 0, linha?.brilho ?? 0)
+  const p = progressoDoXp(linha?.xp ?? 0, linha?.estrelas ?? 0)
   const cheio = Math.round((p.noNivel / p.paraOProximo) * 10)
   const barra = '█'.repeat(cheio) + '░'.repeat(10 - cheio)
   return [
     `✧ **${alvo.nome}**`,
     `nivel **${p.nivel}** \`${barra}\` ${p.noNivel}/${p.paraOProximo}`,
-    `${p.xp} xp no total · ${p.brilho} de brilho`,
+    `${p.xp} de brilho no total · ${p.estrelas} estrelas`,
   ].join('\n')
 }
 

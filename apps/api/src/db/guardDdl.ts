@@ -261,13 +261,25 @@ DO $$ BEGIN
     FOREIGN KEY ("categoryId") REFERENCES "ChannelCategory"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- ===== Progressao (XP + Brilho) =====
+-- ===== Progressao (brilho na tela = coluna "xp"; moeda = "estrelas") =====
 CREATE TABLE IF NOT EXISTS "UserXp" (
   "userId"    text PRIMARY KEY NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
   "xp"        integer NOT NULL DEFAULT 0,
-  "brilho"    integer NOT NULL DEFAULT 0,
+  "estrelas"  integer NOT NULL DEFAULT 0,
   "updatedAt" timestamp (3) NOT NULL DEFAULT now()
 );
+
+-- A moeda se chamava "brilho" e passou a se chamar "estrelas", porque "brilho" virou
+-- o nome do PROGRESSO na tela. Renomear so quando a coluna velha ainda existir: em
+-- base nova o CREATE acima ja nasce com "estrelas" e este bloco nao faz nada.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'UserXp' AND column_name = 'brilho'
+  ) THEN
+    ALTER TABLE "UserXp" RENAME COLUMN "brilho" TO "estrelas";
+  END IF;
+END $$;
 
 -- ===== Missoes =====
 CREATE TABLE IF NOT EXISTS "UserMission" (

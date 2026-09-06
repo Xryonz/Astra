@@ -26,17 +26,17 @@ export interface Progresso {
   nivel:        number
   noNivel:      number  
   paraOProximo: number  
-  brilho:       number
+  estrelas:     number
 }
 
-export function progressoDoXp(xpTotal: number, brilho = 0): Progresso {
+export function progressoDoXp(xpTotal: number, estrelas = 0): Progresso {
   let nivel = 0
   let restante = Math.max(0, Math.floor(xpTotal))
   while (nivel < TETO_NIVEL && restante >= custoDoNivel(nivel)) {
     restante -= custoDoNivel(nivel)
     nivel++
   }
-  return { xp: xpTotal, nivel, noNivel: restante, paraOProximo: custoDoNivel(nivel), brilho }
+  return { xp: xpTotal, nivel, noNivel: restante, paraOProximo: custoDoNivel(nivel), estrelas }
 }
 
 const TRILHA: number[] = [
@@ -44,7 +44,7 @@ const TRILHA: number[] = [
 ]
 const TRILHA_CAUDA = 60
 
-export function brilhoDaTrilha(nivel: number): number {
+export function estrelasDaTrilha(nivel: number): number {
   if (nivel <= 0) return 0
   return TRILHA[nivel - 1] ?? TRILHA_CAUDA
 }
@@ -64,7 +64,7 @@ export interface GanhoXp {
   ganho:         number
   origem:        'mensagem' | 'call' | 'missao'
   subiuDeNivel:  boolean
-  brilhoGanho:   number
+  estrelasGanhas: number
   progresso:     Progresso
 }
 
@@ -76,30 +76,30 @@ async function creditar(userId: string, ganho: number, origem: GanhoXp['origem']
         target: userXp.userId,
         set: { xp: sql`${userXp.xp} + ${ganho}`, updatedAt: new Date() },
       })
-      .returning({ xp: userXp.xp, brilho: userXp.brilho })
+      .returning({ xp: userXp.xp, estrelas: userXp.estrelas })
     if (!linha) return null
 
     const nivelAntes  = progressoDoXp(linha.xp - ganho).nivel
     const nivelDepois = progressoDoXp(linha.xp).nivel
 
-    let brilhoGanho = 0
-    for (let n = nivelAntes + 1; n <= nivelDepois; n++) brilhoGanho += brilhoDaTrilha(n)
+    let estrelasGanhas = 0
+    for (let n = nivelAntes + 1; n <= nivelDepois; n++) estrelasGanhas += estrelasDaTrilha(n)
 
-    let brilho = linha.brilho
-    if (brilhoGanho > 0) {
-      const [comBrilho] = await db.update(userXp)
-        .set({ brilho: sql`${userXp.brilho} + ${brilhoGanho}` })
+    let estrelas = linha.estrelas
+    if (estrelasGanhas > 0) {
+      const [comEstrelas] = await db.update(userXp)
+        .set({ estrelas: sql`${userXp.estrelas} + ${estrelasGanhas}` })
         .where(eq(userXp.userId, userId))
-        .returning({ brilho: userXp.brilho })
-      brilho = comBrilho?.brilho ?? brilho + brilhoGanho
+        .returning({ estrelas: userXp.estrelas })
+      estrelas = comEstrelas?.estrelas ?? estrelas + estrelasGanhas
     }
 
     const resultado: GanhoXp = {
       ganho,
       origem,
       subiuDeNivel: nivelDepois > nivelAntes,
-      brilhoGanho,
-      progresso: progressoDoXp(linha.xp, brilho),
+      estrelasGanhas,
+      progresso: progressoDoXp(linha.xp, estrelas),
     }
     xpGanho(userId, resultado)
     return resultado
@@ -161,7 +161,7 @@ export function iniciarRelogioDeCall(aoMinuto?: (userIds: string[]) => void): No
 }
 
 export async function progressoDe(userId: string): Promise<Progresso> {
-  const [linha] = await db.select({ xp: userXp.xp, brilho: userXp.brilho })
+  const [linha] = await db.select({ xp: userXp.xp, estrelas: userXp.estrelas })
     .from(userXp).where(eq(userXp.userId, userId)).limit(1)
-  return progressoDoXp(linha?.xp ?? 0, linha?.brilho ?? 0)
+  return progressoDoXp(linha?.xp ?? 0, linha?.estrelas ?? 0)
 }

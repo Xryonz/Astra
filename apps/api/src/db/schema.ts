@@ -504,7 +504,7 @@ export const userMissions = pgTable('UserMission', {
 export const userXp = pgTable('UserXp', {
   userId:    text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   xp:        integer('xp').notNull().default(0),
-  brilho:    integer('brilho').notNull().default(0),
+  estrelas:  integer('estrelas').notNull().default(0),
   updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
 })
 

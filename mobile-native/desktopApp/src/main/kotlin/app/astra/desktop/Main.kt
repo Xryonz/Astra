@@ -164,6 +164,10 @@ private fun writeDiagnostics() = runCatching {
         appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
         appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
+        if (Arranque.arranqueAnteriorFalhou) {
+            appendLine("MODO SEGURO  : ligado — o arranque anterior criou a janela e nao desenhou")
+            appendLine("   ^ janela opaca + desenho por CPU. arranque-anterior.txt tem a trilha que falhou")
+        }
         appendLine("transparencia: ${if (janelaAceitaTransparencia) "aceita" else "NAO aceita — janela opaca"}")
         appendLine("   ^ NAO aceita e janela transparente = janela invisivel, so o icone na barra")
         appendLine("placa (pedido): ${System.getProperty("skiko.gpu.priority") ?: "auto (o Skiko decide)"}")
@@ -235,6 +239,9 @@ fun main(args: Array<String>) {
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     CrashLog.install()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
+    if (Arranque.arranqueAnteriorFalhou) {
+        System.setProperty("skiko.renderApi", "SOFTWARE")
+    }
     WindowsAppId.aplicar()
     if (!SingleInstance.acquireOrSignal()) {
         Arranque.marcar("ja havia outro Astra aberto — este saiu")
@@ -253,7 +260,8 @@ fun main(args: Array<String>) {
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         val transparentWindow = remember {
             val p = GlobalContext.get().get<DesktopPrefs>().state.value
-            p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia
+            p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia &&
+                !Arranque.arranqueAnteriorFalhou
         }
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose
@@ -360,10 +368,11 @@ fun main(args: Array<String>) {
             undecorated = true,
             transparent = transparentWindow,
         ) {
-            marcoDoArranque("janela principal criada")
+            marcoDoArranque(Arranque.MARCO_JANELA)
             LaunchedEffect(Unit) {
+                if (nascerEscondido) Arranque.nasceuEscondido()
                 withFrameNanos { }
-                Arranque.marcar("primeiro quadro desenhado")
+                Arranque.desenhou()
             }
             if (voltandoDeAtualizacao) {
                 LaunchedEffect(Unit) {

@@ -190,6 +190,8 @@ private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", L
 
 private const val JANELA_DO_GRUPO_MIN = 5L
 
+private val LARGURA_DO_TRACO = 28.dp
+
 private sealed interface LinhaDoChat {
     data class Dia(val chave: String, val rotulo: String) : LinhaDoChat
     data class Fala(val msg: ChatMessage, val agrupada: Boolean) : LinhaDoChat
@@ -429,8 +431,8 @@ fun ChatView(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
                     for (linha in linhas) when (linha) {
-                        is LinhaDoChat.Dia -> stickyHeader(key = "dia:${linha.chave}") {
-                            PilulaDeDia(linha.rotulo)
+                        is LinhaDoChat.Dia -> item(key = "dia:${linha.chave}", contentType = "dia") {
+                            SeparadorDeDia(linha.rotulo)
                         }
                         is LinhaDoChat.Fala -> item(
                             key = linha.msg.id,
@@ -1733,20 +1735,16 @@ private fun Center(text: String) {
 }
 
 @Composable
-private fun PilulaDeDia(rotulo: String) {
-    Box(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        contentAlignment = Alignment.Center,
+private fun SeparadorDeDia(rotulo: String) {
+    val traco = Obsidian.borderDim.copy(alpha = 0.7f)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        Text(
-            rotulo,
-            style = Tipo.nota,
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(Obsidian.overlay)
-                .border(1.dp, Obsidian.borderDim.copy(alpha = 0.6f), RoundedCornerShape(999.dp))
-                .padding(horizontal = 10.dp, vertical = 3.dp),
-        )
+        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
+        Text(rotulo, style = Tipo.nota, modifier = Modifier.padding(horizontal = 12.dp))
+        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
     }
 }
 

@@ -468,7 +468,7 @@ fun ShellScreen(
         }
 
         val shellCoberto = settingsOpen || serverSettingsOpen
-        val shellVisivel by animateFloatAsState(
+        val shellVisivel = animateFloatAsState(
             if (shellCoberto) 0f else 1f,
             tween(160),
             label = "shellVisivel",
@@ -478,8 +478,8 @@ fun ShellScreen(
         ) {
         Box(
             Modifier
-                .graphicsLayer { alpha = shellVisivel }
-                .drawWithContent { if (shellVisivel > 0.001f) drawContent() },
+                .graphicsLayer { alpha = shellVisivel.value }
+                .drawWithContent { if (shellVisivel.value > 0.001f) drawContent() },
         ) {
         Box(
             Modifier
@@ -2410,7 +2410,7 @@ private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
 private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Unit, dragCtx: CategoryDragCtx? = null) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val rotation by animateFloatAsState(if (collapsed) -90f else 0f, tween(140))
+    val rotation = animateFloatAsState(if (collapsed) -90f else 0f, tween(140))
     val tint = if (hovered) Obsidian.text2 else Obsidian.text3
     Row(
         modifier = Modifier
@@ -2426,7 +2426,7 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             Lucide.ChevronDown,
             tint = tint,
             size = 13.dp,
-            modifier = Modifier.graphicsLayer { rotationZ = rotation },
+            modifier = Modifier.graphicsLayer { rotationZ = rotation.value },
         )
         Spacer(Modifier.width(5.dp))
         Text(

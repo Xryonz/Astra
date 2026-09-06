@@ -43,6 +43,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -733,10 +734,11 @@ private fun PalcoDaTela(
         aberto = false
     }
 
-    val opacidade by animateFloatAsState(
+    val opacidade = animateFloatAsState(
         if (aberto) 1f else 0f,
         tween(if (semMovimento) 0 else 200),
     )
+    val barraNaTela by remember { derivedStateOf { opacidade.value > 0.01f } }
 
     Box(
         Modifier
@@ -751,12 +753,12 @@ private fun PalcoDaTela(
     ) {
         tela()
 
-        if (opacidade > 0.01f) {
+        if (barraNaTela) {
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .graphicsLayer { alpha = opacidade }
+                    .graphicsLayer { alpha = opacidade.value }
                     .background(Obsidian.void.copy(alpha = 0.72f))
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -841,14 +843,14 @@ private fun ParticipantTile(
         if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
         tween(140),
     )
-    val swell by animateFloatAsState(
+    val swell = animateFloatAsState(
         targetValue = if (tile.speaking) 1.04f else 1f,
         animationSpec = if (reduce) snap()
             else spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
     )
     Column(
         modifier
-            .graphicsLayer { scaleX = swell; scaleY = swell }
+            .graphicsLayer { scaleX = swell.value; scaleY = swell.value }
             .clip(RoundedCornerShape(14.dp))
             .background(if (tile.emCartaz) Obsidian.overlay else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, borderColor, RoundedCornerShape(14.dp))

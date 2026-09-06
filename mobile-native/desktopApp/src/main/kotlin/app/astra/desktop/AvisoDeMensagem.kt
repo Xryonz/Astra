@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -140,7 +141,7 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
         AvisosNaTela.dispensar(aviso.id)
     }
 
-    val realce by animateFloatAsState(if (sobMouse) 1f else 0f, tween(140), label = "realceDoAviso")
+    val realce = animateFloatAsState(if (sobMouse) 1f else 0f, tween(140), label = "realceDoAviso")
 
     Box(
         Modifier
@@ -157,7 +158,11 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
                 }
             },
     ) {
-        Box(Modifier.fillMaxSize().background(Obsidian.hover.copy(alpha = realce * 0.55f)))
+        Box(
+            Modifier.fillMaxSize().drawBehind {
+                drawRect(Obsidian.hover.copy(alpha = realce.value * 0.55f))
+            },
+        )
 
         Row(
             Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 11.dp),

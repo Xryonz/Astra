@@ -90,26 +90,27 @@ fun Modifier.clickScale(
     val pressed by interactionSource.collectIsPressedAsState()
     var focado by remember { mutableStateOf(false) }
     val modoDeEntrada = LocalInputModeManager.current
-    val scale by animateFloatAsState(
+    val escala = animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
         animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
         label = "clickScale",
     )
-    val brilho by animateFloatAsState(
+    val brilho = animateFloatAsState(
         targetValue = if (pressed && !reduce) 1f else 0f,
         animationSpec = tween(durationMillis = if (pressed) 90 else 320),
         label = "clickGlow",
     )
     val corDoFoco = Obsidian.accent
     return onFocusChanged { focado = it.isFocused }
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .graphicsLayer { scaleX = escala.value; scaleY = escala.value }
         .drawBehind {
-            if (brilho <= 0.01f) return@drawBehind
+            val aceso = brilho.value
+            if (aceso <= 0.01f) return@drawBehind
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        corDoFoco.copy(alpha = 0.34f * brilho),
-                        corDoFoco.copy(alpha = 0.10f * brilho),
+                        corDoFoco.copy(alpha = 0.34f * aceso),
+                        corDoFoco.copy(alpha = 0.10f * aceso),
                         Color.Transparent,
                     ),
                     center = center,

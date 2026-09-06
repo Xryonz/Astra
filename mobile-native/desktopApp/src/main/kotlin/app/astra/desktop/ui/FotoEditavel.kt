@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -49,7 +50,8 @@ fun FotoEditavel(
     var menuEm by remember { mutableStateOf<IntOffset?>(null) }
 
     val aceso = hover || menuEm != null
-    val veu by animateFloatAsState(if (aceso) 1f else 0f, tween(140), label = "veuDaFoto")
+    val veu = animateFloatAsState(if (aceso) 1f else 0f, tween(140), label = "veuDaFoto")
+    val veuNaTela by remember { derivedStateOf { veu.value > 0f } }
 
     Box(
         modifier
@@ -61,14 +63,14 @@ fun FotoEditavel(
         contentAlignment = Alignment.Center,
     ) {
         conteudo(aceso)
-        if (veu > 0f) {
+        if (veuNaTela) {
             Box(
                 Modifier
                     .matchParentSize()
-                    .alpha(veu)
+                    .graphicsLayer { alpha = veu.value }
                     .background(Obsidian.void.copy(alpha = 0.55f)),
             )
-            Box(Modifier.alpha(veu)) {
+            Box(Modifier.graphicsLayer { alpha = veu.value }) {
                 LIcon(Lucide.Pencil, tint = Obsidian.text1, size = glifo)
             }
         }

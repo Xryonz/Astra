@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -163,13 +164,13 @@ private fun LinhaPermissao(
 ) {
     var visivel by remember(c.permissao) { mutableStateOf(false) }
     LaunchedEffect(c.permissao) { delay(atraso.toLong()); visivel = true }
-    val fade by animateFloatAsState(if (visivel) 1f else 0f, tween(220))
+    val fade = animateFloatAsState(if (visivel) 1f else 0f, tween(220))
     val tom = cor(c.acesso)
 
     Row(
         Modifier
             .fillMaxWidth()
-            .alpha(fade)
+            .graphicsLayer { alpha = fade.value }
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.void.copy(alpha = 0.35f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))

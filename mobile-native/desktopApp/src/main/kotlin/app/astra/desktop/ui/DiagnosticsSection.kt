@@ -132,6 +132,7 @@ internal fun DiagnosticsSection() {
         DiagRow("versão", System.getProperty("astra.version") ?: "dev", ok = true)
         DiagRow("desenho", org.jetbrains.skiko.SkikoProperties.renderApi.toString(), ok = true)
         DiagRow("memória (heap)", "$heapMb MB de $heapMax MB", ok = true)
+        DiagRow("quadro", Quadros.resumo(), ok = Quadros.p95Ms < 20.0 || Quadros.amostras == 0)
         DiagRow(
             "registro de falhas",
             if (falhas.exists()) "TEM falhas registradas" else "nenhuma falha",

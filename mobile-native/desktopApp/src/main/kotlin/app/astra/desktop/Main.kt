@@ -58,6 +58,8 @@ import com.sun.jna.win32.W32APIOptions
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.Aquecimento
 import app.astra.desktop.ui.AstraTextContextMenu
+import app.astra.desktop.ui.Quadros
+import app.astra.desktop.ui.contandoQuadros
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
 import app.astra.desktop.ui.LocalReduceMotion
@@ -475,8 +477,9 @@ fun main(args: Array<String>) {
                             (windowVisible && !state.isMinimized && janelaComFoco),
                         LocalJanelaNaTela provides (windowVisible && !state.isMinimized),
                     ) {
-                    Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().contandoQuadros()) {
                     Aquecimento()
+                    LaunchedEffect(Unit) { Quadros.medirParaArquivo(this) }
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     val transmitindo by Transmitindo.ativo.collectAsState()

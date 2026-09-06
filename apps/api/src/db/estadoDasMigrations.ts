@@ -9,6 +9,12 @@ async function main() {
     console.error('DATABASE_URL não definido.')
     process.exit(1)
   }
+  if (url.includes('rlwy.net') || url.includes('railway')) {
+    console.error('ATENCAO: esta DATABASE_URL aponta para o Railway, que saiu do ar.')
+    console.error('O banco de producao e o Neon, e a URL dele vive nas variaveis do Render.')
+    console.error('Rodar aqui contra o Railway responde sobre um banco morto.')
+    process.exit(1)
+  }
   const local = url.includes('localhost') || url.includes('127.0.0.1')
   const pool = new Pool({
     connectionString: url,

@@ -72,6 +72,7 @@ import { startReminderWorker }            from './lib/reminders'
 import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
 import { ensureCategorySchema }          from './db/ensureSchema'
+import { alinharMigrations }             from './db/alinharMigrations'
 import { garantirBotEmTodas }            from './lib/botMembership'
 
 const app        = express()
@@ -241,6 +242,9 @@ process.on('uncaughtException', (e) => {
 
 httpServer.listen(env.PORT, async () => {
   logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
+  await alinharMigrations().catch((e) =>
+    logger.error('Migrations', 'nao consegui alinhar — o bloco idempotente segue de pe', e as Error),
+  )
   await ensureCategorySchema()
   await initBot()
   void garantirBotEmTodas()

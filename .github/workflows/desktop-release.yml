@@ -39,15 +39,14 @@ jobs:
         run: |
           # Fonte UNICA da versao. Ninguem digita numero de versao neste fluxo.
           # Saiu do desktopApp/build.gradle.kts quando o APK do Android passou a
-          # ser publicado junto: os dois artefatos precisam anunciar a MESMA
-          # versao, e o Android tambem deriva o versionCode daqui.
+          # ser publicado junto. O Android foi arquivado depois, mas a fonte fica
+          # aqui: e o unico lugar do repositorio que diz a versao em voz alta.
           $m = Select-String -Path mobile-native/gradle.properties -Pattern '^astraVersion=(.+)$'
           if (-not $m) { throw "nao achei astraVersion" }
           $v = $m.Matches[0].Groups[1].Value.Trim()
           "versao=$v"           >> $env:GITHUB_OUTPUT
           "tag=desktop-v$v"     >> $env:GITHUB_OUTPUT
           "asset=Astra-$v-win-x64.zip" >> $env:GITHUB_OUTPUT
-          "apk=Astra-$v-android.apk"   >> $env:GITHUB_OUTPUT
           Write-Host "versao $v"
 
       - name: Ja existe release desta versao?
@@ -125,53 +124,39 @@ jobs:
           # que passar por aqui precisa vir entre aspas.
           ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel"
 
-      # O APK vai na MESMA release do zip: o popup do navegador manda escolher
-      # entre Windows e Android, e um botao que cai numa release sem APK e pior
-      # que botao nenhum.
+      # O Android foi arquivado na branch arquivo/android em 06/09/2026, entao nao
+      # ha mais o que compilar aqui. O APK continua indo nas releases porque o
+      # popup de download oferece Windows e Android, e um botao que cai numa
+      # release sem APK e pior que botao nenhum.
       #
-      # Sem a chave de assinatura o passo e PULADO, nao falhado. Motivo: sem
-      # keystore.properties o AGP assina o release com a chave de DEBUG, que o
-      # runner gera nova a cada execucao. O Android recusa instalar update sobre
-      # APK de assinatura diferente — cada versao exigiria desinstalar e perder
-      # os dados. Publicar assim seria pior que nao publicar.
-      - name: Assinatura do Android configurada?
+      # O que vai e o ULTIMO APK que foi realmente compilado, com o NOME DA VERSAO
+      # DELE — nao renomeado para a versao nova. Renomear faria a pessoa baixar um
+      # binario velho achando que e o atual; o nome preserva a verdade sem tirar o
+      # download de quem ja usa o Android.
+      - name: Buscar o APK congelado
         if: steps.checar.outputs.existe == 'False'
-        id: assinatura
+        id: apk
         shell: pwsh
         env:
-          CHAVE: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $tem = -not [string]::IsNullOrWhiteSpace($env:CHAVE)
-          "tem=$tem" >> $env:GITHUB_OUTPUT
-          if ($tem) { Write-Host "chave presente — o APK entra nesta release" }
-          else { Write-Host "ANDROID_KEYSTORE_B64 ausente — release sai so com o Windows" }
-
-      - name: Setup Android SDK
-        if: steps.checar.outputs.existe == 'False' && steps.assinatura.outputs.tem == 'True'
-        uses: android-actions/setup-android@v3
-
-      - name: Compilar o APK
-        if: steps.checar.outputs.existe == 'False' && steps.assinatura.outputs.tem == 'True'
-        shell: pwsh
-        working-directory: mobile-native
-        env:
-          CHAVE:       ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          SENHA_STORE: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ALIAS:       ${{ secrets.ANDROID_KEY_ALIAS }}
-          SENHA_CHAVE: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          $jks = Join-Path $PWD "astra-release.jks"
-          [IO.File]::WriteAllBytes($jks, [Convert]::FromBase64String($env:CHAVE))
-          @(
-            "storeFile=$($jks -replace '\\','/')"
-            "storePassword=$env:SENHA_STORE"
-            "keyAlias=$env:ALIAS"
-            "keyPassword=$env:SENHA_CHAVE"
-          ) | Out-File -FilePath "keystore.properties" -Encoding ascii
-          ./gradlew.bat :app:assembleRelease --no-daemon
-          # A chave nao pode sobrar no disco do runner nem por engano.
-          Remove-Item "keystore.properties" -Force
-          Remove-Item $jks -Force
+          "achou=False" >> $env:GITHUB_OUTPUT
+          $tags = gh release list --repo $env:GITHUB_REPOSITORY --limit 60 --json tagName `
+            | ConvertFrom-Json | ForEach-Object { $_.tagName }
+          foreach ($t in $tags) {
+            $nomes = (gh release view $t --repo $env:GITHUB_REPOSITORY --json assets `
+              | ConvertFrom-Json).assets.name
+            $alvo = $nomes | Where-Object { $_ -like "Astra-*-android.apk" } | Select-Object -First 1
+            if (-not $alvo) { continue }
+            New-Item -ItemType Directory -Force -Path apk-congelado | Out-Null
+            gh release download $t --repo $env:GITHUB_REPOSITORY `
+              --pattern "$alvo" --pattern "$alvo.sha256" --dir apk-congelado
+            if ($LASTEXITCODE -ne 0) { throw "falhei ao baixar $alvo de $t" }
+            "achou=True"  >> $env:GITHUB_OUTPUT
+            "nome=$alvo"  >> $env:GITHUB_OUTPUT
+            Write-Host "APK congelado: $alvo (da release $t)"
+            break
+          }
 
       - name: Publicar release + asset
         if: steps.checar.outputs.existe == 'False'
@@ -198,20 +183,14 @@ jobs:
 
           $arquivos = @($zip, $hashFile)
 
-          # O APK so entra se o passo de compilar rodou (chave presente). Quando
-          # ele rodou, o arquivo TEM que estar la — sumico e erro, nao silencio.
-          if ("${{ steps.assinatura.outputs.tem }}" -eq "True") {
-            $apk = "mobile-native/app/build/outputs/apk/release/${{ steps.versao.outputs.apk }}"
-            if (-not (Test-Path $apk)) {
-              Get-ChildItem mobile-native/app/build/outputs -Recurse -Filter "*.apk" | ForEach-Object { $_.FullName }
-              throw "apk nao encontrado em $apk"
-            }
-            $shaApk = (Get-FileHash $apk -Algorithm SHA256).Hash.ToLower()
-            $hashApk = "$apk.sha256"
-            "$shaApk  ${{ steps.versao.outputs.apk }}" | Out-File -FilePath $hashApk -Encoding ascii -NoNewline
-            Write-Host "sha256 do apk: $shaApk"
+          # O APK congelado entra como veio da release anterior: mesmo arquivo,
+          # mesmo nome, mesmo hash. Nao ha o que recalcular — recalcular seria
+          # justamente a chance de trocar o nome sem querer.
+          if ("${{ steps.apk.outputs.achou }}" -eq "True") {
+            $apk = "apk-congelado/${{ steps.apk.outputs.nome }}"
+            if (-not (Test-Path $apk)) { throw "apk congelado sumiu em $apk" }
             $arquivos += $apk
-            $arquivos += $hashApk
+            if (Test-Path "$apk.sha256") { $arquivos += "$apk.sha256" }
           }
 
           gh release create $tag @arquivos `

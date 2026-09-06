@@ -2,7 +2,7 @@ name: CI
 
 # A astra-dev entra aqui porque main = PUBLICA. Rodando so na main, a primeira
 # conferencia de uma mudanca acontecia no mesmo instante em que ela ia pra todo
-# mundo — e o job android abaixo existe justamente pra pegar deriva do :shared,
+# mundo — e o job desktop abaixo existe justamente pra pegar deriva do :shared,
 # que e mexido enquanto se trabalha no DESKTOP, ou seja: na astra-dev.
 on:
   push:
@@ -54,18 +54,18 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=high
 
-  # O :app ficou TRES SEMANAS sem compilar e ninguem viu, porque nada aqui o
-  # compilava. Quebrou em 06/08 (AttachmentDto ganhou thumbUrl na posicao 2 e o
-  # :app chamava por posicao) e de novo em 16/08 (PostWishRequest saiu do
-  # :shared). Como o :shared e mexido enquanto se trabalha no DESKTOP, a deriva
-  # so aparece quando alguem tenta empacotar o Android — que era uma vez por
-  # nunca.
+
+  # Este job existe porque o :shared e mexido enquanto se trabalha no desktop, e
+  # deriva ali nao aparece ate alguem tentar empacotar. O :app cumpria esse papel
+  # e ficou TRES SEMANAS quebrado sem ninguem ver — quebrou em 06/08 (AttachmentDto
+  # ganhou thumbUrl na posicao 2 e o :app chamava por posicao) e de novo em 16/08
+  # (PostWishRequest saiu do :shared).
   #
-  # assembleRelease e nao assembleDebug de proposito: o erro de classe duplicada
-  # (:app tinha copias de SearchApi/SessionApi/WishApi no mesmo pacote do
-  # :shared) so estoura no R8, que so roda no release.
-  android:
-    name: Android · compilar
+  # Com o Android arquivado em arquivo/android, o vigia passou a ser o :desktopApp,
+  # que e a fase ativa e depende do mesmo :shared. Trocar o alvo, e nao apagar o
+  # job, foi deliberado: sem ninguem compilando Kotlin aqui, a deriva volta.
+  desktop:
+    name: Desktop · compilar
     runs-on: ubuntu-latest
 
     steps:
@@ -77,9 +77,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Cache do Gradle
         uses: actions/cache@v4
         with:
@@ -89,8 +86,6 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('mobile-native/**/*.gradle.kts', 'mobile-native/gradle/libs.versions.toml') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # Sem chave de assinatura o AGP cai na de debug — serve pra compilar, nao
-      # pra publicar. Quem publica e o desktop-release.yml, com os segredos.
-      - name: Compilar o APK
+      - name: Compilar o desktop e o shared
         working-directory: mobile-native
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :desktopApp:compileKotlin --no-daemon

@@ -9,11 +9,16 @@ enquetes, busca, notificações, XP e missões.
 | Cliente | Onde | Stack | Estado |
 |---|---|---|---|
 | **Desktop** | `mobile-native/desktopApp` | Kotlin · Compose Multiplatform/JVM | **fase ativa** |
-| **Android** | `mobile-native/app` | Kotlin · Jetpack Compose | em produção, atrás do desktop |
+| **Android** | branch `arquivo/android` | Kotlin · Jetpack Compose | arquivado |
 | **Web** | `apps/web` | React 19 · Vite | congelado, serve de referência de paridade |
 
 O desktop é onde o trabalho acontece hoje. O web ficou congelado depois de servir
 de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
+
+O Android saiu da branch principal em 06/09/2026 e vive em `arquivo/android`, com
+o histórico inteiro. As releases continuam trazendo o último APK que chegou a ser
+compilado — anexado com o nome da versão dele, não da versão nova, para que quem
+baixa veja exatamente o que está pegando.
 
 O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
 processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo
@@ -66,7 +71,7 @@ aplicativo e morre com ele.
   significaria superfície nativa no processo do aplicativo, e uma falha ali derruba a
   janela inteira. Aqui, o pior caso é a chamada cair — o Astra continua de pé
 
-**Android** (`mobile-native/app`)
+**Android** (arquivado na branch `arquivo/android`)
 - Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
 - Hilt (DI/KSP) · Room (cache offline-first) · DataStore · Baseline Profile
 - LiveKit Android · FCM (push)
@@ -182,9 +187,10 @@ cd mobile-native
 ./gradlew :desktopApp:zipDistributable     # zip distribuível
 ```
 
-**Android:**
+**Android** (arquivado — só na branch `arquivo/android`):
 
 ```bash
+git switch arquivo/android
 cd mobile-native
 ./gradlew :app:assembleDebug
 ```
@@ -401,10 +407,9 @@ segue como resposta.
 
 ## Adiante
 
-- **Paridade do Android** com o desktop — hoje o desktop está na frente.
 - **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
   também no sussurro.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
 - **Refresh token no `localStorage`** do web — o único item de segurança que segue
-  aberto, e só lá: o `apps/web` está congelado. Desktop e Android guardam a sessão
-  fora do alcance de script de página.
+  aberto, e só lá: o `apps/web` está congelado. O desktop guarda a sessão fora do
+  alcance de script de página.

@@ -138,7 +138,13 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
             packageVersion = astraVersion
-            modules("jdk.httpserver", "java.management", "jdk.management", "jdk.accessibility")
+            modules(
+                "jdk.httpserver",
+                "java.management",
+                "jdk.management",
+                "jdk.accessibility",
+                "jdk.localedata",
+            )
             appResourcesRootDir.set(project.file("appResources"))
             windows {
                 iconFile.set(project.file("icons/astra.ico"))

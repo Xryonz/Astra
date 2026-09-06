@@ -56,6 +56,7 @@ import com.sun.jna.ptr.IntByReference
 import com.sun.jna.win32.StdCallLibrary
 import com.sun.jna.win32.W32APIOptions
 import androidx.compose.foundation.LocalContextMenuRepresentation
+import app.astra.desktop.ui.Aquecimento
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
@@ -473,6 +474,7 @@ fun main(args: Array<String>) {
                         LocalJanelaNaTela provides (windowVisible && !state.isMinimized),
                     ) {
                     Box(Modifier.fillMaxSize()) {
+                    Aquecimento()
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     val transmitindo by Transmitindo.ativo.collectAsState()

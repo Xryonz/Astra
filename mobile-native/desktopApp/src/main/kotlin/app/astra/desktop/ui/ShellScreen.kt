@@ -542,7 +542,7 @@ fun ShellScreen(
         }
 
         PetDoAstra(
-            ligado = prefs.state.value.petLigado,
+            ligado = prefs.state.value.petOn,
             petId = prefs.state.value.petTipo,
             pelagem = prefs.state.value.petPelagem,
             nome = prefs.state.value.petNome,

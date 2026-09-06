@@ -99,6 +99,18 @@ private fun gcName(): String = runCatching {
         .joinToString("+") { it.name }
 }.getOrDefault("?")
 
+private fun tetoDoCacheDeImagens(economia: Boolean): Long {
+    val fatia = if (economia) 0.004 else 0.02
+    val piso = if (economia) 12L else 32L
+    val teto = if (economia) 24L else 160L
+    val ram = runCatching {
+        (java.lang.management.ManagementFactory.getOperatingSystemMXBean()
+            as com.sun.management.OperatingSystemMXBean).totalMemorySize
+    }.getOrNull() ?: 0L
+    val mb = if (ram > 0) (ram / 1024 / 1024 * fatia).toLong() else piso
+    return mb.coerceIn(piso, teto) * 1024 * 1024
+}
+
 private fun pastaDaInstalacao(): String =
     System.getProperty("jpackage.app-path")?.let { java.io.File(it).parent }
         ?: System.getProperty("user.dir").orEmpty().ifBlank { "?" }
@@ -313,6 +325,7 @@ fun main(args: Array<String>) {
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
+        LaunchedEffect(Unit) { Afinador.afinar(escopoDaJanela, GlobalContext.get().get()) }
         LaunchedEffect(Unit) { ModoTransmissao.vigiar(escopoDaJanela, GlobalContext.get().get()) }
         LaunchedEffect(Unit) {
             AtividadePublicador(
@@ -397,8 +410,9 @@ fun main(args: Array<String>) {
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
                     }
                     .memoryCache {
-                        val teto = if (bootPrefs.performanceMode) 16L else 48L
-                        coil3.memory.MemoryCache.Builder().maxSizeBytes(teto * 1024 * 1024).build()
+                        coil3.memory.MemoryCache.Builder()
+                            .maxSizeBytes(tetoDoCacheDeImagens(bootPrefs.performanceMode))
+                            .build()
                     }
                     .diskCache {
                         val home = System.getProperty("user.home")

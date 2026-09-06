@@ -59,6 +59,12 @@ enum class DensityPref(val key: String, val label: String, val topDp: Int, val g
     }
 }
 
+const val DEGRAU_SEM_FUNDO = 1
+const val DEGRAU_SEM_ESTRELAS = 2
+const val DEGRAU_SEM_PET = 3
+const val DEGRAU_SEM_CASCATA = 4
+const val DEGRAU_MAXIMO = 4
+
 class DesktopPrefs(private val store: SessionStore) {
     data class Prefs(
         val reduceMotion: Boolean = false,
@@ -97,13 +103,16 @@ class DesktopPrefs(private val store: SessionStore) {
         val audioOutput: String? = null,
         val volumeDoMicrofone: Int = 100,
         val volumeDaEscuta: Int = 100,
+        val degrau: Int = 0,
         val teclaMudo: Int = 0,
         val teclaEnsurdecer: Int = 0,
         val emojiRecentes: List<String> = emptyList(),
     ) {
-        val auroraOn: Boolean get() = auroraEnabled && !performanceMode
-        val starsOn: Boolean get() = starsEnabled && !performanceMode
-        val reduceMotionEff: Boolean get() = reduceMotion || performanceMode
+        val auroraOn: Boolean get() = auroraEnabled && !performanceMode && degrau < DEGRAU_SEM_FUNDO
+        val starsOn: Boolean get() = starsEnabled && !performanceMode && degrau < DEGRAU_SEM_ESTRELAS
+        val petOn: Boolean get() = petLigado && degrau < DEGRAU_SEM_PET
+        val reduceMotionEff: Boolean get() =
+            reduceMotion || performanceMode || degrau >= DEGRAU_SEM_CASCATA
     }
 
     private val _state = MutableStateFlow(read())
@@ -138,6 +147,12 @@ class DesktopPrefs(private val store: SessionStore) {
     private fun placaApertada(nucleos: Int): Boolean {
         val placa = runCatching { Placas.daTela }.getOrNull() ?: return false
         return !placa.dedicada && nucleos <= 4
+    }
+
+    fun aplicarDegrau(novo: Int) {
+        val alvo = novo.coerceIn(0, DEGRAU_MAXIMO)
+        if (_state.value.degrau == alvo) return
+        _state.update { it.copy(degrau = alvo) }
     }
 
     fun dispensarAvisoDePerf() {

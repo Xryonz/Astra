@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -188,7 +189,13 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 }
 
 @Composable
-internal fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceMotion: Boolean) {
+internal fun ThinProgress(
+    progress: Float,
+    rotulo: Rotulo,
+    percent: Int?,
+    reduceMotion: Boolean,
+    linhas: Int = 1,
+) {
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -214,8 +221,14 @@ internal fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduce
                 ) {
                     Text(
                         r.texto,
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
-                        maxLines = 1,
+                        style = TextStyle(
+                            color = Obsidian.text3,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.4.sp,
+                            lineHeight = 16.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = linhas,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (r.baixando) {

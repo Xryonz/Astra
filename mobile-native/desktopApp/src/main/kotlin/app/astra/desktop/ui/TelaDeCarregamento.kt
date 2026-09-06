@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ import app.astra.desktop.ui.theme.Text
 
 private const val SUAVIDADE_MS = 260
 private const val ENTRADA_MS = 1100
+private const val ESPERA_PARA_CURIOSIDADE_MS = 2_500L
 
 @Composable
 fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
@@ -43,6 +45,12 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
         animationSpec = tween(if (reduceMotion) 0 else SUAVIDADE_MS, easing = LinearEasing),
         label = "carregamento",
     )
+
+    var curiosidade by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(ESPERA_PARA_CURIOSIDADE_MS)
+        curiosidade = CURIOSIDADES_DO_ESPACO.random()
+    }
 
     val entrada: State<Float>? = if (reduceMotion) null else {
         var comecou by remember { mutableStateOf(false) }
@@ -76,7 +84,10 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
         Aquecimento(aoAvancar = { alvo = it }, aoTerminar = aoTerminar)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(0.5f),
+            modifier = Modifier
+                .padding(horizontal = 26.dp, vertical = 24.dp)
+                .fillMaxWidth(0.66f)
+                .widthIn(max = 560.dp),
         ) {
             RotatingStarsLogo(reduceMotion, entrance = entrada, planetRes = "astra-glyph.png")
             Spacer(Modifier.height(18.dp))
@@ -95,7 +106,13 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
             )
             Spacer(Modifier.height(16.dp))
             CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
-                ThinProgress(progresso, Rotulo(spaceWord(progresso)), null, reduceMotion)
+                ThinProgress(
+                    progress = progresso,
+                    rotulo = Rotulo(curiosidade ?: spaceWord(progresso)),
+                    percent = null,
+                    reduceMotion = reduceMotion,
+                    linhas = if (curiosidade != null) 2 else 1,
+                )
             }
         }
     }

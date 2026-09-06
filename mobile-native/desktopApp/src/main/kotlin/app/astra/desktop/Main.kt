@@ -182,6 +182,8 @@ private fun writeDiagnostics() = runCatching {
         appendLine("SO           : $os ${System.getProperty("os.version")}")
         appendLine()
         appendLine("Abriu e nao mostrou nada? arranque.txt, aqui do lado, diz ate onde chegou.")
+        appendLine("(a trilha da abertura ANTERIOR fica em arranque-anterior.txt, intacta.)")
+        appendLine("Erro que a interface engoliu? saida.txt guarda tudo que o app imprimiu.")
         appendLine("Fechou sozinho? o motivo fica em falhas.txt, nesta mesma pasta.")
         appendLine("(sem falhas.txt = a JVM morreu por fora, em código nativo. O laudo é")
         appendLine(" hs_err_pid<numero>.log, na pasta da instalação — ${pastaDaInstalacao()})")
@@ -238,10 +240,12 @@ fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     CrashLog.install()
+    Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     if (Arranque.arranqueAnteriorFalhou) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
+    Vigia.vigiar(nascerEscondido)
     WindowsAppId.aplicar()
     if (!SingleInstance.acquireOrSignal()) {
         Arranque.marcar("ja havia outro Astra aberto — este saiu")
@@ -373,6 +377,7 @@ fun main(args: Array<String>) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
                 withFrameNanos { }
                 Arranque.desenhou()
+                Vigia.apareceu()
             }
             if (voltandoDeAtualizacao) {
                 LaunchedEffect(Unit) {
@@ -408,6 +413,7 @@ fun main(args: Array<String>) {
             }
 
             LaunchedEffect(Unit) { DesktopShortcut.ensureWindows() }
+            LaunchedEffect(Unit) { InicioComWindows.realinhar() }
 
             val koin = GlobalContext.get()
             val windowInfo = LocalWindowInfo.current

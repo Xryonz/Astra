@@ -19,6 +19,15 @@ object InicioComWindows {
             ?.contains(ARG_MINIMIZADO) == true
     }.getOrDefault(false)
 
+    fun realinhar() {
+        val exe = caminhoDoExe() ?: return
+        val atual = runCatching {
+            Advapi32Util.registryGetStringValue(WinReg.HKEY_CURRENT_USER, CHAVE, NOME)
+        }.getOrNull().orEmpty()
+        if (atual.isBlank() || atual.contains(exe, ignoreCase = true)) return
+        aplicar(ligar = true, escondido = atual.contains(ARG_MINIMIZADO))
+    }
+
     fun aplicar(ligar: Boolean, escondido: Boolean): Boolean {
         val exe = caminhoDoExe() ?: return false
         return runCatching {

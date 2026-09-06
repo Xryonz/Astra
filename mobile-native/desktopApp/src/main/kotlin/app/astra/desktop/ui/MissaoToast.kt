@@ -109,7 +109,7 @@ private fun CartaoDeMissao(m: MissaoConcluidaDto) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "+${m.xp} xp",
+                "+${m.xp} xp esperando resgate",
                 style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontFamily = DmMono),
             )
         }

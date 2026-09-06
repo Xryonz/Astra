@@ -255,7 +255,11 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { koin.get<XpStore>().iniciar(scope) }
 
-    LaunchedEffect(Unit) { koin.get<MissoesStore>().iniciar(scope) }
+    LaunchedEffect(Unit) {
+        val missoes = koin.get<MissoesStore>()
+        missoes.iniciar(scope)
+        missoes.recarregar()
+    }
 
     val sessionStore = remember { koin.get<SessionStore>() }
     var permsOpen by remember { mutableStateOf(false) }

@@ -48,6 +48,8 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
 import app.astra.desktop.voice.Transmitindo
+import app.astra.desktop.xp.MissoesStore
+import app.astra.desktop.xp.quantasProntas
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.ptr.IntByReference
@@ -410,6 +412,8 @@ fun main(args: Array<String>) {
             var desejosOpen by remember { mutableStateOf(false) }
             var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
+            val painelDeMissoes by remember { GlobalContext.get().get<MissoesStore>() }.painel.collectAsState()
+            val missoesProntas = painelDeMissoes?.quantasProntas() ?: 0
 
             EmblemaDaBarra(window, notifUnread)
 
@@ -443,6 +447,7 @@ fun main(args: Array<String>) {
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
                         onOpenMissions = { missoesOpen = !missoesOpen },
+                        missoesProntas = missoesProntas,
                         onOpenDesejos = { desejosOpen = !desejosOpen },
                         atualizacao = updater,
                     )

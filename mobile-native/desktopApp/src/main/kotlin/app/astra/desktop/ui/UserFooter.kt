@@ -197,6 +197,7 @@ fun UserFooter(
                     .clickable(onClick = onAbrirJornada),
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30)
+                MoedasDeXp(xpStore)
             }
             StatusDot(
                 status = status,

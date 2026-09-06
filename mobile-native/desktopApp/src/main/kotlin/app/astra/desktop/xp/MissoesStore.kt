@@ -44,10 +44,43 @@ class MissoesStore(
         _painel.value = p
     }
 
+    suspend fun resgatar(id: String): Boolean {
+        val feito = withContext(Dispatchers.IO) { runCatching { api.resgatar(id).data }.getOrNull() }
+        if (feito == null) { recarregar(); return false }
+        _painel.value = _painel.value?.marcarResgatada(id)
+        return true
+    }
+
+    suspend fun resgatarTudo(): Int {
+        val feitos = withContext(Dispatchers.IO) { runCatching { api.resgatarTudo().data?.resgates }.getOrNull() }
+        if (feitos == null) { recarregar(); return 0 }
+        _painel.value = feitos.fold(_painel.value) { p, r -> p?.marcarResgatada(r.id) }
+        return feitos.size
+    }
+
     fun limpar() {
         _painel.value = null
     }
 }
+
+fun PainelMissoesDto.quantasProntas(): Int =
+    diarias.itens.count { it.resgatavel } +
+        (if (diarias.bonus.resgatavel) 1 else 0) +
+        semanais.itens.count { it.resgatavel } +
+        conquistas.itens.count { it.resgatavel }
+
+private fun PainelMissoesDto.marcarResgatada(id: String): PainelMissoesDto = copy(
+    diarias = diarias.copy(
+        itens = diarias.itens.map { if (it.id == id) it.copy(resgatada = true) else it },
+        bonus = if (diarias.bonus.id == id) diarias.bonus.copy(resgatada = true) else diarias.bonus,
+    ),
+    semanais = semanais.copy(
+        itens = semanais.itens.map { if (it.id == id) it.copy(resgatada = true) else it },
+    ),
+    conquistas = conquistas.copy(
+        itens = conquistas.itens.map { if (it.id == id) it.copy(resgatada = true) else it },
+    ),
+)
 
 private fun PainelMissoesDto.marcarConcluida(id: String): PainelMissoesDto = copy(
     diarias = diarias.copy(

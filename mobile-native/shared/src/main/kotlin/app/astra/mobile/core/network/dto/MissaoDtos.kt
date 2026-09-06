@@ -10,7 +10,10 @@ data class ItemMissaoDto(
     val xp: Int = 0,
     val progresso: Int = 0,
     val concluida: Boolean = false,
-)
+    val resgatada: Boolean = false,
+) {
+    val resgatavel: Boolean get() = concluida && !resgatada
+}
 
 @Serializable
 data class GrupoDiarioDto(
@@ -43,4 +46,17 @@ data class MissaoConcluidaDto(
     val titulo: String = "",
     val xp: Int = 0,
     val tipo: String = "",
+)
+
+@Serializable
+data class ResgateDto(
+    val id: String = "",
+    val titulo: String = "",
+    val xp: Int = 0,
+    val tipo: String = "",
+)
+
+@Serializable
+data class ResgatesDto(
+    val resgates: List<ResgateDto> = emptyList(),
 )

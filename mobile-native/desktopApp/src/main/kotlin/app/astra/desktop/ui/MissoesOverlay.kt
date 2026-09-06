@@ -29,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +56,13 @@ import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.xp.MissoesStore
+import app.astra.desktop.xp.quantasProntas
 import app.astra.mobile.core.network.dto.ItemMissaoDto
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
@@ -97,6 +100,10 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
         while (true) { delay(MIN_MS); agora = System.currentTimeMillis() }
     }
 
+    val escopo = rememberCoroutineScope()
+    var resgatandoTudo by remember { mutableStateOf(false) }
+    val resgatarUma: (String) -> Unit = { id -> escopo.launch { store.resgatar(id) } }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -127,6 +134,15 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
             }
             EstadoDaConta(me, progresso, visualXp)
 
+            val prontas = painel?.quantasProntas() ?: 0
+            if (prontas > 0) {
+                Spacer(Modifier.height(12.dp))
+                FaixaDeResgate(prontas, resgatandoTudo) {
+                    resgatandoTudo = true
+                    escopo.launch { store.resgatarTudo(); resgatandoTudo = false }
+                }
+            }
+
             val p = painel
             if (p == null) {
                 Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
@@ -145,16 +161,16 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 val depoisDaSemana = depoisDoBonus + p.semanais.itens.size
 
                 Secao("hoje", faltando(p.diarias.renovaEm, agora))
-                p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i) }
-                LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, bonus = true)
+                p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i, resgatarUma) }
+                LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, resgatarUma, bonus = true)
 
                 Spacer(Modifier.height(22.dp))
                 Secao("esta semana", faltando(p.semanais.renovaEm, agora))
-                p.semanais.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDoBonus + i) }
+                p.semanais.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDoBonus + i, resgatarUma) }
 
                 Spacer(Modifier.height(22.dp))
                 Secao("conquistas", "não expiram")
-                p.conquistas.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDaSemana + i) }
+                p.conquistas.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDaSemana + i, resgatarUma) }
             }
         }
     }
@@ -238,7 +254,12 @@ private fun Secao(titulo: String, direita: String) {
 }
 
 @Composable
-private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) {
+private fun LinhaDeMissao(
+    m: ItemMissaoDto,
+    ordem: Int,
+    onResgatar: (String) -> Unit,
+    bonus: Boolean = false,
+) {
     val hover = remember { MutableInteractionSource() }
     val sobHover by hover.collectIsHoveredAsState()
     val reduzir = LocalReduceMotion.current
@@ -310,16 +331,85 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
             style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
         )
         Spacer(Modifier.width(10.dp))
+        if (m.resgatavel) {
+            BotaoDeResgate("+${m.xp}") { onResgatar(m.id) }
+        } else {
+            Text(
+                "+${m.xp}",
+                style = TextStyle(
+                    color = if (m.concluida) Obsidian.text3 else Obsidian.accent,
+                    fontSize = if (bonus) 12.sp else 11.sp,
+                    fontFamily = DmMono,
+                    fontWeight = if (bonus) FontWeight.Medium else FontWeight.Normal,
+                ),
+                modifier = Modifier.width(44.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BotaoDeResgate(rotulo: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val sobHover by src.collectIsHoveredAsState()
+    val forma = RoundedCornerShape(7.dp)
+    Box(
+        Modifier
+            .width(44.dp)
+            .height(24.dp)
+            .clickScale(src, formaDoFoco = forma)
+            .clip(forma)
+            .background(if (sobHover) Obsidian.text1 else Obsidian.accent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
         Text(
-            "+${m.xp}",
+            rotulo,
             style = TextStyle(
-                color = if (m.concluida) Obsidian.text3 else Obsidian.accent,
-                fontSize = if (bonus) 12.sp else 11.sp,
-                fontFamily = DmMono,
-                fontWeight = if (bonus) FontWeight.Medium else FontWeight.Normal,
+                color = Obsidian.textInv, fontSize = 11.sp,
+                fontFamily = DmMono, fontWeight = FontWeight.Medium,
             ),
-            modifier = Modifier.width(44.dp),
         )
+    }
+}
+
+@Composable
+private fun FaixaDeResgate(quantas: Int, ocupado: Boolean, onResgatarTudo: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val sobHover by src.collectIsHoveredAsState()
+    val forma = RoundedCornerShape(9.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(forma)
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.accentDim, forma)
+            .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (quantas == 1) "1 missão esperando por você" else "$quantas missões esperando por você",
+            style = TextStyle(color = Obsidian.text1, fontSize = 12.5.sp),
+        )
+        Spacer(Modifier.weight(1f))
+        Box(
+            Modifier
+                .height(26.dp)
+                .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
+                .clip(RoundedCornerShape(7.dp))
+                .background(if (sobHover) Obsidian.text1 else Obsidian.accent)
+                .hoverable(src)
+                .clickable(interactionSource = src, indication = null, enabled = !ocupado, onClick = onResgatarTudo)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (ocupado) "resgatando…" else "resgatar tudo",
+                style = TextStyle(color = Obsidian.textInv, fontSize = 11.5.sp, fontWeight = FontWeight.Medium),
+            )
+        }
     }
 }
 

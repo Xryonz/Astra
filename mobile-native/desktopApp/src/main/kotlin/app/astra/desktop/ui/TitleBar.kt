@@ -74,6 +74,7 @@ fun WindowScope.AstraTitleBar(
     onOpenSearch: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenMissions: () -> Unit = {},
+    missoesProntas: Int = 0,
     onOpenDesejos: () -> Unit = {},
     atualizacao: UpdateService? = null,
 ) {
@@ -95,7 +96,12 @@ fun WindowScope.AstraTitleBar(
                 atualizacao?.let { PontoDeAtualizacao(it) }
                 TitleBarButton(Lucide.Search, "Buscar", onClick = onOpenSearch)
                 TitleBarBell(notifUnread, onClick = onOpenNotifications)
-                TitleBarButton(Lucide.Target, "Missões", onClick = onOpenMissions)
+                TitleBarButton(
+                    Lucide.Target,
+                    if (missoesProntas > 0) "Missões — $missoesProntas para resgatar" else "Missões",
+                    aviso = missoesProntas,
+                    onClick = onOpenMissions,
+                )
                 TitleBarButton(Lucide.Sparkles, "Estrela dos desejos", onClick = onOpenDesejos)
             }
             TitleBarButton(Lucide.Minus, "Minimizar") { state.isMinimized = true }
@@ -156,6 +162,7 @@ private fun TitleBarButton(
     icon: ImageVector,
     rotulo: String,
     hoverColor: Color = Obsidian.hover,
+    aviso: Int = 0,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -173,10 +180,29 @@ private fun TitleBarButton(
     ) {
         LIcon(
             icon = icon,
-            tint = if (hovered && hoverColor == Obsidian.danger) Obsidian.text1 else Obsidian.text2,
+            tint = when {
+                hovered && hoverColor == Obsidian.danger -> Obsidian.text1
+                aviso > 0 -> Obsidian.text1
+                else -> Obsidian.text2
+            },
             size = 15.dp,
             rotulo = rotulo,
         )
+        if (aviso > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 10.dp)
+                    .clip(CircleShape)
+                    .background(Obsidian.accent)
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    if (aviso > 9) "9+" else aviso.toString(),
+                    style = TextStyle(color = Obsidian.textInv, fontSize = 8.sp),
+                )
+            }
+        }
     }
 }
 

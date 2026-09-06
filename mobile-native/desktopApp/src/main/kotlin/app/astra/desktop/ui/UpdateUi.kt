@@ -188,7 +188,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 }
 
 @Composable
-private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceMotion: Boolean) {
+internal fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceMotion: Boolean) {
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -247,11 +247,11 @@ private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceM
     }
 }
 
-private data class Rotulo(val texto: String, val baixando: Boolean = false)
+internal data class Rotulo(val texto: String, val baixando: Boolean = false)
 
-private val ZONA_ESCURA = 26.dp
+internal val ZONA_ESCURA = 26.dp
 
-private fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
+internal fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
@@ -268,7 +268,7 @@ private fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
         )
     }
 
-private val SPACE_WORDS = listOf(
+internal val SPACE_WORDS = listOf(
     "acordando o cosmos",
     "alinhando órbitas",
     "traçando a rota estelar",
@@ -276,7 +276,7 @@ private val SPACE_WORDS = listOf(
     "quase lá",
 )
 
-private fun spaceWord(progress: Float): String =
+internal fun spaceWord(progress: Float): String =
     SPACE_WORDS[(progress * SPACE_WORDS.size).toInt().coerceIn(0, SPACE_WORDS.lastIndex)]
 
 @Composable

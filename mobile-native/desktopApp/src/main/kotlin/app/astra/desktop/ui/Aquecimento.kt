@@ -65,15 +65,26 @@ private val TELAS_PESADAS = listOf(
     "app.astra.desktop.ui.ImageCropKt",
 )
 
+private const val PARTE_DO_VOCABULARIO = 0.3f
+
 @Composable
-fun Aquecimento() {
+fun Aquecimento(aoAvancar: (Float) -> Unit = {}, aoTerminar: () -> Unit = {}) {
     var fase by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
         withFrameNanos { }
         fase = 1
         repeat(QUADROS) { withFrameNanos { } }
+        aoAvancar(PARTE_DO_VOCABULARIO)
         fase = 2
-        withContext(Dispatchers.IO) { carregarTelas() }
+        val carregador = Obsidian::class.java.classLoader
+        TELAS_PESADAS.forEachIndexed { i, nome ->
+            withContext(Dispatchers.IO) {
+                runCatching { Class.forName(nome, false, carregador) }
+            }
+            val feito = (i + 1f) / TELAS_PESADAS.size
+            aoAvancar(PARTE_DO_VOCABULARIO + (1f - PARTE_DO_VOCABULARIO) * feito)
+        }
+        aoTerminar()
     }
     if (fase != 1) return
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = OPACIDADE }) {
@@ -154,9 +165,3 @@ private fun Icones() {
     }
 }
 
-private fun carregarTelas() {
-    val carregador = Obsidian::class.java.classLoader ?: return
-    TELAS_PESADAS.forEach { nome ->
-        runCatching { Class.forName(nome, false, carregador) }
-    }
-}

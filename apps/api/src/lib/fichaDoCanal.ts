@@ -9,7 +9,9 @@ export interface FichaDoCanal {
 }
 
 const VALIDADE_SEGUNDOS = 60
+const BLOQUEIO_SEGUNDOS = 10
 const SEM_CANAL = '-'
+const RECEM_MUDADO = '!'
 
 const chaveDaFicha = (channelId: string) => `canal:ficha:${channelId}`
 
@@ -28,7 +30,7 @@ export async function fichaDoCanal(channelId: string): Promise<FichaDoCanal | nu
 
   const guardada = await redis.get(chaveDaFicha(channelId)).catch(() => null)
   if (guardada === SEM_CANAL) return null
-  if (guardada) {
+  if (guardada && guardada !== RECEM_MUDADO) {
     const lida = fichaDoTexto(guardada)
     if (lida) return lida
   }
@@ -44,7 +46,13 @@ export async function fichaDoCanal(channelId: string): Promise<FichaDoCanal | nu
     : null
 
   await redis
-    .setex(chaveDaFicha(channelId), VALIDADE_SEGUNDOS, ficha ? JSON.stringify(ficha) : SEM_CANAL)
+    .set(
+      chaveDaFicha(channelId),
+      ficha ? JSON.stringify(ficha) : SEM_CANAL,
+      'EX',
+      VALIDADE_SEGUNDOS,
+      'NX',
+    )
     .catch(() => {})
 
   return ficha
@@ -52,5 +60,7 @@ export async function fichaDoCanal(channelId: string): Promise<FichaDoCanal | nu
 
 export async function esquecerFichaDoCanal(channelId: string): Promise<void> {
   if (typeof channelId !== 'string' || !channelId) return
-  await redis.del(chaveDaFicha(channelId)).catch(() => {})
+  await redis
+    .set(chaveDaFicha(channelId), RECEM_MUDADO, 'EX', BLOQUEIO_SEGUNDOS)
+    .catch(() => {})
 }

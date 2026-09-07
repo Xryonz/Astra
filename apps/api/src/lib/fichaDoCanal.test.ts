@@ -5,6 +5,7 @@ import { fichaDoCanal, esquecerFichaDoCanal } from './fichaDoCanal'
 const banco = vi.hoisted(() => ({
   idas: 0,
   linhas: [] as Array<{ serverId: string | null; isPrivate: boolean | null }>,
+  portao: null as Promise<void> | null,
 }))
 
 vi.mock('../db', () => ({
@@ -14,7 +15,9 @@ vi.mock('../db', () => ({
         where: () => ({
           limit: async () => {
             banco.idas++
-            return banco.linhas
+            const resposta = banco.linhas
+            if (banco.portao) await banco.portao
+            return resposta
           },
         }),
       }),
@@ -29,6 +32,7 @@ describe('ficha do canal', () => {
   beforeEach(async () => {
     await redis.flushall()
     banco.idas = 0
+    banco.portao = null
     banco.linhas = [{ serverId: CONSTELACAO, isPrivate: false }]
   })
 
@@ -88,6 +92,23 @@ describe('ficha do canal', () => {
     await redis.set(`canal:ficha:${CANAL}`, 'nao sou json')
     expect(await fichaDoCanal(CANAL)).toEqual({ serverId: CONSTELACAO, isPrivate: false })
     expect(banco.idas).toBe(1)
+  })
+
+  it('leitura em voo nao ressuscita a ficha velha depois da mudanca', async () => {
+    let abrir = () => {}
+    banco.portao = new Promise<void>((resolve) => { abrir = resolve })
+
+    const emVoo = fichaDoCanal(CANAL)
+    while (banco.idas === 0) await new Promise((r) => setTimeout(r, 0))
+
+    banco.linhas = [{ serverId: CONSTELACAO, isPrivate: true }]
+    await esquecerFichaDoCanal(CANAL)
+
+    abrir()
+    await emVoo
+
+    banco.portao = null
+    expect((await fichaDoCanal(CANAL))?.isPrivate).toBe(true)
   })
 
   it('ficha guardada sem constelacao nao e aceita', async () => {

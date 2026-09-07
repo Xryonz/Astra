@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,12 +130,15 @@ fun BandejaComMenu(
         .coerceAtMost((tela?.width ?: (em.first + larguraPx)) - larguraPx - 4)
     val y = (em.second - alturaPx - 12).coerceAtLeast(4)
 
+    val estadoDoMenu = rememberWindowState(
+        position = WindowPosition(with(d) { x.toDp() }, with(d) { y.toDp() }),
+        size = DpSize(LARGURA, altura),
+    )
+    LaunchedEffect(altura) { estadoDoMenu.size = DpSize(LARGURA, altura) }
+
     Window(
         onCloseRequest = { menuEm = null },
-        state = rememberWindowState(
-            position = WindowPosition(with(d) { x.toDp() }, with(d) { y.toDp() }),
-            size = DpSize(LARGURA, altura),
-        ),
+        state = estadoDoMenu,
         undecorated = true,
         transparent = janelaAceitaTransparencia,
         resizable = false,

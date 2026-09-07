@@ -191,6 +191,8 @@ fun ShellScreen(
         }
     }
     val json = remember { koin.get<Json>() }
+    val avisosDaConta = remember { koin.get<AvisosDaConta>() }
+    LaunchedEffect(Unit) { avisosDaConta.carregar() }
     LaunchedEffect(Unit) {
         socket.notification.collect { raw ->
             notifCount += 1
@@ -198,10 +200,11 @@ fun ShellScreen(
             val silencioso = runCatching {
                 json.parseToJsonElement(raw).jsonObject["silent"]?.jsonPrimitive?.boolean
             }.getOrNull() ?: false
-            if (!silencioso && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
+            val calado = silencioso || avisosDaConta.devoCalar(vm.state.value.me?.effectiveStatus)
+            if (!calado && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
                 Sfx.aviso()
             }
-            if (!silencioso) AvisosDoPet.mensagemNova()
+            if (!calado) AvisosDoPet.mensagemNova()
         }
     }
 
@@ -218,9 +221,6 @@ fun ShellScreen(
             avatarUrl = eu?.avatarUrl,
         )
     }
-
-    val avisosDaConta = remember { koin.get<AvisosDaConta>() }
-    LaunchedEffect(Unit) { avisosDaConta.carregar() }
 
     val temaDaConta = remember { koin.get<TemaDaConta>() }
     LaunchedEffect(Unit) { temaDaConta.sincronizar() }

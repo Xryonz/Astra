@@ -48,6 +48,6 @@ describe('avisos de canal e categoria', () => {
     canalSumiu('srv1', 'ch1')
     await Promise.resolve()
 
-    expect(await redis.get('canal:ficha:ch1')).toBeNull()
+    expect(await redis.get('canal:ficha:ch1')).not.toContain('srv1')
   })
 })

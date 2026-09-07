@@ -411,7 +411,7 @@ fun main(args: Array<String>) {
                             ) { voz.alternarEnsurdecer() },
                         )
                     }
-                    add(SeparadorDaBandeja)
+                    if (isNotEmpty()) add(SeparadorDaBandeja)
                     add(ItemDaBandeja("Sair", perigo = true) { exitApplication() })
                 }
             },

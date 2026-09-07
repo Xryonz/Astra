@@ -104,7 +104,7 @@ class CallNaSala(
         voltando?.cancel()
         voltando = null
 
-        if (_transmitindo.value) pararDeTransmitir()
+        if (_transmitindo.value) encerrarTransmissao(false)
 
         socket.voiceLeave(sala)
         sidecar.deixarSala()
@@ -181,11 +181,14 @@ class CallNaSala(
 
     @Volatile private var noPalco: String? = null
 
-    fun pararDeTransmitir() {
+    fun pararDeTransmitir() = encerrarTransmissao(true)
+
+    private fun encerrarTransmissao(comSom: Boolean) {
         _transmitindo.value = false
         Transmitindo.marcar(false)
         _relatorioDaTela.value = ""
         sidecar.pararDeTransmitir()
+        if (comSom) Sfx.shareStop()
     }
 
     @Volatile private var microfoneEscolhido: String? = null
@@ -353,8 +356,10 @@ class CallNaSala(
                 }
                 "transmissao" -> {
                     val noAr = ev.valor == "1"
+                    val virou = _transmitindo.value != noAr
                     _transmitindo.value = noAr
                     Transmitindo.marcar(noAr)
+                    if (virou) if (noAr) Sfx.shareStart() else Sfx.shareStop()
                     when {
                         !noAr -> { comoSubiu = ""; porQueCaiu = ""; _relatorioDaTela.value = "" }
                         ev.tipo == "ritmo" -> _relatorioDaTela.value =

@@ -78,8 +78,10 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.TargetDataLine
 import kotlin.concurrent.thread
 import kotlin.math.PI
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
@@ -583,7 +585,60 @@ private fun CostMeter(p: DesktopPrefs.Prefs) {
         CostBar("CPU", cpu)
         Spacer(Modifier.height(14.dp))
         Text(costVerdict(gpu, cpu), style = Tipo.apoio)
+        Spacer(Modifier.height(14.dp))
+        TracoDeCapitulo()
+        Spacer(Modifier.height(14.dp))
+        MedidaDoQuadro()
     }
+}
+
+private const val INTERVALO_DA_MEDIDA_MS = 1_000L
+
+@Composable
+private fun TracoDeCapitulo() {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.fillMaxWidth(0.28f)
+                .height(1.dp)
+                .background(Obsidian.borderDim),
+        )
+    }
+}
+
+@Composable
+private fun MedidaDoQuadro() {
+    var mediana by remember { mutableStateOf(0.0) }
+    var amostras by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            mediana = Quadros.medianaMs
+            amostras = Quadros.amostras
+            delay(INTERVALO_DA_MEDIDA_MS)
+        }
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("medido agora", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+        Spacer(Modifier.weight(1f))
+        Text(
+            textoDaMedida(mediana, amostras),
+            style = TextStyle(color = Obsidian.text1, fontSize = 11.sp),
+        )
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        if (amostras == 0) {
+            "as barras acima são previsão; esta linha é o tempo real de desenho, e é nela que o Astra se baseia para baixar a qualidade sozinho."
+        } else {
+            "tempo real de desenho — é nesta medida que o Astra se baseia para baixar a qualidade sozinho."
+        },
+        style = Tipo.apoio,
+    )
+}
+
+private fun textoDaMedida(mediana: Double, amostras: Int): String {
+    if (amostras == 0 || mediana <= 0.0) return "ainda medindo"
+    val porSegundo = (1000.0 / mediana).roundToInt()
+    return "%.1f ms por quadro · %d por segundo".format(mediana, porSegundo)
 }
 
 @Composable

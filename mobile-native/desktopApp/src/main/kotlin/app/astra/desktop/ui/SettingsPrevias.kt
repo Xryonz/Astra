@@ -617,7 +617,7 @@ private fun MedidaDoQuadro() {
         }
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("medido agora", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+        Text("medido", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
         Spacer(Modifier.weight(1f))
         Text(
             textoDaMedida(mediana, amostras),

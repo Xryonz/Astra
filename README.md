@@ -381,15 +381,26 @@ aplicações detectáveis que o **Discord** publica em
 `discord.com/api/v9/applications/detectable`.
 
 Ser honesto sobre o que isso é: um endpoint **público mas não documentado**, sem
-licença declarada. O que o Astra guarda dele é a parte factual — qual executável
-pertence a qual jogo — e nada mais: nem ícone, nem identificador, nem descrição. Os
-títulos são marcas dos respectivos donos e aparecem só para dizer o que a pessoa está
-jogando.
+licença declarada. Os títulos são marcas dos respectivos donos e aparecem só para
+dizer o que a pessoa está jogando.
 
-O instantâneo tem data no cabeçalho do arquivo e se refaz com
+Um segundo arquivo (`jogos-arte.tsv`) guarda, por título, o identificador do
+aplicativo e a impressão do ícone. Com esses dois o Astra monta o endereço da arte
+do jogo. **Ela não é servida do Discord:** o servidor do Astra busca a imagem uma
+vez, converte, guarda no armazenamento próprio e serve dali em diante. Isso é
+deliberado, por duas razões — nenhuma máquina de usuário fala com o Discord, e o que
+já foi guardado sobrevive se a fonte sair do ar.
+
+Sobre a arte em si: os ícones são das desenvolvedoras dos jogos, não do Discord, que
+apenas os hospeda. O Astra os reexibe para identificar o jogo que alguém está
+jogando — o mesmo uso nominativo dos títulos. Nenhum ícone é redistribuído no
+instalador; eles só existem no armazenamento do servidor, e só os dos jogos que
+alguém aqui de fato abriu.
+
+O instantâneo tem data no cabeçalho de cada arquivo e se refaz com
 `node tools/atualizar-catalogo-de-jogos.mjs`. Se a fonte sair do ar, o Astra continua
-funcionando: o catálogo é a primeira tentativa, e a descrição do próprio executável
-segue como resposta.
+funcionando: o catálogo é a primeira tentativa, a descrição do próprio executável
+segue como resposta, e o desenho vetorial cobre quem não tem arte.
 
 ### Bibliotecas nativas
 
@@ -402,6 +413,18 @@ segue como resposta.
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
 | [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
 | [GStreamer](https://gstreamer.freedesktop.org) | codificação de vídeo (baixado sob demanda) | LGPL 2.1+ |
+
+### Ferramentas de construção
+
+| Ferramenta | Para quê | Licença |
+| --- | --- | --- |
+| [goversioninfo](https://github.com/josephspurrier/goversioninfo) | gerar o recurso que dá nome e ícone ao `astra-voz.exe` no Windows | MIT |
+
+Esta não entra no produto: ela roda **uma vez, à mão**, e o que fica versionado é a
+saída (`sidecar-voz/resource_windows_amd64.syso`, gerada de `versioninfo.json`).
+Foi escolhido assim de propósito — gerar a cada build acrescentaria uma dependência
+de rede ao empacotamento e faria o binário do sidecar mudar em toda release, o que
+custaria 9,58 MB de download por atualização a quem já o tem.
 
 ---
 

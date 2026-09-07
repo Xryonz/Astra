@@ -4,6 +4,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.insistindoOuNulo
 import app.astra.desktop.net.mensagemDaApi
+import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.ui.invalidateProfileCache
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceLog
@@ -81,6 +82,7 @@ class ShellVm(
     private val socket: DesktopSocket,
     private val json: Json,
     private val myId: String?,
+    private val avisosDaConta: AvisosDaConta,
 ) {
     private val _state = MutableStateFlow(ShellUiState())
     val state = _state.asStateFlow()
@@ -159,7 +161,9 @@ class ShellVm(
                         euLiguei = false,
                     ))
                 }
-                Sfx.ringStart(souEuQueLiguei = false)
+                if (!avisosDaConta.devoCalar(_state.value.me?.effectiveStatus)) {
+                    Sfx.ringStart(souEuQueLiguei = false)
+                }
             }
         }
         scope.launch {

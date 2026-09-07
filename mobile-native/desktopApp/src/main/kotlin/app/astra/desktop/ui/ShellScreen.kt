@@ -118,6 +118,7 @@ fun ShellScreen(
         ShellVm(
             scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
             koin.get<NotificationApi>(), koin.get<InviteApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
+            koin.get<AvisosDaConta>(),
         )
     }
     val state by vm.state.collectAsState()

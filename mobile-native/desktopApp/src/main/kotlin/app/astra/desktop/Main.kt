@@ -343,10 +343,15 @@ fun main(args: Array<String>) {
         BandejaComMenu(
             bandeja = bandeja,
             dica = "Astra",
-            aoAtivar = { windowVisible = true },
+            aoAtivar = { windowVisible = true; state.isMinimized = false },
             itens = {
                 buildList {
-                    if (!exitOnClose) add(ItemDaBandeja("Abrir o Astra") { windowVisible = true })
+                    if (!windowVisible || state.isMinimized) {
+                        add(ItemDaBandeja("Abrir o Astra") {
+                            windowVisible = true
+                            state.isMinimized = false
+                        })
+                    }
                     VozNaBandeja.sessao?.let { voz ->
                         add(
                             ItemDaBandeja(

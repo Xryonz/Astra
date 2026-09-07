@@ -142,6 +142,9 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
             packageVersion = astraVersion
+            vendor = "Astra"
+            description = "Astra"
+            copyright = "Astra"
             modules(
                 "jdk.httpserver",
                 "java.management",

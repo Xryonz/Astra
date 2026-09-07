@@ -167,6 +167,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
         joined = sala
         emSussurro = tipo == "dm"
         aplicar()
+        Sfx.callJoin()
     }
 
     fun encerrar() {
@@ -177,11 +178,13 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
     private var espelhoDosAparelhos: Job? = null
 
     fun leave() {
+        val estava = joined != null
         espelhoDosAparelhos?.cancel()
         espelhoDosAparelhos = null
         call?.dispose()
         call = null
         joined = null
         emSussurro = false
+        if (estava) Sfx.callLeave()
     }
 }

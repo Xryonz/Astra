@@ -248,7 +248,7 @@ class ShellVm(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {
-            val meD = async { runCatching { userApi.me().data?.user }.getOrNull() }
+            val meD = async { insistindo("seu perfil") { userApi.me().data?.user } }
             val serversD = async { insistindo("suas constelações") { serverApi.servers().data.orEmpty() } }
             val dmsD = async { insistindo("seus sussurros") { dmApi.conversations().data.orEmpty() } }
             val channelReadsD = async { insistindo("suas leituras") { serverApi.channelReads().data.orEmpty() } }
@@ -311,7 +311,7 @@ class ShellVm(
             _state.update {
                 it.copy(
                     loading = false,
-                    me = meD.await(),
+                    me = meD.await() ?: it.me,
                     servers = servers,
                     dms = dms,
                     selection = finalSelection,

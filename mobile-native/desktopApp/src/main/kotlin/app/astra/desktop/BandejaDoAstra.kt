@@ -82,19 +82,18 @@ fun BandejaComMenu(
         }.getOrNull()
         val icone = TrayIcon(imagem, dica).apply { isImageAutoSize = true }
         icone.addMouseListener(object : MouseAdapter() {
-            override fun mouseReleased(e: MouseEvent) = trata(e)
-            override fun mousePressed(e: MouseEvent) = trata(e)
-
-            private fun trata(e: MouseEvent) {
-                if (e.isPopupTrigger || e.button == MouseEvent.BUTTON3) {
-                    menuEm = if (menuEm != null) null else {
-                        val p = runCatching { MouseInfo.getPointerInfo().location }.getOrNull()
-                        Pair(p?.x ?: e.xOnScreen, p?.y ?: e.yOnScreen)
-                    }
-                } else if (e.clickCount >= 2 && e.button == MouseEvent.BUTTON1) {
-                    menuEm = null
-                    aoAtivar()
+            override fun mouseReleased(e: MouseEvent) {
+                if (!e.isPopupTrigger && e.button != MouseEvent.BUTTON3) return
+                menuEm = if (menuEm != null) null else {
+                    val p = runCatching { MouseInfo.getPointerInfo().location }.getOrNull()
+                    Pair(p?.x ?: e.xOnScreen, p?.y ?: e.yOnScreen)
                 }
+            }
+
+            override fun mouseClicked(e: MouseEvent) {
+                if (e.clickCount < 2 || e.button != MouseEvent.BUTTON1) return
+                menuEm = null
+                aoAtivar()
             }
         })
         val ok = runCatching { SystemTray.getSystemTray().add(icone) }.isSuccess

@@ -48,27 +48,37 @@ fun SidebarSkeleton(rows: Int = 9, modifier: Modifier = Modifier) {
     }
 }
 
+private val FATIAS_DA_FALA = listOf(0.74f, 0.41f, 0.93f, 0.58f, 0.32f, 0.86f, 0.47f, 0.67f)
+private val FATIAS_DO_NOME = listOf(0.20f, 0.14f, 0.26f, 0.17f, 0.23f, 0.15f, 0.28f, 0.19f)
+private const val FATIA_DA_SOBRA = 0.62f
+
 @Composable
 fun ChatSkeleton(modifier: Modifier = Modifier) {
-    val widths = listOf(320, 180, 420, 240, 140, 360, 200, 280)
     Column(
         modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        widths.forEachIndexed { i, w ->
+        FATIAS_DA_FALA.forEachIndexed { i, fatia ->
             Row(Modifier.fillMaxWidth()) {
                 Skeleton(Modifier.size(34.dp), Shimmer, CircleShape)
                 Spacer(Modifier.width(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Skeleton(
-                        Modifier.width((70 + (i * 37) % 60).dp).height(11.dp),
+                        Modifier.fillMaxWidth(FATIAS_DO_NOME[i]).height(11.dp),
                         Shimmer,
                         RoundedCornerShape(5.dp),
                     )
-                    Skeleton(Modifier.width(w.dp).height(12.dp), Shimmer, RoundedCornerShape(5.dp))
+                    Skeleton(
+                        Modifier.fillMaxWidth(fatia).height(12.dp),
+                        Shimmer,
+                        RoundedCornerShape(5.dp),
+                    )
                     if (i % 3 == 0) {
                         Skeleton(
-                            Modifier.width((w * 2 / 3).dp).height(12.dp),
+                            Modifier.fillMaxWidth(fatia * FATIA_DA_SOBRA).height(12.dp),
                             Shimmer,
                             RoundedCornerShape(5.dp),
                         )

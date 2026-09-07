@@ -68,6 +68,8 @@ import com.composables.icons.lucide.UserMinus
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.X
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
@@ -94,14 +96,18 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
     var outgoing by remember { mutableStateOf<List<FriendRequestDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
-    suspend fun reload() {
-        runCatching { api.friends().data.orEmpty() }.onSuccess { f ->
+    suspend fun reload() = coroutineScope {
+        val lista = async { runCatching { api.friends().data.orEmpty() }.getOrNull() }
+        val chegando = async { runCatching { api.requests().data.orEmpty() }.getOrNull() }
+        val saindo = async { runCatching { api.outgoing().data.orEmpty() }.getOrNull() }
+
+        lista.await()?.let { f ->
             friends = f.sortedWith(
                 compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
             )
         }
-        runCatching { api.requests().data.orEmpty() }.onSuccess { incoming = it }
-        runCatching { api.outgoing().data.orEmpty() }.onSuccess { outgoing = it }
+        chegando.await()?.let { incoming = it }
+        saindo.await()?.let { outgoing = it }
     }
     LaunchedEffect(Unit) { reload(); loading = false }
 

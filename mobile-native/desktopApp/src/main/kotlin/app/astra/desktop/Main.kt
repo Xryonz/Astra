@@ -137,8 +137,14 @@ internal object FocoDoSistema {
         }
     }
 
+    private const val QUALQUER_PROCESSO = -1
+
     fun cederAFrenteA(pid: Long) {
         runCatching { U32.I?.AllowSetForegroundWindow(pid.toInt()) }
+    }
+
+    fun cederAFrenteAQualquerUm() {
+        runCatching { U32.I?.AllowSetForegroundWindow(QUALQUER_PROCESSO) }
     }
 
     private val meuPid = runCatching { ProcessHandle.current().pid().toInt() }.getOrDefault(-1)

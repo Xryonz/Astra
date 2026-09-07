@@ -45,5 +45,6 @@ object InicioComWindows {
     }
 
     private fun caminhoDoExe(): String? =
-        System.getProperty("jpackage.app-path")?.takeIf { it.endsWith(".exe", true) }
+        Instalacao.exeFixo?.takeIf { it.isFile }?.absolutePath
+            ?: Instalacao.exe?.absolutePath
 }

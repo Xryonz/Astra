@@ -45,44 +45,24 @@ object WindowsAppId {
         icone()?.let { Advapi32Util.registrySetStringValue(raiz, CHAVE, "IconUri", it) }
     }
 
-    private fun icone(): String? {
-        val exe = System.getProperty("jpackage.app-path") ?: return null
-        val raiz = File(exe).parentFile?.parentFile?.parentFile ?: return null
-        return File(raiz, "astra.ico").takeIf { it.isFile }?.absolutePath
-    }
+    private fun icone(): String? = Instalacao.icone()?.absolutePath
 
     private fun garantirAtalhoNoIniciar() {
-        val exe = System.getProperty("jpackage.app-path")?.takeIf { it.endsWith(".exe", true) } ?: return
         val menu = System.getenv("APPDATA")?.let { File(it, ATALHO) } ?: return
-        val raiz = File(exe).parentFile?.parentFile?.parentFile
-        val launcher = raiz?.let { File(it, "launch.vbs") }?.takeIf { it.isFile }
-
-        val alvo: String
-        val argumentos: String
-        val pasta: String
-        if (launcher != null && raiz != null) {
-            alvo = "${System.getenv("SystemRoot") ?: "C:\\Windows"}\\System32\\wscript.exe"
-            argumentos = "\"${launcher.absolutePath}\""
-            pasta = raiz.absolutePath
-        } else {
-            alvo = exe
-            argumentos = ""
-            pasta = File(exe).parent ?: return
-        }
-        val simbolo = icone() ?: exe
+        val alvo = Instalacao.alvoDoAtalho() ?: return
 
         fun q(s: String) = s.replace("'", "''")
         val roteiro = buildString {
             append("\$p = '${q(menu.absolutePath)}'; ")
             append("\$w = New-Object -ComObject WScript.Shell; ")
             append("if (Test-Path \$p) { \$c = \$w.CreateShortcut(\$p); ")
-            append("if (\$c.TargetPath -eq '${q(alvo)}' -and \$c.Arguments -eq '${q(argumentos)}') { exit } }; ")
+            append("if (\$c.TargetPath -eq '${q(alvo.programa)}' -and \$c.Arguments -eq '${q(alvo.argumentos)}') { exit } }; ")
             append("New-Item -ItemType Directory -Force -Path (Split-Path \$p) | Out-Null; ")
             append("\$s = \$w.CreateShortcut(\$p); ")
-            append("\$s.TargetPath = '${q(alvo)}'; ")
-            append("\$s.Arguments = '${q(argumentos)}'; ")
-            append("\$s.WorkingDirectory = '${q(pasta)}'; ")
-            append("\$s.IconLocation = '${q(simbolo)}'; ")
+            append("\$s.TargetPath = '${q(alvo.programa)}'; ")
+            append("\$s.Arguments = '${q(alvo.argumentos)}'; ")
+            append("\$s.WorkingDirectory = '${q(alvo.pasta)}'; ")
+            append("\$s.IconLocation = '${q(alvo.simbolo)}'; ")
             append("\$s.Save()")
         }
         ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-Command", roteiro)

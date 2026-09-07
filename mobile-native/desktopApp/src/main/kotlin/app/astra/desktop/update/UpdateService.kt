@@ -2,6 +2,7 @@ package app.astra.desktop.update
 
 import app.astra.desktop.ARG_POS_ATUALIZACAO
 import app.astra.desktop.FocoDoSistema
+import app.astra.desktop.Instalacao
 import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
@@ -58,9 +59,9 @@ class UpdateService(private val http: OkHttpClient) {
 
     val currentVersion: String get() = System.getProperty("astra.version") ?: "dev"
 
-    val installed: Boolean get() = !Multi.ligado && appRootDir() != null
+    val installed: Boolean get() = !Multi.ligado && Instalacao.imagem != null
 
-    private var stagedExe: File? = null
+    private var imagemPronta: File? = null
 
     private var ronda: Job? = null
 
@@ -89,26 +90,15 @@ class UpdateService(private val http: OkHttpClient) {
     }
 
     fun limparVersoesAntigas(): Long {
-        val atual = appRootDir() ?: return 0L
-        val versionsDir = atual.parentFile ?: return 0L
-        val raiz = versionsDir.parentFile ?: return 0L
-        val caminhoAtual = runCatching { atual.canonicalPath }.getOrNull() ?: return 0L
+        val atual = Instalacao.imagem ?: return 0L
         var liberado = 0L
-
-        fun apagar(alvo: File) {
-            if (runCatching { alvo.canonicalPath }.getOrNull() == caminhoAtual) return
+        for (alvo in Instalacao.descartaveis()) {
+            if (Instalacao.mesmaPasta(alvo, atual)) continue
+            if (Instalacao.mesmaPasta(alvo, Instalacao.fixa)) continue
             val tamanho = alvo.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
             if (alvo.deleteRecursively()) liberado += tamanho
         }
-
-        versionsDir.listFiles()?.forEach { if (it.isDirectory) apagar(it) }
-
-        File(raiz, "zips").listFiles()?.forEach { if (it.isFile) apagar(it) }
-
-        val pastaDeVersao = Regex("""^\d+\.\d+\.\d+$""")
-        raiz.listFiles()?.forEach { f ->
-            if (f.isDirectory && pastaDeVersao.matches(f.name)) apagar(f)
-        }
+        Trocador.limparRoteiros()
         return liberado
     }
 
@@ -184,19 +174,22 @@ class UpdateService(private val http: OkHttpClient) {
     }
 
     suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO) {
-        val appRoot = appRootDir() ?: run {
+        val appRoot = Instalacao.imagem ?: run {
             _state.value = UpdateState.Failed("não achei a pasta do app", av.releaseUrl)
             return@withContext
         }
-        val versionsDir = appRoot.parentFile ?: run {
+        val newVersionDir = Instalacao.palcoPara(av.version) ?: run {
             _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
             return@withContext
         }
-        val portableRoot = versionsDir.parentFile ?: versionsDir
-        val zipsDir = File(portableRoot, "zips").apply { mkdirs() }
+        val palco = newVersionDir.parentFile ?: run {
+            _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
+            return@withContext
+        }
+        palco.mkdirs()
+        val zipsDir = (Instalacao.pastaDosZips() ?: palco).apply { mkdirs() }
         val zipFile = File(zipsDir, "Astra-${av.version}-win-x64.zip")
-        val stagingDir = File(versionsDir, ".staging-${av.version}")
-        val newVersionDir = File(versionsDir, av.version)
+        val stagingDir = File(palco, ".staging-${av.version}")
         runCatching {
             _state.value = UpdateState.Downloading(av.version, 0f)
             stagingDir.deleteRecursively()
@@ -231,7 +224,7 @@ class UpdateService(private val http: OkHttpClient) {
             if (!File(newVersionDir, "app").isDirectory || !File(newVersionDir, "runtime").isDirectory) {
                 error("pacote incompleto")
             }
-            stagedExe = File(newVersionDir, "Astra.exe")
+            imagemPronta = newVersionDir
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
             stagingDir.deleteRecursively()
@@ -351,8 +344,15 @@ class UpdateService(private val http: OkHttpClient) {
     }
 
     fun restartToInstall() {
-        val exe = stagedExe?.takeIf { it.isFile } ?: exeDaMaiorVersao() ?: return
+        val nova = imagemPronta?.takeIf { File(it, "Astra.exe").isFile }
+            ?: pastaDaMaiorVersao()
+            ?: return
         SingleInstance.release()
+        if (Trocador.precisaTrocar(nova)) {
+            FocoDoSistema.cederAFrenteAQualquerUm()
+            if (Trocador.trocar(nova, ARG_POS_ATUALIZACAO)) exitProcess(0)
+        }
+        val exe = File(nova, "Astra.exe")
         val novo = runCatching {
             ProcessBuilder(exe.absolutePath, ARG_POS_ATUALIZACAO)
                 .directory(exe.parentFile)
@@ -366,21 +366,10 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
-    private fun exeDaMaiorVersao(): File? {
-        val versionsDir = appRootDir()?.parentFile ?: return null
-        return versionsDir.listFiles()
+    private fun pastaDaMaiorVersao(): File? {
+        val palco = Instalacao.palcoPara(currentVersion)?.parentFile ?: return null
+        return palco.listFiles()
             ?.filter { it.isDirectory && File(it, "Astra.exe").isFile }
             ?.maxWithOrNull { a, b -> if (isNewer(a.name, b.name)) 1 else -1 }
-            ?.let { File(it, "Astra.exe") }
-    }
-
-    private fun appRootDir(): File? {
-        System.getProperty("jpackage.app-path")?.let { p ->
-            val exe = File(p)
-            if (exe.exists() && exe.name.equals("Astra.exe", true)) return exe.parentFile
-        }
-        val cmd = ProcessHandle.current().info().command().orElse(null) ?: return null
-        val exe = File(cmd)
-        return if (exe.name.equals("Astra.exe", true)) exe.parentFile else null
     }
 }

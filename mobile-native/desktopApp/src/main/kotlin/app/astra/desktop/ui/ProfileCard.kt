@@ -281,7 +281,6 @@ private fun CorpoCompacto(
     }
     dados.atividade?.takeIf { it.isNotBlank() }?.let { programa ->
         Spacer(Modifier.height(8.dp))
-        val arte = arteDaAtividade(programa, Obsidian.accent)
         var agora by remember { mutableStateOf(System.currentTimeMillis()) }
         LaunchedEffect(programa) {
             while (true) {
@@ -291,16 +290,7 @@ private fun CorpoCompacto(
         }
         val decorrido = tempoDeAtividade(dados.atividadeDesde, agora)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(arte.cor.copy(alpha = 0.14f))
-                    .border(1.dp, arte.cor.copy(alpha = 0.22f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                LIcon(arte.glifo, tint = arte.cor, size = 16.dp)
-            }
+            SeloDeAtividade(programa)
             Spacer(Modifier.width(9.dp))
             Column {
                 Text(

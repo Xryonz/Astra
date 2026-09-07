@@ -26,6 +26,15 @@ export const uploadLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 })
 
+export const activityArtLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Muitos pedidos de arte. Aguarde um momento.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+})
+
 export const messageLimiter = rateLimit({
   windowMs: 10 * 1000,
   max: 20,

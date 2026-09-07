@@ -1,7 +1,24 @@
 package app.astra.desktop.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import app.astra.desktop.CatalogoDeJogos
+import app.astra.desktop.ui.theme.Obsidian
+import coil3.compose.AsyncImage
 import com.composables.icons.lucide.AppWindow
 import com.composables.icons.lucide.Boxes
 import com.composables.icons.lucide.Braces
@@ -97,6 +114,32 @@ fun arteDaAtividade(texto: String?, accent: Color): ArteDeAtividade {
         }
     }
     return ArteDeAtividade(Lucide.AppWindow, accent)
+}
+
+@Composable
+fun SeloDeAtividade(programa: String?, lado: Dp = 32.dp, glifo: Dp = 16.dp) {
+    val arte = arteDaAtividade(programa, Obsidian.accent)
+    val endereco = remember(programa) { CatalogoDeJogos.arteDe(programa) }
+    val canto = RoundedCornerShape(8.dp)
+    Box(
+        Modifier
+            .size(lado)
+            .clip(canto)
+            .background(arte.cor.copy(alpha = 0.14f))
+            .border(1.dp, arte.cor.copy(alpha = 0.22f), canto),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(arte.glifo, tint = arte.cor, size = glifo)
+        if (endereco != null && !imagemMorreu(endereco)) {
+            AsyncImage(
+                model = endereco,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onState = { lembrarQueMorreu(endereco, it) },
+            )
+        }
+    }
 }
 
 fun tempoDeAtividade(desde: Long, agora: Long = System.currentTimeMillis()): String? {

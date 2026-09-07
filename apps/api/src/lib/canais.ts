@@ -4,6 +4,7 @@ import { channels, messages, servers } from '../db/schema'
 import { servidorDeSocket } from './realtime'
 import { membrosQueVeemCanal } from './permissions'
 import { getCachedMembers } from './membersCache'
+import { esquecerFichaDoCanal } from './fichaDoCanal'
 
 async function ultimaMensagemDe(channelId: string): Promise<Date | null> {
   const [linha] = await db.select({ quando: sql<Date | null>`MAX(${messages.createdAt})` })
@@ -13,6 +14,8 @@ async function ultimaMensagemDe(channelId: string): Promise<Date | null> {
 }
 
 export async function canalMudou(serverId: string, channelId: string): Promise<void> {
+  await esquecerFichaDoCanal(channelId)
+
   const io = servidorDeSocket()
   if (!io) return
 
@@ -45,6 +48,7 @@ export async function canalMudou(serverId: string, channelId: string): Promise<v
 }
 
 export function canalSumiu(serverId: string, channelId: string): void {
+  void esquecerFichaDoCanal(channelId)
   servidorDeSocket()?.to(`server:${serverId}`).emit('server_channel_gone', { serverId, channelId })
 }
 

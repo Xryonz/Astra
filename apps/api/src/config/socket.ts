@@ -67,17 +67,9 @@ async function avisarMinhasConstelacoes(
 }
 
 import { membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
+import { fichaDoCanal } from '../lib/fichaDoCanal'
 async function userCanAccessChannel(userId: string, channelId: string): Promise<boolean> {
   return userCanSeeChannel(userId, channelId)
-}
-
-async function canalParaAnunciar(
-  channelId: string,
-): Promise<{ serverId: string; isPrivate: boolean } | null> {
-  const [ch] = await db.select({ serverId: channels.serverId, isPrivate: channels.isPrivate })
-    .from(channels).where(eq(channels.id, channelId)).limit(1)
-  if (!ch?.serverId) return null
-  return { serverId: ch.serverId, isPrivate: !!ch.isPrivate }
 }
 
 async function userCanAccessDM(userId: string, conversationId: string): Promise<boolean> {
@@ -385,7 +377,7 @@ export function setupSocket(io: Server) {
 
     const emitVoicePresence = async (channelId: unknown, joined: boolean) => {
       if (typeof channelId !== 'string' || !channelId) return
-      const canal = await canalParaAnunciar(channelId)
+      const canal = await fichaDoCanal(channelId)
       if (!canal) return
       if (!socket.rooms.has(`server:${canal.serverId}`)) return
       if (canal.isPrivate && !(await userCanAccessChannel(userId, channelId))) return

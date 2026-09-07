@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import { attachRealtime } from './realtime'
+import { redis } from './redis'
 import { canalSumiu, categoriaMudou, categoriaSumiu } from './canais'
 
 function fakeIo() {
@@ -38,5 +39,15 @@ describe('avisos de canal e categoria', () => {
       canalSumiu('srv1', 'ch1')
       categoriaSumiu('srv1', 'cat1')
     }).not.toThrow()
+  })
+
+  it('canal excluido esquece a ficha ATE com o io desligado', async () => {
+    await redis.set('canal:ficha:ch1', JSON.stringify({ serverId: 'srv1', isPrivate: false }))
+    attachRealtime(undefined as unknown as SocketServer)
+
+    canalSumiu('srv1', 'ch1')
+    await Promise.resolve()
+
+    expect(await redis.get('canal:ficha:ch1')).toBeNull()
   })
 })

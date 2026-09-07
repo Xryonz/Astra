@@ -71,6 +71,22 @@ async function userCanAccessChannel(userId: string, channelId: string): Promise<
   return userCanSeeChannel(userId, channelId)
 }
 
+const TETO_DE_CANAIS_LEMBRADOS = 5_000
+const constelacaoPorCanal = new Map<string, string>()
+
+async function constelacaoDoCanal(channelId: string): Promise<string | null> {
+  const lembrada = constelacaoPorCanal.get(channelId)
+  if (lembrada) return lembrada
+
+  const [ch] = await db.select({ serverId: channels.serverId })
+    .from(channels).where(eq(channels.id, channelId)).limit(1)
+  if (!ch?.serverId) return null
+
+  if (constelacaoPorCanal.size >= TETO_DE_CANAIS_LEMBRADOS) constelacaoPorCanal.clear()
+  constelacaoPorCanal.set(channelId, ch.serverId)
+  return ch.serverId
+}
+
 async function userCanAccessDM(userId: string, conversationId: string): Promise<boolean> {
   const [row] = await db.select({ id: dmConversations.id }).from(dmConversations)
     .where(and(
@@ -376,15 +392,10 @@ export function setupSocket(io: Server) {
 
     const emitVoicePresence = async (channelId: unknown, joined: boolean) => {
       if (typeof channelId !== 'string' || !channelId) return
+      const serverId = await constelacaoDoCanal(channelId)
+      if (!serverId) return
       if (!(await userCanAccessChannel(userId, channelId))) return
-      const [ch] = await db.select({ serverId: channels.serverId })
-        .from(channels).where(eq(channels.id, channelId)).limit(1)
-      if (!ch) return
-      const members = await db.select({ userId: serverMembers.userId })
-        .from(serverMembers).where(eq(serverMembers.serverId, ch.serverId))
-      for (const m of members) {
-        io.to(`user:${m.userId}`).emit('voice_presence', { channelId, userId, joined })
-      }
+      io.to(`server:${serverId}`).emit('voice_presence', { channelId, userId, joined })
     }
     const salasDeVoz = new Set<string>()
 

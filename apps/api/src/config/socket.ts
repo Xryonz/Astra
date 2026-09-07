@@ -71,20 +71,13 @@ async function userCanAccessChannel(userId: string, channelId: string): Promise<
   return userCanSeeChannel(userId, channelId)
 }
 
-const TETO_DE_CANAIS_LEMBRADOS = 5_000
-const constelacaoPorCanal = new Map<string, string>()
-
-async function constelacaoDoCanal(channelId: string): Promise<string | null> {
-  const lembrada = constelacaoPorCanal.get(channelId)
-  if (lembrada) return lembrada
-
-  const [ch] = await db.select({ serverId: channels.serverId })
+async function canalParaAnunciar(
+  channelId: string,
+): Promise<{ serverId: string; isPrivate: boolean } | null> {
+  const [ch] = await db.select({ serverId: channels.serverId, isPrivate: channels.isPrivate })
     .from(channels).where(eq(channels.id, channelId)).limit(1)
   if (!ch?.serverId) return null
-
-  if (constelacaoPorCanal.size >= TETO_DE_CANAIS_LEMBRADOS) constelacaoPorCanal.clear()
-  constelacaoPorCanal.set(channelId, ch.serverId)
-  return ch.serverId
+  return { serverId: ch.serverId, isPrivate: !!ch.isPrivate }
 }
 
 async function userCanAccessDM(userId: string, conversationId: string): Promise<boolean> {
@@ -392,10 +385,11 @@ export function setupSocket(io: Server) {
 
     const emitVoicePresence = async (channelId: unknown, joined: boolean) => {
       if (typeof channelId !== 'string' || !channelId) return
-      const serverId = await constelacaoDoCanal(channelId)
-      if (!serverId) return
-      if (!(await userCanAccessChannel(userId, channelId))) return
-      io.to(`server:${serverId}`).emit('voice_presence', { channelId, userId, joined })
+      const canal = await canalParaAnunciar(channelId)
+      if (!canal) return
+      if (!socket.rooms.has(`server:${canal.serverId}`)) return
+      if (canal.isPrivate && !(await userCanAccessChannel(userId, channelId))) return
+      io.to(`server:${canal.serverId}`).emit('voice_presence', { channelId, userId, joined })
     }
     const salasDeVoz = new Set<string>()
 

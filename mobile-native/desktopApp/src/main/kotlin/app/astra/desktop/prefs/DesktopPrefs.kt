@@ -70,6 +70,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val reduceMotion: Boolean = false,
         val notifyDms: Boolean = true,
         val notifyChannels: Boolean = true,
+        val silencioAte: Long = 0L,
         val atividadeVisivel: Boolean = false,
         val performanceMode: Boolean = false,
         val perfAutomatico: String = "",
@@ -172,6 +173,7 @@ class DesktopPrefs(private val store: SessionStore) {
         reduceMotion = store.uiPref("reduceMotion") == "1",
         notifyDms = store.uiPref("notifyDms") != "0",
         notifyChannels = store.uiPref("notifyChannels") != "0",
+        silencioAte = store.uiPref("silencioAte")?.toLongOrNull() ?: 0L,
         atividadeVisivel = store.uiPref("atividadeVisivel") == "1",
         performanceMode = store.uiPref("performanceMode") == "1",
         perfAutomatico = store.uiPref("perfAutomatico") ?: "",
@@ -230,6 +232,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setNotifyChannels(v: Boolean) {
         persist("notifyChannels", v)
         _state.update { it.copy(notifyChannels = v) }
+    }
+
+    fun setSilencioAte(quando: Long) {
+        store.setUiPref("silencioAte", quando.toString())
+        _state.update { it.copy(silencioAte = quando) }
     }
 
     fun setPerformanceMode(v: Boolean) {

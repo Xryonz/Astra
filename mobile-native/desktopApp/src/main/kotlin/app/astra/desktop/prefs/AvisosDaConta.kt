@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class AvisosDaConta(private val api: NotificationApi) {
+class AvisosDaConta(private val api: NotificationApi, private val prefs: DesktopPrefs) {
 
     private val _estado = MutableStateFlow(AvisosDaContaDto())
     val estado: StateFlow<AvisosDaContaDto> = _estado.asStateFlow()
@@ -29,5 +29,6 @@ class AvisosDaConta(private val api: NotificationApi) {
         }.onFailure { _estado.value = anterior }
     }
 
-    fun devoCalar(status: String?): Boolean = status == "DND"
+    fun devoCalar(status: String?): Boolean =
+        status == "DND" || prefs.state.value.silencioAte > System.currentTimeMillis()
 }

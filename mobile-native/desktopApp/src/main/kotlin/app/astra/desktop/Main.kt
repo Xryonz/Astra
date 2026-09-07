@@ -72,7 +72,9 @@ import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.OnboardingScreen
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.StarField
+import app.astra.desktop.ui.UserStatus
 import app.astra.desktop.ui.auroraBackground
+import app.astra.desktop.ui.statusLabel
 
 import app.astra.desktop.ui.UpdaterGate
 import app.astra.desktop.ui.theme.EaseOutSoft
@@ -88,6 +90,8 @@ import org.koin.core.context.startKoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.IOException
 import java.net.InetAddress
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.net.ServerSocket
 import java.net.Socket
 import kotlin.concurrent.thread
@@ -259,6 +263,20 @@ const val ARG_MINIMIZADO = "--minimizado"
 
 private const val PRAZO_DO_PORTAO_MS = 8_000L
 
+private const val UMA_HORA_MS = 60 * 60 * 1000L
+
+private const val HORA_DA_MANHA = 8
+
+private val ESTADOS_NA_BANDEJA =
+    listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE)
+
+private fun proximaManha(): Long {
+    val agora = LocalDateTime.now()
+    val manha = agora.toLocalDate().atTime(HORA_DA_MANHA, 0)
+    val alvo = if (agora.isBefore(manha)) manha else manha.plusDays(1)
+    return alvo.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+}
+
 fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
@@ -352,7 +370,36 @@ fun main(args: Array<String>) {
                             state.isMinimized = false
                         })
                     }
+                    EstadoNaBandeja.atual?.let { atual ->
+                        if (isNotEmpty()) add(SeparadorDaBandeja)
+                        ESTADOS_NA_BANDEJA.forEach { escolha ->
+                            add(
+                                ItemDaBandeja(
+                                    rotulo = statusLabel(escolha),
+                                    marcado = escolha == atual,
+                                    estado = escolha,
+                                ) { EstadoNaBandeja.escolher(escolha) },
+                            )
+                        }
+                        add(SeparadorDaBandeja)
+                        val prefs = GlobalContext.get().get<DesktopPrefs>()
+                        if (topPrefState.silencioAte > System.currentTimeMillis()) {
+                            add(ItemDaBandeja("Religar os avisos") { prefs.setSilencioAte(0L) })
+                        } else {
+                            add(
+                                ItemDaBandeja("Silenciar por uma hora") {
+                                    prefs.setSilencioAte(System.currentTimeMillis() + UMA_HORA_MS)
+                                },
+                            )
+                            add(
+                                ItemDaBandeja("Silenciar até de manhã") {
+                                    prefs.setSilencioAte(proximaManha())
+                                },
+                            )
+                        }
+                    }
                     VozNaBandeja.sessao?.let { voz ->
+                        add(SeparadorDaBandeja)
                         add(
                             ItemDaBandeja(
                                 if (voz.mudo) "Reativar microfone" else "Silenciar microfone",
@@ -364,6 +411,7 @@ fun main(args: Array<String>) {
                             ) { voz.alternarEnsurdecer() },
                         )
                     }
+                    add(SeparadorDaBandeja)
                     add(ItemDaBandeja("Sair", perigo = true) { exitApplication() })
                 }
             },

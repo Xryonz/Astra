@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.EstadoNaBandeja
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
@@ -102,7 +103,7 @@ fun userColor(id: String): Color {
     return UserPalette[h % UserPalette.size]
 }
 
-private fun statusLabel(status: UserStatus) = when (status) {
+internal fun statusLabel(status: UserStatus) = when (status) {
     UserStatus.ONLINE -> "brilhando"
     UserStatus.IDLE -> "ausente"
     UserStatus.DND -> "não perturbe"
@@ -156,6 +157,14 @@ fun UserFooter(
                 GlobalContext.get().get<UserApi>().setStatus(SetStatusRequest(picked.name))
             }.onSuccess { onEdited() }
         }
+    }
+
+    DisposableEffect(status) {
+        EstadoNaBandeja.assumir(status, pickStatus)
+        onDispose { }
+    }
+    DisposableEffect(Unit) {
+        onDispose { EstadoNaBandeja.largar() }
     }
 
     EditorialContextMenu(modifier = modifier, entries = {

@@ -7,10 +7,13 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +36,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import app.astra.desktop.ui.StatusDot
+import app.astra.desktop.ui.UserStatus
 import app.astra.desktop.ui.clickable
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -45,11 +50,17 @@ import java.awt.event.MouseEvent
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 
+sealed interface EntradaDaBandeja
+
 data class ItemDaBandeja(
     val rotulo: String,
     val perigo: Boolean = false,
+    val marcado: Boolean = false,
+    val estado: UserStatus? = null,
     val aoClicar: () -> Unit,
-)
+) : EntradaDaBandeja
+
+data object SeparadorDaBandeja : EntradaDaBandeja
 
 class Bandeja {
     internal var icone: TrayIcon? = null
@@ -61,14 +72,16 @@ class Bandeja {
 
 private val LARGURA = 190.dp
 private val ALTURA_ITEM = 32.dp
+private val ALTURA_SEPARADOR = 11.dp
 private val RESPIRO = 8.dp
+private const val FATIA_DO_SEPARADOR = 0.34f
 
 @Composable
 fun BandejaComMenu(
     bandeja: Bandeja,
     dica: String,
     aoAtivar: () -> Unit,
-    itens: () -> List<ItemDaBandeja>,
+    itens: () -> List<EntradaDaBandeja>,
 ) {
     var menuEm by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val lista = if (menuEm != null) itens() else emptyList()
@@ -105,7 +118,9 @@ fun BandejaComMenu(
     }
 
     val em = menuEm ?: return
-    val altura = ALTURA_ITEM * lista.size + RESPIRO * 2
+    val altura = lista.fold(RESPIRO * 2) { soma, entrada ->
+        soma + if (entrada is SeparadorDaBandeja) ALTURA_SEPARADOR else ALTURA_ITEM
+    }
     val d = androidx.compose.ui.platform.LocalDensity.current
     val larguraPx = with(d) { LARGURA.roundToPx() }
     val alturaPx = with(d) { altura.roundToPx() }
@@ -147,8 +162,11 @@ fun BandejaComMenu(
                 .padding(vertical = RESPIRO),
         ) {
             Column(Modifier.fillMaxWidth()) {
-                lista.forEach { item ->
-                    LinhaDaBandeja(item) { menuEm = null }
+                lista.forEach { entrada ->
+                    when (entrada) {
+                        is SeparadorDaBandeja -> SeparadorNaBandeja()
+                        is ItemDaBandeja -> LinhaDaBandeja(entrada) { menuEm = null }
+                    }
                 }
             }
         }
@@ -156,16 +174,33 @@ fun BandejaComMenu(
 }
 
 @Composable
+private fun SeparadorNaBandeja() {
+    Box(
+        Modifier.fillMaxWidth().height(ALTURA_SEPARADOR),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(FATIA_DO_SEPARADOR)
+                .height(1.dp)
+                .background(Obsidian.borderDim),
+        )
+    }
+}
+
+@Composable
 private fun LinhaDaBandeja(item: ItemDaBandeja, fechar: () -> Unit) {
     val fonte = remember { MutableInteractionSource() }
     val hover by fonte.collectIsHoveredAsState()
+    val fundo = if (hover) Obsidian.hover else Obsidian.overlay
     val cor = when {
         item.perigo && hover -> Obsidian.danger
         item.perigo -> Obsidian.danger.copy(alpha = 0.85f)
+        item.marcado -> Obsidian.accent
         hover -> Obsidian.text1
         else -> Obsidian.text2
     }
-    Box(
+    Row(
         Modifier
             .fillMaxWidth()
             .height(ALTURA_ITEM)
@@ -178,8 +213,12 @@ private fun LinhaDaBandeja(item: ItemDaBandeja, fechar: () -> Unit) {
                 item.aoClicar()
             }
             .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.CenterStart,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        item.estado?.let {
+            StatusDot(status = it, size = 10.dp, cutoutColor = fundo)
+            Spacer(Modifier.width(9.dp))
+        }
         Text(item.rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
     }
 }

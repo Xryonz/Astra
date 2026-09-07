@@ -121,7 +121,7 @@ val appModule = module {
     single { MissoesStore(get(), get()) }
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }
     single { DesktopPrefs(get()) }
-    single { AvisosDaConta(get()) }
+    single { AvisosDaConta(get(), get()) }
     single { TemaDaConta(get(), get()) }
     single { UpdateService(get(named("plain"))) }
 }

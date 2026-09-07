@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,11 +67,13 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.EstadoNaBandeja
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.CircleDot
+import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Headphones
@@ -85,6 +88,7 @@ import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
@@ -165,6 +169,18 @@ fun UserFooter(
     }
     DisposableEffect(Unit) {
         onDispose { EstadoNaBandeja.largar() }
+    }
+
+    val prefsDoApp = remember { GlobalContext.get().get<DesktopPrefs>() }
+    val prefsDoAppState by prefsDoApp.state.collectAsState()
+    var silenciado by remember { mutableStateOf(false) }
+    LaunchedEffect(prefsDoAppState.silencioAte) {
+        val ate = prefsDoAppState.silencioAte
+        silenciado = ate > System.currentTimeMillis()
+        if (silenciado) {
+            delay(ate - System.currentTimeMillis())
+            silenciado = false
+        }
     }
 
     EditorialContextMenu(modifier = modifier, entries = {
@@ -278,6 +294,16 @@ fun UserFooter(
         if (caminho != null) {
             SinalDaChamada(caminho)
             Spacer(Modifier.width(4.dp))
+        }
+        if (silenciado) {
+            FooterIcon(
+                icon = Lucide.BellOff,
+                rotulo = "religar os avisos",
+                danger = false,
+                aceso = true,
+                onClick = { prefsDoApp.setSilencioAte(0L) },
+            )
+            Spacer(Modifier.width(2.dp))
         }
         FooterIcon(
             icon = if (mudo) Lucide.MicOff else Lucide.Mic,

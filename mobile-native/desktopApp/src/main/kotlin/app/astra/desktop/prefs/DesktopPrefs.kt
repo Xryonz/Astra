@@ -28,15 +28,15 @@ enum class ScreenQuality(
 ) {
     SHARP_1080_60("s108060", "1080p 60fps — nítida", 1920, 1080, 60, 8_000_000),
     SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
-    LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000),
+    LIGHT_720_60("l72030", "720p 60fps — leve", 1280, 720, 60, 2_500_000),
 
-    TINY_540_30("t54030", "540p 30fps — economica", 960, 540, 30, 1_200_000);
+    TINY_540_60("t54030", "540p 60fps — econômica", 960, 540, 60, 1_200_000);
     companion object {
         fun from(raw: String?) = entries.find { it.key == raw } ?: padraoDaMaquina()
 
         fun padraoDaMaquina(): ScreenQuality = when (Runtime.getRuntime().availableProcessors()) {
-            in 0..4 -> TINY_540_30
-            in 5..6 -> LIGHT_720_30
+            in 0..4 -> TINY_540_60
+            in 5..6 -> LIGHT_720_60
             in 7..8 -> SMOOTH_720_60
             else -> SHARP_1080_60
         }

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"runtime"
+	"sort"
 	"testing"
 	"time"
 )
@@ -59,9 +60,11 @@ func TestSondaTetoDeQuadros(t *testing.T) {
 		defer c.Fechar()
 
 		bytes, saidas := 0, 0
+		var tamanhos []int
 		receber := func(pronto []byte, _ time.Duration) {
 			bytes += len(pronto)
 			saidas++
+			tamanhos = append(tamanhos, len(pronto))
 		}
 
 		comeco := time.Now()
@@ -90,6 +93,20 @@ func TestSondaTetoDeQuadros(t *testing.T) {
 			emMs(m.PedidoDeEntrada), emMs(m.SaidaPronta))
 		t.Logf("   com a folga de 2x que TaxaQueCabe exige, isso libera %d quadros/s",
 			TaxaQueCabe(porQuadro, 60))
+
+		sort.Ints(tamanhos)
+		if len(tamanhos) > 0 {
+			meio := tamanhos[len(tamanhos)/2]
+			maior := tamanhos[len(tamanhos)-1]
+			acimaDeDezVezes := 0
+			for _, t := range tamanhos {
+				if meio > 0 && t > meio*10 {
+					acimaDeDezVezes++
+				}
+			}
+			t.Logf("   quadros: mediana %d B · maior %d B (%.0fx a mediana) · %d acima de 10x",
+				meio, maior, float64(maior)/float64(max(meio, 1)), acimaDeDezVezes)
+		}
 	}
 
 	medir(1920, 1080, 8000)

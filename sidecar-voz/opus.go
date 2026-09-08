@@ -115,6 +115,10 @@ func (c *Codificador) controlar(pedido, valor int) error {
 	return nil
 }
 
+func (c *Codificador) DefinirPerdaEsperada(porcento int) error {
+	return c.controlar(ctlSetPacketLoss, porcento)
+}
+
 func (c *Codificador) consultar(pedido int) (int, error) {
 	var valor int32
 	r, _, _ := procControlar.Call(c.st, uintptr(pedido), uintptr(unsafe.Pointer(&valor)))

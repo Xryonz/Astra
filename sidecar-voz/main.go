@@ -32,6 +32,7 @@ func main() {
 	}
 
 	motor := NovoMotor(sala.FaixaDeVoz(), misturador, escritor, dllOpus)
+	sala.motor = motor
 	if err := motor.Ligar(ctx); err != nil {
 
 		fmt.Fprintf(os.Stderr, "ligar o motor de áudio: %v\n", err)

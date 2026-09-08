@@ -46,6 +46,8 @@ type Motor struct {
 
 	ecoReprovado atomic.Bool
 
+	perdaNoEnvio atomic.Uint32
+
 	volumeDoMic atomic.Int32
 
 	saidaPronta chan struct{}
@@ -173,6 +175,13 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	}
 }
 
+func (m *Motor) RelatarPerdaNoEnvio(fracao float64) {
+	if m == nil || fracao < 0 {
+		return
+	}
+	m.perdaNoEnvio.Store(uint32(fracao * 100))
+}
+
 func (m *Motor) esperarSaida(ctx context.Context, prazo time.Duration) bool {
 	t := time.NewTimer(prazo)
 	defer t.Stop()
@@ -216,6 +225,9 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 	const paciencia = 2 * time.Second
 	ultimaAmostra := time.Now()
 
+	perda := NovaPerdaParaOpus()
+	proximaPerda := time.Now().Add(time.Second)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -224,6 +236,16 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 		}
 		if m.geracaoEntrada.Load() != geracao {
 			return false
+		}
+
+		if agora := time.Now(); agora.After(proximaPerda) {
+			proximaPerda = agora.Add(time.Second)
+			if novo, mudou := perda.Relato(float64(m.perdaNoEnvio.Load()) / 100); mudou {
+				if err := cod.DefinirPerdaEsperada(novo); err != nil {
+					m.reclamar("ajustar a proteção da voz", err)
+					return false
+				}
+			}
 		}
 
 		if err := mic.Esperar(200); err != nil {

@@ -22,6 +22,7 @@ type Sala struct {
 	misturador *Misturador
 	entrega    *EntregaDeQuadros
 	emissor    *Emissor
+	motor      *Motor
 
 	mu       sync.Mutex
 	sala     *lksdk.Room
@@ -374,6 +375,7 @@ func (s *Sala) aoChegarRtcp(pacote rtcp.Packet) {
 			}
 		}
 		s.emissor.PerdaRelatada(salaComoPar, pior)
+		s.motor.RelatarPerdaNoEnvio(pior)
 	}
 }
 

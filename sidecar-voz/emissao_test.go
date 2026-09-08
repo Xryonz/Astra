@@ -118,9 +118,14 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 		t.Fatal("nenhum SPS no fluxo: o outro lado não teria como começar a decodificar")
 	}
 
-	if perfil[:2] != "42" {
-		t.Errorf("o compressor emite perfil %s e a faixa declara Baseline (42e01f) — "+
-			"pedir o perfil em `configurarSaida` parou de funcionar", perfil[:2])
+	switch perfil[:2] {
+	case "4d":
+		t.Logf("perfil Main, que é o que `configurarSaida` pede primeiro (CABAC vale 10 a 15%% de banda)")
+	case "42":
+		t.Logf("perfil Baseline: esta placa recusou Main e o recuo de `configurarSaida` entrou")
+	default:
+		t.Errorf("o compressor emitiu perfil %s, que não é nem o Main pedido nem o Baseline de recuo",
+			perfil[:2])
 	}
 	if perfil[4:] != "1f" {
 		t.Logf("nível %s no fluxo contra 1f declarado — `level-asymmetry-allowed=1` cobre isso", perfil[4:])

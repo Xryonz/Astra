@@ -144,9 +144,14 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 
 	controle := NovoControleDeBanda(aj.Kbps)
 
+	teto := aj.Fps
+	if teto <= 0 {
+		teto = AsTaxasQueOAstraOferece[0]
+	}
+
 	medir := true
 	for {
-		novo, err := e.transmitir(ctx, tela, aj, medir, controle)
+		novo, err := e.transmitir(ctx, tela, aj, medir, controle, teto)
 		if err != nil || ctx.Err() != nil || novo == nil {
 			return err
 		}
@@ -194,7 +199,7 @@ func (e *Emissor) abrirCamadaFina(tela *Tela, aj AjustesDaTela, grossa *Compress
 }
 
 func (e *Emissor) transmitir(
-	ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool, controle *ControleDeBanda,
+	ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool, controle *ControleDeBanda, teto int,
 ) (*AjustesDaTela, error) {
 	c, err := AbrirCompressor(tela, aj.Largura, aj.Altura, aj.Fps, aj.Kbps)
 	if err != nil {
@@ -239,7 +244,8 @@ func (e *Emissor) transmitir(
 	comeco := time.Now()
 	relatorio := time.Now()
 	var quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos, reenquadrados int
-	var marco, marcoDoRelato Custos
+	var marcoDoRelato Custos
+	quadrosQueCabem := NovoRitmoQueCabe(teto)
 	perfilVisto := false
 
 	var falhaAoEntregar error
@@ -292,8 +298,12 @@ func (e *Emissor) transmitir(
 		})
 	}
 	entregarNaFina := func(quadroPronto []byte, carimbo time.Duration) {
+		duracao := duracaoNominal
+		if c.fps > fpsDaCamadaFina {
+			duracao *= 2
+		}
 		if err := e.plateia.EscreverFina(media.Sample{
-			Data: quadroPronto, Duration: duracaoNominal * 2,
+			Data: quadroPronto, Duration: duracao,
 		}); err != nil {
 			avisarDaCamadaFina(err)
 		}
@@ -360,7 +370,7 @@ func (e *Emissor) transmitir(
 		}
 
 		vezDaFina = !vezDaFina
-		vaiAFina := fina != nil && vezDaFina
+		vaiAFina := fina != nil && (vezDaFina || c.fps <= fpsDaCamadaFina)
 
 		aoCopiar := tela.SoltarQuadro
 		if vaiAFina {
@@ -397,28 +407,8 @@ func (e *Emissor) transmitir(
 			semSaida++
 		}
 
-		if medir {
-			switch c.Custos.Quadros {
-			case quadrosDescartados:
-
-				marco = c.Custos
-			case quadrosDescartados + quadrosMedidos:
-				medir = false
-				custo := (c.Custos.Total() - marco.Total()) / quadrosMedidos
-				if nova := TaxaQueCabe(custo, c.fps); nova < c.fps {
-
-					e.saida.Manda(Evento{
-						Ev:   EvTransmissao,
-						V:    "1",
-						Tipo: "taxa",
-						Msg: fmt.Sprintf("esta máquina gasta %.1fms por quadro; caindo para %d/s",
-							float64(custo.Microseconds())/1000, nova),
-					})
-					proximo := aj
-					proximo.Fps = nova
-					return &proximo, nil
-				}
-			}
+		if medir && c.Custos.Quadros >= quadrosDescartados+quadrosMedidos {
+			medir = false
 		}
 
 		if desde := time.Since(relatorio); desde >= time.Second {
@@ -455,6 +445,23 @@ func (e *Emissor) transmitir(
 			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
 			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos, reenquadrados = 0, 0, 0, 0, 0, 0, 0
+
+			if gasto.Quadros >= quadrosMedidos {
+				trabalho := gasto.Media().Total()
+				if cabe, mudou := quadrosQueCabem.Segundo(trabalho, c.fps); mudou {
+					subindo := cabe > c.fps
+					c.AjustarQuadros(cabe)
+					aj.Fps = cabe
+					duracaoNominal = time.Second / time.Duration(cabe)
+					ritmo.Trocar(cabe)
+					e.saida.Manda(Evento{
+						Ev: EvTransmissao, V: "1", Tipo: "taxa",
+						Msg: fmt.Sprintf("%.1fms de trabalho por quadro nesta máquina; %s para %d/s",
+							emMs(trabalho),
+							map[bool]string{true: "subindo", false: "caindo"}[subindo], cabe),
+					})
+				}
+			}
 
 			if !medir {
 				var nova int

@@ -237,6 +237,14 @@ func NovoRitmo(fps int) *Ritmo {
 	return &Ritmo{intervalo: time.Second / time.Duration(fps), proximo: time.Now()}
 }
 
+func (r *Ritmo) Trocar(fps int) {
+	if fps <= 0 {
+		return
+	}
+	r.intervalo = time.Second / time.Duration(fps)
+	r.proximo = time.Now()
+}
+
 func (r *Ritmo) Esperar() {
 	agora := time.Now()
 	if espera := r.proximo.Sub(agora); espera > 0 {
@@ -260,7 +268,7 @@ func AlvoDeSaida(largura, altura, pessoasNaSala int) (int, int) {
 	return l &^ 1, teto &^ 1
 }
 
-var AsTaxasQueOAstraOferece = []int{60, 30, 15}
+var AsTaxasQueOAstraOferece = []int{60, 30}
 
 func TaxaQueCabe(custo time.Duration, teto int) int {
 	if teto <= 0 {
@@ -282,6 +290,43 @@ func TaxaQueCabe(custo time.Duration, teto int) int {
 	}
 
 	return menor
+}
+
+const (
+	segundosParaBaixarQuadros = 2
+	segundosParaSubirQuadros  = 10
+)
+
+type RitmoQueCabe struct {
+	teto      int
+	apertados int
+	folgados  int
+}
+
+func NovoRitmoQueCabe(teto int) *RitmoQueCabe {
+	if teto <= 0 {
+		teto = AsTaxasQueOAstraOferece[0]
+	}
+	return &RitmoQueCabe{teto: teto}
+}
+
+func (r *RitmoQueCabe) Segundo(custo time.Duration, atual int) (int, bool) {
+	cabe := TaxaQueCabe(custo, r.teto)
+	switch {
+	case cabe < atual:
+		r.apertados, r.folgados = r.apertados+1, 0
+	case cabe > atual:
+		r.apertados, r.folgados = 0, r.folgados+1
+	default:
+		r.apertados, r.folgados = 0, 0
+		return atual, false
+	}
+
+	if r.apertados < segundosParaBaixarQuadros && r.folgados < segundosParaSubirQuadros {
+		return atual, false
+	}
+	r.apertados, r.folgados = 0, 0
+	return cabe, true
 }
 
 func tetoDeSoftware(largura, altura int) (int, int) {
@@ -689,7 +734,11 @@ func (c *Compressor) Comprimir(
 	}
 
 	marco = time.Now()
-	defer func() { c.Custos.Compressao += time.Since(marco) }()
+	esperasAntes := c.Custos.PedidoDeEntrada + c.Custos.SaidaPronta
+	defer func() {
+		esperou := c.Custos.PedidoDeEntrada + c.Custos.SaidaPronta - esperasAntes
+		c.Custos.Compressao += time.Since(marco) - esperou
+	}()
 
 	if c.eventos == 0 {
 		if err := c.entrar(entrada); err != nil {
@@ -1064,6 +1113,12 @@ func (c *Compressor) pedirTaxaVariavel() {
 	c.definirComando(chaveBandaMediaDoCodec, uintptr(c.kbps)*1000)
 	c.definirComando(chaveTaxaMaxima, uintptr(c.kbps)*2000)
 	c.TaxaVariavel = true
+}
+
+func (c *Compressor) AjustarQuadros(fps int) {
+	if fps > 0 {
+		c.fps = fps
+	}
 }
 
 func (c *Compressor) AjustarBanda(kbps int) bool {

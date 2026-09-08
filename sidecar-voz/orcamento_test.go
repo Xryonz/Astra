@@ -18,12 +18,11 @@ func TestTaxaQueCabe(t *testing.T) {
 		{"bem no limite de 60/s", 8333 * time.Microsecond, 60, 60},
 		{"um fio acima de 60/s", 8400 * time.Microsecond, 60, 30},
 		{"máquina três vezes mais lenta", 14 * time.Millisecond, 60, 30},
-		{"máquina seis vezes mais lenta", 27 * time.Millisecond, 60, 15},
-		{"máquina que não aguenta nem 15/s", 90 * time.Millisecond, 60, 15},
+		{"máquina seis vezes mais lenta", 27 * time.Millisecond, 60, 30},
+		{"nem 30/s cabe, e mesmo assim o piso é 30", 90 * time.Millisecond, 60, 30},
 
 		{"máquina rápida com preset de 30", 940 * time.Microsecond, 30, 30},
-		{"máquina lenta com preset de 30", 27 * time.Millisecond, 30, 15},
-		{"preset de 15 continua 15", 940 * time.Microsecond, 15, 15},
+		{"máquina lenta com preset de 30", 27 * time.Millisecond, 30, 30},
 
 		{"sem medição nenhuma", 0, 60, 60},
 	}

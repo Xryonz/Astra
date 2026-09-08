@@ -14,24 +14,33 @@ struct AstraEco {
 
 extern "C" {
 
+static void aplicar(AstraEco *eco, bool ruido, bool ganho) {
+  webrtc::AudioProcessing::Config config;
+  config.echo_canceller.enabled = true;
+  config.echo_canceller.mobile_mode = false;
+  config.noise_suppression.enabled = ruido;
+  config.gain_controller2.enabled = ganho;
+  eco->apm->ApplyConfig(config);
+}
+
 AstraEco *astra_eco_criar(int taxa, int canais) {
   auto apm = webrtc::AudioProcessingBuilder().Create();
   if (apm == nullptr) return nullptr;
 
-  webrtc::AudioProcessing::Config config;
-  config.echo_canceller.enabled = true;
-  config.echo_canceller.mobile_mode = false;
-  config.noise_suppression.enabled = true;
-  config.gain_controller2.enabled = true;
-  apm->ApplyConfig(config);
-
   AstraEco *eco = new AstraEco();
   eco->apm = apm;
   eco->formato = webrtc::StreamConfig(taxa, canais);
+  aplicar(eco, true, true);
   return eco;
 }
 
 void astra_eco_destruir(AstraEco *eco) { delete eco; }
+
+int astra_eco_ajustar(AstraEco *eco, int ruido, int ganho) {
+  if (eco == nullptr) return -1;
+  aplicar(eco, ruido != 0, ganho != 0);
+  return 0;
+}
 
 int astra_eco_referencia(AstraEco *eco, const int16_t *quadro, int amostras) {
   if (eco == nullptr) return -1;

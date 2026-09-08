@@ -124,6 +124,7 @@ func AbrirEntradaDeVoz(idAparelho string, aj AjustesDaVoz, aec3 *Eco3) (FonteDeA
 	if aj.Eco && aec3 != nil {
 		crua, err := AbrirCaptura(idAparelho)
 		if err == nil {
+			aec3.Ajustar(aj.Ruido, aj.Ganho)
 			return NovaCapturaComEco3(crua, aec3), nil
 		}
 		fmt.Fprintf(os.Stderr, "captura crua indisponível para o AEC3 (%v); tentando o cancelador do Windows\n", err)

@@ -43,6 +43,22 @@ func (c *Cancelador) Fechar() {
 
 func (c *Cancelador) AmostrasPorQuadro() int { return c.amostrasPorQuadro }
 
+func (c *Cancelador) Ajustar(ruido, ganho bool) error {
+	if c == nil || c.handle == nil {
+		return ErrIndisponivel
+	}
+	comoInt := func(b bool) C.int {
+		if b {
+			return 1
+		}
+		return 0
+	}
+	if C.astra_eco_ajustar(c.handle, comoInt(ruido), comoInt(ganho)) != 0 {
+		return errors.New("cancelador recusou os ajustes")
+	}
+	return nil
+}
+
 func (c *Cancelador) Referencia(quadro []int16) error {
 	if c == nil || c.handle == nil {
 		return ErrIndisponivel

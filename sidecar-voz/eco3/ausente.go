@@ -16,6 +16,8 @@ func (c *Cancelador) Fechar() {}
 
 func (c *Cancelador) AmostrasPorQuadro() int { return 0 }
 
+func (c *Cancelador) Ajustar(ruido, ganho bool) error { return ErrIndisponivel }
+
 func (c *Cancelador) Referencia(quadro []int16) error { return ErrIndisponivel }
 
 func (c *Cancelador) Capturar(quadro []int16, atrasoMs int) error { return ErrIndisponivel }

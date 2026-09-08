@@ -31,6 +31,18 @@ func AbrirEco3() *Eco3 {
 	}
 }
 
+func (e *Eco3) Ajustar(ruido, ganho bool) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cancelador == nil {
+		return
+	}
+	_ = e.cancelador.Ajustar(ruido, ganho)
+}
+
 func (e *Eco3) Fechar() {
 	if e == nil {
 		return

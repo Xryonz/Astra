@@ -457,25 +457,32 @@ func (e *Emissor) transmitir(
 			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos, reenquadrados = 0, 0, 0, 0, 0, 0, 0
 
 			if !medir {
+				var nova int
+				var mudou bool
+				var motivo string
 				if alvo, medido := e.perdas.BandaDaMaioria(); medido {
-					if nova, mudou := controle.Sugerido(alvo); mudou {
+					nova, mudou = controle.Sugerido(alvo)
+					motivo = fmt.Sprintf("a rede comporta %d kbps", alvo)
+				} else {
+					nova, mudou = controle.Segundo(perda)
+					motivo = fmt.Sprintf("%.0f%% dos pacotes não chegam", perda*100)
+				}
+				if mudou {
+					if c.AjustarBanda(nova) {
+						aj.Kbps = nova
 						e.saida.Manda(Evento{
 							Ev: EvTransmissao, V: "1", Tipo: "ritmo",
-							Msg: fmt.Sprintf("a rede comporta %d kbps; ajustando para %d", alvo, nova),
+							Msg: fmt.Sprintf("%s; %d kbps sem reabrir o compressor", motivo, nova),
+						})
+					} else {
+						e.saida.Manda(Evento{
+							Ev: EvTransmissao, V: "1", Tipo: "ritmo",
+							Msg: fmt.Sprintf("%s; reabrindo o compressor em %d kbps", motivo, nova),
 						})
 						proximo := aj
 						proximo.Kbps = nova
 						return &proximo, nil
 					}
-				} else if nova, mudou := controle.Segundo(perda); mudou {
-					e.saida.Manda(Evento{
-						Ev: EvTransmissao, V: "1", Tipo: "ritmo",
-						Msg: fmt.Sprintf("%.0f%% dos pacotes não chegam; ajustando para %d kbps",
-							perda*100, nova),
-					})
-					proximo := aj
-					proximo.Kbps = nova
-					return &proximo, nil
 				}
 			}
 		}

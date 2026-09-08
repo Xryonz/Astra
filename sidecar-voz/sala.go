@@ -32,6 +32,8 @@ type Sala struct {
 	telasDos map[string]*lksdk.RemoteTrackPublication
 	noPalco  string
 	banda    cc.BandwidthEstimator
+
+	bandaMedida bool
 }
 
 const (
@@ -96,7 +98,13 @@ func (s *Sala) Entrar(url, token string) error {
 	medidor.OnNewPeerConnection(func(_ string, e cc.BandwidthEstimator) {
 		s.mu.Lock()
 		s.banda = e
+		s.bandaMedida = false
 		s.mu.Unlock()
+		e.OnTargetBitrateChange(func(int) {
+			s.mu.Lock()
+			s.bandaMedida = true
+			s.mu.Unlock()
+		})
 	})
 
 	quarto, err := lksdk.ConnectToRoomWithToken(url, token, retorno,
@@ -166,7 +174,7 @@ func (s *Sala) Sair() {
 	s.mu.Lock()
 	quarto := s.sala
 	s.sala, s.mic, s.tela, s.telaFina, s.pubTela = nil, nil, nil, nil, nil
-	s.banda = nil
+	s.banda, s.bandaMedida = nil, false
 	s.telasDos = make(map[string]*lksdk.RemoteTrackPublication)
 	s.mu.Unlock()
 
@@ -348,9 +356,9 @@ func (s *Sala) aoChegarRtcp(pacote rtcp.Packet) {
 	}
 
 	s.mu.Lock()
-	estimador := s.banda
+	estimador, medida := s.banda, s.bandaMedida
 	s.mu.Unlock()
-	if estimador != nil {
+	if estimador != nil && medida {
 		s.emissor.BandaRelatada(salaComoPar, estimador.GetTargetBitrate()/1000)
 	}
 

@@ -1066,6 +1066,20 @@ func (c *Compressor) pedirTaxaVariavel() {
 	c.TaxaVariavel = true
 }
 
+func (c *Compressor) AjustarBanda(kbps int) bool {
+	if kbps <= 0 || c.comandos == 0 || kbps == c.kbps {
+		return false
+	}
+	if !c.definirComando(chaveBandaMediaDoCodec, uintptr(kbps)*1000) {
+		return false
+	}
+	if c.TaxaVariavel {
+		c.definirComando(chaveTaxaMaxima, uintptr(kbps)*2000)
+	}
+	c.kbps = kbps
+	return true
+}
+
 func (c *Compressor) pedirCabac() {
 	if c.comandos == 0 {
 		return

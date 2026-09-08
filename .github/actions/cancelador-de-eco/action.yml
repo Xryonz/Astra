@@ -38,14 +38,22 @@ runs:
     # seria minuto jogado fora, entao o cache guarda a arvore ja aberta e este
     # passo so roda quando a chave muda — ou seja, quando alguem TROCAR a versao
     # do compilador de proposito.
+    #
+    # A soma de verificacao nao e cerimonia: e o compilador que produz o binario
+    # que os amigos do dono executam. Se o arquivo mudar sem a chave do cache
+    # mudar, isso aqui para em vez de compilar o que veio.
     - name: Baixar o MinGW
       if: steps.cache-mingw.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
         $url = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/16.1.0posix-14.0.0-ucrt-r4/winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64ucrt-14.0.0-r4.zip'
+        $soma = 'c406a22f8cac82559a3a1d96b62ff603f666499fb5ff4784e87b4eb6fa37dede'
         New-Item -ItemType Directory -Force -Path C:\aec3 | Out-Null
         $zip = "$env:RUNNER_TEMP\winlibs.zip"
-        Invoke-WebRequest -Uri $url -OutFile $zip
+        curl.exe --fail --location --silent --show-error --retry 3 --retry-all-errors --output $zip $url
+        if ($LASTEXITCODE -ne 0) { throw 'nao consegui baixar o MinGW' }
+        $vista = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+        if ($vista -ne $soma) { throw "o MinGW baixado nao confere: $vista" }
         tar -xf $zip -C C:\aec3
         Remove-Item $zip
         if (-not (Test-Path 'C:\aec3\mingw64\bin\g++.exe')) { throw 'o MinGW nao chegou inteiro' }
@@ -65,16 +73,25 @@ runs:
     #
     # b_ndebug=true desliga os asserts da biblioteca. Nao e economia de bytes: sao
     # verificacoes que rodariam 100 vezes por segundo dentro da call.
+    # curl.exe e nao Invoke-WebRequest, e isto nao e preferencia. O GitLab do
+    # freedesktop fica atras de um desafio anti-robo que responde ao IWR com uma
+    # PAGINA HTML de 7 KB chamada "Making sure you're not a bot!" — e o tar morria
+    # com "Unrecognized archive format", que nao diz nada sobre a causa. O desafio
+    # deixa passar quem se identifica como ferramenta, e o curl faz isso.
     - name: Compilar a biblioteca do AEC3
       if: steps.cache-aec3.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
         $env:PATH = "C:\aec3\mingw64\bin;$env:PATH"
         $commit = 'd0569cfa50c1858ee279d77b3fc8870be6902441'
+        $soma = '1dd02894eb5f6ad53f650e906312b00b2ae57d5271fd58381e4bd88e20ff7c68'
         python -m pip install --quiet --disable-pip-version-check "meson==1.12.0"
         $tar = "$env:RUNNER_TEMP\wap.tar.gz"
-        Invoke-WebRequest -OutFile $tar `
-          -Uri "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing/-/archive/$commit/webrtc-audio-processing-$commit.tar.gz"
+        curl.exe --fail --location --silent --show-error --retry 3 --retry-all-errors --output $tar `
+          "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing/-/archive/$commit/webrtc-audio-processing-$commit.tar.gz"
+        if ($LASTEXITCODE -ne 0) { throw 'nao consegui baixar a biblioteca do AEC3' }
+        $vista = (Get-FileHash $tar -Algorithm SHA256).Hash.ToLower()
+        if ($vista -ne $soma) { throw "a biblioteca baixada nao confere: $vista" }
         New-Item -ItemType Directory -Force -Path C:\aec3\src | Out-Null
         tar -xzf $tar -C C:\aec3\src --strip-components=1
         meson setup C:\aec3\build C:\aec3\src `

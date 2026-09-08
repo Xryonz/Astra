@@ -56,16 +56,23 @@ dependencies {
 
 val sidecarFonte = project.file("../../sidecar-voz")
 val sidecarSaida = project.file("appResources/windows/astra-voz.exe")
+val comCancelador = providers.gradleProperty("astra.aec3").orNull == "1"
 val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
     inputs.dir(sidecarFonte).withPropertyName("fonte")
+    inputs.property("cancelador", comCancelador)
     outputs.file(sidecarSaida)
     doLast {
         sidecarSaida.parentFile.mkdirs()
-        logger.lifecycle("Compilando o sidecar de voz (Go) ...")
-        val p = ProcessBuilder(
-            "go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w",
-            "-o", sidecarSaida.absolutePath, ".",
+        logger.lifecycle(
+            if (comCancelador) "Compilando o sidecar de voz (Go + cancelador de eco) ..."
+            else "Compilando o sidecar de voz (Go) ...",
         )
+        val comando = buildList {
+            addAll(listOf("go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"))
+            if (comCancelador) addAll(listOf("-tags", "aec3"))
+            addAll(listOf("-o", sidecarSaida.absolutePath, "."))
+        }
+        val p = ProcessBuilder(comando)
             .directory(sidecarFonte)
             .redirectErrorStream(true)
             .start()

@@ -89,3 +89,46 @@ jobs:
       - name: Compilar o desktop e o shared
         working-directory: mobile-native
         run: ./gradlew :desktopApp:compileKotlin --no-daemon
+
+
+  # O sidecar de voz nunca foi compilado no CI: a primeira conferencia dele
+  # acontecia dentro do fluxo de RELEASE, ou seja, no instante em que a versao ia
+  # pra todo mundo. Com o cancelador de eco atras de uma marca de build e de uma
+  # biblioteca C, isso deixou de ser aceitavel — uma quebra ali nao atrasa um
+  # commit, ela trava a publicacao inteira.
+  #
+  # Roda os DOIS modos porque sao dois binarios diferentes: sem a marca o pacote do
+  # AEC3 nem e lido (e assim que qualquer pessoa compila o Astra em casa, sem
+  # precisar de biblioteca C nenhuma), com a marca e o que vai pro ar.
+  #
+  # O que depende de placa de som, microfone ou tela real fica atras de variavel de
+  # ambiente e se pula sozinho aqui — o runner nao tem nenhum dos tres.
+  sidecar:
+    name: Sidecar de voz · compilar e testar
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesma versao travada do fluxo de release, pelo mesmo motivo: binario de Go
+      # diferente = 10 MB baixados a toa por quem ja tem o Astra instalado.
+      - name: Setup Go 1.26.5
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache-dependency-path: sidecar-voz/go.sum
+
+      - name: Testar sem o cancelador
+        working-directory: sidecar-voz
+        run: go test ./...
+
+      - name: Preparar o cancelador de eco
+        uses: ./.github/actions/cancelador-de-eco
+
+      - name: Testar com o cancelador
+        working-directory: sidecar-voz
+        run: go test -tags aec3 ./...
+
+      - name: Compilar como na release
+        working-directory: sidecar-voz
+        run: go build -tags aec3 -trimpath -buildvcs=false "-ldflags=-s -w" -o astra-voz.exe .

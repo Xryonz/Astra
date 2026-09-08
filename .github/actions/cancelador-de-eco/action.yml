@@ -1,0 +1,101 @@
+name: Cancelador de eco
+description: Prepara o compilador C travado e a biblioteca do AEC3 que o sidecar de voz usa
+
+# POR QUE ISTO EXISTE
+#
+# O sidecar de voz compila SEM biblioteca C nenhuma por padrao — o AEC3 fica atras
+# da marca de build `aec3`, e sem ela o pacote nem e lido. Quem publica, porem,
+# precisa do AEC3: e ele que tira a voz dos 16 kHz em que o cancelador do Windows
+# a prendia. Entao o fluxo de release e o de CI passam por aqui antes do go build.
+#
+# TUDO AQUI E TRAVADO POR VERSAO, E NAO E ZELO EXCESSIVO
+#
+# A atualizacao do Astra e incremental: so baixa o arquivo cujo CRC nao bate com o
+# que ja esta instalado. O astra-voz.exe sozinho e 10 MB comprimidos. Se o binario
+# sair diferente sem ninguem ter mexido nele, todo mundo baixa 10 MB a toa — foi
+# exatamente o que o carimbo de VCS do Go fazia, e era 64% do delta.
+#
+# Medido nesta maquina: com o MESMO compilador, no MESMO caminho, dois `go build`
+# com cache limpo saem BYTE A BYTE iguais, mesmo com cgo no meio. Ou seja, o cgo
+# nao quebra a atualizacao incremental — o que quebraria e deixar o compilador
+# flutuar. Por isso nada aqui diz "latest".
+#
+# O caminho C:\aec3 tambem e fixo de proposito: o include path entra no binario
+# (via __FILE__ e afins), entao mudar a pasta muda o executavel.
+
+runs:
+  using: composite
+
+  steps:
+    - name: MinGW travado
+      id: cache-mingw
+      uses: actions/cache@v4
+      with:
+        path: C:\aec3\mingw64
+        key: mingw-winlibs-gcc16.1.0-mingwucrt14.0.0-r4
+
+    # O zip tem 260 MB e a arvore aberta tem 939 MB. Baixar isso a cada release
+    # seria minuto jogado fora, entao o cache guarda a arvore ja aberta e este
+    # passo so roda quando a chave muda — ou seja, quando alguem TROCAR a versao
+    # do compilador de proposito.
+    - name: Baixar o MinGW
+      if: steps.cache-mingw.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $url = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/16.1.0posix-14.0.0-ucrt-r4/winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64ucrt-14.0.0-r4.zip'
+        New-Item -ItemType Directory -Force -Path C:\aec3 | Out-Null
+        $zip = "$env:RUNNER_TEMP\winlibs.zip"
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        tar -xf $zip -C C:\aec3
+        Remove-Item $zip
+        if (-not (Test-Path 'C:\aec3\mingw64\bin\g++.exe')) { throw 'o MinGW nao chegou inteiro' }
+
+    - name: Biblioteca do AEC3
+      id: cache-aec3
+      uses: actions/cache@v4
+      with:
+        path: C:\aec3\out
+        key: aec3-d0569cfa-gcc16.1.0-ndebug-v1
+
+    # COMMIT, NAO TAG. A v2.1 lancada NAO compila com GCC 15 ou 16: o compilador
+    # deixou de arrastar <cstdint> junto de outros cabecalhos, e a v2.1 conta com
+    # isso — quebra em trace_event.h e no proprio aec3. O commit d0569cfa e o
+    # primeiro estado ja corrigido, e foi ele que foi medido (~50 dB de supressao
+    # a 48 kHz). Trocar isto por "v2.1" traz a quebra de volta.
+    #
+    # b_ndebug=true desliga os asserts da biblioteca. Nao e economia de bytes: sao
+    # verificacoes que rodariam 100 vezes por segundo dentro da call.
+    - name: Compilar a biblioteca do AEC3
+      if: steps.cache-aec3.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $env:PATH = "C:\aec3\mingw64\bin;$env:PATH"
+        $commit = 'd0569cfa50c1858ee279d77b3fc8870be6902441'
+        python -m pip install --quiet --disable-pip-version-check "meson==1.12.0"
+        $tar = "$env:RUNNER_TEMP\wap.tar.gz"
+        Invoke-WebRequest -OutFile $tar `
+          -Uri "https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing/-/archive/$commit/webrtc-audio-processing-$commit.tar.gz"
+        New-Item -ItemType Directory -Force -Path C:\aec3\src | Out-Null
+        tar -xzf $tar -C C:\aec3\src --strip-components=1
+        meson setup C:\aec3\build C:\aec3\src `
+          --prefix=C:/aec3/out `
+          --buildtype=release `
+          --default-library=static `
+          -Db_ndebug=true `
+          -Dabseil-cpp:cpp_std=c++17
+        meson compile -C C:\aec3\build
+        meson install -C C:\aec3\build
+        if (-not (Test-Path 'C:\aec3\out\lib\libwebrtc-audio-processing-2.a')) {
+          throw 'a biblioteca do AEC3 nao foi instalada'
+        }
+
+    # Sem passo de conferencia aqui de proposito: quem chama compila com
+    # -tags aec3, e a compilacao FALHA se qualquer uma destas variaveis estiver
+    # errada. Conferir duas vezes so adiaria o mesmo erro.
+    - name: Apontar o cgo para o AEC3
+      shell: pwsh
+      run: |
+        'C:\aec3\mingw64\bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+        "CGO_ENABLED=1" >> $env:GITHUB_ENV
+        "CGO_CPPFLAGS=-IC:/aec3/out/include/webrtc-audio-processing-2 -IC:/aec3/out/include -DWEBRTC_WIN -D_WIN32 -DNOMINMAX -D_USE_MATH_DEFINES -DWEBRTC_LIBRARY_IMPL -D__STDC_FORMAT_MACROS=1" >> $env:GITHUB_ENV
+        "CGO_LDFLAGS=-LC:/aec3/out/lib -lwebrtc-audio-processing-2 -lwinmm -lstdc++ -static-libstdc++ -static-libgcc" >> $env:GITHUB_ENV

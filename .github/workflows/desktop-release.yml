@@ -96,6 +96,14 @@ jobs:
           go-version: '1.26.5'
           cache-dependency-path: sidecar-voz/go.sum
 
+      # Sem este passo o sidecar compila igual, mas SEM cancelador de eco proprio,
+      # e a voz volta a ficar presa nos 16 kHz do cancelador do Windows. Ele deixa
+      # o compilador C e a biblioteca prontos; o -Pastra.aec3=1 la embaixo e o que
+      # de fato liga a marca de build.
+      - name: Preparar o cancelador de eco
+        if: steps.checar.outputs.existe == 'False'
+        uses: ./.github/actions/cancelador-de-eco
+
       # O ffmpeg (ddagrab) e grande e fica FORA do git — cachear evita rebaixar
       # ~100MB a cada release.
       - name: Cache do ffmpeg
@@ -122,7 +130,12 @@ jobs:
           # argumento no ponto e o Gradle recebe ".canal=estavel" como se fosse
           # nome de tarefa: "Task '.canal=estavel' not found". Todo -Pchave.com.ponto
           # que passar por aqui precisa vir entre aspas.
-          ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel"
+          #
+          # -Pastra.aec3=1 e o que liga o cancelador de eco. Ele e OBRIGATORIO na
+          # release e nao tem plano B: um build publicado sem AEC3 devolveria a voz
+          # aos 16 kHz sem avisar ninguem, e ainda faria todo mundo baixar 10 MB de
+          # sidecar de novo na volta. Falhar aqui e mais barato que publicar isso.
+          ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel" "-Pastra.aec3=1"
 
       # O Android foi arquivado na branch arquivo/android em 06/09/2026, entao nao
       # ha mais o que compilar aqui. O APK continua indo nas releases porque o

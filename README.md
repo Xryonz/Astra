@@ -377,13 +377,17 @@ quem cumpre a licença é o arquivo ao lado da fonte.
 
 | Biblioteca | Para quê | Licença |
 | --- | --- | --- |
-| [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) 2.1 | o cancelador de eco AEC3, o mesmo que roda dentro do Chromium | BSD 3-Clause (Google / projeto WebRTC) |
+| [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) `d0569cfa` | o cancelador de eco AEC3, o mesmo que roda dentro do Chromium | BSD 3-Clause (Google / projeto WebRTC) |
 
 Esta entra **compilada dentro** do `astra-voz.exe`, então a licença viaja junto do
 código que a usa, em `sidecar-voz/eco3/`. Ela existe por um motivo específico: o
 cancelador de eco do Windows só opera em 8 ou 16 kHz, e ligá-lo derrubava **toda** a
 voz do Astra para 16 kHz — metade da taxa que o site usa. O AEC3 cancela na taxa
 cheia de 48 kHz.
+
+O ponto travado é um **commit**, não a versão 2.1 lançada: a 2.1 não compila com
+GCC 15 ou 16, porque essas versões deixaram de arrastar `<cstdint>` junto de outros
+cabeçalhos e o código conta com isso. O `d0569cfa` é o primeiro estado já corrigido.
 
 ### Dados
 

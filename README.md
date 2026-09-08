@@ -373,6 +373,18 @@ quem cumpre a licença é o arquivo ao lado da fonte.
 
 [Lucide](https://lucide.dev) — ISC License.
 
+### Bibliotecas dentro do produto
+
+| Biblioteca | Para quê | Licença |
+| --- | --- | --- |
+| [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) 2.1 | o cancelador de eco AEC3, o mesmo que roda dentro do Chromium | BSD 3-Clause (Google / projeto WebRTC) |
+
+Esta entra **compilada dentro** do `astra-voz.exe`, então a licença viaja junto do
+código que a usa, em `sidecar-voz/eco3/`. Ela existe por um motivo específico: o
+cancelador de eco do Windows só opera em 8 ou 16 kHz, e ligá-lo derrubava **toda** a
+voz do Astra para 16 kHz — metade da taxa que o site usa. O AEC3 cancela na taxa
+cheia de 48 kHz.
+
 ### Dados
 
 O catálogo que traduz nome de executável em título de jogo

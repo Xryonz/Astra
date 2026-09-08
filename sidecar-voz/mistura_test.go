@@ -60,6 +60,7 @@ func TestMisturaSobConcorrencia(t *testing.T) {
 
 func TestEntregarCopiaOQuadro(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "alguem")
 	reaproveitado := make([]int16, AmostrasPorQuadro)
 
 	for i := range reaproveitado {
@@ -82,6 +83,7 @@ func TestEntregarCopiaOQuadro(t *testing.T) {
 
 func TestSomaAltaNaoEstoura(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "a", "b", "c")
 	quadro := make([]int16, AmostrasPorQuadro)
 	for i := range quadro {
 		quadro[i] = 30000
@@ -103,7 +105,8 @@ func TestSomaAltaNaoEstoura(t *testing.T) {
 
 func TestFilaCheiaGuardaORecente(t *testing.T) {
 	m := NovoMisturador()
-	for n := 1; n <= folgaDeRajada+2; n++ {
+	const entregues = folgaDeRajada + 2
+	for n := 1; n <= entregues; n++ {
 		quadro := make([]int16, AmostrasPorQuadro)
 		for i := range quadro {
 			quadro[i] = int16(n * 100)
@@ -114,7 +117,8 @@ func TestFilaCheiaGuardaORecente(t *testing.T) {
 	saida := make([]int16, AmostrasPorQuadro)
 	m.Puxar(saida)
 
-	esperado := int16(3 * 100)
+	mantidos := colchaoDePartida + folgaDeRajada
+	esperado := int16((entregues - mantidos + 1) * 100)
 	if saida[0] != esperado {
 		t.Fatalf("primeiro quadro da fila deu %d, esperava %d", saida[0], esperado)
 	}
@@ -156,8 +160,27 @@ func entregarTom(m *Misturador, id string, valor int16) {
 	m.Entregar(id, quadro)
 }
 
+func jaTocandoComColchao(m *Misturador, ids ...string) {
+	mudo := make([]int16, AmostrasPorQuadro)
+	for volta := 0; volta <= colchaoDePartida; volta++ {
+		for _, id := range ids {
+			m.Entregar(id, mudo)
+		}
+	}
+	m.Puxar(make([]int16, AmostrasPorQuadro))
+}
+
+func jaTocando(m *Misturador, ids ...string) {
+	jaTocandoComColchao(m, ids...)
+	descarte := make([]int16, AmostrasPorQuadro)
+	for volta := 0; volta < colchaoDePartida; volta++ {
+		m.Puxar(descarte)
+	}
+}
+
 func TestVolumePorPessoaSoAbaixaQuemFoiEscolhido(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "baixinho", "normal")
 	m.DefinirGanho("baixinho", 25)
 
 	entregarTom(m, "baixinho", 1000)
@@ -176,6 +199,7 @@ func TestVolumePorPessoaSoAbaixaQuemFoiEscolhido(t *testing.T) {
 
 func TestVolumeZeroTiraAPessoaDaMisturaSemTravarAFila(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "calado")
 	m.DefinirGanho("calado", 0)
 
 	entregarTom(m, "calado", 8000)
@@ -191,6 +215,7 @@ func TestVolumeZeroTiraAPessoaDaMisturaSemTravarAFila(t *testing.T) {
 
 func TestVoltarPara100TiraOAbafamento(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "alguem")
 	m.DefinirGanho("alguem", 10)
 	m.DefinirGanho("alguem", 100)
 
@@ -205,6 +230,7 @@ func TestVoltarPara100TiraOAbafamento(t *testing.T) {
 
 func TestGanhoSobreviveAoSilencioQueApagaAVoz(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "some")
 	m.DefinirGanho("some", 50)
 
 	entregarTom(m, "some", 1000)
@@ -212,6 +238,7 @@ func TestGanhoSobreviveAoSilencioQueApagaAVoz(t *testing.T) {
 	m.Puxar(destino)
 
 	m.Esquecer("some")
+	jaTocando(m, "some")
 
 	entregarTom(m, "some", 1000)
 	m.Puxar(destino)
@@ -222,6 +249,7 @@ func TestGanhoSobreviveAoSilencioQueApagaAVoz(t *testing.T) {
 
 func TestSairDaSalaEsqueceOsVolumes(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "alguem")
 	m.DefinirGanho("alguem", 20)
 	m.EsquecerGanhos()
 
@@ -236,6 +264,7 @@ func TestSairDaSalaEsqueceOsVolumes(t *testing.T) {
 
 func TestEscutaAbafaTodoMundoDeUmaVez(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "um", "outro")
 	m.DefinirEscuta(50)
 
 	entregarTom(m, "um", 1000)
@@ -251,6 +280,7 @@ func TestEscutaAbafaTodoMundoDeUmaVez(t *testing.T) {
 
 func TestEscutaZeroDaSilencioSemPerderAContagem(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "alguem")
 	m.DefinirEscuta(0)
 
 	entregarTom(m, "alguem", 8000)
@@ -266,6 +296,7 @@ func TestEscutaZeroDaSilencioSemPerderAContagem(t *testing.T) {
 
 func TestEscutaSobreviveAoFimDaChamada(t *testing.T) {
 	m := NovoMisturador()
+	jaTocando(m, "alguem")
 	m.DefinirEscuta(50)
 	m.EsquecerGanhos()
 

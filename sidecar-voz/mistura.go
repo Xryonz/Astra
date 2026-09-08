@@ -6,6 +6,8 @@ import (
 )
 
 const (
+	colchaoDePartida = 1
+
 	folgaDeRajada = 3
 
 	folgaMaxima = 10
@@ -82,7 +84,7 @@ func (m *Misturador) Entregar(id string, pcm []int16) {
 
 	v, ok := m.vozes[id]
 	if !ok {
-		v = &vozRecebida{}
+		v = &vozRecebida{alvo: colchaoDePartida, enchendo: true}
 		m.vozes[id] = v
 	}
 
@@ -153,7 +155,7 @@ func (m *Misturador) Puxar(destino []int16) int {
 		v.calmos++
 		if v.calmos >= pulosParaAcalmar {
 			v.calmos = 0
-			if v.minFila > 1 && v.alvo > 0 {
+			if v.minFila > 1 && v.alvo > colchaoDePartida {
 				v.alvo--
 				if len(v.fila) > v.alvo+1 {
 					copy(v.fila, v.fila[1:])

@@ -28,6 +28,7 @@ func TestFluxoEmPassoCertoNaoInflaOColchao(t *testing.T) {
 	m := NovoMisturador()
 	quadro := quadroDeTeste(5000)
 	saida := make([]int16, AmostrasPorQuadro)
+	jaTocandoComColchao(m, "alguem")
 
 	for r := 0; r < 200; r++ {
 		m.Entregar("alguem", quadro)
@@ -36,15 +37,17 @@ func TestFluxoEmPassoCertoNaoInflaOColchao(t *testing.T) {
 		}
 	}
 
-	if a := vozDe(t, m, "alguem").alvo; a != 0 {
-		t.Errorf("um fluxo que nunca falhou inflou o colchão para %d quadros", a)
+	if a := vozDe(t, m, "alguem").alvo; a != colchaoDePartida {
+		t.Errorf("um fluxo que nunca falhou mexeu no colchão: %d quadros, esperava %d",
+			a, colchaoDePartida)
 	}
 }
 
-func TestOColchaoAbsorveOEngasgoDepoisDoPrimeiro(t *testing.T) {
+func TestOEngasgoDeUmQuadroNaoAbreBuraco(t *testing.T) {
 	m := NovoMisturador()
 	quadro := quadroDeTeste(5000)
 	saida := make([]int16, AmostrasPorQuadro)
+	jaTocandoComColchao(m, "alguem")
 
 	const rodadas = 300
 	const aCadaEngasgo = 25
@@ -72,17 +75,66 @@ func TestOColchaoAbsorveOEngasgoDepoisDoPrimeiro(t *testing.T) {
 	}
 
 	v := vozDe(t, m, "alguem")
-	t.Logf("%d engasgos injetados · colchão parou em %d quadros · %d buracos, o último na rodada %d",
+	t.Logf("%d engasgos de um quadro · colchão em %d · %d buracos, o último na rodada %d",
 		engasgos, v.alvo, buracos, ultimoBuraco)
 
-	if v.alvo == 0 {
-		t.Error("houve engasgo e o colchão não cresceu")
+	if buracos != 0 {
+		t.Errorf("%d buracos em %d engasgos de um quadro: o colchão de partida existe justamente "+
+			"para que o primeiro tropeço já não seja ouvido (o último na rodada %d)",
+			buracos, engasgos, ultimoBuraco)
+	}
+	if v.alvo != colchaoDePartida {
+		t.Errorf("o colchão cresceu para %d sem precisar: o engasgo cabia nos %d de partida",
+			v.alvo, colchaoDePartida)
+	}
+}
+
+func TestOColchaoCresceQuandoOEngasgoNaoCabeNele(t *testing.T) {
+	m := NovoMisturador()
+	quadro := quadroDeTeste(5000)
+	saida := make([]int16, AmostrasPorQuadro)
+	jaTocandoComColchao(m, "alguem")
+
+	const rodadas = 300
+	const aCadaEngasgo = 25
+
+	buracos, ultimoBuraco, engasgos := 0, -1, 0
+	faltam := 0
+
+	for r := 0; r < rodadas; r++ {
+		switch {
+		case r > 0 && r%aCadaEngasgo == 0:
+			faltam = colchaoDePartida + 1
+			engasgos++
+		case faltam > 0:
+			faltam--
+			if faltam == 0 {
+				for i := 0; i <= colchaoDePartida+1; i++ {
+					m.Entregar("alguem", quadro)
+				}
+			}
+		default:
+			m.Entregar("alguem", quadro)
+		}
+
+		if m.Puxar(saida) == 0 {
+			buracos++
+			ultimoBuraco = r
+		}
+	}
+
+	v := vozDe(t, m, "alguem")
+	t.Logf("%d engasgos de %d quadros · colchão em %d · %d buracos, o último na rodada %d",
+		engasgos, colchaoDePartida+1, v.alvo, buracos, ultimoBuraco)
+
+	if v.alvo <= colchaoDePartida {
+		t.Errorf("o engasgo era maior que o colchão de partida e mesmo assim ele ficou em %d", v.alvo)
 	}
 	if buracos > 2 {
 		t.Errorf("%d buracos em %d engasgos: o colchão devia engatar no primeiro e segurar o resto",
 			buracos, engasgos)
 	}
-	if ultimoBuraco > aCadaEngasgo+2 {
+	if ultimoBuraco > aCadaEngasgo+colchaoDePartida+2 {
 		t.Errorf("ainda houve buraco na rodada %d, depois do primeiro engasgo (rodada %d)",
 			ultimoBuraco, aCadaEngasgo)
 	}
@@ -97,16 +149,20 @@ func TestOColchaoQueEstaTrabalhandoNaoEDesmontado(t *testing.T) {
 	const aCadaEngasgo = 25
 
 	buracos, ultimoBuraco := 0, -1
-	atrasado := false
+	faltam := 0
+	jaTocandoComColchao(m, "alguem")
 
 	for r := 0; r < rodadas; r++ {
 		switch {
 		case r > 0 && r%aCadaEngasgo == 0:
-			atrasado = true
-		case atrasado:
-			m.Entregar("alguem", quadro)
-			m.Entregar("alguem", quadro)
-			atrasado = false
+			faltam = colchaoDePartida + 1
+		case faltam > 0:
+			faltam--
+			if faltam == 0 {
+				for i := 0; i <= colchaoDePartida+1; i++ {
+					m.Entregar("alguem", quadro)
+				}
+			}
 		default:
 			m.Entregar("alguem", quadro)
 		}
@@ -121,8 +177,9 @@ func TestOColchaoQueEstaTrabalhandoNaoEDesmontado(t *testing.T) {
 	t.Logf("%d rodadas (acalmar em %d) · colchão em %d · %d buracos, o último na rodada %d",
 		rodadas, pulosParaAcalmar, v.alvo, buracos, ultimoBuraco)
 
-	if v.alvo == 0 {
-		t.Error("a calmaria desmontou um colchão que estava segurando engasgo a cada 25 quadros")
+	if v.alvo <= colchaoDePartida {
+		t.Errorf("a calmaria desmontou um colchão que estava segurando engasgo a cada %d quadros: "+
+			"voltou para %d", aCadaEngasgo, v.alvo)
 	}
 	if buracos > 2 {
 		t.Errorf("%d buracos: o colchão foi encolhido no meio do serviço e teve de crescer de novo", buracos)
@@ -142,7 +199,7 @@ func TestPausaDeFalaNaoInflaOColchao(t *testing.T) {
 
 	m.Entregar("alguem", quadro)
 
-	if a := vozDe(t, m, "alguem").alvo; a != 0 {
+	if a := vozDe(t, m, "alguem").alvo; a != colchaoDePartida {
 		t.Errorf("a pausa entre frases foi lida como engasgo de rede: colchão foi para %d", a)
 	}
 }
@@ -160,7 +217,7 @@ func TestSilencioDeDtxNaoInflaOColchao(t *testing.T) {
 		m.Puxar(saida)
 	}
 
-	if a := vozDe(t, m, "alguem").alvo; a != 0 {
+	if a := vozDe(t, m, "alguem").alvo; a != colchaoDePartida {
 		t.Errorf("o silêncio de DTX inflou o colchão para %d quadros: "+
 			"cada respiro na fala viraria latência acumulada", a)
 	}
@@ -186,13 +243,14 @@ func TestOColchaoEncolheNaCalmaria(t *testing.T) {
 	quadro := quadroDeTeste(5000)
 	saida := make([]int16, AmostrasPorQuadro)
 
-	m.Entregar("alguem", quadro)
-	m.Puxar(saida)
-	m.Puxar(saida)
+	jaTocandoComColchao(m, "alguem")
+	for volta := 0; volta <= colchaoDePartida; volta++ {
+		m.Puxar(saida)
+	}
 	m.Entregar("alguem", quadro)
 
 	subiu := vozDe(t, m, "alguem").alvo
-	if subiu == 0 {
+	if subiu <= colchaoDePartida {
 		t.Fatal("o engasgo não fez o colchão crescer; nada para encolher")
 	}
 
@@ -207,6 +265,9 @@ func TestOColchaoEncolheNaCalmaria(t *testing.T) {
 
 	if desceu >= subiu {
 		t.Errorf("depois de %d puxadas limpas o colchão continuou em %d", pulosParaAcalmar, desceu)
+	}
+	if desceu < colchaoDePartida {
+		t.Errorf("a calmaria comeu o colchão de partida: desceu para %d", desceu)
 	}
 }
 

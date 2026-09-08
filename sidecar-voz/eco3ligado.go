@@ -8,7 +8,7 @@ import (
 	"github.com/Xryonz/Astra/sidecar-voz/eco3"
 )
 
-const AtrasoDaSaidaMs = 40
+const AtrasoDaSaidaMs = MilissegundosDeFolgaNaSaida + MilissegundosPorQuadro
 
 type Eco3 struct {
 	mu         sync.Mutex

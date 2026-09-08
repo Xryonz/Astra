@@ -7,6 +7,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	MilissegundosDeFolgaNaSaida = 40
+	QuadrosDeFolgaNaSaida       = TaxaDeAmostragem * MilissegundosDeFolgaNaSaida / 1000
+)
+
 type Saida struct {
 	enumerador  objeto
 	dispositivo objeto
@@ -91,7 +96,7 @@ func AbrirSaida(id string) (*Saida, error) {
 	}
 	s.tocador = tocador
 
-	if err := s.Escrever(nil); err != nil {
+	if err := s.Silenciar(QuadrosDeFolgaNaSaida); err != nil {
 		return nil, fmt.Errorf("preencher o silêncio inicial: %w", err)
 	}
 
@@ -104,30 +109,38 @@ func AbrirSaida(id string) (*Saida, error) {
 	return s, nil
 }
 
-func (s *Saida) EspacoLivre() (uint32, error) {
+func (s *Saida) Enfileirado() (uint32, error) {
 	var pendente uint32
 	if err := hr(s.cliente.chamar(acGetCurrentPadding, uintptr(unsafe.Pointer(&pendente))),
 		"consultar o que falta tocar"); err != nil {
+		return 0, err
+	}
+	return pendente, nil
+}
+
+func (s *Saida) EspacoLivre() (uint32, error) {
+	pendente, err := s.Enfileirado()
+	if err != nil {
 		return 0, err
 	}
 	return s.capacidade - pendente, nil
 }
 
 func (s *Saida) Escrever(pcm []int16) error {
+	return s.entregar(uint32(len(pcm)/CanaisDeVoz), pcm)
+}
+
+func (s *Saida) Silenciar(quadros uint32) error {
+	return s.entregar(quadros, nil)
+}
+
+func (s *Saida) entregar(quadros uint32, pcm []int16) error {
 	livre, err := s.EspacoLivre()
 	if err != nil {
 		return err
 	}
-	if livre == 0 {
-		return nil
-	}
-
-	quadros := livre
-	if pcm != nil {
-		disponivel := uint32(len(pcm) / CanaisDeVoz)
-		if disponivel < quadros {
-			quadros = disponivel
-		}
+	if livre < quadros {
+		quadros = livre
 	}
 	if quadros == 0 {
 		return nil
@@ -141,7 +154,6 @@ func (s *Saida) Escrever(pcm []int16) error {
 
 	var bandeiras uintptr
 	if pcm == nil {
-
 		bandeiras = blocoSilencioso
 	} else {
 		n := int(quadros) * CanaisDeVoz

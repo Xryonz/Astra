@@ -268,7 +268,7 @@ func TestCanceladorComSaidaAtiva(t *testing.T) {
 	limite := time.Now().Add(1500 * time.Millisecond)
 	for time.Now().Before(limite) {
 
-		alto.Escrever(nil)
+		alto.Silenciar(AmostrasPorQuadro)
 
 		n, _, err := c.Ler(destino)
 		if err != nil && err != ErrSemAudio {

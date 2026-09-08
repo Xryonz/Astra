@@ -349,29 +349,31 @@ func (m *Motor) bombearSaida(ctx context.Context, alto *Saida, geracao uint64) {
 			return
 		}
 
-		livre, err := alto.EspacoLivre()
+		enfileirado, err := alto.Enfileirado()
 		if err != nil {
 			m.reclamar("consultar a saída", err)
 			return
 		}
-		for livre >= AmostrasPorQuadro {
+		for alto.capacidade-enfileirado >= AmostrasPorQuadro {
 			vozes := m.misturador.Puxar(quadro)
-
-			bloco := quadro
-			if vozes == 0 || m.surdo.Load() {
-
-				bloco = nil
-			}
-			m.aec3.Referencia(bloco)
-			if err := alto.Escrever(bloco); err != nil {
-				m.reclamar("tocar voz", err)
-				return
-			}
-
-			if vozes == 0 {
+			mudo := vozes == 0 || m.surdo.Load()
+			if mudo && enfileirado >= QuadrosDeFolgaNaSaida {
 				break
 			}
-			livre -= AmostrasPorQuadro
+
+			var falha error
+			if mudo {
+				m.aec3.Referencia(nil)
+				falha = alto.Silenciar(AmostrasPorQuadro)
+			} else {
+				m.aec3.Referencia(quadro)
+				falha = alto.Escrever(quadro)
+			}
+			if falha != nil {
+				m.reclamar("tocar voz", falha)
+				return
+			}
+			enfileirado += AmostrasPorQuadro
 		}
 	}
 }

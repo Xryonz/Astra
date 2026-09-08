@@ -120,7 +120,14 @@ type CapturaComEco struct {
 	sobra []int16
 }
 
-func AbrirEntradaDeVoz(idAparelho string, aj AjustesDaVoz) (FonteDeAudio, error) {
+func AbrirEntradaDeVoz(idAparelho string, aj AjustesDaVoz, aec3 *Eco3) (FonteDeAudio, error) {
+	if aj.Eco && aec3 != nil {
+		crua, err := AbrirCaptura(idAparelho)
+		if err == nil {
+			return NovaCapturaComEco3(crua, aec3), nil
+		}
+		fmt.Fprintf(os.Stderr, "captura crua indisponível para o AEC3 (%v); tentando o cancelador do Windows\n", err)
+	}
 	if aj.Eco {
 		fonte, err := AbrirCapturaComEco(idAparelho, aj)
 		if err == nil {

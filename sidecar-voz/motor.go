@@ -39,6 +39,8 @@ type Motor struct {
 
 	cancelarEco atomic.Bool
 
+	aec3 *Eco3
+
 	suprimirRuido atomic.Bool
 	ganhoAuto     atomic.Bool
 
@@ -60,6 +62,7 @@ func NovoMotor(faixa FaixaDeVoz, mist *Misturador, saida *Escritor, dllOpus stri
 		dllOpus:     dllOpus,
 		saidaPronta: make(chan struct{}),
 	}
+	m.aec3 = AbrirEco3()
 	m.cancelarEco.Store(true)
 
 	m.suprimirRuido.Store(true)
@@ -141,7 +144,7 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 			Eco:   querEco,
 			Ruido: m.suprimirRuido.Load(),
 			Ganho: m.ganhoAuto.Load(),
-		})
+		}, m.aec3)
 		if err != nil {
 
 			m.reclamar("abrir microfone", err)
@@ -359,6 +362,7 @@ func (m *Motor) bombearSaida(ctx context.Context, alto *Saida, geracao uint64) {
 
 				bloco = nil
 			}
+			m.aec3.Referencia(bloco)
 			if err := alto.Escrever(bloco); err != nil {
 				m.reclamar("tocar voz", err)
 				return

@@ -1,3 +1,5 @@
+//go:build aec3
+
 package eco3
 
 /*

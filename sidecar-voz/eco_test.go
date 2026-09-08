@@ -190,7 +190,7 @@ func TestPortaDeEntradaSempreDevolveFonte(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	comEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true})
+	comEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true}, nil)
 	if err != nil {
 		t.Fatalf("com eco pedido, nao devolveu fonte nenhuma: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestPortaDeEntradaSempreDevolveFonte(t *testing.T) {
 	}
 	comEco.Fechar()
 
-	semEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{})
+	semEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{}, nil)
 	if err != nil {
 		t.Fatalf("sem eco pedido, nao devolveu fonte: %v", err)
 	}

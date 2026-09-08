@@ -24,6 +24,16 @@ type Captura struct {
 	captor      objeto
 	evento      windows.Handle
 	rodando     bool
+
+	sobra    []int16
+	reserva  []int16
+	silencio []int16
+}
+
+func repartirBloco(destino, origem, reserva []int16) (int, []int16) {
+	n := min(len(origem), len(destino))
+	copy(destino[:n], origem[:n])
+	return n, append(reserva[:0], origem[n:]...)
 }
 
 func AbrirCaptura(id string) (*Captura, error) {
@@ -113,6 +123,12 @@ const (
 var ErrSemAudio = errors.New("nada disponível agora")
 
 func (c *Captura) Ler(destino []int16) (int, bool, error) {
+	if len(c.sobra) > 0 {
+		n := copy(destino, c.sobra)
+		c.sobra = c.sobra[n:]
+		return n, false, nil
+	}
+
 	var pacote uint32
 	if err := hr(c.captor.chamar(capGetNextPacketSize, uintptr(unsafe.Pointer(&pacote))),
 		"consultar o próximo bloco"); err != nil {
@@ -135,20 +151,19 @@ func (c *Captura) Ler(destino []int16) (int, bool, error) {
 		return 0, false, err
 	}
 
-	n := int(quadros) * CanaisDeVoz
-	if n > len(destino) {
-		n = len(destino)
-	}
-
+	total := int(quadros) * CanaisDeVoz
+	origem := unsafe.Slice((*int16)(dados), total)
 	if bandeiras&blocoSilencioso != 0 {
-
-		for i := 0; i < n; i++ {
-			destino[i] = 0
+		if cap(c.silencio) < total {
+			c.silencio = make([]int16, total)
 		}
-	} else if n > 0 {
-		origem := unsafe.Slice((*int16)(dados), n)
-		copy(destino[:n], origem)
+		origem = c.silencio[:total]
+		clear(origem)
 	}
+
+	n, reserva := repartirBloco(destino, origem, c.reserva)
+	c.reserva = reserva
+	c.sobra = c.reserva
 
 	if err := hr(c.captor.chamar(capReleaseBuffer, uintptr(quadros)),
 		"devolver o bloco"); err != nil {

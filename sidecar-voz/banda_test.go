@@ -265,3 +265,27 @@ func TestBandaVelhaNaoManda(t *testing.T) {
 		t.Errorf("relato vencido ainda mandava: %d kbps", alvo)
 	}
 }
+
+func TestOPassoApertaQuandoTrocarDeBandaEhBarato(t *testing.T) {
+	c := NovoControleDeBanda(8000)
+
+	if _, mudou := c.Sugerido(7200); mudou {
+		t.Fatal("10% de diferença mexeu no compressor com o passo largo")
+	}
+
+	c.SeguirDePerto(true)
+	if nova, mudou := c.Sugerido(7200); !mudou || nova != 7200 {
+		t.Errorf("com o compressor aceitando troca em serviço, 10%% devia valer a pena; "+
+			"veio %d (mudou=%v)", nova, mudou)
+	}
+}
+
+func TestOPassoVoltaAoLargoQuandoPrecisaReabrir(t *testing.T) {
+	c := NovoControleDeBanda(8000)
+	c.SeguirDePerto(true)
+	c.SeguirDePerto(false)
+
+	if _, mudou := c.Sugerido(7200); mudou {
+		t.Error("com o compressor que precisa reabrir, 10% de diferença não paga o degrau")
+	}
+}

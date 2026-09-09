@@ -1121,6 +1121,8 @@ func (c *Compressor) AjustarQuadros(fps int) {
 	}
 }
 
+func (c *Compressor) MudaBandaEmServico() bool { return c.comandos != 0 }
+
 func (c *Compressor) AjustarBanda(kbps int) bool {
 	if kbps <= 0 || c.comandos == 0 || kbps == c.kbps {
 		return false

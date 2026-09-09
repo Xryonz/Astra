@@ -216,6 +216,8 @@ func (e *Emissor) transmitir(
 		c.LigarEspelho(func(q Quadro) { e.entrega.Mandar("", q) })
 	}
 
+	controle.SeguirDePerto(c.MudaBandaEmServico())
+
 	comoSubiu := fmt.Sprintf("%dx%d @%d", c.saidaL, c.saidaA, c.fps)
 	if c.TaxaVariavel {
 		comoSubiu += " · taxa variável"

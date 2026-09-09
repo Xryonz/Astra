@@ -85,7 +85,10 @@ func TestQuadrosChegam(t *testing.T) {
 		quadros, time.Since(comeco).Seconds(), fps, esperas)
 
 	if quadros == 0 {
-		t.Fatal("nenhum quadro em 1,5s -- indice errado, ou nada mudou na tela")
+		if esperas == 0 {
+			t.Fatal("nenhum quadro E nenhuma espera em 1,5s -- a captura nao respondeu nada, indice de vtable errado")
+		}
+		t.Skip("a area de trabalho ficou parada 1,5s: a captura respondeu, so nao havia mudanca para entregar")
 	}
 }
 

@@ -20,13 +20,16 @@ const (
 
 	passoDeSubida = 1.30
 
-	mudancaQueValeAPena = 0.15
+	mudancaQueValeAPena          = 0.15
+	mudancaQueValeAPenaEmServico = 0.05
 
 	validadeDoRelato = 3 * time.Second
 )
 
 type ControleDeBanda struct {
 	teto int
+
+	passoMinimo float64
 
 	atual int
 	ruins int
@@ -37,7 +40,15 @@ func NovoControleDeBanda(teto int) *ControleDeBanda {
 	if teto < bandaMinima {
 		teto = bandaMinima
 	}
-	return &ControleDeBanda{teto: teto, atual: teto}
+	return &ControleDeBanda{teto: teto, atual: teto, passoMinimo: mudancaQueValeAPena}
+}
+
+func (c *ControleDeBanda) SeguirDePerto(pode bool) {
+	if pode {
+		c.passoMinimo = mudancaQueValeAPenaEmServico
+		return
+	}
+	c.passoMinimo = mudancaQueValeAPena
 }
 
 func (c *ControleDeBanda) Banda() int { return c.atual }
@@ -75,7 +86,7 @@ func (c *ControleDeBanda) mudarPara(novo int) (int, bool) {
 		novo = bandaMinima
 	}
 
-	if diferenca(novo, c.atual) < mudancaQueValeAPena {
+	if diferenca(novo, c.atual) < c.passoMinimo {
 		return c.atual, false
 	}
 

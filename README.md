@@ -33,7 +33,7 @@ aplicativo e morre com ele.
 
 ## Stack
 
-**Backend** (`apps/api`) — 34 grupos de rota
+**Backend** (`apps/api`) — 36 grupos de rota
 - Express 4 · TypeScript · Drizzle ORM 0.45
 - PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
 - LiveKit — voz e tela dos **três** clientes; o desktop entra na mesma sala por um
@@ -56,15 +56,24 @@ aplicativo e morre com ele.
   **Windows.Graphics.Capture**; compressão H.264 pelo **Media Foundation**, na placa
   quando há uma e em software quando não há. Baixa latência, taxa variável com pico
   limitado e CABAC quando o compressor aceita
+- A taxa da camada cheia se ajusta sozinha entre **30 e 60 por segundo**, refeita a cada
+  segundo pelo custo medido de comprimir: cai depressa quando a máquina não acompanha e
+  sobe devagar quando volta a sobrar folga. A troca acontece com o compressor em
+  funcionamento — quem assiste não vê degrau
 - A tela pode subir em **duas qualidades** (a cheia e uma pela metade a 30 fps), para
   que quem está com a rede curta receba a menor em vez de derrubar a de todo mundo.
   Exige placa com aceleração e **começa desligado** — Configurações › Voz
 - A banda se ajusta sozinha pelo que o TWCC e os relatórios de recepção contam, e o
   pedido de quadro-chave de quem acabou de chegar é atendido na hora
-- Áudio em Opus a 64 kbps em banda cheia, com cancelamento de eco, supressão de ruído e
-  ganho do Windows. Pacote perdido é reconstruído a partir da redundância que o próprio
-  Opus embute em cada pacote, e o colchão contra engasgo se dimensiona pela rede — em
-  rede limpa ele é zero, e só cresce para quem teve engasgo comprovado
+- Áudio em Opus a 64 kbps em banda cheia. O eco é cancelado pelo **AEC3**, o mesmo motor
+  que roda dentro do Chromium, na taxa cheia de 48 kHz; a supressão de ruído e o ganho
+  automático acompanham o que estiver marcado em Configurações › Voz. Se o AEC3 não
+  puder abrir, o cancelador do Windows assume — ao custo de 16 kHz — e, na falta dos
+  dois, a voz segue sem cancelamento
+- Pacote perdido é reconstruído a partir da redundância que o próprio Opus embute em cada
+  pacote, e a dose dessa redundância segue a perda medida na chamada em vez de supor um
+  valor fixo. O colchão contra engasgo parte de um quadro (20 ms) e cresce para quem teve
+  engasgo comprovado
 - Fala com o app por **entrada e saída padrão** (uma linha de JSON por mensagem) e
   entrega os quadros por um cano TCP separado na volta local
 - Processo separado de propósito: interoperar com COM/Media Foundation dentro da JVM
@@ -123,14 +132,19 @@ primeiros passos, constelação nova nasce povoada.
 **Sinal**
 Notificações com painel, badge, marcar tudo como lido e limpar histórico,
 silenciar por canal e por constelação, não-lidos com contagem, push (Android).
+Silenciar tudo por uma hora ou até de manhã vale só nesta máquina, por escolha —
+quem quer calar a conta inteira já tem o "não perturbe" — e o rodapé mostra um sino
+cortado enquanto o prazo corre, que desfaz num clique.
 
 **Progressão**
 XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
 com aviso, distintivos.
 
 **Casa da máquina (desktop)**
-Auto-update por zip-swap com verificação SHA-256, bandeja do sistema, atalho no
-menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede e permissões,
+Auto-update por zip-swap com verificação SHA-256, bandeja do sistema que troca o
+estado (brilhando, ausente, não perturbe, invisível) e silencia os avisos sem abrir
+a janela, atalho no menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede
+e permissões,
 configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
 duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento.
 
@@ -246,7 +260,7 @@ O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger ext
 
 Publicar é **só subir a versão**. Não há tag pra criar nem zip pra arrastar:
 
-1. `mobile-native/desktopApp/build.gradle.kts` → `astraVersion = "x.y.z"`
+1. `mobile-native/gradle.properties` → `astraVersion=x.y.z`
 2. commit + push na `main`
 
 O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
@@ -310,7 +324,7 @@ fallback, e não quebra o boot:
 ## Design
 
 Editorial-dark "obsidiana", dark-only por escolha. O acento de fábrica é
-**branco** (`#D4D8E0`, preset "Obsidiana") — âmbar é uma opção entre 18, não o
+**branco** (`#D4D8E0`, preset "Obsidiana") — âmbar é uma opção entre 19, não o
 padrão. O fundo padrão é liso; aurora e estrelas são escolha em
 *Aparência › Fundo*, e dá pra ligar as duas.
 
@@ -428,19 +442,26 @@ segue como resposta, e o desenho vetorial cobre quem não tem arte.
 | [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
 | [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
-| [GStreamer](https://gstreamer.freedesktop.org) | codificação de vídeo (baixado sob demanda) | LGPL 2.1+ |
 
 ### Ferramentas de construção
 
 | Ferramenta | Para quê | Licença |
 | --- | --- | --- |
 | [goversioninfo](https://github.com/josephspurrier/goversioninfo) | gerar o recurso que dá nome e ícone ao `astra-voz.exe` no Windows | MIT |
+| [MinGW-w64](https://www.mingw-w64.org) via [winlibs](https://winlibs.com) (GCC 16.1.0) | compilar o AEC3, que é C++, para dentro do `astra-voz.exe` | GPL 3 com a *Runtime Library Exception* |
 
-Esta não entra no produto: ela roda **uma vez, à mão**, e o que fica versionado é a
-saída (`sidecar-voz/resource_windows_amd64.syso`, gerada de `versioninfo.json`).
-Foi escolhido assim de propósito — gerar a cada build acrescentaria uma dependência
-de rede ao empacotamento e faria o binário do sidecar mudar em toda release, o que
-custaria 9,58 MB de download por atualização a quem já o tem.
+O goversioninfo não entra no produto: ele roda **uma vez, à mão**, e o que fica
+versionado é a saída (`sidecar-voz/resource_windows_amd64.syso`, gerada de
+`versioninfo.json`). Foi escolhido assim de propósito — gerar a cada build
+acrescentaria uma dependência de rede ao empacotamento e faria o binário do sidecar
+mudar em toda release, o que custaria 9,58 MB de download por atualização a quem já
+o tem.
+
+O MinGW é caso diferente, e por isso está creditado: a ligação é estática
+(`-static-libstdc++ -static-libgcc`), então pedaços da biblioteca de execução do GCC
+**viajam dentro** do executável distribuído. A *Runtime Library Exception* existe
+exatamente para isso e não impõe a GPL ao resultado — o crédito aqui é a regra da
+casa, não exigência da licença.
 
 ---
 

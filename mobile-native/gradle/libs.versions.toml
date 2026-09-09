@@ -31,9 +31,6 @@ browser = "1.8.0"
 rikkaui = "0.3.0"
 # DPAPI do Windows via JNA (so :desktopApp) — sessao cifrada em repouso.
 jna = "5.14.0"
-# WebRTC nativo pra JVM (so :desktopApp) — fase da voz (signaling LiveKit na mao).
-# Bindings JNA do GStreamer (so :desktopApp). O runtime nativo NAO vem por aqui —
-# ele e baixado sob demanda pelo GStreamerPack (ver la o porque de ficar fora do zip).
 # Protobuf do protocolo LiveKit (classes geradas commitadas — protoc nao roda
 # no path com acento; ver comentario no desktopApp/build.gradle.kts).
 protobuf = "3.25.5"

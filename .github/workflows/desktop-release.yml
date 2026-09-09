@@ -26,8 +26,9 @@ permissions:
 
 jobs:
   publicar:
-    # Windows obrigatorio: o jpackage so gera app-image do Windows RODANDO no
-    # Windows, e o ffmpeg empacotado e o ddagrab (DXGI), que so existe aqui.
+    # Windows obrigatorio por duas razoes: o jpackage so gera app-image do Windows
+    # RODANDO no Windows, e o sidecar-voz e codigo Win32 (DXGI, Media Foundation,
+    # WASAPI, COM) — nao existe para compilar em outro lugar.
     runs-on: windows-latest
 
     steps:

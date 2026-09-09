@@ -53,6 +53,9 @@ func (e *EntregaDeQuadros) Mandar(par string, q Quadro) {
 	if e == nil || len(q.Dados) == 0 {
 		return
 	}
+	if len(e.fila) >= cap(e.fila) {
+		return
+	}
 	p := e.pool.Get().(*quadroPronto)
 	if cap(p.bytes) < len(q.Dados) {
 		p.bytes = make([]byte, len(q.Dados))

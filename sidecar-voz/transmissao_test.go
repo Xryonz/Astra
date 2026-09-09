@@ -205,15 +205,18 @@ func TestTransmissaoReduzida(t *testing.T) {
 		m.Nucleos())
 	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
 
+	if m.Largura != 1280 || m.Altura != 720 {
+		t.Errorf("pedi 1280x720 e saiu %dx%d", m.Largura, m.Altura)
+	}
+	if m.Quadros < 20 {
+		t.Skipf("so %d quadros em 2s -- a tela estava parada demais para medir; mexa numa janela e rode de novo", m.Quadros)
+	}
 	if m.Pedacos == 0 {
-		t.Error("aceitou os tamanhos mas nao produziu H.264 -- reducao so no papel")
+		t.Errorf("aceitou os tamanhos e engoliu %d quadros sem produzir H.264 -- reducao so no papel", m.Quadros)
 	}
 	if m.Folga() < 0 {
 		t.Errorf("reduzido ainda custa %v por quadro, acima do orcamento de %v",
 			m.CustoPorQuadro(), time.Second/time.Duration(m.Fps))
-	}
-	if m.Largura != 1280 || m.Altura != 720 {
-		t.Errorf("pedi 1280x720 e saiu %dx%d", m.Largura, m.Altura)
 	}
 }
 

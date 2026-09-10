@@ -339,6 +339,10 @@ func tetoDeSoftware(largura, altura int) (int, int) {
 }
 
 func AbrirCompressor(tela *Tela, saidaL, saidaA, fps, kbps int) (*Compressor, error) {
+	return AbrirCompressorEvitando(tela, saidaL, saidaA, fps, kbps, nil)
+}
+
+func AbrirCompressorEvitando(tela *Tela, saidaL, saidaA, fps, kbps int, evitar map[string]bool) (*Compressor, error) {
 	largura, altura := tela.Tamanho()
 	if largura <= 0 || altura <= 0 {
 		return nil, fmt.Errorf("a captura não sabe o tamanho da tela")
@@ -365,6 +369,9 @@ func AbrirCompressor(tela *Tela, saidaL, saidaA, fps, kbps int) (*Compressor, er
 
 	recusas := make([]string, 0, 2*len(lista))
 	for _, cand := range lista {
+		if evitar[cand.Nome] {
+			continue
+		}
 		c, err := amarrar(cand, tela, largura, altura, saidaL, saidaA, fps, kbps, false)
 		if err == nil {
 			return c, nil
@@ -374,11 +381,18 @@ func AbrirCompressor(tela *Tela, saidaL, saidaA, fps, kbps int) (*Compressor, er
 
 	memL, memA := tetoDeSoftware(saidaL, saidaA)
 	for _, cand := range lista {
+		if evitar[cand.Nome] {
+			continue
+		}
 		c, err := amarrar(cand, tela, largura, altura, memL, memA, fps, kbps, true)
 		if err == nil {
 			return c, nil
 		}
 		recusas = append(recusas, fmt.Sprintf("%s (na memória): %v", cand.Nome, err))
+	}
+
+	for nome := range evitar {
+		recusas = append(recusas, fmt.Sprintf("%s: já falhou nesta transmissão", nome))
 	}
 	return nil, fmt.Errorf("nenhum compressor aceitou a textura da captura:\n  %s",
 		strings.Join(recusas, "\n  "))

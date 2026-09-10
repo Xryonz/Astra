@@ -150,8 +150,9 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	}
 
 	medir := true
+	condenados := map[string]bool{}
 	for {
-		novo, err := e.transmitir(ctx, tela, aj, medir, controle, teto)
+		novo, err := e.transmitir(ctx, tela, aj, medir, controle, teto, condenados)
 		if err != nil || ctx.Err() != nil || novo == nil {
 			return err
 		}
@@ -163,7 +164,17 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 const (
 	fpsDaCamadaFina  = 30
 	kbpsDaCamadaFina = 700
+
+	quadrosQueProvamOCompressor = 120
 )
+
+func condenar(condenados map[string]bool, nome string, quadros int) bool {
+	if quadros >= quadrosQueProvamOCompressor {
+		return false
+	}
+	condenados[nome] = true
+	return true
+}
 
 func (e *Emissor) abrirCamadaFina(tela *Tela, aj AjustesDaTela, grossa *Compressor) *Compressor {
 	if !e.plateia.TemCamadaFina() {
@@ -200,12 +211,25 @@ func (e *Emissor) abrirCamadaFina(tela *Tela, aj AjustesDaTela, grossa *Compress
 
 func (e *Emissor) transmitir(
 	ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool, controle *ControleDeBanda, teto int,
+	condenados map[string]bool,
 ) (*AjustesDaTela, error) {
-	c, err := AbrirCompressor(tela, aj.Largura, aj.Altura, aj.Fps, aj.Kbps)
+	c, err := AbrirCompressorEvitando(tela, aj.Largura, aj.Altura, aj.Fps, aj.Kbps, condenados)
 	if err != nil {
 		return nil, err
 	}
 	defer c.Fechar()
+
+	trocarCompressor := func(oQueHouve error) (*AjustesDaTela, error) {
+		proximo := aj
+		recado := fmt.Sprintf("%s falhou depois de %d quadros (%v); reabrindo o mesmo",
+			c.Nome, c.Custos.Quadros, oQueHouve)
+		if condenar(condenados, c.Nome, c.Custos.Quadros) {
+			recado = fmt.Sprintf("%s falhou no quadro %d (%v); trocando de compressor",
+				c.Nome, c.Custos.Quadros, oQueHouve)
+		}
+		e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "compressor", Msg: recado})
+		return &proximo, nil
+	}
 
 	fina := e.abrirCamadaFina(tela, aj, c)
 	if fina != nil {
@@ -331,7 +355,7 @@ func (e *Emissor) transmitir(
 		}
 		if l, a := tela.Tamanho(); l != c.largura || a != c.altura {
 			if err := c.Reenquadrar(tela.dispositivo, l, a); err != nil {
-				return nil, fmt.Errorf("acompanhar a janela em %dx%d: %w", l, a, err)
+				return trocarCompressor(fmt.Errorf("acompanhar a janela em %dx%d: %w", l, a, err))
 			}
 			reenquadrados++
 		}
@@ -339,7 +363,7 @@ func (e *Emissor) transmitir(
 
 			semMudanca++
 			if err := c.Drenar(entregar); err != nil {
-				return nil, fmt.Errorf("colher o que sobrou: %w", err)
+				return trocarCompressor(fmt.Errorf("colher o que sobrou: %w", err))
 			}
 			if falhaAoEntregar != nil {
 				return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
@@ -399,7 +423,7 @@ func (e *Emissor) transmitir(
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {
-			return nil, fmt.Errorf("comprimir: %w", err)
+			return trocarCompressor(fmt.Errorf("comprimir: %w", err))
 		}
 		if falhaAoEntregar != nil {
 			return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)

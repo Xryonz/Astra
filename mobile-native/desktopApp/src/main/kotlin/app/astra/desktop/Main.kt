@@ -450,6 +450,7 @@ fun main(args: Array<String>) {
             transparent = transparentWindow,
         ) {
             marcoDoArranque(Arranque.MARCO_JANELA)
+            remember { Vigia.janelaCriada() }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
                 withFrameNanos { }

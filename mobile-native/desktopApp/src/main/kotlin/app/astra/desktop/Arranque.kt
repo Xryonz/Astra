@@ -52,5 +52,7 @@ object Arranque {
 
     fun nasceuEscondido() = marcar(MARCO_ESCONDIDO)
 
+    fun armarModoSeguro() = runCatching { marcaSegura.writeText("armado pelo vigia\n") }
+
     fun sairDoModoSeguro() = runCatching { marcaSegura.delete() }.getOrDefault(false)
 }

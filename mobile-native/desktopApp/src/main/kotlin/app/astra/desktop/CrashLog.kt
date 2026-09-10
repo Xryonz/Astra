@@ -56,11 +56,8 @@ object CrashLog {
         } else {
             "${e::class.simpleName}: ${e.message.orEmpty().take(160)}"
         }
-        javax.swing.JOptionPane.showMessageDialog(
-            null,
+        CaixaDeAviso.erro(
             "O Astra fechou por um erro.\n\n$motivo\n\nO registro está em:\n${File(dataDir(), FILE).absolutePath}",
-            "Astra",
-            javax.swing.JOptionPane.ERROR_MESSAGE,
         )
     }
 }

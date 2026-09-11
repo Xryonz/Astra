@@ -38,6 +38,7 @@ object Arranque {
         marcar("main")
     }
 
+    @Synchronized
     fun marcar(passo: String) {
         runCatching {
             val ms = (System.nanoTime() - comeco) / 1_000_000

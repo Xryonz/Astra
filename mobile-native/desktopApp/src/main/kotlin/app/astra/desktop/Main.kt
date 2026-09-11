@@ -295,8 +295,10 @@ fun main(args: Array<String>) {
     Arranque.marcar("instancia unica garantida")
     startKoin { modules(appModule) }
     Arranque.marcar("Koin de pe")
-    writeDiagnostics()
-    Arranque.marcar("diagnostico escrito")
+    thread(isDaemon = true, name = "astra-diagnostico") {
+        writeDiagnostics()
+        Arranque.marcar("diagnostico escrito")
+    }
     GlobalContext.get().get<DesktopSocket>().registrarDespedida()
     Arranque.marcar("entrando na composicao")
     application {

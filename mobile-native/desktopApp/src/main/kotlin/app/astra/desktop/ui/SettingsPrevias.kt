@@ -37,7 +37,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +68,6 @@ import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
-import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import com.composables.icons.lucide.Info
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.sound.sampled.AudioFormat
@@ -82,7 +80,6 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 
@@ -147,6 +144,7 @@ internal data class ProfileDraft(
     val bannerScale: Int = 100,
     val profileTheme: String? = null,
     val displayFont: String? = null,
+    val dmPrivacy: String = "all",
 ) {
     companion object {
         fun from(me: ProfileUserDto?) = ProfileDraft(
@@ -162,6 +160,7 @@ internal data class ProfileDraft(
             bannerScale = me?.bannerScale ?: 100,
             profileTheme = me?.profileTheme,
             displayFont = me?.displayFont,
+            dmPrivacy = me?.dmPrivacy ?: "all",
         )
     }
 }
@@ -266,8 +265,8 @@ private const val PASSEIO_DO_AVISO = 14f
 internal fun PrivacySection(
     prefState: DesktopPrefs.Prefs,
     prefs: DesktopPrefs,
-    me: ProfileUserDto?,
-    onSalvou: () -> Unit,
+    draft: ProfileDraft,
+    aoMudarPerfil: (ProfileDraft) -> Unit,
 ) {
     Column {
         Text("Quem pode te mandar sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -279,7 +278,7 @@ internal fun PrivacySection(
             modifier = Modifier.widthIn(max = 460.dp),
         )
         Spacer(Modifier.height(10.dp))
-        FiltroDeSussurro(me, onSalvou)
+        FiltroDeSussurro(draft.dmPrivacy) { aoMudarPerfil(draft.copy(dmPrivacy = it)) }
         Spacer(Modifier.height(8.dp))
         Text(
             "quem for barrado recebe a mesma recusa de quem foi bloqueado. não dá para " +
@@ -377,13 +376,7 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 }
 
 @Composable
-private fun FiltroDeSussurro(me: ProfileUserDto?, onSalvou: () -> Unit) {
-    val koin = GlobalContext.get()
-    val escopo = rememberCoroutineScope()
-    val doServidor = me?.dmPrivacy ?: "all"
-    var escolhido by remember(doServidor) { mutableStateOf(doServidor) }
-    var erro by remember { mutableStateOf<String?>(null) }
-
+private fun FiltroDeSussurro(escolhido: String, aoEscolher: (String) -> Unit) {
     RadioList(
         listOf(
             "qualquer pessoa" to "all",
@@ -391,27 +384,8 @@ private fun FiltroDeSussurro(me: ProfileUserDto?, onSalvou: () -> Unit) {
             "só meus amigos" to "friends",
         ),
         escolhido,
-    ) { novo ->
-        if (novo == escolhido) return@RadioList
-        val anterior = escolhido
-        escolhido = novo
-        erro = null
-        escopo.launch {
-            val r = runCatching {
-                koin.get<UserApi>().updateProfile(UpdateProfileRequest(dmPrivacy = novo))
-            }
-            if (r.isSuccess) {
-                onSalvou()
-            } else {
-                escolhido = anterior
-                erro = "não deu para salvar. verifique a conexão e tente de novo."
-            }
-        }
-    }
-    erro?.let {
-        Spacer(Modifier.height(6.dp))
-        Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
-    }
+        aoEscolher,
+    )
 }
 
 @Composable

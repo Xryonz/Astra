@@ -295,6 +295,7 @@ internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): 
                 bannerScale = draft.bannerScale,
                 profileTheme = draft.profileTheme,
                 displayFont = draft.displayFont,
+                dmPrivacy = draft.dmPrivacy,
             ),
         )
         Unit

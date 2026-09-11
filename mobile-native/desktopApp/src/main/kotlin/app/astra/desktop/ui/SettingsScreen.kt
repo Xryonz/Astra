@@ -342,7 +342,7 @@ fun SettingsScreen(
                             Spacer(Modifier.height(14.dp))
                             AvisosDaContaBloco()
                         }
-                        SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, me, onProfileSaved)
+                        SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, draft) { draft = it }
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PETS -> PetsSection(prefState, prefs)
 

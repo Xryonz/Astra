@@ -45,8 +45,10 @@ if (Test-Path (Join-Path $dst "Astra.exe")) {
 $zip = Join-Path $dist "Astra-$Version-win-x64.zip"
 if (Test-Path $zip) { Copy-Item $zip $zips -Force; Write-Host "  zip arquivado" }
 
-# launcher + icone (garante presenca)
-Copy-Item (Join-Path $PSScriptRoot "launch.vbs") $root -Force
+# launcher + icone (garante presenca). O launch.vbs mora em src\main\resources pra
+# viajar dentro do app: o Astra instalado reescreve o da raiz quando ele esta velho,
+# senao a pasta fixa nunca chega em quem instalou antes dela existir.
+Copy-Item (Join-Path $repo "src\main\resources\launch.vbs") $root -Force
 Copy-Item (Join-Path $repo "icons\astra.ico") (Join-Path $root "astra.ico") -Force
 
 # atalhos (pasta + area de trabalho) -> wscript + vbs

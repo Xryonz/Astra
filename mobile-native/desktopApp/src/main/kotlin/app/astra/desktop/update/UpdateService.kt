@@ -3,6 +3,7 @@ package app.astra.desktop.update
 import app.astra.desktop.ARG_POS_ATUALIZACAO
 import app.astra.desktop.FocoDoSistema
 import app.astra.desktop.Instalacao
+import app.astra.desktop.Lancador
 import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,7 @@ class UpdateService(private val http: OkHttpClient) {
         if (!installed) return
         scope.launch(Dispatchers.IO) {
             delay(ESPERA_FAXINA_MS)
+            runCatching { Lancador.manterAtualizado() }
             runCatching { limparVersoesAntigas() }
         }
     }

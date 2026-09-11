@@ -1,5 +1,6 @@
 package app.astra.desktop.voice
 
+import app.astra.desktop.Instalacao
 import app.astra.desktop.WindowsAppId
 import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinReg
@@ -48,6 +49,7 @@ data class Checagem(
     val acesso: Acesso,
     val explica: String,
     val ajustes: String? = null,
+    val podeDesfazer: Boolean = false,
 )
 
 object PermissoesWindows {
@@ -168,68 +170,153 @@ object PermissoesWindows {
     private const val REGRAS_FIREWALL =
         "SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules"
 
+    private const val NOME_DA_REGRA = "Astra"
+
+    private const val SIDECAR_NA_IMAGEM = "app\\resources\\astra-voz.exe"
+
+    private fun quemFalaNaRede(): List<java.io.File> = buildList {
+        Instalacao.exe?.let(::add)
+        LocalizadorDoSidecar.caminho?.let(::add)
+    }.distinctBy { it.absolutePath.lowercase() }
+
+    private fun enderecoQueNaoMuda(): List<java.io.File> = buildList {
+        Instalacao.exeFixo?.let(::add)
+        Instalacao.fixa?.let { add(java.io.File(it, SIDECAR_NA_IMAGEM)) }
+    }.distinctBy { it.absolutePath.lowercase() }
+
+    private fun regrasGravadas(): List<String>? = runCatching {
+        Advapi32Util.registryGetValues(WinReg.HKEY_LOCAL_MACHINE, REGRAS_FIREWALL)
+            .values.filterIsInstance<String>()
+            .map { it.lowercase() }
+    }.getOrNull()
+
+    private fun regrasDe(todas: List<String>, binario: java.io.File): List<String> {
+        val alvo = binario.absolutePath.lowercase()
+        return todas
+            .filter { it.contains("|app=$alvo|") || it.endsWith("|app=$alvo") }
+            .filter { it.contains("|active=true|") }
+    }
+
+    private fun liberado(todas: List<String>, binario: java.io.File): Boolean =
+        regrasDe(todas, binario).any { it.contains("|action=allow|") }
+
+    private fun apelido(binario: java.io.File): String =
+        if (binario.name.contains("voz", ignoreCase = true)) "a voz" else "o Astra"
+
     fun rede(): Checagem {
-        val exe = System.getProperty("jpackage.app-path")?.lowercase()
-            ?: return Checagem(
+        if (System.getProperty("jpackage.app-path") == null) {
+            return Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
                 "Rodando pelo Gradle — não há executável do Astra para procurar no firewall.",
             )
-
-        val minhas = runCatching {
-            Advapi32Util.registryGetValues(WinReg.HKEY_LOCAL_MACHINE, REGRAS_FIREWALL)
-                .values.filterIsInstance<String>()
-                .map { it.lowercase() }
-                .filter { it.contains("|app=$exe|") || it.endsWith("|app=$exe") }
-        }.getOrNull() ?: return Checagem(
+        }
+        val correndo = quemFalaNaRede()
+        if (correndo.isEmpty()) {
+            return Checagem(
+                Permissao.REDE, Acesso.PENDENTE,
+                "Não encontrei os executáveis do Astra para conferir no firewall.",
+                "windowsdefender://network/",
+            )
+        }
+        val todas = regrasGravadas() ?: return Checagem(
             Permissao.REDE, Acesso.PENDENTE,
             "Não foi possível ler as regras do firewall. Se a call não conectar, confira o Astra na lista de aplicativos permitidos.",
             "windowsdefender://network/",
         )
 
-        val ativas = minhas.filter { it.contains("|active=true|") }
+        val bloqueados = correndo.filter { alvo ->
+            regrasDe(todas, alvo).any { it.contains("|action=block|") }
+        }
+        val semRegra = correndo.filter { !liberado(todas, it) }
+        val fixoCoberto = enderecoQueNaoMuda().let { fixos ->
+            fixos.isNotEmpty() && fixos.all { liberado(todas, it) }
+        }
+
         return when {
-            ativas.any { it.contains("|action=block|") } -> Checagem(
+            bloqueados.isNotEmpty() -> Checagem(
                 Permissao.REDE, Acesso.BLOQUEADO,
-                "Existe uma regra bloqueando o Astra no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não conecta assim. Liberar remove o bloqueio.",
+                "Existe uma regra bloqueando ${bloqueados.joinToString(" e ", transform = ::apelido)} " +
+                    "no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não " +
+                    "conecta assim. Liberar remove o bloqueio.",
                 "windowsdefender://network/",
             )
-            ativas.any { it.contains("|action=allow|") } -> Checagem(
-                Permissao.REDE, Acesso.OK, "Liberado no firewall do Windows.",
+            semRegra.isNotEmpty() -> Checagem(
+                Permissao.REDE, Acesso.PENDENTE,
+                "O Windows ainda vai perguntar por ${semRegra.joinToString(" e ", transform = ::apelido)} " +
+                    "na primeira call. Liberar agora resolve antes — e vale também para as versões que vierem.",
+                "windowsdefender://network/",
+            )
+            !fixoCoberto -> Checagem(
+                Permissao.REDE, Acesso.OK,
+                "Liberado, mas só nesta versão: a liberação está presa ao endereço de agora e a " +
+                    "próxima atualização faria o Windows perguntar de novo. Liberar estende para o " +
+                    "endereço fixo e encerra isso.",
+                "windowsdefender://network/",
+                podeDesfazer = true,
             )
             else -> Checagem(
-                Permissao.REDE, Acesso.PENDENTE,
-                "O Windows vai perguntar na sua primeira call. Liberar agora resolve antes, e evita o susto de cancelar o aviso sem querer.",
-                "windowsdefender://network/",
+                Permissao.REDE, Acesso.OK,
+                "Liberado no endereço fixo do Astra — atualizar não derruba mais a liberação.",
+                podeDesfazer = true,
             )
         }
     }
 
+    private val NOSSOS_BINARIOS = setOf("astra.exe", "astra-voz.exe")
+
+    private fun caminhosComRegra(): List<String> {
+        val marca = "|app="
+        return (regrasGravadas() ?: emptyList()).mapNotNull { regra ->
+            val comeco = regra.indexOf(marca)
+            if (comeco < 0) return@mapNotNull null
+            val resto = regra.substring(comeco + marca.length)
+            val fim = resto.indexOf('|')
+            val caminho = if (fim < 0) resto else resto.substring(0, fim)
+            caminho.takeIf { it.substringAfterLast('\\') in NOSSOS_BINARIOS }
+        }.distinct()
+    }
+
     fun liberarNoFirewall(): Boolean {
-        val exe = System.getProperty("jpackage.app-path") ?: return false
-        val roteiro = java.io.File(System.getProperty("java.io.tmpdir"), "astra-liberar-firewall.ps1")
-        val caminho = exe.replace("'", "''")
-        val cifrao = '$'
-        roteiro.writeText(
-            "\uFEFF" + """
-            ${cifrao}exe = '$caminho'
-            netsh advfirewall firewall delete rule name=all program="${cifrao}exe" | Out-Null
-            netsh advfirewall firewall add rule name="Astra" dir=in  action=allow program="${cifrao}exe" enable=yes profile=any | Out-Null
-            netsh advfirewall firewall add rule name="Astra" dir=out action=allow program="${cifrao}exe" enable=yes profile=any | Out-Null
-            """.trimIndent(),
-            Charsets.UTF_8,
-        )
+        val alvos = (quemFalaNaRede() + enderecoQueNaoMuda())
+            .distinctBy { it.absolutePath.lowercase() }
+        if (alvos.isEmpty()) return false
+        val mortas = caminhosComRegra().filter { !java.io.File(it).exists() }
+        return elevado(apagar(mortas) + liberacao(alvos))
+    }
+
+    fun revogarNoFirewall(): Boolean {
+        val todas = caminhosComRegra()
+        if (todas.isEmpty()) return true
+        return elevado(apagar(todas))
+    }
+
+    private fun apagar(caminhos: List<String>): String = caminhos.joinToString("") { caminho ->
+        val p = caminho.replace("'", "''")
+        "netsh advfirewall firewall delete rule name=all program='$p' | Out-Null\n"
+    }
+
+    private fun liberacao(alvos: List<java.io.File>): String = alvos.joinToString("") { alvo ->
+        val p = alvo.absolutePath.replace("'", "''")
+        "netsh advfirewall firewall delete rule name=all program='$p' | Out-Null\n" +
+            "netsh advfirewall firewall add rule name='$NOME_DA_REGRA' dir=in action=allow " +
+            "program='$p' enable=yes profile=any | Out-Null\n" +
+            "netsh advfirewall firewall add rule name='$NOME_DA_REGRA' dir=out action=allow " +
+            "program='$p' enable=yes profile=any | Out-Null\n"
+    }
+
+    private fun elevado(roteiro: String): Boolean {
+        val embrulhado = java.util.Base64.getEncoder()
+            .encodeToString(roteiro.toByteArray(Charsets.UTF_16LE))
         val comando = "try { Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait " +
-            "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"${roteiro.absolutePath}\"' " +
-            "-ErrorAction Stop } catch { exit 1 }"
-        val ok = runCatching {
-            val p = ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", comando)
+            "-ArgumentList '-NoProfile','-EncodedCommand','" + embrulhado + "' -ErrorAction Stop } " +
+            "catch { exit 1 }"
+        return runCatching {
+            val p = ProcessBuilder("powershell", "-NoProfile", "-Command", comando)
                 .redirectErrorStream(true)
                 .start()
             if (p.waitFor(2, java.util.concurrent.TimeUnit.MINUTES)) p.exitValue() == 0
             else { p.destroy(); false }
         }.getOrDefault(false)
-        roteiro.delete()
-        return ok
     }
 
     fun abrirAjustes(uri: String) {

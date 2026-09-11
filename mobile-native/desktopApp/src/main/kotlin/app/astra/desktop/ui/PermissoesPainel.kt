@@ -107,6 +107,19 @@ fun PainelDePermissoes(
         }
     }
 
+    fun desfazer(c: Checagem) {
+        if (vigiando.contains(c.permissao)) return
+        vigiando.add(c.permissao)
+        escopo.launch {
+            try {
+                withContext(Dispatchers.IO) { PermissoesWindows.revogarNoFirewall() }
+                reconferir(c.permissao)
+            } finally {
+                vigiando.remove(c.permissao)
+            }
+        }
+    }
+
     Column(modifier) {
         if (conferindo && itens.isEmpty()) {
             Text("conferindo…", style = Tipo.descricao)
@@ -118,6 +131,7 @@ fun PainelDePermissoes(
                 esperando = vigiando.contains(c.permissao),
                 detalhado = detalhado,
                 onPermitir = { permitir(c) },
+                onDesfazer = { desfazer(c) },
             )
             if (i < itens.lastIndex) Spacer(Modifier.height(7.dp))
         }
@@ -161,6 +175,7 @@ private fun LinhaPermissao(
     esperando: Boolean,
     detalhado: Boolean,
     onPermitir: () -> Unit,
+    onDesfazer: () -> Unit,
 ) {
     var visivel by remember(c.permissao) { mutableStateOf(false) }
     LaunchedEffect(c.permissao) { delay(atraso.toLong()); visivel = true }
@@ -207,7 +222,13 @@ private fun LinhaPermissao(
             }
         }
         Spacer(Modifier.width(10.dp))
-        BotaoPermitir(c, esperando, onPermitir)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (c.podeDesfazer && !esperando) {
+                BotaoDaPermissao("desfazer", destaque = false, ativo = true, onClick = onDesfazer)
+                Spacer(Modifier.width(6.dp))
+            }
+            BotaoPermitir(c, esperando, onPermitir)
+        }
     }
 }
 
@@ -216,25 +237,38 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
     val temAcao = c.ajustes != null || c.permissao == Permissao.AVISOS
     val pronto = c.acesso == Acesso.OK
     val ehTeste = pronto && c.permissao == Permissao.AVISOS
+    val faltaEsticar = pronto && c.permissao == Permissao.REDE && c.ajustes != null
     val rotulo = when {
+        esperando -> "esperando…"
         ehTeste -> "testar"
+        faltaEsticar -> "liberar"
         pronto && c.permissao == Permissao.TELA -> "não precisa"
         pronto -> "permitido"
-        esperando -> "esperando…"
         !temAcao -> "—"
         c.permissao == Permissao.REDE -> "liberar"
         else -> "permitir"
     }
-    val ativo = (ehTeste || !pronto) && !esperando && temAcao
+    val ativo = (ehTeste || faltaEsticar || !pronto) && !esperando && temAcao
+    BotaoDaPermissao(rotulo, destaque = true, ativo = ativo, pronto = pronto, onClick = onClick)
+}
 
+@Composable
+private fun BotaoDaPermissao(
+    rotulo: String,
+    destaque: Boolean,
+    ativo: Boolean,
+    pronto: Boolean = false,
+    onClick: () -> Unit,
+) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     val forma = RoundedCornerShape(8.dp)
+    val realce = if (destaque) Obsidian.accent else Obsidian.text2
     Box(
         Modifier
             .clip(forma)
-            .background(if (ativo && hov) Obsidian.accent.copy(alpha = 0.12f) else Color.Transparent)
-            .border(1.dp, if (ativo) Obsidian.accentDim else Obsidian.borderDim, forma)
+            .background(if (ativo && hov) realce.copy(alpha = 0.12f) else Color.Transparent)
+            .border(1.dp, if (ativo && destaque) Obsidian.accentDim else Obsidian.borderDim, forma)
             .hoverable(src, enabled = ativo)
             .clickable(interactionSource = src, indication = null, enabled = ativo, onClick = onClick)
             .padding(horizontal = 11.dp, vertical = 6.dp),
@@ -244,7 +278,7 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
             rotulo,
             style = TextStyle(
                 color = when {
-                    ativo -> Obsidian.accent
+                    ativo -> realce
                     pronto -> Obsidian.success
                     else -> Obsidian.text3
                 },

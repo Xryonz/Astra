@@ -162,9 +162,9 @@ object PermissoesWindows {
     }
 
     fun tela(): Checagem = Checagem(
-        Permissao.TELA, Acesso.SEM_APARELHO,
-        "Transmitir tela está fora do ar enquanto a voz migra para o componente novo. " +
-            "O Windows não pede permissão para isto — não há nada para você liberar.",
+        Permissao.TELA, Acesso.OK,
+        "O Windows não tem interruptor para isto: programa de área de trabalho captura a tela " +
+            "sem pedir nada. Não há o que liberar.",
     )
 
     private const val REGRAS_FIREWALL =

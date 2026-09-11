@@ -67,7 +67,9 @@ import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.voice.Acesso
 import app.astra.desktop.voice.LeituraDoCaminho
+import app.astra.desktop.voice.PermissoesWindows
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.xp.MissoesStore
@@ -83,8 +85,10 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ServerDto
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
@@ -149,10 +153,12 @@ fun ShellScreen(
     val sessionStore = remember { koin.get<SessionStore>() }
     var permsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        if (sessionStore.uiPref("permsVistas") != "1") {
-            kotlinx.coroutines.delay(900)
-            permsOpen = true
+        if (sessionStore.uiPref("permsVistas") == "1") return@LaunchedEffect
+        kotlinx.coroutines.delay(900)
+        val pendencias = withContext(Dispatchers.IO) {
+            PermissoesWindows.todas().count { it.acesso != Acesso.OK }
         }
+        if (pendencias == 0) sessionStore.setUiPref("permsVistas", "1") else permsOpen = true
     }
     if (permsOpen) {
         PermissoesDialog(

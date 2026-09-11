@@ -82,7 +82,6 @@ internal fun ProfileSection(
     me: ProfileUserDto?,
     draft: ProfileDraft,
     onChange: (ProfileDraft) -> Unit,
-    onSaved: () -> Unit,
     acoesDoCartao: AcoesDoCartao,
 ) {
     val scope = rememberCoroutineScope()
@@ -277,69 +276,32 @@ internal fun ProfileSection(
     }
 }
 
-@Composable
-internal fun ProfileSaveButton(
-    me: ProfileUserDto?,
-    draft: ProfileDraft,
-    onChange: (ProfileDraft) -> Unit,
-    onSaved: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val koin = GlobalContext.get()
-    val scope = rememberCoroutineScope()
-    val original = remember(me) { ProfileDraft.from(me) }
-    var saving by remember { mutableStateOf(false) }
-    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    val dirty = draft != original
-    Column(modifier) {
-        msg?.let { (text, ok) ->
-            Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
-            Spacer(Modifier.height(8.dp))
+internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): Result<Unit> {
+    val api = GlobalContext.get().get<UserApi>()
+    return runCatching {
+        if (draft.customStatus.trim() != original.customStatus.trim()) {
+            api.setCustomStatus(CustomStatusRequest(draft.customStatus.trim()))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AboutButton(if (saving) "salvando…" else "salvar", accent = true, icone = Lucide.Check) {
-                if (saving || !dirty) return@AboutButton
-                saving = true
-                msg = null
-                scope.launch {
-                    val api = koin.get<UserApi>()
-                    val r = runCatching {
-                        if (draft.customStatus.trim() != original.customStatus.trim()) {
-                            api.setCustomStatus(CustomStatusRequest(draft.customStatus.trim()))
-                        }
-                        api.updateProfile(
-                            UpdateProfileRequest(
-                                displayName = draft.displayName.trim().ifBlank { null },
-                                pronouns = draft.pronouns.trim(),
-                                bio = draft.bio.trim(),
-                                avatarUrl = draft.avatarUrl,
-                                statusEmoji = draft.statusEmoji,
-                                bannerUrl = draft.bannerUrl ?: "",
-                                bannerColor = draft.bannerColor,
-                                bannerPositionY = draft.bannerPositionY,
-                                bannerScale = draft.bannerScale,
-                                profileTheme = draft.profileTheme,
-                                displayFont = draft.displayFont,
-                            ),
-                        )
-                    }
-                    saving = false
-                    if (r.isSuccess) { msg = "perfil salvo" to true; onSaved() }
-                    else msg = saveErrorMessage(r.exceptionOrNull()) to false
-                }
-            }
-            if (dirty && !saving) {
-                AboutButton("descartar", accent = false) { onChange(original); msg = null }
-            }
-        }
-        if (!dirty && msg == null) {
-            Spacer(Modifier.height(6.dp))
-            Text("nada mudou ainda.", style = Tipo.apoio)
-        }
+        api.updateProfile(
+            UpdateProfileRequest(
+                displayName = draft.displayName.trim().ifBlank { null },
+                pronouns = draft.pronouns.trim(),
+                bio = draft.bio.trim(),
+                avatarUrl = draft.avatarUrl,
+                statusEmoji = draft.statusEmoji,
+                bannerUrl = draft.bannerUrl ?: "",
+                bannerColor = draft.bannerColor,
+                bannerPositionY = draft.bannerPositionY,
+                bannerScale = draft.bannerScale,
+                profileTheme = draft.profileTheme,
+                displayFont = draft.displayFont,
+            ),
+        )
+        Unit
     }
 }
 
-private fun saveErrorMessage(t: Throwable?): String {
+internal fun saveErrorMessage(t: Throwable?): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"
     if (http.code() == 413) return "a imagem ficou grande demais — escolha uma menor ou dê menos zoom"
     val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull()

@@ -123,10 +123,21 @@ class SessionStore {
         }.getOrNull()
     }
 
-    fun setUiPref(key: String, value: String?) {
+    fun todasUiPrefs(): Map<String, String> {
+        if (!uiFile.exists()) return emptyMap()
+        return runCatching {
+            val p = Properties().apply { uiFile.inputStream().use { load(it) } }
+            p.stringPropertyNames().associateWith { p.getProperty(it) }
+        }.getOrDefault(emptyMap())
+    }
+
+    fun setUiPref(key: String, value: String?) = setUiPrefs(mapOf(key to value))
+
+    fun setUiPrefs(valores: Map<String, String?>) {
+        if (valores.isEmpty()) return
         dir.mkdirs()
         val p = Properties().apply { if (uiFile.exists()) runCatching { uiFile.inputStream().use { load(it) } } }
-        if (value == null) p.remove(key) else p.setProperty(key, value)
+        valores.forEach { (key, value) -> if (value == null) p.remove(key) else p.setProperty(key, value) }
         runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
     }
 

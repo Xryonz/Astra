@@ -343,7 +343,7 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
 }
 
 @Composable
-internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arranque: RascunhoDoArranque) {
     if (p.perfAutomatico.isNotBlank()) {
         Box(
             Modifier.widthIn(max = 560.dp).fillMaxWidth()
@@ -402,7 +402,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         p.exitOnClose, prefs::setExitOnClose,
     )
     Spacer(Modifier.height(6.dp))
-    ArranqueComWindows()
+    ArranqueComWindows(arranque)
 }
 
 internal fun mascarar(email: String): String {
@@ -411,42 +411,45 @@ internal fun mascarar(email: String): String {
     return email.first() + "•••" + email.substring(arroba)
 }
 
-@Composable
-private fun ArranqueComWindows() {
-    if (!InicioComWindows.disponivel()) return
-    var ligado by remember { mutableStateOf(InicioComWindows.ligado()) }
-    var escondido by remember { mutableStateOf(InicioComWindows.escondido()) }
-    var falhou by remember { mutableStateOf(false) }
+internal class RascunhoDoArranque {
+    private var ligadoGravado: Boolean by mutableStateOf(InicioComWindows.ligado())
+    private var escondidoGravado: Boolean by mutableStateOf(InicioComWindows.escondido())
 
-    fun gravar(novoLigado: Boolean, novoEscondido: Boolean) {
-        val ok = InicioComWindows.aplicar(novoLigado, novoEscondido)
-        falhou = !ok
-        if (!ok) return
-        ligado = novoLigado
-        escondido = novoEscondido
+    var ligado: Boolean by mutableStateOf(ligadoGravado)
+    var escondido: Boolean by mutableStateOf(escondidoGravado)
+
+    val mudou: Boolean get() = ligado != ligadoGravado || escondido != escondidoGravado
+
+    fun descartar() {
+        ligado = ligadoGravado
+        escondido = escondidoGravado
     }
+
+    fun salvar(): Boolean {
+        if (!mudou) return true
+        if (!InicioComWindows.aplicar(ligado, escondido)) return false
+        ligadoGravado = ligado
+        escondidoGravado = escondido
+        return true
+    }
+}
+
+@Composable
+private fun ArranqueComWindows(arranque: RascunhoDoArranque) {
+    if (!InicioComWindows.disponivel()) return
 
     ToggleRow(
         "Abrir junto com o Windows",
         "o Astra já sobe na bandeja ao ligar o computador — sem esperar você lembrar dele",
-        ligado,
-    ) { gravar(it, escondido) }
-    if (ligado) {
+        arranque.ligado,
+    ) { arranque.ligado = it }
+    if (arranque.ligado) {
         Spacer(Modifier.height(6.dp))
         ToggleRow(
             "Ao subir assim, começar sem janela",
             "só o ícone na bandeja: nada aparece na frente de quem acabou de ligar o PC",
-            escondido,
-        ) { gravar(true, it) }
-    }
-    if (falhou) {
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "o Windows recusou a mudança no arranque. dá para ligar e desligar isto também " +
-                "pelo Gerenciador de Tarefas, na aba Inicializar.",
-            style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
+            arranque.escondido,
+        ) { arranque.escondido = it }
     }
 }
 

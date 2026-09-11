@@ -119,7 +119,44 @@ class DesktopPrefs(private val store: SessionStore) {
     private val _state = MutableStateFlow(read())
     val state = _state.asStateFlow()
 
+    private val pendentes = LinkedHashMap<String, String>()
+    private var gravado = emptyMap<String, String>()
+    private var rascunhando = false
+    private val _mudancasPendentes = MutableStateFlow(0)
+    val mudancasPendentes = _mudancasPendentes.asStateFlow()
+
     init { migrarCeu(); aferirAMaquina() }
+
+    fun abrirRascunho() {
+        pendentes.clear()
+        _mudancasPendentes.value = 0
+        gravado = store.todasUiPrefs()
+        rascunhando = true
+    }
+
+    fun salvarRascunho(): Int {
+        val quantas = pendentes.size
+        if (quantas > 0) {
+            store.setUiPrefs(LinkedHashMap(pendentes))
+            gravado = gravado + pendentes
+            pendentes.clear()
+            _mudancasPendentes.value = 0
+        }
+        return quantas
+    }
+
+    fun descartarRascunho() {
+        if (pendentes.isEmpty()) return
+        pendentes.clear()
+        _mudancasPendentes.value = 0
+        val doDisco = read()
+        _state.update { doDisco.copy(degrau = it.degrau) }
+    }
+
+    fun fecharRascunho() {
+        descartarRascunho()
+        rascunhando = false
+    }
 
     private fun aferirAMaquina() {
         if (store.uiPref("maquinaAferida") == "1") return
@@ -212,7 +249,16 @@ class DesktopPrefs(private val store: SessionStore) {
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
     )
 
-    private fun persist(key: String, on: Boolean) = store.setUiPref(key, if (on) "1" else "0")
+    private fun persist(key: String, on: Boolean) = anotar(key, if (on) "1" else "0")
+
+    private fun anotar(chave: String, valor: String) {
+        if (!rascunhando) {
+            store.setUiPref(chave, valor)
+            return
+        }
+        if (gravado[chave] == valor) pendentes.remove(chave) else pendentes[chave] = valor
+        _mudancasPendentes.value = pendentes.size
+    }
 
     fun setReduceMotion(v: Boolean) {
         persist("reduceMotion", v)
@@ -250,7 +296,7 @@ class DesktopPrefs(private val store: SessionStore) {
     }
 
     fun setAuroraQuality(v: AuroraQuality) {
-        store.setUiPref("auroraQuality", v.key)
+        anotar("auroraQuality", v.key)
         _state.update { it.copy(auroraQuality = v) }
     }
 
@@ -260,7 +306,7 @@ class DesktopPrefs(private val store: SessionStore) {
     }
 
     fun setUiFps(v: UiFps) {
-        store.setUiPref("uiFps", v.key)
+        anotar("uiFps", v.key)
         _state.update { it.copy(uiFps = v) }
     }
 
@@ -279,33 +325,33 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(exitOnClose = v) }
     }
     fun setScreenQuality(v: ScreenQuality) {
-        store.setUiPref("screenQuality", v.key)
+        anotar("screenQuality", v.key)
         _state.update { it.copy(screenQuality = v) }
     }
 
     fun setAccent(id: String) {
-        store.setUiPref("accentId", id)
+        anotar("accentId", id)
         _state.update { it.copy(accentId = id) }
     }
 
     fun setBg(id: String) {
-        store.setUiPref("bgId", id)
+        anotar("bgId", id)
         _state.update { it.copy(bgId = id) }
     }
 
     fun setTheme(accentId: String, bgId: String) {
-        store.setUiPref("accentId", accentId)
-        store.setUiPref("bgId", bgId)
+        anotar("accentId", accentId)
+        anotar("bgId", bgId)
         _state.update { it.copy(accentId = accentId, bgId = bgId) }
     }
 
     fun setFontSize(v: FontSizePref) {
-        store.setUiPref("fontSize", v.key)
+        anotar("fontSize", v.key)
         _state.update { it.copy(fontSize = v) }
     }
 
     fun setDensity(v: DensityPref) {
-        store.setUiPref("density", v.key)
+        anotar("density", v.key)
         _state.update { it.copy(density = v) }
     }
 
@@ -335,18 +381,18 @@ class DesktopPrefs(private val store: SessionStore) {
     }
 
     fun setPetTipo(v: String) {
-        store.setUiPref("petTipo", v)
+        anotar("petTipo", v)
         _state.update { it.copy(petTipo = v) }
     }
 
     fun setPetPelagem(v: String) {
-        store.setUiPref("petPelagem", v)
+        anotar("petPelagem", v)
         _state.update { it.copy(petPelagem = v) }
     }
 
     fun setPetNome(v: String) {
         val limpo = v.trim().take(16)
-        store.setUiPref("petNome", limpo)
+        anotar("petNome", limpo)
         _state.update { it.copy(petNome = limpo) }
     }
 
@@ -377,39 +423,39 @@ class DesktopPrefs(private val store: SessionStore) {
 
     fun setMicSensitivity(v: Float) {
         val c = v.coerceIn(0f, 1f)
-        store.setUiPref("micSensitivity", c.toString())
+        anotar("micSensitivity", c.toString())
         _state.update { it.copy(micSensitivity = c) }
     }
 
     fun setAudioInput(v: String?) {
-        store.setUiPref("audioInput", v ?: "")
+        anotar("audioInput", v ?: "")
         _state.update { it.copy(audioInput = v) }
     }
 
     fun setVolumeDoMicrofone(v: Int) {
         val n = v.coerceIn(0, 100)
-        store.setUiPref("volumeDoMicrofone", n.toString())
+        anotar("volumeDoMicrofone", n.toString())
         _state.update { it.copy(volumeDoMicrofone = n) }
     }
 
     fun setVolumeDaEscuta(v: Int) {
         val n = v.coerceIn(0, 100)
-        store.setUiPref("volumeDaEscuta", n.toString())
+        anotar("volumeDaEscuta", n.toString())
         _state.update { it.copy(volumeDaEscuta = n) }
     }
 
     fun setTeclaMudo(vk: Int) {
-        store.setUiPref("teclaMudo", vk.toString())
+        anotar("teclaMudo", vk.toString())
         _state.update { it.copy(teclaMudo = vk) }
     }
 
     fun setTeclaEnsurdecer(vk: Int) {
-        store.setUiPref("teclaEnsurdecer", vk.toString())
+        anotar("teclaEnsurdecer", vk.toString())
         _state.update { it.copy(teclaEnsurdecer = vk) }
     }
 
     fun setAudioOutput(v: String?) {
-        store.setUiPref("audioOutput", v ?: "")
+        anotar("audioOutput", v ?: "")
         _state.update { it.copy(audioOutput = v) }
     }
 

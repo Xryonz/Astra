@@ -30,11 +30,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +80,8 @@ import com.composables.icons.lucide.ShieldCheck
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
@@ -108,6 +112,11 @@ private val abasVisiveis: List<SettingsTab> =
     }
 
 private val LARGURA_DA_PREVIA = 470.dp
+private val ESPACO_PARA_A_BARRA = 78.dp
+private const val VIDA_DA_CONFIRMACAO_MS = 2_600L
+private const val RECUSA_DO_ARRANQUE =
+    "o Windows recusou a mudança no arranque. dá para ligar e desligar isto também pelo " +
+        "Gerenciador de Tarefas, na aba Inicializar."
 internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
 @Composable
@@ -126,6 +135,66 @@ fun SettingsScreen(
     val jaAnimaram = remember { mutableSetOf<SettingsTab>() }
     val prefState by prefs.state.collectAsState()
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
+    var perfilSalvo by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
+
+    val arranque = remember { RascunhoDoArranque() }
+    val pendentesDePrefs by prefs.mudancasPendentes.collectAsState()
+    val ajustesPendentes = pendentesDePrefs + if (arranque.mudou) 1 else 0
+    val perfilMudou = draft != perfilSalvo
+    val temRascunho = ajustesPendentes > 0 || perfilMudou
+
+    var salvando by remember { mutableStateOf(false) }
+    var confirmacao by remember { mutableStateOf<String?>(null) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    var insistencia by remember { mutableStateOf(0) }
+    val escopo = rememberCoroutineScope()
+
+    DisposableEffect(prefs) {
+        prefs.abrirRascunho()
+        onDispose { prefs.fecharRascunho() }
+    }
+
+    LaunchedEffect(confirmacao) {
+        if (confirmacao == null) return@LaunchedEffect
+        delay(VIDA_DA_CONFIRMACAO_MS)
+        confirmacao = null
+    }
+
+    fun salvar() {
+        if (salvando || !temRascunho) return
+        salvando = true
+        erro = null
+        confirmacao = null
+        val queriaPerfil = perfilMudou
+        val paraSalvar = draft
+        escopo.launch {
+            var ajustes = prefs.salvarRascunho()
+            var falha: String? = null
+            if (arranque.mudou) {
+                if (arranque.salvar()) ajustes++ else falha = RECUSA_DO_ARRANQUE
+            }
+            if (queriaPerfil) {
+                salvarPerfil(paraSalvar, perfilSalvo)
+                    .onSuccess { perfilSalvo = paraSalvar; onProfileSaved() }
+                    .onFailure { falha = saveErrorMessage(it) }
+            }
+            salvando = false
+            erro = falha
+            if (falha == null) confirmacao = recadoDoSalvamento(ajustes, queriaPerfil)
+        }
+    }
+
+    fun descartar() {
+        prefs.descartarRascunho()
+        arranque.descartar()
+        draft = perfilSalvo
+        erro = null
+        confirmacao = null
+    }
+
+    fun tentarFechar() {
+        if (temRascunho) insistencia++ else onClose()
+    }
 
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -136,7 +205,7 @@ fun SettingsScreen(
             .focusRequester(focus)
             .focusable()
             .onPreviewKeyEvent { e ->
-                if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
+                if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { tentarFechar(); true } else false
             },
     ) {
         Box(
@@ -146,14 +215,18 @@ fun SettingsScreen(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onClose,
+                    onClick = { tentarFechar() },
                 ),
         )
-        Row(
+        Box(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = 40.dp, vertical = 30.dp)
-                .widthIn(max = 1180.dp)
+                .widthIn(max = 1180.dp),
+        ) {
+        Row(
+            Modifier
+                .fillMaxSize()
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
@@ -225,7 +298,7 @@ fun SettingsScreen(
                     CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
-                        SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
+                        SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, acoesDoCartao)
                         SettingsTab.NAME_COLORS -> CoresDoNomeSection(me)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
@@ -274,7 +347,7 @@ fun SettingsScreen(
                         SettingsTab.PETS -> PetsSection(prefState, prefs)
 
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
-                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
+                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs, arranque)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs, aparelhos)
                         SettingsTab.SHORTCUTS -> AtalhosSection(prefState, prefs)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
@@ -283,12 +356,9 @@ fun SettingsScreen(
                         SettingsTab.BOTS -> BotsSection()
                     }
                     }
-                    if (!pinned && current == SettingsTab.PROFILE) {
-                        Spacer(Modifier.height(14.dp))
-                        ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
-                    }
                     }
                 }
+                Spacer(Modifier.height(ESPACO_PARA_A_BARRA))
             }
                 if (pinned) {
                     Column(
@@ -305,7 +375,7 @@ fun SettingsScreen(
                                 .background(if (h) Obsidian.hover else Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, FormaDeBotao)
                                 .hoverable(hov)
-                                .clickable(interactionSource = hov, indication = null, onClick = onClose),
+                                .clickable(interactionSource = hov, indication = null) { tentarFechar() },
                             contentAlignment = Alignment.Center,
                         ) {
                             LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "fechar")
@@ -323,15 +393,23 @@ fun SettingsScreen(
                                 if (temPrevia(secao)) {
                                     SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth(), acoesDoCartao)
                                 }
-                                if (secao == SettingsTab.PROFILE) {
-                                    Spacer(Modifier.height(14.dp))
-                                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.fillMaxWidth())
-                                }
                             }
                         }
                     }
                 }
             }
+        }
+            BarraDeSalvar(
+                ajustes = ajustesPendentes,
+                perfil = perfilMudou,
+                salvando = salvando,
+                confirmacao = confirmacao,
+                erro = erro,
+                insistencia = insistencia,
+                aoSalvar = { salvar() },
+                aoDescartar = { descartar() },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+            )
         }
     }
 }

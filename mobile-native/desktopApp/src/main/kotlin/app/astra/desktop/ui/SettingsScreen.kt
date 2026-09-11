@@ -204,8 +204,8 @@ fun SettingsScreen(
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
-                        fadeIn(tween(140)).togetherWith(fadeOut(tween(100))) using
-                            SizeTransform(clip = false) { _, _ -> tween(180) }
+                        fadeIn(tween(95)).togetherWith(fadeOut(tween(70))) using
+                            SizeTransform(clip = false) { _, _ -> tween(120) }
                     },
                     label = "settingsSection",
                 ) { current ->
@@ -314,8 +314,8 @@ fun SettingsScreen(
                         AnimatedContent(
                             targetState = tabAtiva,
                             transitionSpec = {
-                                fadeIn(tween(160)).togetherWith(fadeOut(tween(120))) using
-                                    SizeTransform(clip = false) { _, _ -> tween(200) }
+                                fadeIn(tween(110)).togetherWith(fadeOut(tween(80))) using
+                                    SizeTransform(clip = false) { _, _ -> tween(135) }
                             },
                             label = "previaDaSecao",
                         ) { secao ->

@@ -33,30 +33,62 @@ import app.astra.desktop.ui.theme.Cinzel
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-private const val SUAVIDADE_MS = 260
+private const val VELOCIDADE_DO_PROGRESSO = 5f
+private const val CHEGADA = 0.002f
 private const val ENTRADA_MS = 1100
-private const val ESPERA_PARA_CURIOSIDADE_MS = 2_500L
+private const val ESPERA_PARA_CURIOSIDADE_MS = 1_400L
+private const val MINIMO_NA_TELA_MS = 2_500L
+private const val PASSEIO_DA_ENTRADA = 0.18f
 
 @Composable
 fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
+    var comecouAAparecer by remember { mutableStateOf(0L) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        androidx.compose.runtime.withFrameNanos { }
+        androidx.compose.runtime.withFrameNanos { }
+        comecouAAparecer = System.nanoTime()
+    }
+
+    var aquecido by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(aquecido, comecouAAparecer) {
+        if (!aquecido || comecouAAparecer == 0L) return@LaunchedEffect
+        val falta = MINIMO_NA_TELA_MS - (System.nanoTime() - comecouAAparecer) / 1_000_000
+        if (falta > 0) kotlinx.coroutines.delay(falta)
+        aoTerminar()
+    }
+
     var alvo by remember { mutableStateOf(0f) }
-    val progresso by animateFloatAsState(
-        targetValue = alvo,
-        animationSpec = tween(if (reduceMotion) 0 else SUAVIDADE_MS, easing = LinearEasing),
-        label = "carregamento",
-    )
+    var progresso by remember { mutableStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(comecouAAparecer) {
+        if (comecouAAparecer != 0L && alvo == 0f) alvo = PASSEIO_DA_ENTRADA
+    }
+    androidx.compose.runtime.LaunchedEffect(reduceMotion) {
+        if (reduceMotion) {
+            androidx.compose.runtime.snapshotFlow { alvo }.collect { progresso = it }
+            return@LaunchedEffect
+        }
+        var anterior = 0L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { agora ->
+                val passo = if (anterior == 0L) 0f else (agora - anterior) / 1_000_000_000f
+                anterior = agora
+                val falta = alvo - progresso
+                val fatia = (passo * VELOCIDADE_DO_PROGRESSO).coerceIn(0f, 1f)
+                progresso = if (falta < CHEGADA) alvo else progresso + falta * fatia
+            }
+        }
+    }
 
     var curiosidade by remember { mutableStateOf<String?>(null) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    androidx.compose.runtime.LaunchedEffect(comecouAAparecer) {
+        if (comecouAAparecer == 0L) return@LaunchedEffect
         kotlinx.coroutines.delay(ESPERA_PARA_CURIOSIDADE_MS)
         curiosidade = CURIOSIDADES_DO_ESPACO.random()
     }
 
     val entrada: State<Float>? = if (reduceMotion) null else {
-        var comecou by remember { mutableStateOf(false) }
-        androidx.compose.runtime.LaunchedEffect(Unit) { comecou = true }
         animateFloatAsState(
-            targetValue = if (comecou) 1f else 0f,
+            targetValue = if (comecouAAparecer != 0L) 1f else 0f,
             animationSpec = tween(ENTRADA_MS, easing = LinearEasing),
             label = "entradaDoCarregamento",
         )
@@ -81,7 +113,10 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
                 )
             },
         )
-        Aquecimento(aoAvancar = { alvo = it }, aoTerminar = aoTerminar)
+        val entradaTerminou = (entrada?.value ?: 1f) >= 1f
+        if (comecouAAparecer != 0L && entradaTerminou) {
+            Aquecimento(aoAvancar = { alvo = PASSEIO_DA_ENTRADA + (1f - PASSEIO_DA_ENTRADA) * it }, aoTerminar = { aquecido = true })
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier

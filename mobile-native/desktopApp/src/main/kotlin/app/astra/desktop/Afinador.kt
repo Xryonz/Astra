@@ -1,8 +1,10 @@
 package app.astra.desktop
 
 import app.astra.desktop.prefs.DEGRAU_MAXIMO
+import app.astra.desktop.prefs.DEGRAU_SEM_CASCATA
 import app.astra.desktop.prefs.DEGRAU_SEM_ESTRELAS
 import app.astra.desktop.prefs.DEGRAU_SEM_FUNDO
+import app.astra.desktop.prefs.DEGRAU_SEM_PET
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.Quadros
 import app.astra.desktop.voice.Transmitindo
@@ -50,7 +52,7 @@ object Afinador {
         runCatching {
             val hz = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .defaultScreenDevice.displayMode.refreshRate
-            if (hz > 0) 1000.0 / hz else ALVO_PADRAO_MS
+            if (hz > 0) maxOf(1000.0 / hz, ALVO_PADRAO_MS) else ALVO_PADRAO_MS
         }.getOrDefault(ALVO_PADRAO_MS)
     }
 
@@ -77,8 +79,37 @@ object Afinador {
         else -> 0
     }
 
-    fun afinar(escopo: CoroutineScope, prefs: DesktopPrefs) {
+    private fun motivoDoPiso(): String? = when {
+        Transmitindo.ativo.value -> "enquanto você transmite"
+        VozNaBandeja.sessao != null -> "enquanto você está em chamada"
+        naBateria() -> "porque o notebook está na bateria"
+        else -> null
+    }
+
+    private fun afetados(de: Int, ate: Int, p: DesktopPrefs.Prefs): List<String> {
+        val faixa = (minOf(de, ate) + 1)..maxOf(de, ate)
+        return buildList {
+            if (p.auroraEnabled && DEGRAU_SEM_FUNDO in faixa) add("a aurora")
+            if (p.starsEnabled && DEGRAU_SEM_ESTRELAS in faixa) add("as estrelas")
+            if (p.petLigado && DEGRAU_SEM_PET in faixa) add("o companheiro")
+            if (DEGRAU_SEM_CASCATA in faixa) add("as animações de entrada")
+        }
+    }
+
+    private fun recado(de: Int, ate: Int, p: DesktopPrefs.Prefs, porContexto: Boolean): String? {
+        val itens = afetados(de, ate, p)
+        if (itens.isEmpty()) return null
+        val lista =
+            if (itens.size == 1) itens[0]
+            else itens.dropLast(1).joinToString(", ") + " e " + itens.last()
+        if (ate < de) return "O Astra devolveu $lista."
+        val porque = (if (porContexto) motivoDoPiso() else null) ?: "porque os quadros estavam atrasando"
+        return "O Astra suspendeu $lista $porque."
+    }
+
+    fun afinar(escopo: CoroutineScope, prefs: DesktopPrefs, avisar: (String) -> Unit = {}) {
         escopo.launch(Dispatchers.Default) {
+            var aplicado = -1
             while (true) {
                 delay(COMPASSO_MS)
                 val piso = pisoDoContexto()
@@ -105,7 +136,12 @@ object Afinador {
                     motivo = "sobrou folga"
                 }
                 degrau = novo
-                prefs.aplicarDegrau(maxOf(novo, piso))
+                val efetivo = maxOf(novo, piso)
+                if (aplicado >= 0 && efetivo != aplicado) {
+                    recado(aplicado, efetivo, prefs.state.value, piso > novo)?.let(avisar)
+                }
+                aplicado = efetivo
+                prefs.aplicarDegrau(efetivo)
             }
         }
     }

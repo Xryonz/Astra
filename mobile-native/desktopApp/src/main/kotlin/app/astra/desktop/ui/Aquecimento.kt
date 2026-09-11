@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -43,7 +44,6 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val QUADROS = 3
 private const val OPACIDADE = 0.004f
 
 private const val AMOSTRA = "Astra 0123 — constelação, órbita e sussurro"
@@ -67,29 +67,42 @@ private val TELAS_PESADAS = listOf(
 
 private const val PARTE_DO_VOCABULARIO = 0.3f
 
+private const val PECAS_DO_VOCABULARIO = 4
+
+private val TOTAL_DE_PECAS = FAMILIAS.size + PECAS_DO_VOCABULARIO
+
 @Composable
 fun Aquecimento(aoAvancar: (Float) -> Unit = {}, aoTerminar: () -> Unit = {}) {
-    var fase by remember { mutableStateOf(0) }
+    var pecas by remember { mutableStateOf(0) }
+    val resolvedorDeFontes = LocalFontFamilyResolver.current
     LaunchedEffect(Unit) {
         withFrameNanos { }
-        fase = 1
-        repeat(QUADROS) { withFrameNanos { } }
-        aoAvancar(PARTE_DO_VOCABULARIO)
-        fase = 2
+        FAMILIAS.forEach { familia ->
+            withContext(Dispatchers.IO) { runCatching { resolvedorDeFontes.preload(familia) } }
+            withFrameNanos { }
+        }
+        repeat(TOTAL_DE_PECAS) { i ->
+            pecas = i + 1
+            withFrameNanos { }
+            aoAvancar(PARTE_DO_VOCABULARIO * (i + 1) / TOTAL_DE_PECAS)
+        }
+        pecas = 0
         val carregador = Obsidian::class.java.classLoader
         TELAS_PESADAS.forEachIndexed { i, nome ->
             withContext(Dispatchers.IO) {
                 runCatching { Class.forName(nome, false, carregador) }
             }
+            withFrameNanos { }
             val feito = (i + 1f) / TELAS_PESADAS.size
             aoAvancar(PARTE_DO_VOCABULARIO + (1f - PARTE_DO_VOCABULARIO) * feito)
         }
         aoTerminar()
     }
-    if (fase != 1) return
+    if (pecas == 0) return
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = OPACIDADE }) {
         Column(Modifier.padding(4.dp)) {
-            FAMILIAS.forEach { familia ->
+            FAMILIAS.forEachIndexed { i, familia ->
+                if (i >= pecas) return@forEachIndexed
                 Text(AMOSTRA, style = TextStyle(fontFamily = familia, fontSize = 13.sp))
                 Text(
                     AMOSTRA,
@@ -100,18 +113,20 @@ fun Aquecimento(aoAvancar: (Float) -> Unit = {}, aoTerminar: () -> Unit = {}) {
                     ),
                 )
             }
-            Text(
-                AMOSTRA,
-                style = TextStyle(
-                    fontFamily = DmSerif,
-                    fontSize = 15.sp,
-                    fontStyle = FontStyle.Italic,
-                ),
-            )
+            if (pecas > FAMILIAS.size) {
+                Text(
+                    AMOSTRA,
+                    style = TextStyle(
+                        fontFamily = DmSerif,
+                        fontSize = 15.sp,
+                        fontStyle = FontStyle.Italic,
+                    ),
+                )
+            }
             Row {
-                Superficies()
-                Gradientes()
-                Icones()
+                if (pecas > FAMILIAS.size + 1) Superficies()
+                if (pecas > FAMILIAS.size + 2) Gradientes()
+                if (pecas > FAMILIAS.size + 3) Icones()
             }
         }
     }

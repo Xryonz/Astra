@@ -349,7 +349,9 @@ fun main(args: Array<String>) {
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
-        LaunchedEffect(Unit) { Afinador.afinar(escopoDaJanela, GlobalContext.get().get()) }
+        LaunchedEffect(Unit) {
+            Afinador.afinar(escopoDaJanela, GlobalContext.get().get()) { bandeja.avisar("Astra", it) }
+        }
         LaunchedEffect(Unit) { ModoTransmissao.vigiar(escopoDaJanela, GlobalContext.get().get()) }
         LaunchedEffect(Unit) {
             AtividadePublicador(
@@ -573,7 +575,7 @@ fun main(args: Array<String>) {
                     }
 
                     val reveal = remember { Animatable(0f) }
-                    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(220, easing = EaseOutStd)) }
+                    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(150, easing = EaseOutStd)) }
                     Box(
                         Modifier.fillMaxSize().graphicsLayer {
                             alpha = reveal.value
@@ -585,7 +587,7 @@ fun main(args: Array<String>) {
                     ) {
                         Crossfade(
                             targetState = session,
-                            animationSpec = tween(180, easing = EaseOutStd),
+                            animationSpec = tween(120, easing = EaseOutStd),
                             label = "entrada",
                         ) { s ->
                             if (s == null) {
@@ -600,7 +602,7 @@ fun main(args: Array<String>) {
                             } else {
                                 Crossfade(
                                     targetState = needsOnboarding,
-                                    animationSpec = tween(180, easing = EaseOutStd),
+                                    animationSpec = tween(120, easing = EaseOutStd),
                                     label = "onboarding",
                                 ) { onb ->
                                     if (onb) {

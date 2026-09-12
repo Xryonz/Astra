@@ -60,6 +60,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +77,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.ChannelDto
@@ -683,7 +685,12 @@ private fun ChannelDragBubble(d: ChannelDragState) {
     }
 }
 
-private data class VozNaOrbita(val nome: String, val avatarUrl: String?, val souEu: Boolean)
+private data class VozNaOrbita(
+    val id: String,
+    val nome: String,
+    val avatarUrl: String?,
+    val souEu: Boolean,
+)
 
 @Composable
 private fun lembrarVozes(
@@ -701,7 +708,7 @@ private fun lembrarVozes(
             else base
         ids.map { uid ->
             val u = pessoaPorId[uid]?.user
-            VozNaOrbita(u?.displayName ?: u?.username ?: "…", u?.avatarUrl, uid == myId)
+            VozNaOrbita(uid, u?.displayName ?: u?.username ?: "…", u?.avatarUrl, uid == myId)
         }
     }
 
@@ -760,16 +767,28 @@ private fun OrbitEntry(
             )
         }
         naVoz.forEach { voz ->
-            VoicePresenceRow(avatarUrl = voz.avatarUrl, name = voz.nome, isMe = voz.souEu)
+            key(voz.id) {
+                VoicePresenceRow(avatarUrl = voz.avatarUrl, name = voz.nome, isMe = voz.souEu)
+            }
         }
     }
 }
 
 @Composable
 private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
+    val paradinho = LocalReduceMotion.current
+    val chegada = remember { Animatable(if (paradinho) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (chegada.value < 1f) chegada.animateTo(1f, tween(300, easing = EaseOutStd))
+    }
+    val recuo = with(LocalDensity.current) { 10.dp.toPx() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                alpha = chegada.value
+                translationX = (1f - chegada.value) * -recuo
+            }
             .padding(start = 26.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

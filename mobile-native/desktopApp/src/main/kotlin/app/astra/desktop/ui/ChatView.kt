@@ -145,7 +145,6 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
-import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
@@ -341,15 +340,6 @@ fun ChatView(
         if (onde >= 0) listState.scrollToItem(onde, -marca.deslocamento)
     }
 
-    val animatedIds = remember(target.id) { mutableSetOf<String>() }
-    var baselineDone by remember(target.id) { mutableStateOf(false) }
-    LaunchedEffect(state.loading) {
-        if (!state.loading) {
-            state.messages.forEach { animatedIds.add(it.id) }
-            baselineDone = true
-        }
-    }
-
     fun jumpTo(id: String) {
         val idx = ondeEsta(linhas, id)
         if (idx < 0) return
@@ -443,15 +433,10 @@ fun ChatView(
                             },
                         ) {
                             val msg = linha.msg
-                            val enterAnim = remember(msg.id) {
-                                val fresh = animatedIds.add(msg.id)
-                                baselineDone && fresh
-                            }
                             if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
                             MessageRow(
                                 msg = msg,
                                 grouped = linha.agrupada,
-                                enterAnim = enterAnim,
                                 isChannel = isChannel,
                                 highlighted = msg.id == highlightId,
                                 editing = msg.id == editingId,
@@ -758,7 +743,6 @@ fun ChatView(
 private fun MessageRow(
     msg: ChatMessage,
     grouped: Boolean,
-    enterAnim: Boolean,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -799,15 +783,6 @@ private fun MessageRow(
         tween(150),
         label = "rowBg",
     )
-    val enter = remember { Animatable(if (enterAnim) 0f else 1f) }
-    val glow = remember { Animatable(if (enterAnim) 0.16f else 0f) }
-    LaunchedEffect(Unit) {
-        if (enterAnim) {
-            launch { enter.animateTo(1f, tween(150)) }
-            glow.animateTo(0f, tween(900, easing = EaseOutSoft))
-        }
-    }
-
     EditorialContextMenu(entries = {
         buildList {
             add(MenuEntry.Item("responder", icon = Lucide.Reply) { onReply() })
@@ -842,12 +817,10 @@ private fun MessageRow(
         Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                alpha = enter.value * rowAlpha.value * (if (msg.pending) 0.55f else 1f)
-                translationY = (1f - enter.value) * 6.dp.toPx()
+                alpha = rowAlpha.value * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
                 drawRect(bg.value)
-                if (glow.value > 0f) drawRect(Obsidian.accent.copy(alpha = glow.value))
                 if (meMencionou) {
                     drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
                 }

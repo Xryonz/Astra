@@ -8,6 +8,7 @@ import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.ui.AvisosDoPet
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import kotlinx.coroutines.CoroutineScope
@@ -168,6 +169,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
         emSussurro = tipo == "dm"
         aplicar()
         Sfx.callJoin()
+        AvisosDoPet.entrouEmCall()
     }
 
     fun encerrar() {

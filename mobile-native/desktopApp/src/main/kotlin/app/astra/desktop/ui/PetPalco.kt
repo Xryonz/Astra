@@ -63,8 +63,9 @@ internal fun PetPalco(
     val mult = (pet.escalaDePalco * densidade).roundToInt().coerceAtLeast(1)
 
     val reduzir = LocalReduceMotion.current
+    val naFrente = LocalWindowActive.current
     var quadro by remember(anim, pet) { mutableStateOf(0) }
-    if (passo != null && !reduzir) {
+    if (passo != null && !reduzir && naFrente) {
         LaunchedEffect(anim, pet) {
             val nanosPorQuadro = 1_000_000_000L / passo.fps
             var acumulado = 0L

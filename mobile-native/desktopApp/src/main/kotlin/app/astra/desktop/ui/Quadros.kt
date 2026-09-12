@@ -34,7 +34,10 @@ object Quadros {
     private val custos = LinkedHashMap<String, DoubleArray>()
     private val contagens = LinkedHashMap<String, Int>()
 
+    val medindo: Boolean = System.getProperty("astra.medir") != null
+
     inline fun <T> cronometrar(rotulo: String, bloco: () -> T): T {
+        if (!medindo) return bloco()
         val inicio = System.nanoTime()
         try {
             return bloco()

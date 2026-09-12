@@ -83,7 +83,7 @@ internal fun MembersPanel(
                         online = row.online,
                         atividade = atividade[row.m.userId],
                         cascadeIndex = row.cascadeIndex,
-                        cascadeTotal = members.size,
+                        chaveDaCascata = serverId,
                         isMe = row.m.userId == myId,
                         serverId = serverId,
                         isOwner = isOwner,
@@ -162,7 +162,7 @@ private fun MemberRow(
     online: Boolean,
     atividade: String?,
     cascadeIndex: Int,
-    cascadeTotal: Int,
+    chaveDaCascata: Any?,
     isMe: Boolean,
     serverId: String?,
     isOwner: Boolean,
@@ -175,7 +175,7 @@ private fun MemberRow(
     val corDoNome = if (online) corDoMembro(m) else null
     val padraoDoNome = if (online) Obsidian.text2 else Obsidian.text3.copy(alpha = 0.65f)
     val avatarAlpha = if (online) 1f else 0.4f
-    CascadeIn(cascadeIndex, cascadeTotal) {
+    CascadeIn(cascadeIndex, chaveDaCascata) {
         var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
         EditorialContextMenu(entries = {
             buildList {

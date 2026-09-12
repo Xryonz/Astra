@@ -380,21 +380,17 @@ private fun OrbitList(
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
-            CascadeIn(i, server.id) {
-                OrbitEntry(
-                    ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                    lembrarVozes(ch, voicePresence, pessoaPorId, myId, myVoiceChannelId),
-                    onOpenChat, onOpenVoice,
-                    dragCtx = if (podeGerenciar) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
-                    menu = chMenu,
-                )
-            }
+            OrbitEntry(
+                ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
+                lembrarVozes(ch, voicePresence, pessoaPorId, myId, myVoiceChannelId),
+                onOpenChat, onOpenVoice,
+                dragCtx = if (podeGerenciar) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
+                menu = chMenu,
+            )
         }
-        var offset = loose.size
         val orderedCatIds = cats.map { it.id }
         cats.forEachIndexed { catIndex, cat ->
             val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
-            val headerRow = offset
             val collapsed = cat.id in collapsedCats
             val channelIds = channels.map { it.id }
             val visible =
@@ -418,57 +414,50 @@ private fun OrbitList(
                             }
                         },
                 ) {
-                    CascadeIn(headerRow, server.id) {
-                        val head = @Composable {
-                            CategoryHeader(
-                                name = cat.name,
-                                collapsed = collapsed,
-                                onToggle = {
-                                    collapsedCats =
-                                        if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
-                                },
-                                dragCtx = if (podeGerenciar) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null,
-                            )
-                        }
-                        val catUnread = channels.any { it.id in unread }
-                        var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
-                        EditorialContextMenu(entries = {
-                            buildList {
-                                if (catUnread) add(MenuEntry.Item("marcar categoria como lida", icon = Lucide.CheckCheck) {
-                                    channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
-                                })
-                                add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
-                                if (podeGerenciar) {
-                                    add(MenuEntry.Separator)
-                                    add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
-                                    val botNaCat = cat.botEnabled ?: true
-                                    add(
-                                        MenuEntry.Item(
-                                            if (botNaCat) "silenciar a bot na categoria" else "deixar a bot atender na categoria",
-                                            icon = if (botNaCat) Lucide.BotOff else Lucide.Bot,
-                                        ) { onToggleCatBot(cat.id, !botNaCat) },
-                                    )
-                                    add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
-                                    add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
-                                }
+                    val head = @Composable {
+                        CategoryHeader(
+                            name = cat.name,
+                            collapsed = collapsed,
+                            onToggle = {
+                                collapsedCats =
+                                    if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
+                            },
+                            dragCtx = if (podeGerenciar) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null,
+                        )
+                    }
+                    val catUnread = channels.any { it.id in unread }
+                    var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
+                    EditorialContextMenu(entries = {
+                        buildList {
+                            if (catUnread) add(MenuEntry.Item("marcar categoria como lida", icon = Lucide.CheckCheck) {
+                                channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
+                            })
+                            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
+                            if (podeGerenciar) {
+                                add(MenuEntry.Separator)
+                                add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
+                                val botNaCat = cat.botEnabled ?: true
+                                add(
+                                    MenuEntry.Item(
+                                        if (botNaCat) "silenciar a bot na categoria" else "deixar a bot atender na categoria",
+                                        icon = if (botNaCat) Lucide.BotOff else Lucide.Bot,
+                                    ) { onToggleCatBot(cat.id, !botNaCat) },
+                                )
+                                add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
+                                add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
                             }
-                        }) {
-                            head()
-                            if (confirmDelCat) ConfirmPopup(
-                                message = "excluir a categoria ${cat.name}? não há como desfazer.",
-                                confirmLabel = "excluir",
-                                onConfirm = { onDeleteCat(cat.id) },
-                                onDismiss = { confirmDelCat = false },
-                            )
                         }
+                    }) {
+                        head()
+                        if (confirmDelCat) ConfirmPopup(
+                            message = "excluir a categoria ${cat.name}? não há como desfazer.",
+                            confirmLabel = "excluir",
+                            onConfirm = { onDeleteCat(cat.id) },
+                            onDismiss = { confirmDelCat = false },
+                        )
                     }
                     visible.forEachIndexed { i, ch ->
                         key(ch.id) {
-                        CascadeIn(
-                            i,
-                            "${server.id}:${cat.id}:$collapsed",
-                            startDelayMs = minOf(headerRow, 6).toLong() * 26L,
-                        ) {
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                                 lembrarVozes(ch, voicePresence, pessoaPorId, myId, myVoiceChannelId),
@@ -478,11 +467,9 @@ private fun OrbitList(
                                 menu = chMenu,
                             )
                         }
-                        }
                     }
                 }
             }
-            offset = headerRow + 1 + visible.size
         }
     }
     ChannelDragBubble(drag)

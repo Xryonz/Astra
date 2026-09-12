@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -144,7 +144,7 @@ internal fun DmList(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-            itemsIndexed(filtered, key = { _, c -> c.id }) { cascadeRow, conv ->
+            items(filtered, key = { c -> c.id }) { conv ->
             val u = conv.otherUser
             val name = u?.displayName ?: u?.username ?: "?"
             val interaction = remember { MutableInteractionSource() }
@@ -154,7 +154,6 @@ internal fun DmList(
             val alvo = if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent
             val fundoAnimado by animateColorAsState(alvo, tween(120))
             val itemBg = if (hovered && !active) alvo else fundoAnimado
-            CascadeIn(cascadeRow, Unit) {
             EditorialContextMenu(entries = {
                 buildList {
                     u?.id?.let { uid ->
@@ -263,7 +262,6 @@ internal fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
-            }
             }
             }
             }

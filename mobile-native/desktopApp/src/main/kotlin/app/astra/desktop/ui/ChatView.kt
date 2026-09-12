@@ -7,7 +7,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -178,6 +177,8 @@ import app.astra.desktop.ui.theme.Tipo
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 private const val FADE_MS = 340
+private const val REALCE_MS = 150
+private const val REALCE_PAUSA_MS = 300L
 
 private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
 
@@ -346,7 +347,7 @@ fun ChatView(
         scope.launch {
             listState.animateScrollToItem(idx)
             highlightId = id
-            delay(300)
+            delay(REALCE_MS * 2L + REALCE_PAUSA_MS)
             highlightId = null
         }
     }
@@ -774,15 +775,20 @@ private fun MessageRow(
     val clipboard = LocalClipboardManager.current
 
     val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
-    val rowAlpha = animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS), label = "rowAlpha")
-    val bg = animateColorAsState(
-        when {
-            highlighted -> Obsidian.accentDim
-            else -> Color.Transparent
-        },
-        tween(150),
-        label = "rowBg",
-    )
+    val opacidade = if (!msg.deleting) 1f else {
+        val sumindo = remember { Animatable(1f) }
+        LaunchedEffect(Unit) { sumindo.animateTo(0f, tween(FADE_MS)) }
+        sumindo.value
+    }
+    val realce = if (!highlighted) 0f else {
+        val aceso = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            aceso.animateTo(1f, tween(REALCE_MS))
+            delay(REALCE_PAUSA_MS)
+            aceso.animateTo(0f, tween(REALCE_MS))
+        }
+        aceso.value
+    }
     EditorialContextMenu(entries = {
         buildList {
             add(MenuEntry.Item("responder", icon = Lucide.Reply) { onReply() })
@@ -817,10 +823,11 @@ private fun MessageRow(
         Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                alpha = rowAlpha.value * (if (msg.pending) 0.55f else 1f)
+                alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
-                drawRect(bg.value)
+                val aceso = Obsidian.accentDim
+                if (realce > 0f) drawRect(aceso.copy(alpha = aceso.alpha * realce))
                 if (meMencionou) {
                     drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
                 }

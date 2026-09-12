@@ -288,7 +288,9 @@ fun main(args: Array<String>) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
     Vigia.vigiar(nascerEscondido)
+    Arranque.marcar("vigia armado")
     WindowsAppId.aplicar()
+    Arranque.marcar("identidade no Windows aplicada")
     if (!SingleInstance.acquireOrSignal()) {
         Arranque.marcar("ja havia outro Astra aberto — este saiu")
         return
@@ -458,6 +460,7 @@ fun main(args: Array<String>) {
             remember { Vigia.janelaCriada() }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
+                Arranque.marcar("composicao da janela pronta")
                 withFrameNanos { }
                 Arranque.desenhou()
                 Vigia.apareceu()

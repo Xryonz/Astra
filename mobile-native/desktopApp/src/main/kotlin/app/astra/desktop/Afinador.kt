@@ -96,6 +96,16 @@ object Afinador {
         }
     }
 
+    fun seguradoAgora(p: DesktopPrefs.Prefs): String? {
+        val itens = afetados(0, p.degrau, p)
+        if (itens.isEmpty()) return null
+        val lista =
+            if (itens.size == 1) itens[0]
+            else itens.dropLast(1).joinToString(", ") + " e " + itens.last()
+        val porque = motivoDoPiso() ?: "porque os quadros estavam atrasando nesta máquina"
+        return "O Astra está segurando $lista $porque."
+    }
+
     private fun recado(de: Int, ate: Int, p: DesktopPrefs.Prefs, porContexto: Boolean): String? {
         val itens = afetados(de, ate, p)
         if (itens.isEmpty()) return null

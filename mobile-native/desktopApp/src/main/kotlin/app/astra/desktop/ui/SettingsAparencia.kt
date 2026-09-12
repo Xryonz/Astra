@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.Afinador
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
@@ -142,6 +143,10 @@ internal fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     LabeledControl("Fundo", "liso e o padrao; a aurora e um shader animado e cobra GPU") {
         SegmentedRow(FundoPref.entries.map { it.label to it }, fundoAtual(p)) { aplicarFundo(prefs, it) }
+    }
+    Afinador.seguradoAgora(p)?.let {
+        Spacer(Modifier.height(8.dp))
+        Text(it, style = Tipo.nota.copy(color = Obsidian.accent))
     }
 
     SettingsDivider()

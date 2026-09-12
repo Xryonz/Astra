@@ -289,8 +289,10 @@ fun main(args: Array<String>) {
     }
     Vigia.vigiar(nascerEscondido)
     Arranque.marcar("vigia armado")
-    WindowsAppId.aplicar()
-    Arranque.marcar("identidade no Windows aplicada")
+    val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {
+        WindowsAppId.aplicar()
+        Arranque.marcar("identidade no Windows aplicada")
+    }
     if (!SingleInstance.acquireOrSignal()) {
         Arranque.marcar("ja havia outro Astra aberto — este saiu")
         return
@@ -302,7 +304,11 @@ fun main(args: Array<String>) {
         writeDiagnostics()
         Arranque.marcar("diagnostico escrito")
     }
-    GlobalContext.get().get<DesktopSocket>().registrarDespedida()
+    thread(isDaemon = true, name = "astra-despedida") {
+        GlobalContext.get().get<DesktopSocket>().registrarDespedida()
+        Arranque.marcar("despedida registrada")
+    }
+    identidade.join()
     Arranque.marcar("entrando na composicao")
     application {
         marcoDoArranque("composicao iniciada")

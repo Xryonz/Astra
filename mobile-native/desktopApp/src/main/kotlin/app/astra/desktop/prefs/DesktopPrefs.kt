@@ -65,6 +65,8 @@ const val DEGRAU_SEM_PET = 3
 const val DEGRAU_SEM_CASCATA = 4
 const val DEGRAU_MAXIMO = 4
 
+private const val NUCLEOS_SEM_PLACA_DEDICADA = 8
+
 class DesktopPrefs(private val store: SessionStore) {
     data class Prefs(
         val reduceMotion: Boolean = false,
@@ -159,8 +161,6 @@ class DesktopPrefs(private val store: SessionStore) {
     }
 
     private fun aferirAMaquina() {
-        if (store.uiPref("maquinaAferida") == "1") return
-        store.setUiPref("maquinaAferida", "1")
         if (store.uiPref("performanceMode") != null) return
         val motivo = motivoParaEconomizar() ?: return
         store.setUiPref("performanceMode", "1")
@@ -183,14 +183,24 @@ class DesktopPrefs(private val store: SessionStore) {
     }
 
     private fun placaApertada(nucleos: Int): Boolean {
-        val placa = runCatching { Placas.daTela }.getOrNull() ?: return false
-        return !placa.dedicada && nucleos <= 4
+        val placas = runCatching { Placas.todas }.getOrNull().orEmpty()
+        if (placas.isEmpty() || placas.any { it.dedicada }) return false
+        return nucleos <= NUCLEOS_SEM_PLACA_DEDICADA
     }
 
     fun aplicarDegrau(novo: Int) {
         val alvo = novo.coerceIn(0, DEGRAU_MAXIMO)
         if (_state.value.degrau == alvo) return
         _state.update { it.copy(degrau = alvo) }
+    }
+
+    fun degrauAprendido(): Int =
+        store.uiPref("degrauAprendido")?.toIntOrNull()?.coerceIn(0, DEGRAU_MAXIMO) ?: 0
+
+    fun lembrarDegrau(novo: Int) {
+        val alvo = novo.coerceIn(0, DEGRAU_MAXIMO)
+        if (degrauAprendido() == alvo) return
+        store.setUiPref("degrauAprendido", alvo.toString())
     }
 
     fun dispensarAvisoDePerf() {
@@ -247,6 +257,7 @@ class DesktopPrefs(private val store: SessionStore) {
         teclaMudo = store.uiPref("teclaMudo")?.toIntOrNull() ?: 0,
         teclaEnsurdecer = store.uiPref("teclaEnsurdecer")?.toIntOrNull() ?: 0,
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
+        degrau = store.uiPref("degrauAprendido")?.toIntOrNull()?.coerceIn(0, DEGRAU_MAXIMO) ?: 0,
     )
 
     private fun persist(key: String, on: Boolean) = anotar(key, if (on) "1" else "0")

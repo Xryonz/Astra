@@ -110,6 +110,7 @@ object Afinador {
     fun afinar(escopo: CoroutineScope, prefs: DesktopPrefs, avisar: (String) -> Unit = {}) {
         escopo.launch(Dispatchers.Default) {
             var aplicado = -1
+            degrau = prefs.degrauAprendido()
             while (true) {
                 delay(COMPASSO_MS)
                 val piso = pisoDoContexto()
@@ -136,6 +137,7 @@ object Afinador {
                     motivo = "sobrou folga"
                 }
                 degrau = novo
+                prefs.lembrarDegrau(novo)
                 val efetivo = maxOf(novo, piso)
                 if (aplicado >= 0 && efetivo != aplicado) {
                     recado(aplicado, efetivo, prefs.state.value, piso > novo)?.let(avisar)

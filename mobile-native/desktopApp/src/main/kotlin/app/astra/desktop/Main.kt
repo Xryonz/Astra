@@ -561,10 +561,11 @@ fun main(args: Array<String>) {
                         atualizacao = updater,
                     )
                     ServidorAcordandoStrip()
+                    val naTela = windowVisible && !state.isMinimized
+                    LaunchedEffect(naTela) { JanelaVisivel.marcar(naTela) }
                     CompositionLocalProvider(
-                        LocalWindowActive provides
-                            (windowVisible && !state.isMinimized && janelaComFoco),
-                        LocalJanelaNaTela provides (windowVisible && !state.isMinimized),
+                        LocalWindowActive provides (naTela && janelaComFoco),
+                        LocalJanelaNaTela provides naTela,
                     ) {
                     Box(Modifier.fillMaxSize().contandoQuadros()) {
                     var aquecido by remember { mutableStateOf(false) }

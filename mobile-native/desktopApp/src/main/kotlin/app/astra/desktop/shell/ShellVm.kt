@@ -1,5 +1,6 @@
 package app.astra.desktop.shell
 
+import app.astra.desktop.JanelaVisivel
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.insistindoOuNulo
@@ -63,6 +64,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -99,6 +101,7 @@ class ShellVm(
     private fun pollVoicePresence() {
         scope.launch {
             while (true) {
+                JanelaVisivel.ativa.first { it }
                 val voiceIds = _state.value.selectedServer
                     ?.channels?.filter { it.type == "VOICE" }?.map { it.id }.orEmpty()
                 if (voiceIds.isNotEmpty()) {

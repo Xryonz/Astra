@@ -94,7 +94,7 @@ fun WindowScope.AstraTitleBar(
             Spacer(Modifier.weight(1f))
             if (showActions) {
                 atualizacao?.let { PontoDeAtualizacao(it) }
-                TitleBarButton(Lucide.Search, "Buscar", onClick = onOpenSearch)
+                TitleBarButton(Lucide.Search, "Buscar", marco = Marco.BUSCA, onClick = onOpenSearch)
                 TitleBarBell(notifUnread, onClick = onOpenNotifications)
                 TitleBarButton(
                     Lucide.Target,
@@ -127,6 +127,7 @@ private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
         modifier = Modifier
             .width(46.dp)
             .fillMaxHeight()
+            .marcoDoTour(Marco.SINO)
             .clickScale(interaction)
             .background(bg)
             .hoverable(interaction)
@@ -163,15 +164,17 @@ private fun TitleBarButton(
     rotulo: String,
     hoverColor: Color = Obsidian.hover,
     aviso: Int = 0,
+    marco: Marco? = null,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val bg by animateColorAsState(if (hovered) hoverColor else Color.Transparent, tween(120))
+    val comMarco = Modifier.width(46.dp).fillMaxHeight().let {
+        if (marco == null) it else it.marcoDoTour(marco)
+    }
     Box(
-        modifier = Modifier
-            .width(46.dp)
-            .fillMaxHeight()
+        modifier = comMarco
             .clickScale(interaction)
             .background(bg)
             .hoverable(interaction)

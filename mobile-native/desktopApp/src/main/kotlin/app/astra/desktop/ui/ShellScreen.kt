@@ -152,13 +152,22 @@ fun ShellScreen(
 
     val sessionStore = remember { koin.get<SessionStore>() }
     var permsOpen by remember { mutableStateOf(false) }
+    var permsResolvido by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        if (sessionStore.uiPref("permsVistas") == "1") return@LaunchedEffect
+        if (sessionStore.uiPref("permsVistas") == "1") {
+            permsResolvido = true
+            return@LaunchedEffect
+        }
         kotlinx.coroutines.delay(900)
         val pendencias = withContext(Dispatchers.IO) {
             PermissoesWindows.todas().count { it.acesso != Acesso.OK }
         }
-        if (pendencias == 0) sessionStore.setUiPref("permsVistas", "1") else permsOpen = true
+        if (pendencias == 0) {
+            sessionStore.setUiPref("permsVistas", "1")
+            permsResolvido = true
+        } else {
+            permsOpen = true
+        }
     }
     if (permsOpen) {
         PermissoesDialog(
@@ -166,8 +175,32 @@ fun ShellScreen(
             onClose = {
                 permsOpen = false
                 sessionStore.setUiPref("permsVistas", "1")
+                permsResolvido = true
             },
         )
+    }
+
+    val chaveDaEstreia = remember(session.userId) { chaveDoTour(session.userId) }
+    suspend fun dicaUmaVez(marco: Marco, quando: Boolean) {
+        if (!quando || Tour.ativo) return
+        if (sessionStore.uiPref(chaveDaEstreia) != "1") return
+        val chave = chaveDaDica(marco, session.userId)
+        if (sessionStore.uiPref(chave) == "1") return
+        kotlinx.coroutines.delay(700)
+        if (Tour.ativo) return
+        Tour.dica(marco) { sessionStore.setUiPref(chave, "1") }
+    }
+    LaunchedEffect(permsResolvido) {
+        if (!permsResolvido) return@LaunchedEffect
+        if (sessionStore.uiPref(chaveDaEstreia) == "1") return@LaunchedEffect
+        kotlinx.coroutines.delay(700)
+        Tour.estreia { sessionStore.setUiPref(chaveDaEstreia, "1") }
+    }
+    LaunchedEffect(state.unread.isNotEmpty()) {
+        dicaUmaVez(Marco.SINO, state.unread.isNotEmpty())
+    }
+    LaunchedEffect(state.servers.size >= 3) {
+        dicaUmaVez(Marco.BUSCA, state.servers.size >= 3)
     }
 
     state.penalidade?.let { p ->
@@ -542,7 +575,8 @@ fun ShellScreen(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .width(LARGURA_RAIL + LARGURA_SIDEBAR)
-                .height(ALTURA_DO_RODAPE),
+                .height(ALTURA_DO_RODAPE)
+                .marcoDoTour(Marco.VOZ),
         )
         }
         }
@@ -690,6 +724,8 @@ fun ShellScreen(
         state.chamada?.let { c ->
             ChamadaScreen(c, onAtender = vm::atenderChamada, onRecusar = vm::recusarChamada)
         }
+
+        TourNaTela(prefs)
     }
     }
 }

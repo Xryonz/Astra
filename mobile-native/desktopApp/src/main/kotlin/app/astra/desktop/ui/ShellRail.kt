@@ -107,7 +107,9 @@ internal fun Rail(
     val clipboard = LocalClipboardManager.current
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
     Column(
-        modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight().panelSurface(Obsidian.void, 0.72f),
+        modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight()
+            .panelSurface(Obsidian.void, 0.72f)
+            .marcoDoTour(Marco.CONSTELACOES),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(12.dp))

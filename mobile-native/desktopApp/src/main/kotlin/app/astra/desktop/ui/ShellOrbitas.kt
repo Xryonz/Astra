@@ -153,7 +153,11 @@ internal fun Sidebar(
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
     var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
-    Column(Modifier.width(LARGURA_SIDEBAR).fillMaxHeight().panelSurface(Obsidian.base, 0.62f)) {
+    Column(
+        Modifier.width(LARGURA_SIDEBAR).fillMaxHeight()
+            .panelSurface(Obsidian.base, 0.62f)
+            .marcoDoTour(Marco.CANAIS),
+    ) {
         AnimatedContent(
             targetState = selection,
             transitionSpec = {

@@ -651,6 +651,7 @@ fun ChatView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .marcoDoTour(Marco.ESCREVER)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Obsidian.raised)
                     .border(

@@ -152,28 +152,22 @@ internal fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 internal fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Companheiro",
-        "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
+        "Um pet em pixel art que caminha por cima da interface. Ele passa a maior parte " +
+            "do tempo parado e só anda em trechos curtos: movimento contínuo no canto do " +
+            "olho ensina o olho a ignorar o resto da tela.\n\n" +
+            "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
             "contorno e os detalhes ficam como estão, e é isso que mantém o pet " +
             "reconhecível em vez de virar uma mancha de uma cor só. O nome aparece " +
             "sobre ele quando reage a uma mensagem. Clique nele para ver o que ele " +
             "faz; insistir demais o cansa.",
     )
 
-    if (!p.petLigado) {
-        Box(
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-        ) {
-            Text(
-                "O companheiro está desligado. Ligue em Acessibilidade › movimento.",
-                style = Tipo.rotulo,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-    }
+    ToggleRow(
+        "Pet na tela",
+        "anda pela interface e reage a mensagem nova; some junto se você reduzir movimento",
+        p.petLigado, prefs::setPetLigado,
+    )
+    Spacer(Modifier.height(10.dp))
 
     val pet = Pet.de(p.petTipo)
     var gesto by remember { mutableStateOf(Anim.PARADO) }
@@ -273,21 +267,6 @@ internal fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Alto contraste",
         "clareia texto e bordas — vale na hora, em todas as telas",
         p.altoContraste, prefs::setAltoContraste,
-    )
-
-    SettingsDivider()
-    TituloExplicavel(
-        "Companheiro",
-        "Um pet em pixel art que caminha por cima da interface. Ele passa a maior " +
-            "parte do tempo parado e só anda em trechos curtos: movimento contínuo " +
-            "no canto do olho ensina o olho a ignorar o resto da tela. Reage quando " +
-            "chega mensagem, e some junto se você reduzir movimento. A cor e o nome " +
-            "estão em Aparência.",
-    )
-    ToggleRow(
-        "Pet na tela",
-        "anda pela interface e reage a mensagem nova",
-        p.petLigado, prefs::setPetLigado,
     )
 
     SettingsDivider()

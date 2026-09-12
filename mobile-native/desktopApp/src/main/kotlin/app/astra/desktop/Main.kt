@@ -47,6 +47,7 @@ import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
+import app.astra.desktop.voice.QuemFala
 import app.astra.desktop.voice.Transmitindo
 import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.quantasProntas
@@ -562,6 +563,12 @@ fun main(args: Array<String>) {
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     val transmitindo by Transmitindo.ativo.collectAsState()
+                    val alguemFala by QuemFala.alguem.collectAsState()
+                    LaunchedEffect(alguemFala, prefState.reduceMotionEff) {
+                        if (prefState.reduceMotionEff) return@LaunchedEffect
+                        if (alguemFala) auroraPulse.animateTo(1f, tween(240, easing = EaseOutStd))
+                        else auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
+                    }
                     CompositionLocalProvider(
                         LocalRenderPrefs provides
                             RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),

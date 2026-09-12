@@ -118,6 +118,7 @@ class CallNaSala(
 
         _inicio.value = null
         _status.value = VoiceStatus.Closed
+        QuemFala.marcar(false)
     }
 
     fun setMic(podeFalar: Boolean) {
@@ -406,6 +407,8 @@ class CallNaSala(
 
     private fun publicar() {
         if (salaAtual == null) return
+
+        QuemFala.marcar(falando.isNotEmpty())
 
         val outros = naSala.sorted().map { id ->
             VoiceParticipant(identity = id, label = id, speaking = falando.contains(id))

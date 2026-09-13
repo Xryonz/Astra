@@ -60,6 +60,9 @@ import app.astra.desktop.xp.quantasProntas
 import app.astra.mobile.core.network.dto.ItemMissaoDto
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Medal
+import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.Star
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -72,6 +75,10 @@ private const val DIA_MS  = 86_400_000L
 
 private const val ATRASO_MS = 40L
 private const val TETO_CASCATA = 11
+
+private val LARGURA_DA_RECOMPENSA = 52.dp
+
+private val RESPIRO_ENTRE_GRUPOS = 12.dp
 
 private fun faltando(alvoMs: Long, agoraMs: Long): String {
     val d = alvoMs - agoraMs
@@ -160,17 +167,20 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 val depoisDoBonus = p.diarias.itens.size + 1
                 val depoisDaSemana = depoisDoBonus + p.semanais.itens.size
 
-                Secao("hoje", faltando(p.diarias.renovaEm, agora))
-                p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i, resgatarUma) }
-                LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, resgatarUma, bonus = true)
-
-                Spacer(Modifier.height(22.dp))
-                Secao("esta semana", faltando(p.semanais.renovaEm, agora))
-                p.semanais.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDoBonus + i, resgatarUma) }
-
-                Spacer(Modifier.height(22.dp))
-                Secao("conquistas", "não expiram")
-                p.conquistas.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDaSemana + i, resgatarUma) }
+                Grupo("hoje", faltando(p.diarias.renovaEm, agora)) {
+                    p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i, resgatarUma) }
+                    LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, resgatarUma, bonus = true)
+                }
+                Spacer(Modifier.height(RESPIRO_ENTRE_GRUPOS))
+                Grupo("esta semana", faltando(p.semanais.renovaEm, agora)) {
+                    p.semanais.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDoBonus + i, resgatarUma) }
+                }
+                Spacer(Modifier.height(RESPIRO_ENTRE_GRUPOS))
+                Grupo("conquistas", "não expiram") {
+                    p.conquistas.itens.forEachIndexed { i, m ->
+                        LinhaDeMissao(m, depoisDaSemana + i, resgatarUma, conquista = true)
+                    }
+                }
             }
         }
     }
@@ -205,18 +215,20 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
         Column(Modifier.weight(1f)) {
             Text(
                 nome,
-                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(3.dp))
-            Text(
-                "nível ${p.nivel} · ${p.xp} de brilho · ${p.estrelas} estrelas",
-                style = Tipo.apoio,
-                maxLines = 1,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("nível ${p.nivel}", style = Tipo.apoio, maxLines = 1)
+                Spacer(Modifier.width(12.dp))
+                Moeda(Lucide.Sparkles, "${p.xp}", Obsidian.text2, "de brilho")
+                Spacer(Modifier.width(12.dp))
+                Moeda(Lucide.Star, "${p.estrelas}", Obsidian.text2, "estrelas")
+            }
             Spacer(Modifier.height(8.dp))
             val fracao = fracaoDe(p)
-            Canvas(Modifier.fillMaxWidth().height(3.dp)) {
+            Canvas(Modifier.fillMaxWidth().height(5.dp)) {
                 val r = CornerRadius(size.height / 2f)
                 drawRoundRect(color = Obsidian.void, size = size, cornerRadius = r)
                 val w = (size.width * fracao).coerceIn(0f, size.width)
@@ -229,12 +241,34 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
                 }
             }
             Spacer(Modifier.height(5.dp))
-            Text(
-                "${p.noNivel} / ${p.paraOProximo} de brilho para o nível ${p.nivel + 1}",
-                style = Tipo.nota,
-                maxLines = 1,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Moeda(
+                    Lucide.Sparkles,
+                    "${p.noNivel} / ${p.paraOProximo}",
+                    Obsidian.text3,
+                    "de brilho",
+                    10.sp,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("para o nível ${p.nivel + 1}", style = Tipo.nota, maxLines = 1)
+            }
         }
+    }
+}
+
+@Composable
+private fun Grupo(titulo: String, direita: String, conteudo: @Composable () -> Unit) {
+    val forma = RoundedCornerShape(10.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(forma)
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, forma)
+            .padding(horizontal = 10.dp, vertical = 11.dp),
+    ) {
+        Secao(titulo, direita)
+        conteudo()
     }
 }
 
@@ -259,6 +293,7 @@ private fun LinhaDeMissao(
     ordem: Int,
     onResgatar: (String) -> Unit,
     bonus: Boolean = false,
+    conquista: Boolean = false,
 ) {
     val hover = remember { MutableInteractionSource() }
     val sobHover by hover.collectIsHoveredAsState()
@@ -300,19 +335,29 @@ private fun LinhaDeMissao(
             .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Marcador(m.concluida)
+        Marcador(m.concluida, conquista)
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                m.titulo,
-                style = TextStyle(color = corTitulo, fontSize = 12.5.sp),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    m.titulo,
+                    style = TextStyle(color = corTitulo, fontSize = 12.5.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (!m.concluida) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "${m.progresso}/${m.alvo}",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                    )
+                }
+            }
             Spacer(Modifier.height(6.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(3.dp)
                     .drawBehind {
                         drawRoundRectSimples(Obsidian.borderDim.copy(alpha = 0.55f), size.width, size.height)
                         val f = fracao.value
@@ -326,25 +371,39 @@ private fun LinhaDeMissao(
             )
         }
         Spacer(Modifier.width(12.dp))
-        Text(
-            if (m.concluida) "" else "${m.progresso}/${m.alvo}",
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
-        )
-        Spacer(Modifier.width(10.dp))
         if (m.resgatavel) {
             BotaoDeResgate("+${m.xp}") { onResgatar(m.id) }
         } else {
-            Text(
-                "+${m.xp}",
-                style = TextStyle(
-                    color = if (m.concluida) Obsidian.text3 else Obsidian.accent,
-                    fontSize = if (bonus) 12.sp else 11.sp,
-                    fontFamily = DmMono,
-                    fontWeight = if (bonus) FontWeight.Medium else FontWeight.Normal,
-                ),
-                modifier = Modifier.width(44.dp),
-            )
+            val cor = if (m.concluida) Obsidian.text3 else Obsidian.accent
+            Row(Modifier.width(LARGURA_DA_RECOMPENSA), verticalAlignment = Alignment.CenterVertically) {
+                LIcon(Lucide.Sparkles, tint = cor, size = 11.dp, rotulo = "de brilho")
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    "+${m.xp}",
+                    style = TextStyle(
+                        color = cor,
+                        fontSize = if (bonus) 12.sp else 11.sp,
+                        fontFamily = DmMono,
+                        fontWeight = if (bonus) FontWeight.Medium else FontWeight.Normal,
+                    ),
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun Moeda(
+    icone: androidx.compose.ui.graphics.vector.ImageVector,
+    valor: String,
+    cor: Color,
+    rotulo: String,
+    tamanho: androidx.compose.ui.unit.TextUnit = 11.sp,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LIcon(icone, tint = cor, size = 12.dp, rotulo = rotulo)
+        Spacer(Modifier.width(4.dp))
+        Text(valor, style = TextStyle(color = cor, fontSize = tamanho, fontFamily = DmMono))
     }
 }
 
@@ -414,17 +473,23 @@ private fun FaixaDeResgate(quantas: Int, ocupado: Boolean, onResgatarTudo: () ->
 }
 
 @Composable
-private fun Marcador(concluida: Boolean) {
-    Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-        if (concluida) {
-            Box(
+private fun Marcador(concluida: Boolean, conquista: Boolean) {
+    Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+        when {
+            conquista && concluida -> Box(
+                Modifier.size(18.dp).clip(CircleShape).background(Obsidian.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(Lucide.Medal, tint = Obsidian.textInv, size = 12.dp, rotulo = "conquistada")
+            }
+            conquista -> LIcon(Lucide.Medal, tint = Obsidian.borderMid, size = 16.dp)
+            concluida -> Box(
                 Modifier.size(16.dp).clip(CircleShape).background(Obsidian.accent),
                 contentAlignment = Alignment.Center,
             ) {
-                LIcon(Lucide.Check, tint = Obsidian.textInv, size = 10.dp)
+                LIcon(Lucide.Check, tint = Obsidian.textInv, size = 10.dp, rotulo = "concluída")
             }
-        } else {
-            Box(
+            else -> Box(
                 Modifier
                     .size(15.dp)
                     .clip(CircleShape)

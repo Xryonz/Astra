@@ -19,12 +19,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,14 +31,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.Canal
 import app.astra.desktop.InicioComWindows
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -50,7 +46,6 @@ import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun PermissionsSection(onTestarAviso: () -> Unit) {
@@ -185,119 +180,6 @@ internal fun VoiceSection(
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
-}
-
-@Composable
-internal fun AtalhosSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    CapturaDeTecla("mudo", p.teclaMudo, prefs::setTeclaMudo)
-    Spacer(Modifier.height(12.dp))
-    CapturaDeTecla("ensurdecer", p.teclaEnsurdecer, prefs::setTeclaEnsurdecer)
-
-    SettingsDivider()
-    FieldLabel("fixas")
-    Spacer(Modifier.height(4.dp))
-    AtalhoFixo("Ctrl K", "buscar")
-    AtalhoFixo("Esc", "fechar o que estiver aberto")
-    AtalhoFixo("Enter", "enviar a mensagem")
-    AtalhoFixo("Shift Enter", "quebrar linha", ultima = true)
-
-    Spacer(Modifier.height(16.dp))
-    InfoNote(
-        "O que o Astra escuta do seu teclado",
-        "Para uma tecla funcionar com o jogo em primeiro plano, o Windows exige um " +
-            "gancho de teclado do sistema — não existe outro caminho, e é o mesmo que " +
-            "Discord e TeamSpeak usam.\n\n" +
-            "O que o Astra faz com ele: compara a tecla apertada com as escolhidas " +
-            "aqui em cima. Só isso. Nada é guardado, contado ou enviado para lugar " +
-            "nenhum, e a tecla segue o caminho dela normalmente.\n\n" +
-            "Sem nenhuma tecla escolhida, o gancho nem chega a ser instalado.",
-    )
-}
-
-@Composable
-private fun AtalhoFixo(tecla: String, oQueFaz: String, ultima: Boolean = false) {
-    Row(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            tecla,
-            style = TextStyle(color = Obsidian.text2, fontSize = 11.sp, fontFamily = DmMono),
-            modifier = Modifier
-                .widthIn(min = 92.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Obsidian.void.copy(alpha = 0.55f))
-                .padding(horizontal = 9.dp, vertical = 5.dp),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(oQueFaz, style = Tipo.descricao)
-    }
-    if (!ultima) Spacer(Modifier.height(7.dp))
-}
-
-@Composable
-private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
-    var ouvindo by remember { mutableStateOf(false) }
-    val escopo = rememberCoroutineScope()
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val nome = remember(vk) { AtalhosGlobais.nomeDaTecla(vk) }
-
-    DisposableEffect(Unit) { onDispose { AtalhosGlobais.cancelarCaptura() } }
-
-    Row(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(rotulo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
-            Text(
-                if (ouvindo) "aperte a tecla — esc deixa sem nenhuma" else "clique para trocar",
-                style = Tipo.apoio,
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Box(
-            Modifier
-                .clickScale(interaction, pressedScale = 0.97f, formaDoFoco = RoundedCornerShape(8.dp))
-                .widthIn(min = 116.dp)
-                .clip(FormaDeBotao)
-                .background(
-                    when {
-                        ouvindo -> Obsidian.accent.copy(alpha = 0.16f)
-                        hovered -> Obsidian.hover
-                        else -> Obsidian.raised
-                    },
-                )
-                .border(
-                    1.dp,
-                    if (ouvindo) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
-                    FormaDeBotao,
-                )
-                .hoverable(interaction)
-                .clickable(interactionSource = interaction, indication = null) {
-                    ouvindo = true
-                    AtalhosGlobais.capturarProxima { escolhida ->
-                        escopo.launch {
-                            ouvindo = false
-                            onEscolher(escolhida)
-                        }
-                    }
-                }
-                .padding(horizontal = 14.dp, vertical = 9.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                if (ouvindo) "ouvindo…" else nome,
-                style = TextStyle(
-                    color = if (ouvindo) Obsidian.accent else if (vk == 0) Obsidian.text3 else Obsidian.text1,
-                    fontSize = 12.sp,
-                    fontFamily = DmMono,
-                ),
-                maxLines = 1,
-            )
-        }
-    }
 }
 
 @Composable

@@ -107,8 +107,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val volumeDoMicrofone: Int = 100,
         val volumeDaEscuta: Int = 100,
         val degrau: Int = 0,
-        val teclaMudo: Int = 0,
-        val teclaEnsurdecer: Int = 0,
         val emojiRecentes: List<String> = emptyList(),
     ) {
         val auroraOn: Boolean get() = auroraEnabled && !performanceMode && degrau < DEGRAU_SEM_FUNDO
@@ -261,8 +259,6 @@ class DesktopPrefs(private val store: SessionStore) {
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
         volumeDoMicrofone = store.uiPref("volumeDoMicrofone")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
         volumeDaEscuta = store.uiPref("volumeDaEscuta")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
-        teclaMudo = store.uiPref("teclaMudo")?.toIntOrNull() ?: 0,
-        teclaEnsurdecer = store.uiPref("teclaEnsurdecer")?.toIntOrNull() ?: 0,
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
         degrau = store.uiPref("degrauAprendido")?.toIntOrNull()?.coerceIn(0, DEGRAU_MAXIMO) ?: 0,
     )
@@ -460,16 +456,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val n = v.coerceIn(0, 100)
         anotar("volumeDaEscuta", n.toString())
         _state.update { it.copy(volumeDaEscuta = n) }
-    }
-
-    fun setTeclaMudo(vk: Int) {
-        anotar("teclaMudo", vk.toString())
-        _state.update { it.copy(teclaMudo = vk) }
-    }
-
-    fun setTeclaEnsurdecer(vk: Int) {
-        anotar("teclaEnsurdecer", vk.toString())
-        _state.update { it.copy(teclaEnsurdecer = vk) }
     }
 
     fun setAudioOutput(v: String?) {

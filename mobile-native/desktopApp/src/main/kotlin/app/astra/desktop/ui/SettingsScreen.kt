@@ -70,7 +70,6 @@ import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.Key
-import com.composables.icons.lucide.Keyboard
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Palette
@@ -96,7 +95,6 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     ACCESSIBILITY("Acessibilidade", "leitura, contraste e movimento", Lucide.Accessibility),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
-    SHORTCUTS("Atalhos", "teclas do app", Lucide.Keyboard),
     PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
     BOTS("Bots", "aparencia da Sparkle e da Sparxie", Lucide.Bot),
@@ -349,7 +347,6 @@ fun SettingsScreen(
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs, arranque)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs, aparelhos)
-                        SettingsTab.SHORTCUTS -> AtalhosSection(prefState, prefs)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()

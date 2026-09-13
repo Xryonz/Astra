@@ -86,7 +86,6 @@ import org.koin.core.context.GlobalContext
 internal fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
     SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS,
-    SettingsTab.SHORTCUTS,
     SettingsTab.PETS,
     SettingsTab.NAME_COLORS,
     SettingsTab.ACCOUNT -> false
@@ -113,7 +112,7 @@ internal fun SettingsPreview(
                 SettingsTab.PERFORMANCE -> CostMeter(p)
                 SettingsTab.VOICE -> VoicePreview(p)
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
-                SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
+                SettingsTab.PERMISSIONS, SettingsTab.BOTS,
                 SettingsTab.PETS, SettingsTab.NAME_COLORS, SettingsTab.ACCOUNT -> Unit
             }
             if (tab != SettingsTab.PROFILE) {

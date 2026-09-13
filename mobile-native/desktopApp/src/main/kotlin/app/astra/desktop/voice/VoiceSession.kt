@@ -4,7 +4,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
@@ -70,15 +69,6 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
     init {
         scope.launch {
             prefs.state
-                .map { it.teclaMudo to it.teclaEnsurdecer }
-                .distinctUntilChanged()
-                .collect {
-                    registrarAtalhos()
-                    aplicar()
-                }
-        }
-        scope.launch {
-            prefs.state
                 .map { Triple(it.micEchoCancel, it.micNoiseSuppression, it.micAutoGain) }
                 .distinctUntilChanged()
                 .collect { (eco, ruido, ganho) -> call?.definirTratamento(eco, ruido, ganho) }
@@ -95,19 +85,6 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
                 .distinctUntilChanged()
                 .collect { call?.lembrarDuasCamadas(it) }
         }
-    }
-
-    private fun registrarAtalhos() {
-        val p = prefs.state.value
-        val mapa = buildMap<Int, (Boolean) -> Unit> {
-            if (p.teclaMudo != 0) put(p.teclaMudo) { desceu -> if (desceu) naUi { alternarMudo() } }
-            if (p.teclaEnsurdecer != 0) put(p.teclaEnsurdecer) { desceu -> if (desceu) naUi { alternarEnsurdecer() } }
-        }
-        AtalhosGlobais.observar(mapa)
-    }
-
-    private fun naUi(acao: () -> Unit) {
-        scope.launch { acao() }
     }
 
     fun alternarMudo() {
@@ -174,7 +151,6 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
 
     fun encerrar() {
         leave()
-        AtalhosGlobais.observar(emptyMap())
     }
 
     private var espelhoDosAparelhos: Job? = null

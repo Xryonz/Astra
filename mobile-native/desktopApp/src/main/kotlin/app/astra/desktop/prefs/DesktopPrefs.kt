@@ -203,6 +203,13 @@ class DesktopPrefs(private val store: SessionStore) {
         store.setUiPref("degrauAprendido", alvo.toString())
     }
 
+    fun ordemDasConstelacoes(): List<String> =
+        store.uiPref("ordemDasConstelacoes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
+
+    fun guardarOrdemDasConstelacoes(ids: List<String>) {
+        store.setUiPref("ordemDasConstelacoes", ids.joinToString(" "))
+    }
+
     fun dispensarAvisoDePerf() {
         store.setUiPref("perfAutomatico", "")
         _state.update { it.copy(perfAutomatico = "") }

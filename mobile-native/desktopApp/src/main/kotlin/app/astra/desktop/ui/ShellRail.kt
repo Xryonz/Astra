@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -27,7 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
@@ -63,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
@@ -85,6 +89,8 @@ import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import kotlinx.coroutines.delay
+import org.koin.core.context.GlobalContext
+import kotlin.math.roundToInt
 
 @Composable
 internal fun Rail(
@@ -106,6 +112,11 @@ internal fun Rail(
 ) {
     val clipboard = LocalClipboardManager.current
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
+    val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
+    var ordem by remember { mutableStateOf(prefs.ordemDasConstelacoes()) }
+    val naOrdem = remember(servers, ordem) { naOrdemEscolhida(servers, ordem) }
+    val arrasto = remember { ArrastoDaRail() }
+    val passo = with(LocalDensity.current) { (TAMANHO_DO_ITEM + ESPACO_ENTRE_ITENS).toPx() }
     Column(
         modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight()
             .panelSurface(Obsidian.void, 0.72f)
@@ -162,12 +173,30 @@ internal fun Rail(
         LazyColumn(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(ESPACO_ENTRE_ITENS),
         ) {
-            items(servers, key = { it.id }) { srv ->
+            itemsIndexed(naOrdem, key = { _, srv -> srv.id }) { indice, srv ->
                 var confirmLeave by remember(srv.id) { mutableStateOf(false) }
                 var confirmDelete by remember(srv.id) { mutableStateOf(false) }
                 val isOwner = srv.ownerId == myId
+                val naMao = arrasto.id == srv.id
+                Box(
+                    Modifier
+                        .zIndex(if (naMao) 1f else 0f)
+                        .arrastoDaConstelacao(srv.id, indice, naOrdem.size, arrasto, passo) { de, para ->
+                            val nova = naOrdem.map { it.id }.toMutableList()
+                            nova.add(para, nova.removeAt(de))
+                            ordem = nova
+                            prefs.guardarOrdemDasConstelacoes(nova)
+                        }
+                        .graphicsLayer {
+                            if (naMao) {
+                                translationY = arrasto.deslocamento
+                                scaleX = ESCALA_NA_MAO
+                                scaleY = ESCALA_NA_MAO
+                            }
+                        },
+                ) {
                 EditorialContextMenu(entries = {
                     buildList {
                         add(MenuEntry.Item("convidar pessoas", icon = Lucide.Users) { inviteFor = srv })
@@ -296,6 +325,17 @@ internal fun Rail(
                     }
                 }
                 }
+                if (arrasto.arrastando && !naMao && arrasto.paraIndice == indice) {
+                    Box(
+                        Modifier
+                            .align(if (indice > arrasto.deIndice) Alignment.BottomCenter else Alignment.TopCenter)
+                            .width(LARGURA_DO_ALVO)
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(Obsidian.accent),
+                    )
+                }
+                }
             }
             item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
             item(key = "descobrir") {
@@ -337,6 +377,71 @@ internal fun Rail(
             inviteCode = srv.inviteCode,
             onAdd = { username, onResult -> onAddMember(srv.id, username, onResult) },
             onClose = { inviteFor = null },
+        )
+    }
+}
+
+private val TAMANHO_DO_ITEM = 44.dp
+private val ESPACO_ENTRE_ITENS = 8.dp
+private val LARGURA_DO_ALVO = 28.dp
+private const val ESCALA_NA_MAO = 1.06f
+
+private fun naOrdemEscolhida(servers: List<ServerDto>, ordem: List<String>): List<ServerDto> {
+    if (ordem.isEmpty() || servers.size < 2) return servers
+    val porId = servers.associateBy { it.id }
+    val escolhidas = ordem.mapNotNull { porId[it] }
+    if (escolhidas.isEmpty()) return servers
+    val jaPostas = escolhidas.mapTo(HashSet()) { it.id }
+    return escolhidas + servers.filterNot { it.id in jaPostas }
+}
+
+private class ArrastoDaRail {
+    var id by mutableStateOf<String?>(null)
+    var deIndice by mutableStateOf(-1)
+    var paraIndice by mutableStateOf(-1)
+    var deslocamento by mutableStateOf(0f)
+    val arrastando: Boolean get() = id != null
+    fun soltar() {
+        id = null
+        deIndice = -1
+        paraIndice = -1
+        deslocamento = 0f
+    }
+}
+
+private fun Modifier.arrastoDaConstelacao(
+    id: String,
+    indice: Int,
+    total: Int,
+    arrasto: ArrastoDaRail,
+    passo: Float,
+    onSoltar: (de: Int, para: Int) -> Unit,
+): Modifier {
+    if (total < 2) return this
+    return this.pointerInput(id, indice, total) {
+        var acumulado = 0f
+        detectDragGesturesAfterLongPress(
+            onDragStart = {
+                acumulado = 0f
+                arrasto.id = id
+                arrasto.deIndice = indice
+                arrasto.paraIndice = indice
+                arrasto.deslocamento = 0f
+            },
+            onDrag = { change, delta ->
+                change.consume()
+                acumulado += delta.y
+                arrasto.deslocamento = acumulado
+                arrasto.paraIndice = (indice + (acumulado / passo).roundToInt()).coerceIn(0, total - 1)
+            },
+            onDragEnd = {
+                if (arrasto.id == id) {
+                    val para = arrasto.paraIndice
+                    if (para != arrasto.deIndice) onSoltar(arrasto.deIndice, para)
+                    arrasto.soltar()
+                }
+            },
+            onDragCancel = { if (arrasto.id == id) arrasto.soltar() },
         )
     }
 }
@@ -535,7 +640,7 @@ private fun RailItem(
     )
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(TAMANHO_DO_ITEM)
             .clickScale(interaction)
             .clip(shape)
             .background(bg)

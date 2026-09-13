@@ -271,6 +271,11 @@ private const val HORA_DA_MANHA = 8
 private val ESTADOS_NA_BANDEJA =
     listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE)
 
+private fun fecharCartaoDeAbertura() {
+    runCatching { java.awt.SplashScreen.getSplashScreen()?.close() }
+    Arranque.marcar("cartao de abertura fechado porque o Astra nasceu escondido")
+}
+
 private fun proximaManha(): Long {
     val agora = LocalDateTime.now()
     val manha = agora.toLocalDate().atTime(HORA_DA_MANHA, 0)
@@ -287,6 +292,7 @@ fun main(args: Array<String>) {
     if (Arranque.modoSeguro) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
+    if (nascerEscondido) fecharCartaoDeAbertura()
     Vigia.vigiar(nascerEscondido)
     Arranque.marcar("vigia armado")
     val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {

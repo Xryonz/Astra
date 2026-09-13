@@ -44,8 +44,8 @@ aplicativo e morre com ele.
 **Desktop** (`mobile-native/desktopApp`) — a fase ativa
 - Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
 - **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
-- Coil3 · socket.io-client · JNA (atalhos globais, foco de janela, identidade na barra
-  de tarefas, lista de placas) · RikkaUI · Haze · Lucide
+- Coil3 · socket.io-client · JNA (foco de janela, identidade na barra de tarefas, lista
+  de placas, início com o Windows, permissões) · RikkaUI · Lucide
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
 
 **Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go

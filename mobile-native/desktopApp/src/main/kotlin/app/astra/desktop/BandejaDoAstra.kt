@@ -77,6 +77,10 @@ private val ALTURA_SEPARADOR = 11.dp
 private val RESPIRO = 8.dp
 private const val FATIA_DO_SEPARADOR = 0.34f
 
+private const val MARGEM_DA_TELA = 4f
+
+private const val FOLGA_ACIMA_DO_CURSOR = 12f
+
 @Composable
 fun BandejaComMenu(
     bandeja: Bandeja,
@@ -122,16 +126,15 @@ fun BandejaComMenu(
     val altura = lista.fold(RESPIRO * 2) { soma, entrada ->
         soma + if (entrada is SeparadorDaBandeja) ALTURA_SEPARADOR else ALTURA_ITEM
     }
-    val d = androidx.compose.ui.platform.LocalDensity.current
-    val larguraPx = with(d) { LARGURA.roundToPx() }
-    val alturaPx = with(d) { altura.roundToPx() }
     val tela = runCatching { Toolkit.getDefaultToolkit().screenSize }.getOrNull()
-    val x = (em.first - larguraPx / 2).coerceAtLeast(4)
-        .coerceAtMost((tela?.width ?: (em.first + larguraPx)) - larguraPx - 4)
-    val y = (em.second - alturaPx - 12).coerceAtLeast(4)
+    val largura = LARGURA.value
+    val alta = altura.value
+    val direita = (tela?.width?.toFloat() ?: (em.first + largura)) - largura - MARGEM_DA_TELA
+    val x = (em.first - largura / 2f).coerceIn(MARGEM_DA_TELA, maxOf(MARGEM_DA_TELA, direita))
+    val y = (em.second - alta - FOLGA_ACIMA_DO_CURSOR).coerceAtLeast(MARGEM_DA_TELA)
 
     val estadoDoMenu = rememberWindowState(
-        position = WindowPosition(with(d) { x.toDp() }, with(d) { y.toDp() }),
+        position = WindowPosition(x.dp, y.dp),
         size = DpSize(LARGURA, altura),
     )
     LaunchedEffect(altura) { estadoDoMenu.size = DpSize(LARGURA, altura) }

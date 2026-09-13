@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -386,6 +387,7 @@ private fun OrbitList(
                 if (collapsed) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
             item(key = "cat-${cat.id}") {
+                DisposableEffect(cat.id) { onDispose { drag.catBounds.remove(cat.id) } }
                 val highlight = drag.dragging && drag.hoverCat == cat.id && drag.section != "cat:${cat.id}"
                 val hi by animateFloatAsState(if (highlight) 1f else 0f, tween(120), label = "catHitbox")
                 Column(

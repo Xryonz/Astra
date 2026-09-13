@@ -1,16 +1,11 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -160,14 +155,8 @@ internal fun Sidebar(
             .panelSurface(Obsidian.base, 0.62f)
             .marcoDoTour(Marco.CANAIS),
     ) {
-        AnimatedContent(
-            targetState = selection,
-            transitionSpec = {
-                (fadeIn(tween(180)) + slideInHorizontally(tween(180)) { -it / 12 })
-                    .togetherWith(fadeOut(tween(120)))
-            },
-            modifier = Modifier.weight(1f),
-        ) { sel ->
+        Box(Modifier.weight(1f)) {
+            val sel = selection
             val srv = (sel as? Selection.Server)?.let { s -> servers.find { it.id == s.id } }
             Column(Modifier.fillMaxSize()) {
                 val header = @Composable {

@@ -27,8 +27,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -37,7 +40,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,7 +95,7 @@ import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 @Composable
 internal fun Rail(
@@ -116,7 +121,47 @@ internal fun Rail(
     var ordem by remember { mutableStateOf(prefs.ordemDasConstelacoes()) }
     val naOrdem = remember(servers, ordem) { naOrdemEscolhida(servers, ordem) }
     val arrasto = remember { ArrastoDaRail() }
-    val passo = with(LocalDensity.current) { (TAMANHO_DO_ITEM + ESPACO_ENTRE_ITENS).toPx() }
+    val estadoDaLista = rememberLazyListState()
+    val zona = with(LocalDensity.current) { ZONA_DE_ROLAGEM.toPx() }
+    val teto = with(LocalDensity.current) { PASSO_DA_ROLAGEM.toPx() }
+    val itensAgora by rememberUpdatedState(naOrdem)
+    val comecarOArrasto: (Float) -> Unit = { y ->
+        val lista = itensAgora
+        val i = if (lista.size < 2) null else itemSob(estadoDaLista.layoutInfo, y, lista.size)
+        if (i != null) {
+            arrasto.id = lista[i].id
+            arrasto.indice = i
+            arrasto.comecouEm = i
+            arrasto.pontoY = y
+        }
+    }
+    val acompanharOPonteiro = {
+        val lista = itensAgora
+        val alvo = alvoEm(estadoDaLista.layoutInfo, arrasto.pontoY, lista.size)
+        if (alvo >= 0 && alvo != arrasto.indice) {
+            val ids = lista.map { it.id }.toMutableList()
+            ids.add(alvo, ids.removeAt(arrasto.indice))
+            ordem = ids
+            arrasto.indice = alvo
+        }
+    }
+    val soltarOArrasto = {
+        val mudou = arrasto.indice != arrasto.comecouEm
+        arrasto.soltar()
+        if (mudou) prefs.guardarOrdemDasConstelacoes(ordem)
+    }
+    LaunchedEffect(arrasto.arrastando) {
+        if (!arrasto.arrastando) return@LaunchedEffect
+        while (true) {
+            withFrameNanos { }
+            val altura = estadoDaLista.layoutInfo.viewportSize.height.toFloat()
+            val velocidade = velocidadeDaBorda(arrasto.pontoY, altura, zona, teto)
+            if (velocidade != 0f) {
+                estadoDaLista.scrollBy(velocidade)
+                acompanharOPonteiro()
+            }
+        }
+    }
     Column(
         modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight()
             .panelSurface(Obsidian.void, 0.72f)
@@ -171,7 +216,10 @@ internal fun Rail(
         DivisoriaDaRail()
         Spacer(Modifier.height(12.dp))
         LazyColumn(
-            modifier = Modifier.weight(1f),
+            state = estadoDaLista,
+            modifier = Modifier
+                .weight(1f)
+                .arrastoDaRail(arrasto, comecarOArrasto, acompanharOPonteiro, soltarOArrasto),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(ESPACO_ENTRE_ITENS),
         ) {
@@ -183,18 +231,13 @@ internal fun Rail(
                 Box(
                     Modifier
                         .zIndex(if (naMao) 1f else 0f)
-                        .arrastoDaConstelacao(srv.id, indice, naOrdem.size, arrasto, passo) { de, para ->
-                            val nova = naOrdem.map { it.id }.toMutableList()
-                            nova.add(para, nova.removeAt(de))
-                            ordem = nova
-                            prefs.guardarOrdemDasConstelacoes(nova)
-                        }
                         .graphicsLayer {
-                            if (naMao) {
-                                translationY = arrasto.deslocamento
-                                scaleX = ESCALA_NA_MAO
-                                scaleY = ESCALA_NA_MAO
-                            }
+                            if (!naMao) return@graphicsLayer
+                            val fatia = estadoDaLista.layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.index == indice } ?: return@graphicsLayer
+                            translationY = arrasto.pontoY - (fatia.offset + fatia.size / 2f)
+                            scaleX = ESCALA_NA_MAO
+                            scaleY = ESCALA_NA_MAO
                         },
                 ) {
                 EditorialContextMenu(entries = {
@@ -325,16 +368,6 @@ internal fun Rail(
                     }
                 }
                 }
-                if (arrasto.arrastando && !naMao && arrasto.paraIndice == indice) {
-                    Box(
-                        Modifier
-                            .align(if (indice > arrasto.deIndice) Alignment.BottomCenter else Alignment.TopCenter)
-                            .width(LARGURA_DO_ALVO)
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(1.dp))
-                            .background(Obsidian.accent),
-                    )
-                }
                 }
             }
             item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
@@ -383,7 +416,8 @@ internal fun Rail(
 
 private val TAMANHO_DO_ITEM = 44.dp
 private val ESPACO_ENTRE_ITENS = 8.dp
-private val LARGURA_DO_ALVO = 28.dp
+private val ZONA_DE_ROLAGEM = 56.dp
+private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.06f
 
 private fun naOrdemEscolhida(servers: List<ServerDto>, ordem: List<String>): List<ServerDto> {
@@ -397,53 +431,56 @@ private fun naOrdemEscolhida(servers: List<ServerDto>, ordem: List<String>): Lis
 
 private class ArrastoDaRail {
     var id by mutableStateOf<String?>(null)
-    var deIndice by mutableStateOf(-1)
-    var paraIndice by mutableStateOf(-1)
-    var deslocamento by mutableStateOf(0f)
+    var indice by mutableStateOf(-1)
+    var comecouEm by mutableStateOf(-1)
+    var pontoY by mutableStateOf(0f)
     val arrastando: Boolean get() = id != null
     fun soltar() {
         id = null
-        deIndice = -1
-        paraIndice = -1
-        deslocamento = 0f
+        indice = -1
+        comecouEm = -1
+        pontoY = 0f
     }
 }
 
-private fun Modifier.arrastoDaConstelacao(
-    id: String,
-    indice: Int,
-    total: Int,
-    arrasto: ArrastoDaRail,
-    passo: Float,
-    onSoltar: (de: Int, para: Int) -> Unit,
-): Modifier {
-    if (total < 2) return this
-    return this.pointerInput(id, indice, total) {
-        var acumulado = 0f
-        detectDragGesturesAfterLongPress(
-            onDragStart = {
-                acumulado = 0f
-                arrasto.id = id
-                arrasto.deIndice = indice
-                arrasto.paraIndice = indice
-                arrasto.deslocamento = 0f
-            },
-            onDrag = { change, delta ->
-                change.consume()
-                acumulado += delta.y
-                arrasto.deslocamento = acumulado
-                arrasto.paraIndice = (indice + (acumulado / passo).roundToInt()).coerceIn(0, total - 1)
-            },
-            onDragEnd = {
-                if (arrasto.id == id) {
-                    val para = arrasto.paraIndice
-                    if (para != arrasto.deIndice) onSoltar(arrasto.deIndice, para)
-                    arrasto.soltar()
-                }
-            },
-            onDragCancel = { if (arrasto.id == id) arrasto.soltar() },
-        )
+private fun alvoEm(info: LazyListLayoutInfo, y: Float, quantas: Int): Int {
+    val itens = info.visibleItemsInfo.filter { it.index < quantas }
+    if (itens.isEmpty()) return -1
+    return itens.minByOrNull { abs(y - (it.offset + it.size / 2f)) }?.index ?: -1
+}
+
+private fun itemSob(info: LazyListLayoutInfo, y: Float, quantas: Int): Int? =
+    info.visibleItemsInfo.firstOrNull {
+        it.index < quantas && y >= it.offset && y < it.offset + it.size
+    }?.index
+
+private fun velocidadeDaBorda(y: Float, altura: Float, zona: Float, teto: Float): Float {
+    if (altura <= 0f || zona <= 0f) return 0f
+    return when {
+        y < zona -> -teto * ((zona - y) / zona).coerceIn(0f, 1f)
+        y > altura - zona -> teto * ((y - (altura - zona)) / zona).coerceIn(0f, 1f)
+        else -> 0f
     }
+}
+
+private fun Modifier.arrastoDaRail(
+    arrasto: ArrastoDaRail,
+    aoComecar: (Float) -> Unit,
+    acompanhar: () -> Unit,
+    aoSoltar: () -> Unit,
+): Modifier = this.pointerInput(Unit) {
+    detectDragGesturesAfterLongPress(
+        onDragStart = { aoComecar(it.y) },
+        onDrag = { change, _ ->
+            if (arrasto.arrastando) {
+                change.consume()
+                arrasto.pontoY = change.position.y
+                acompanhar()
+            }
+        },
+        onDragEnd = { if (arrasto.arrastando) aoSoltar() },
+        onDragCancel = { if (arrasto.arrastando) aoSoltar() },
+    )
 }
 
 @Composable

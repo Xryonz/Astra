@@ -313,6 +313,7 @@ fun main(args: Array<String>) {
     application {
         marcoDoArranque("composicao iniciada")
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
+        var resgate by remember { mutableStateOf(0) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         val transparentWindow = remember {
             val p = GlobalContext.get().get<DesktopPrefs>().state.value
@@ -377,12 +378,12 @@ fun main(args: Array<String>) {
             aoAtivar = { windowVisible = true; state.isMinimized = false },
             itens = {
                 buildList {
-                    if (!windowVisible || state.isMinimized) {
-                        add(ItemDaBandeja("Abrir o Astra") {
-                            windowVisible = true
-                            state.isMinimized = false
-                        })
-                    }
+                    add(ItemDaBandeja("Abrir o Astra") {
+                        windowVisible = true
+                        state.isMinimized = false
+                        state.position = WindowPosition(Alignment.Center)
+                        resgate++
+                    })
                     EstadoNaBandeja.atual?.let { atual ->
                         if (isNotEmpty()) add(SeparadorDaBandeja)
                         ESTADOS_NA_BANDEJA.forEach { escolha ->
@@ -469,7 +470,10 @@ fun main(args: Array<String>) {
                 Arranque.marcar("composicao da janela pronta")
                 withFrameNanos { }
                 Arranque.desenhou()
-                Vigia.apareceu()
+                Vigia.apareceu(window)
+            }
+            LaunchedEffect(resgate) {
+                if (resgate > 0) runCatching { window.toFront(); window.requestFocus() }
             }
             if (voltandoDeAtualizacao) {
                 LaunchedEffect(Unit) {

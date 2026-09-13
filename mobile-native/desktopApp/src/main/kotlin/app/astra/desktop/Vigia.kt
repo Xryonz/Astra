@@ -12,9 +12,28 @@ object Vigia {
     @Volatile private var apareceu = false
     @Volatile private var janelaExiste = false
 
-    fun apareceu() { apareceu = true }
+    fun apareceu(janela: java.awt.Window?) {
+        apareceu = true
+        if (janela != null) trazerParaATela(janela)
+    }
 
     fun janelaCriada() { janelaExiste = true }
+
+    private fun trazerParaATela(janela: java.awt.Window) = runCatching {
+        if (!foraDeQualquerTela(janela)) return@runCatching
+        Arranque.marcar("VIGIA: a janela desenhou fora de qualquer tela — trazendo de volta")
+        janela.setLocationRelativeTo(null)
+        if (foraDeQualquerTela(janela)) {
+            Arranque.marcar("VIGIA: nao consegui trazer a janela para a tela")
+        }
+    }
+
+    private fun foraDeQualquerTela(janela: java.awt.Window): Boolean {
+        val limites = janela.bounds
+        if (limites.width <= 0 || limites.height <= 0) return true
+        val telas = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices
+        return telas.none { it.defaultConfiguration.bounds.intersects(limites) }
+    }
 
     fun vigiar(nascerEscondido: Boolean) {
         thread(isDaemon = true, name = "astra-vigia") {

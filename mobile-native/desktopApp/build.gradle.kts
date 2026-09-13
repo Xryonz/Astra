@@ -118,6 +118,7 @@ compose.desktop {
             jvmArgs += "-XX:+AutoCreateSharedArchive"
             jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
             jvmArgs += "-XX:ErrorFile=\$APPDIR/falha-jvm-%p.log"
+            jvmArgs += "-splash:\$APPDIR/resources/splash.png"
         }
 
         if (providers.gradleProperty("astra.multi").isPresent) {

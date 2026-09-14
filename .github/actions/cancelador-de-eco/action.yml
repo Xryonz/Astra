@@ -1,28 +1,6 @@
 name: Cancelador de eco
 description: Prepara o compilador C travado e a biblioteca do AEC3 que o sidecar de voz usa
 
-# POR QUE ISTO EXISTE
-#
-# O sidecar de voz compila SEM biblioteca C nenhuma por padrao — o AEC3 fica atras
-# da marca de build `aec3`, e sem ela o pacote nem e lido. Quem publica, porem,
-# precisa do AEC3: e ele que tira a voz dos 16 kHz em que o cancelador do Windows
-# a prendia. Entao o fluxo de release e o de CI passam por aqui antes do go build.
-#
-# TUDO AQUI E TRAVADO POR VERSAO, E NAO E ZELO EXCESSIVO
-#
-# A atualizacao do Astra e incremental: so baixa o arquivo cujo CRC nao bate com o
-# que ja esta instalado. O astra-voz.exe sozinho e 10 MB comprimidos. Se o binario
-# sair diferente sem ninguem ter mexido nele, todo mundo baixa 10 MB a toa — foi
-# exatamente o que o carimbo de VCS do Go fazia, e era 64% do delta.
-#
-# Medido nesta maquina: com o MESMO compilador, no MESMO caminho, dois `go build`
-# com cache limpo saem BYTE A BYTE iguais, mesmo com cgo no meio. Ou seja, o cgo
-# nao quebra a atualizacao incremental — o que quebraria e deixar o compilador
-# flutuar. Por isso nada aqui diz "latest".
-#
-# O caminho C:\aec3 tambem e fixo de proposito: o include path entra no binario
-# (via __FILE__ e afins), entao mudar a pasta muda o executavel.
-
 runs:
   using: composite
 
@@ -34,14 +12,6 @@ runs:
         path: C:\aec3\mingw64
         key: mingw-winlibs-gcc16.1.0-mingwucrt14.0.0-r4
 
-    # O zip tem 260 MB e a arvore aberta tem 939 MB. Baixar isso a cada release
-    # seria minuto jogado fora, entao o cache guarda a arvore ja aberta e este
-    # passo so roda quando a chave muda — ou seja, quando alguem TROCAR a versao
-    # do compilador de proposito.
-    #
-    # A soma de verificacao nao e cerimonia: e o compilador que produz o binario
-    # que os amigos do dono executam. Se o arquivo mudar sem a chave do cache
-    # mudar, isso aqui para em vez de compilar o que veio.
     - name: Baixar o MinGW
       if: steps.cache-mingw.outputs.cache-hit != 'true'
       shell: pwsh
@@ -65,19 +35,6 @@ runs:
         path: C:\aec3\out
         key: aec3-d0569cfa-gcc16.1.0-ndebug-v1
 
-    # COMMIT, NAO TAG. A v2.1 lancada NAO compila com GCC 15 ou 16: o compilador
-    # deixou de arrastar <cstdint> junto de outros cabecalhos, e a v2.1 conta com
-    # isso — quebra em trace_event.h e no proprio aec3. O commit d0569cfa e o
-    # primeiro estado ja corrigido, e foi ele que foi medido (~50 dB de supressao
-    # a 48 kHz). Trocar isto por "v2.1" traz a quebra de volta.
-    #
-    # b_ndebug=true desliga os asserts da biblioteca. Nao e economia de bytes: sao
-    # verificacoes que rodariam 100 vezes por segundo dentro da call.
-    # curl.exe e nao Invoke-WebRequest, e isto nao e preferencia. O GitLab do
-    # freedesktop fica atras de um desafio anti-robo que responde ao IWR com uma
-    # PAGINA HTML de 7 KB chamada "Making sure you're not a bot!" — e o tar morria
-    # com "Unrecognized archive format", que nao diz nada sobre a causa. O desafio
-    # deixa passar quem se identifica como ferramenta, e o curl faz isso.
     - name: Compilar a biblioteca do AEC3
       if: steps.cache-aec3.outputs.cache-hit != 'true'
       shell: pwsh
@@ -106,9 +63,6 @@ runs:
           throw 'a biblioteca do AEC3 nao foi instalada'
         }
 
-    # Sem passo de conferencia aqui de proposito: quem chama compila com
-    # -tags aec3, e a compilacao FALHA se qualquer uma destas variaveis estiver
-    # errada. Conferir duas vezes so adiaria o mesmo erro.
     - name: Apontar o cgo para o AEC3
       shell: pwsh
       run: |

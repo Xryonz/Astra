@@ -1,5 +1,6 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -118,17 +120,22 @@ private fun JoinCallButton(onJoin: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val s = animateFloatAsState(if (hovered) 1.07f else 1f, tween(140), label = "joinScale")
+    val fundo by animateColorAsState(
+        if (hovered) Obsidian.accent.copy(alpha = 0.14f) else Color.Transparent,
+        tween(140),
+    )
     Box(
         Modifier
             .graphicsLayer { scaleX = s.value; scaleY = s.value }
-            .clickScale(interaction)
+            .clickScale(interaction, formaDoFoco = CircleShape)
             .size(62.dp)
             .clip(CircleShape)
-            .background(Obsidian.success)
+            .background(fundo)
+            .border(1.dp, Obsidian.accentDim, CircleShape)
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onJoin),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(Lucide.Phone, tint = Obsidian.textInv, size = 25.dp, rotulo = "entrar na chamada")
+        LIcon(Lucide.Phone, tint = Obsidian.accent, size = 25.dp, rotulo = "entrar na chamada")
     }
 }

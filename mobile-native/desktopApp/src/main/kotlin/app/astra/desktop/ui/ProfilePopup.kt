@@ -70,6 +70,12 @@ private val profileCache = mutableMapOf<String, Pair<ProfileViewWrapper, Long>>(
 private fun cached(userId: String): ProfileViewWrapper? =
     profileCache[userId]?.takeIf { System.currentTimeMillis() - it.second < CACHE_MS }?.first
 
+private fun lembrarPerfil(userId: String, visao: ProfileViewWrapper) {
+    val agora = System.currentTimeMillis()
+    profileCache.entries.removeAll { agora - it.value.second >= CACHE_MS }
+    profileCache[userId] = visao to agora
+}
+
 fun invalidateProfileCache(userId: String) {
     profileCache.remove(userId)
 }
@@ -187,7 +193,7 @@ private fun ProfilePopupCard(
     LaunchedEffect(userId) {
         if (visao == null) {
             visao = runCatching { koin.get<UserApi>().profile(userId).data }.getOrNull()
-                ?.also { profileCache[userId] = it to System.currentTimeMillis() }
+                ?.also { lembrarPerfil(userId, it) }
         }
     }
     var atividade by remember(userId) { mutableStateOf<AtividadeDto?>(null) }

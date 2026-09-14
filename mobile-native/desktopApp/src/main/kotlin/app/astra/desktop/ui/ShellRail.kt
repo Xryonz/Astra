@@ -58,6 +58,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -200,7 +203,7 @@ internal fun Rail(
                 ) {
                     Image(
                         painter = painterResource("astra-glyph.png"),
-                        contentDescription = "sussurros",
+                        contentDescription = null,
                         modifier = Modifier.size(26.dp),
                     )
                 }
@@ -362,7 +365,7 @@ internal fun Rail(
                     if (!srv.iconUrl.isNullOrBlank() && !imagemMorreu(srv.iconUrl)) {
                         AsyncImage(
                             model = srv.iconUrl,
-                            contentDescription = srv.name,
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                             onState = { lembrarQueMorreu(srv.iconUrl, it) },
@@ -371,6 +374,7 @@ internal fun Rail(
                         Text(
                             text = srv.name.take(1).uppercase(),
                             style = TextStyle(color = Obsidian.accent, fontSize = 17.sp, fontFamily = DmSerif),
+                            modifier = Modifier.clearAndSetSemantics { },
                         )
                     }
                 }
@@ -404,7 +408,7 @@ internal fun Rail(
                             onClick = { onSelect(Selection.Discover) },
                             rotulo = "descobrir",
                         ) {
-                            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp, rotulo = "descobrir")
+                            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp)
                         }
                     }
                 }
@@ -503,8 +507,13 @@ private fun CreateServerButton(
             active = false,
             onClick = { menuOpen = true },
             rotulo = if (menuOpen) null else "adicionar",
+            nomeAcessivel = "adicionar constelação",
         ) {
-            Text("+", style = TextStyle(color = Obsidian.accent, fontSize = 22.sp))
+            Text(
+                "+",
+                style = TextStyle(color = Obsidian.accent, fontSize = 22.sp),
+                modifier = Modifier.clearAndSetSemantics { },
+            )
         }
         if (menuOpen) {
             Popup(
@@ -652,6 +661,7 @@ private fun RailItem(
     active: Boolean,
     onClick: () -> Unit,
     rotulo: String? = null,
+    nomeAcessivel: String? = rotulo,
     content: @Composable () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -690,7 +700,8 @@ private fun RailItem(
             .background(bg)
             .border(1.dp, borderColor, shape)
             .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .semantics { if (nomeAcessivel != null) contentDescription = nomeAcessivel },
         contentAlignment = Alignment.Center,
     ) {
         content()

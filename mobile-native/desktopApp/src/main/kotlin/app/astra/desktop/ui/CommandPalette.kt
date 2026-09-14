@@ -46,8 +46,7 @@ fun rememberBotCommands(): List<BotCommandDto> {
     var cmds by remember { mutableStateOf(cache.orEmpty()) }
     LaunchedEffect(Unit) {
         if (cache == null) {
-            cache = runCatching { GlobalContext.get().get<BotApi>().commands().data.orEmpty() }
-                .getOrDefault(emptyList())
+            cache = runCatching { GlobalContext.get().get<BotApi>().commands().data.orEmpty() }.getOrNull()
             cmds = cache.orEmpty()
         }
     }

@@ -35,7 +35,7 @@ internal object EmojisDaConstelacao {
     suspend fun carregar(serverId: String): List<EmojiDto> {
         synchronized(trava) { cache[serverId] }?.let { return it }
         val api = GlobalContext.get().get<EmojiApi>()
-        val lista = runCatching { api.listar(serverId).data.orEmpty() }.getOrDefault(emptyList())
+        val lista = runCatching { api.listar(serverId).data.orEmpty() }.getOrNull() ?: return emptyList()
         synchronized(trava) { cache[serverId] = lista }
         return lista
     }

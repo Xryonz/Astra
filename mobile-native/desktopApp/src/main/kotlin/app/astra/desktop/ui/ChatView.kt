@@ -405,11 +405,12 @@ fun ChatView(
                 onClose = { perfilDaMencao = null },
             )
         }
+    val esqueletoDoChat = esperaLongaOBastante(state.loading)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when {
                 state.loading && state.acordando -> AcordandoOServidor()
-                state.loading -> ChatSkeleton()
+                state.loading -> { if (esqueletoDoChat) ChatSkeleton() }
                 state.error != null && state.messages.isEmpty() -> PalcoQueFalhou(
                     motivo = state.error!!,
                     podeTentar = !state.errorPermanente,

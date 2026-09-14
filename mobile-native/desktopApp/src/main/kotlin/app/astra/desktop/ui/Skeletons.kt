@@ -13,13 +13,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
 private val Shimmer = SkeletonAnimation.Shimmer
+
+private const val ESPERA_ATE_VALER_ESQUELETO_MS = 160L
+
+@Composable
+fun esperaLongaOBastante(carregando: Boolean): Boolean {
+    var passouDoLimiar by remember { mutableStateOf(false) }
+    LaunchedEffect(carregando) {
+        if (!carregando) {
+            passouDoLimiar = false
+        } else {
+            delay(ESPERA_ATE_VALER_ESQUELETO_MS)
+            passouDoLimiar = true
+        }
+    }
+    return carregando && passouDoLimiar
+}
 
 @Composable
 fun SidebarSkeleton(rows: Int = 9, modifier: Modifier = Modifier) {

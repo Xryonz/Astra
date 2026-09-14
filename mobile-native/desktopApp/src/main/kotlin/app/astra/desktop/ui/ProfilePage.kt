@@ -159,6 +159,7 @@ fun ProfilePage(
         }
     }
 
+    val esqueletoDaPagina = esperaLongaOBastante(data == null)
     Popup(
         popupPositionProvider = CenterFill,
         onDismissRequest = { requestClose() },
@@ -203,7 +204,7 @@ fun ProfilePage(
                 ) {
                     val d = data
                     if (d == null) {
-                        Column(Modifier.fillMaxWidth()) { PageSkeleton() }
+                        Column(Modifier.fillMaxWidth()) { if (esqueletoDaPagina) PageSkeleton() }
                     } else {
                         val nome = d.user.displayName ?: d.user.username
                         Column(

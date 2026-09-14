@@ -203,6 +203,7 @@ private fun ProfilePopupCard(
         atividade = runCatching { koin.get<UserApi>().activity(userId).data?.get(userId) }.getOrNull()
     }
 
+    val esqueletoDoPerfil = esperaLongaOBastante(visao == null)
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = entered,
@@ -216,7 +217,7 @@ private fun ProfilePopupCard(
                     .clip(RoundedCornerShape(12.dp))
                     .profileCardBackdrop(null)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
-            ) { CardSkeleton() }
+            ) { if (esqueletoDoPerfil) CardSkeleton() }
         } else {
             val p = v.user
             ProfileCard(

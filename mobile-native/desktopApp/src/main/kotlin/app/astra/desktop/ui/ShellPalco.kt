@@ -168,9 +168,10 @@ internal fun Stage(
                 )
                 }
             } else {
+                val esqueletoDoPalco = esperaLongaOBastante(loading)
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
-                        loading -> ChatSkeleton()
+                        loading -> { if (esqueletoDoPalco) ChatSkeleton() }
                         error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
                             Spacer(Modifier.height(10.dp))

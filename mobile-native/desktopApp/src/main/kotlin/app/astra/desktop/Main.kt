@@ -10,10 +10,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -376,9 +373,7 @@ fun main(args: Array<String>) {
             if (noticia && !prazoDoPortaoVenceu && !portaoFechado) portaoConvocado = true
         }
         val escopoDaTela = rememberCoroutineScope()
-        val escopoDaJanela = remember(escopoDaTela) {
-            CoroutineScope(escopoDaTela.coroutineContext + SupervisorJob(escopoDaTela.coroutineContext.job))
-        }
+        val escopoDaJanela = remember(escopoDaTela) { EscopoSupervisionado.sob(escopoDaTela) }
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }

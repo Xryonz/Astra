@@ -1,5 +1,6 @@
 package app.astra.desktop.shell
 
+import app.astra.desktop.EscopoSupervisionado
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
@@ -121,7 +122,7 @@ private val ALLOWED_MIMES = setOf(
 )
 
 class ChatVm(
-    private val scope: CoroutineScope,
+    private val scope: EscopoSupervisionado,
     private val target: ChatTarget,
     private val channelApi: ChannelApi,
     private val dmApi: DmApi,

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.CacheDeSucesso
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -39,16 +40,13 @@ import app.astra.mobile.core.network.dto.BotCommandDto
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
-private var cache: List<BotCommandDto>? = null
+private val cache = CacheDeSucesso<Unit, List<BotCommandDto>>(teto = 1)
 
 @Composable
 fun rememberBotCommands(): List<BotCommandDto> {
-    var cmds by remember { mutableStateOf(cache.orEmpty()) }
+    var cmds by remember { mutableStateOf(cache.guardado(Unit).orEmpty()) }
     LaunchedEffect(Unit) {
-        if (cache == null) {
-            cache = runCatching { GlobalContext.get().get<BotApi>().commands().data.orEmpty() }.getOrNull()
-            cmds = cache.orEmpty()
-        }
+        cmds = cache.obter(Unit) { GlobalContext.get().get<BotApi>().commands().data.orEmpty() }.orEmpty()
     }
     return cmds
 }

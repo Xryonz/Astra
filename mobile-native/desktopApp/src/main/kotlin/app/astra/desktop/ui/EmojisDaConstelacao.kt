@@ -18,6 +18,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.em
+import app.astra.desktop.CacheDeSucesso
 import app.astra.mobile.core.network.EmojiApi
 import app.astra.mobile.core.network.dto.EmojiDto
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,21 +28,17 @@ import org.koin.core.context.GlobalContext
 internal val REGEX_EMOJI_PERSONALIZADO = Regex(":([A-Za-z0-9_]{2,32}):")
 
 internal object EmojisDaConstelacao {
-    private val trava = Any()
-    private val cache = HashMap<String, List<EmojiDto>>()
+    private val cache = CacheDeSucesso<String, List<EmojiDto>>()
     private val _versao = MutableStateFlow(0)
     val versao: StateFlow<Int> = _versao
 
     suspend fun carregar(serverId: String): List<EmojiDto> {
-        synchronized(trava) { cache[serverId] }?.let { return it }
         val api = GlobalContext.get().get<EmojiApi>()
-        val lista = runCatching { api.listar(serverId).data.orEmpty() }.getOrNull() ?: return emptyList()
-        synchronized(trava) { cache[serverId] = lista }
-        return lista
+        return cache.obter(serverId) { api.listar(serverId).data.orEmpty() } ?: emptyList()
     }
 
     fun invalidar(serverId: String) {
-        synchronized(trava) { cache.remove(serverId) }
+        cache.esquecer(serverId)
         _versao.value += 1
     }
 }

@@ -4,27 +4,21 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.astra.desktop.EscopoSupervisionado
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.AvisosDoPet
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
 
 @Stable
-class VoiceSession(escopoDaTela: CoroutineScope, private val koin: Koin) : FonteDeAparelhos {
-
-    private val scope = CoroutineScope(
-        escopoDaTela.coroutineContext + SupervisorJob(escopoDaTela.coroutineContext.job),
-    )
+class VoiceSession(private val scope: EscopoSupervisionado, private val koin: Koin) : FonteDeAparelhos {
 
     var joined by mutableStateOf<ChannelDto?>(null)
         private set

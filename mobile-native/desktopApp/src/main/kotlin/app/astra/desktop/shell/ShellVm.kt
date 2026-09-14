@@ -1,5 +1,6 @@
 package app.astra.desktop.shell
 
+import app.astra.desktop.EscopoSupervisionado
 import app.astra.desktop.JanelaVisivel
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
@@ -72,7 +73,7 @@ import kotlinx.serialization.json.Json
 private const val TETO_HISTORICO = 12
 
 class ShellVm(
-    private val scope: CoroutineScope,
+    private val scope: EscopoSupervisionado,
     private val serverApi: ServerApi,
     private val channelApi: ChannelApi,
     private val userApi: UserApi,

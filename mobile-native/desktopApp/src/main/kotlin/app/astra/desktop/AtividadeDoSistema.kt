@@ -51,7 +51,7 @@ object AtividadeDoSistema {
     private var ultimaResposta: String? = null
     private val nomePorCaminho = HashMap<String, String?>()
 
-    fun emPrimeiroPlano(): String? = runCatching { deQuemEAJanelaDaFrente() }.getOrNull()
+    fun emPrimeiroPlano(): String? = Nativo.tentar("atividade em primeiro plano") { deQuemEAJanelaDaFrente() }
 
     private fun deQuemEAJanelaDaFrente(): String? {
         val u = U32.I ?: return null

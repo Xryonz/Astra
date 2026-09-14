@@ -65,19 +65,11 @@ object Afinador {
     private var apertadas = 0
     private var folgadas = 0
 
-    @Volatile private var energiaIlegivel = false
-
-    fun naBateria(): Boolean {
-        if (energiaIlegivel) return false
-        val k = Kernel32.I ?: return false
-        return runCatching {
-            val estado = SYSTEM_POWER_STATUS()
-            k.GetSystemPowerStatus(estado) && estado.ACLineStatus.toInt() == 0
-        }.getOrElse {
-            energiaIlegivel = true
-            false
-        }
-    }
+    fun naBateria(): Boolean = Nativo.tentar("bateria") {
+        val k = Kernel32.I ?: return@tentar false
+        val estado = SYSTEM_POWER_STATUS()
+        k.GetSystemPowerStatus(estado) && estado.ACLineStatus.toInt() == 0
+    } ?: false
 
     private fun pisoDoContexto(): Int = when {
         Transmitindo.ativo.value -> DEGRAU_SEM_ESTRELAS

@@ -24,7 +24,7 @@ object WindowsAppId {
 
     fun aplicar() {
         if (!noWindows()) return
-        runCatching {
+        Nativo.tentar("identidade na barra de tarefas") {
             Native.load("shell32", Shell32::class.java)
                 .SetCurrentProcessExplicitAppUserModelID(WString(AUMID))
         }

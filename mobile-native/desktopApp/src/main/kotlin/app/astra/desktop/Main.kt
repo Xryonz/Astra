@@ -157,13 +157,13 @@ internal object FocoDoSistema {
 
     private val meuPid = runCatching { ProcessHandle.current().pid().toInt() }.getOrDefault(-1)
 
-    fun appNaFrente(): Boolean = runCatching {
-        val u = U32.I ?: return@runCatching true
-        val janela = u.GetForegroundWindow() ?: return@runCatching false
+    fun appNaFrente(): Boolean = Nativo.tentar("foco da janela") {
+        val u = U32.I ?: return@tentar true
+        val janela = u.GetForegroundWindow() ?: return@tentar false
         val dono = IntByReference()
         u.GetWindowThreadProcessId(janela, dono)
         dono.value == meuPid
-    }.getOrDefault(true)
+    } ?: true
 }
 
 @Composable
@@ -194,7 +194,8 @@ private fun writeDiagnostics() = runCatching {
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
         appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
         if (Arranque.modoSeguro) {
-            appendLine("MODO SEGURO  : ligado — janela opaca e desenho por CPU")
+            appendLine("MODO SEGURO  : ligado — janela opaca, desenho por CPU e conversa com o Windows desligada")
+            appendLine("   ^ sem bateria, sem placas, sem atividade, sem foco e sem identidade na barra")
             appendLine("   ^ ligado porque uma abertura criou a janela e nao desenhou.")
             appendLine("     Segue ligado ate ser desligado em Configuracoes > Diagnostico.")
             appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
@@ -206,6 +207,7 @@ private fun writeDiagnostics() = runCatching {
             val papel = if (it.desenhaATela) "desenha a tela" else "so renderiza"
             appendLine("placa        : ${it.nome} — $papel, ${if (it.dedicada) "dedicada" else "integrada"}")
         }
+        Nativo.recusados().forEach { appendLine("nativo recusado: $it") }
         appendLine("GC           : ${gcName()}")
         appendLine("heap maximo  : ${rt.maxMemory() / 1024 / 1024} MB")
         appendLine("nucleos      : ${rt.availableProcessors()}")
@@ -267,6 +269,8 @@ const val ARG_MINIMIZADO = "--minimizado"
 
 private const val PRAZO_DO_PORTAO_MS = 8_000L
 
+private const val PRAZO_DA_IDENTIDADE_MS = 2_000L
+
 private const val UMA_HORA_MS = 60 * 60 * 1000L
 
 private const val HORA_DA_MANHA = 8
@@ -322,7 +326,7 @@ fun main(args: Array<String>) {
         GlobalContext.get().get<DesktopSocket>().registrarDespedida()
         Arranque.marcar("despedida registrada")
     }
-    identidade.join()
+    identidade.join(PRAZO_DA_IDENTIDADE_MS)
     Arranque.marcar("entrando na composicao")
     application {
         marcoDoArranque("composicao iniciada")

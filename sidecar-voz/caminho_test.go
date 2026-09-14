@@ -199,10 +199,21 @@ func TestOsRelatoriosTrazemIdaEVoltaDeVerdade(t *testing.T) {
 	quadro := make([]byte, 1200)
 	copy(quadro, []byte{0, 0, 0, 1, 0x41})
 
-	fim := time.Now().Add(4 * time.Second)
-	for time.Now().Before(fim) {
+	envioMinimo := time.Now().Add(4 * time.Second)
+	esperaMaxima := time.Now().Add(30 * time.Second)
+	for {
 		<-relogio.C
 		_ = faixa.WriteSample(media.Sample{Data: quadro, Duration: time.Second / 30})
+		agora := time.Now()
+		if agora.Before(envioMinimo) {
+			continue
+		}
+		mu.Lock()
+		jaMediu := medidos > 0
+		mu.Unlock()
+		if jaMediu || !agora.Before(esperaMaxima) {
+			break
+		}
 	}
 
 	mu.Lock()
@@ -210,7 +221,7 @@ func TestOsRelatoriosTrazemIdaEVoltaDeVerdade(t *testing.T) {
 	t.Logf("%d medições de ida e volta · maior %v", medidos, maior)
 
 	if medidos == 0 {
-		t.Fatal("nenhum ReceiverReport trouxe LSR/DLSR utilizáveis: não dá para medir latência")
+		t.Fatal("nenhum ReceiverReport trouxe LSR/DLSR utilizáveis em 30s: não dá para medir latência")
 	}
 	if maior > 500*time.Millisecond {
 		t.Errorf("ida e volta de %v em loopback: a conta de NTP está errada", maior)

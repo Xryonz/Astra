@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -210,7 +212,8 @@ private fun ProfilePopupCard(
         val v = visao
         if (v == null) {
             Column(
-                Modifier.width(320.dp).clip(RoundedCornerShape(12.dp))
+                Modifier.width(320.dp).heightIn(min = ALTURA_MIN_CARTAO)
+                    .clip(RoundedCornerShape(12.dp))
                     .profileCardBackdrop(null)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
             ) { CardSkeleton() }
@@ -269,17 +272,30 @@ private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun CardSkeleton() {
+private fun ColumnScope.CardSkeleton() {
     val shimmer = SkeletonAnimation.Shimmer
-    Column(Modifier.padding(16.dp)) {
+    Skeleton(Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect), shimmer, RectangleShape)
+    Column(Modifier.weight(1f).padding(16.dp)) {
         Skeleton(Modifier.size(52.dp), shimmer, CircleShape)
         Spacer(Modifier.height(10.dp))
         Skeleton(Modifier.width(150.dp).height(14.dp), shimmer, RoundedCornerShape(5.dp))
         Spacer(Modifier.height(6.dp))
         Skeleton(Modifier.width(100.dp).height(10.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
         Skeleton(Modifier.fillMaxWidth().height(10.dp), shimmer, RoundedCornerShape(5.dp))
         Spacer(Modifier.height(5.dp))
         Skeleton(Modifier.width(180.dp).height(10.dp), shimmer, RoundedCornerShape(5.dp))
+        Spacer(Modifier.height(14.dp))
+        Skeleton(Modifier.width(70.dp).height(9.dp), shimmer, RoundedCornerShape(5.dp))
+        Spacer(Modifier.height(7.dp))
+        Row {
+            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
+            Spacer(Modifier.width(6.dp))
+            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
+            Spacer(Modifier.width(6.dp))
+            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
+        }
+        Spacer(Modifier.weight(1f))
+        Skeleton(Modifier.fillMaxWidth().height(33.dp), shimmer, RoundedCornerShape(8.dp))
     }
 }

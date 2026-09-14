@@ -7,19 +7,14 @@
   ],
   "scripts": {
     "predev": "node scripts/predev.mjs",
-    "dev": "npm run build -w packages/types && concurrently \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",
-    "dev:fast": "concurrently \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",
-    "build": "npm run build -w packages/types && npm run build -w apps/api && npm run build -w apps/web",
+    "dev": "npm run build -w packages/types && npm run dev -w apps/api",
+    "dev:fast": "npm run dev -w apps/api",
+    "build": "npm run build -w packages/types && npm run build -w apps/api",
     "build:api": "npm run build -w packages/types && npm run build -w apps/api",
-    "build:web": "npm run build -w packages/types && npm run build -w apps/web",
     "start:api": "node apps/api/dist/index.js",
-    "db:migrate": "npm run db:migrate -w apps/api",
-    "test:e2e": "npm run test:e2e -w apps/web"
+    "db:migrate": "npm run db:migrate -w apps/api"
   },
   "engines": {
     "node": ">=20"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
   }
 }

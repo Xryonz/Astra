@@ -10,10 +10,11 @@ enquetes, busca, notificações, XP e missões.
 |---|---|---|---|
 | **Desktop** | `mobile-native/desktopApp` | Kotlin · Compose Multiplatform/JVM | **fase ativa** |
 | **Android** | branch `arquivo/android` | Kotlin · Jetpack Compose | arquivado |
-| **Web** | `apps/web` | React 19 · Vite | congelado, serve de referência de paridade |
+| **Web** | branch `arquivo/web` | React 19 · Vite | arquivado |
 
-O desktop é onde o trabalho acontece hoje. O web ficou congelado depois de servir
-de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
+O desktop é onde o trabalho acontece hoje. O web serviu de mapa: o que ele já
+resolvia virou o alvo de paridade dos clientes nativos. Saiu do ar e saiu da branch
+principal em 14/09/2026, e vive em `arquivo/web` com o histórico inteiro.
 
 O Android saiu da branch principal em 06/09/2026 e vive em `arquivo/android`, com
 o histórico inteiro. As releases continuam trazendo o último APK que chegou a ser
@@ -85,7 +86,7 @@ aplicativo e morre com ele.
 - Hilt (DI/KSP) · Room (cache offline-first) · DataStore · Baseline Profile
 - LiveKit Android · FCM (push)
 
-**Web** (`apps/web`, congelado)
+**Web** (branch `arquivo/web`, arquivado)
 - React 19 · Vite 8 · TypeScript · Tailwind v4 · shadcn/ui · motion/react
 - Zustand · React Query 5 · React Router 6
 
@@ -181,12 +182,11 @@ npm install
 
 # 2. Configurar envs (copia .example, preenche)
 cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
 
 # 3. Migrar DB
 npm run db:migrate
 
-# 4. Dev (front + api juntos)
+# 4. Dev (API)
 npm run dev
 ```
 
@@ -213,18 +213,6 @@ cd mobile-native
 
 ## Deploy
 
-### Web → Vercel
-
-1. New Project → Import repo
-2. Root Directory: deixe na raiz (`vercel.json` na raiz cuida)
-3. Environment Variables:
-   - `VITE_API_URL` = URL pública da API no Render (sem barra final)
-   - `VITE_SENTRY_DSN` (opcional)
-4. Deploy
-
-`vercel.json` já configura: `npm run build:web` → `apps/web/dist` + SPA rewrites +
-cache headers pra assets.
-
 ### API → Render (+ Neon + Upstash)
 
 Postgres e Redis são serviços externos, não add-ons do Render.
@@ -241,7 +229,9 @@ Postgres e Redis são serviços externos, não add-ons do Render.
    - `JWT_ACCESS_SECRET` + `JWT_REFRESH_SECRET`
      (gere com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
    - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
-   - `CLIENT_URL` = URL do web na Vercel (sem barra final)
+   - `CLIENT_URL` = URL pública do cliente web, sem barra final. Obrigatória: a API
+     usa em CORS, no CSP, no retorno do login Google e no destino dos convites.
+     O site foi arquivado, então hoje ela aponta para um endereço fora do ar
    - `API_URL` = URL pública desta API (sem barra final)
 
 Sem passo de migration: o schema é garantido no boot por `ensureSchema`
@@ -272,22 +262,23 @@ sozinho, confere o hash e troca os arquivos na próxima abertura.
 
 ### Pós-deploy
 
-1. `CLIENT_URL` na API = URL da Vercel
-2. `VITE_API_URL` na Vercel = URL do Render
-3. Google Console: adicionar `https://<vercel-url>/auth/callback` em
+1. Google Console: adicionar `https://<client-url>/auth/callback` em
    "Authorized redirect URIs"
+
+> **Convites apontam para o site arquivado.** `GET /invite/:code` monta o cartão de
+> prévia do link e depois manda a pessoa para `CLIENT_URL/invite/<code>`. Com o site
+> fora do ar, quem recebe um convite cai numa página morta. Pendente decidir o novo
+> destino.
 
 ---
 
 ## Scripts úteis
 
 ```bash
-npm run dev          # web + api juntos (com predev hook)
+npm run dev          # api (com predev hook)
 npm run dev:fast     # mesmo, sem predev (skip migrate + port check)
-npm run build        # build types + api + web
-npm run build:api    # só API
-npm run build:web    # só web
-npm run test:e2e     # playwright smoke + mobile
+npm run build        # build types + api
+npm run build:api    # mesmo que build
 npm run db:migrate   # migrations Drizzle
 
 # API workspace
@@ -342,8 +333,7 @@ Três regras carregam o resto:
    piscar.
 
 Tipografia: Cinzel (letreiro) + Cormorant (títulos) + DM Sans + DM Mono + Great Vibes.
-Paleta completa de tokens do web em `apps/web/src/index.css`; a do desktop em
-`mobile-native/desktopApp/…/ui/theme/`.
+Paleta completa de tokens do desktop em `mobile-native/desktopApp/…/ui/theme/`.
 
 ---
 
@@ -470,6 +460,5 @@ casa, não exigência da licença.
 - **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
   também no sussurro.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
-- **Refresh token no `localStorage`** do web — o único item de segurança que segue
-  aberto, e só lá: o `apps/web` está congelado. O desktop guarda a sessão fora do
-  alcance de script de página.
+- **Destino dos convites** — a prévia do link manda a pessoa para o site, que foi
+  arquivado. Falta escolher para onde ela deve ir agora.

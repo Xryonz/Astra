@@ -4,7 +4,7 @@
  *
  * Roda automaticamente antes de `npm run dev` (configurado em package.json).
  * Garante:
- *   1. Portas 3001 (api) e 5173 (web) livres — mata orphans
+ *   1. Porta 3001 (api) livre — mata orphans
  *   2. .env do api existe + tem vars obrigatórias
  *   3. DB schema atualizado (roda manualMigrate)
  *
@@ -34,7 +34,7 @@ const log = {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 1. Portas: mata processos em 3001 (api) e 5173 (web)
+// 1. Porta: mata processos em 3001 (api)
 // ──────────────────────────────────────────────────────────────
 function killOrphansOnPort(port) {
   try {
@@ -78,7 +78,6 @@ function killOrphansOnPort(port) {
 
 log.step('Checando portas')
 killOrphansOnPort(3001)
-killOrphansOnPort(5173)
 
 // ──────────────────────────────────────────────────────────────
 // 2. .env validação (apps/api/.env)

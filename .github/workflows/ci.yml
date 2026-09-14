@@ -14,11 +14,6 @@ jobs:
   ci:
     # O nome dizia "Lint" e nunca rodou lint nenhum. Nao e so cosmetico: um passo
     # que se acredita existir e nao existe e pior que um passo ausente.
-    #
-    # E nao da pra so ligar: o apps/web tem ESLint 9 no package.json e NENHUM
-    # arquivo de configuracao (nem .eslintrc, nem eslint.config.js) — a v9 so le
-    # o formato flat. O script `lint` nunca funcionou. Como o web esta congelado,
-    # escrever config pra ele agora seria trabalho pra um app que ninguem edita.
     name: Type-check · Test · Audit
     runs-on: ubuntu-latest
 
@@ -39,9 +34,6 @@ jobs:
 
       - name: Type-check API
         run: npm exec --workspace=@astra/api -- tsc --noEmit
-
-      - name: Type-check Web
-        run: npm exec --workspace=@astra/web -- tsc --noEmit
 
       - name: Test API
         run: npm test --workspace=@astra/api

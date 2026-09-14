@@ -25,9 +25,16 @@ object CrashLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
             runCatching { write(thread.name, e) }
+            runCatching { RelatoDeFalha.contar(e, rastroDe(e)) }
             runCatching { warn(e) }
             previous?.uncaughtException(thread, e)
         }
+    }
+
+    private fun rastroDe(e: Throwable): String {
+        val sw = StringWriter()
+        e.printStackTrace(PrintWriter(sw))
+        return sw.toString()
     }
 
     private fun write(thread: String, e: Throwable) {

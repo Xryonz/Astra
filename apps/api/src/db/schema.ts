@@ -542,4 +542,20 @@ export const botPersonas = pgTable('BotPersona', {
   updatedAt:       timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
 })
 
+export const crashReports = pgTable('CrashReport', {
+  id:         text('id').primaryKey().$defaultFn(createId),
+  instalacao: text('instalacao').notNull(),
+  versao:     text('versao').notNull(),
+  so:         text('so'),
+  placa:      text('placa'),
+  tipo:       text('tipo').notNull(),
+  mensagem:   text('mensagem'),
+  rastro:     text('rastro').notNull(),
+  arranque:   text('arranque'),
+  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  byCreated:     index('CrashReport_createdAt_idx').on(t.createdAt.desc()),
+  byVersaoTipo:  index('CrashReport_versao_tipo_idx').on(t.versao, t.tipo),
+}))
+
 export const _sqlMarker = sql`1`

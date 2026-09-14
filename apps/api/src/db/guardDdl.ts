@@ -395,4 +395,25 @@ CREATE TABLE IF NOT EXISTS "BotPersona" (
 -- todo mundo sem precisar de migração, que é o comportamento certo pra uma lista
 -- que cresce.
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botDisabledCommands" text;
+
+-- ===== Relatos de falha do desktop =====
+-- Chega sem autenticação de propósito: o caso que mais interessa é justamente o
+-- app que nem chegou a abrir, e nesse momento não há sessão nenhuma. Por isso o
+-- que identifica é "instalacao", um número aleatório gerado na máquina que só
+-- serve para contar quantas pessoas distintas foram atingidas — não há vínculo
+-- com conta. Só o dono do Astra lê esta tabela.
+CREATE TABLE IF NOT EXISTS "CrashReport" (
+  "id"         text PRIMARY KEY NOT NULL,
+  "instalacao" text NOT NULL,
+  "versao"     text NOT NULL,
+  "so"         text,
+  "placa"      text,
+  "tipo"       text NOT NULL,
+  "mensagem"   text,
+  "rastro"     text NOT NULL,
+  "arranque"   text,
+  "createdAt"  timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS "CrashReport_createdAt_idx" ON "CrashReport" USING btree ("createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "CrashReport_versao_tipo_idx" ON "CrashReport" USING btree ("versao", "tipo");
 `

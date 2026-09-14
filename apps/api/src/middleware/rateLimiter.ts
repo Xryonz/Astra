@@ -35,6 +35,15 @@ export const activityArtLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 })
 
+export const crashLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 6,
+  message: { error: 'Muitos relatos de falha. Aguarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+})
+
 export const messageLimiter = rateLimit({
   windowMs: 10 * 1000,
   max: 20,

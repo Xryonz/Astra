@@ -51,7 +51,9 @@ object AtividadeDoSistema {
     private var ultimaResposta: String? = null
     private val nomePorCaminho = HashMap<String, String?>()
 
-    fun emPrimeiroPlano(): String? {
+    fun emPrimeiroPlano(): String? = runCatching { deQuemEAJanelaDaFrente() }.getOrNull()
+
+    private fun deQuemEAJanelaDaFrente(): String? {
         val u = U32.I ?: return null
         val janela = u.GetForegroundWindow() ?: return null
         val ref = IntByReference()

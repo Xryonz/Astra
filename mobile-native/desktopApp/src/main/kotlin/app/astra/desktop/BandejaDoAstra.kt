@@ -97,7 +97,7 @@ fun BandejaComMenu(
             Toolkit.getDefaultToolkit().createImage(
                 Bandeja::class.java.getResource("/astra-icon.png"),
             )
-        }.getOrNull()
+        }.getOrNull() ?: return@DisposableEffect onDispose { }
         val icone = TrayIcon(imagem, dica).apply { isImageAutoSize = true }
         icone.addMouseListener(object : MouseAdapter() {
             override fun mouseReleased(e: MouseEvent) {

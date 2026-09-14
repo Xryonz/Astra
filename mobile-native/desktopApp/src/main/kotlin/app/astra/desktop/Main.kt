@@ -10,7 +10,10 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -29,7 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
@@ -154,13 +157,13 @@ internal object FocoDoSistema {
 
     private val meuPid = runCatching { ProcessHandle.current().pid().toInt() }.getOrDefault(-1)
 
-    fun appNaFrente(): Boolean {
-        val u = U32.I ?: return true
-        val janela = u.GetForegroundWindow() ?: return false
+    fun appNaFrente(): Boolean = runCatching {
+        val u = U32.I ?: return@runCatching true
+        val janela = u.GetForegroundWindow() ?: return@runCatching false
         val dono = IntByReference()
         u.GetWindowThreadProcessId(janela, dono)
-        return dono.value == meuPid
-    }
+        dono.value == meuPid
+    }.getOrDefault(true)
 }
 
 @Composable
@@ -271,6 +274,11 @@ private const val HORA_DA_MANHA = 8
 private val ESTADOS_NA_BANDEJA =
     listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE)
 
+private fun iconeDaJanela(): androidx.compose.ui.graphics.painter.Painter? = runCatching {
+    val fluxo = Instalacao::class.java.getResourceAsStream("/astra-icon.png") ?: return null
+    fluxo.use { androidx.compose.ui.graphics.painter.BitmapPainter(loadImageBitmap(it)) }
+}.getOrNull()
+
 private fun fecharCartaoDeAbertura() {
     runCatching { java.awt.SplashScreen.getSplashScreen()?.close() }
     Arranque.marcar("cartao de abertura fechado porque o Astra nasceu escondido")
@@ -329,7 +337,7 @@ fun main(args: Array<String>) {
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose
         val onCloseApp = { if (exitOnClose) exitApplication() else { windowVisible = false } }
-        val appIcon = painterResource("astra-icon.png")
+        val appIcon = remember { iconeDaJanela() }
         val bandeja = remember { Bandeja() }
 
         val activate by SingleInstance.activate.collectAsState()
@@ -363,7 +371,10 @@ fun main(args: Array<String>) {
             }
             if (noticia && !prazoDoPortaoVenceu && !portaoFechado) portaoConvocado = true
         }
-        val escopoDaJanela = rememberCoroutineScope()
+        val escopoDaTela = rememberCoroutineScope()
+        val escopoDaJanela = remember(escopoDaTela) {
+            CoroutineScope(escopoDaTela.coroutineContext + SupervisorJob(escopoDaTela.coroutineContext.job))
+        }
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }

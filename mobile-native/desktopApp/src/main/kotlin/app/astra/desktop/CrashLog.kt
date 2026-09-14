@@ -4,6 +4,7 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.LocalDateTime
+import kotlin.concurrent.thread
 
 object CrashLog {
     private const val FILE = "falhas.txt"
@@ -56,8 +57,9 @@ object CrashLog {
         } else {
             "${e::class.simpleName}: ${e.message.orEmpty().take(160)}"
         }
-        CaixaDeAviso.erro(
-            "O Astra fechou por um erro.\n\n$motivo\n\nO registro está em:\n${File(dataDir(), FILE).absolutePath}",
-        )
+        val texto = "O Astra encontrou um erro.\n\n$motivo\n\n" +
+            "Se a janela continuar aberta, o Astra segue funcionando — mas pode estar instável.\n\n" +
+            "O registro está em:\n${File(dataDir(), FILE).absolutePath}"
+        thread(isDaemon = true, name = "astra-aviso-de-falha") { CaixaDeAviso.erro(texto) }
     }
 }

@@ -1,34 +1,18 @@
 name: Desktop · publicar release
 
-# AUTO-UPDATE SEM PASSO MANUAL.
-#
-# O gatilho e a PROPRIA VERSAO: sobe pra main com o astraVersion bumpado e este
-# fluxo empacota, publica a release e sobe o asset com o nome exato que o
-# UpdateService espera. Nao ha tag pra criar, nem zip pra arrastar, nem nome pra
-# digitar — que era onde tudo quebrava: a ultima release publicada na mao tinha a
-# tag desktop-v0.1.8 com o asset chamado "0.1.9.zip", e o app procurava
-# Astra-0.1.8-win-x64.zip. Resultado: 404, zero downloads, e o dono mandando o zip
-# pros amigos por 28 versoes seguidas.
-#
-# Se a versao NAO mudou, o fluxo sai sozinho no comeco (nao republica nada).
-
 on:
   push:
     branches: [main]
     paths:
       - 'mobile-native/**'
       - '.github/workflows/desktop-release.yml'
-  # Botao manual, pra reempacotar sem precisar de um commit novo.
   workflow_dispatch:
 
 permissions:
-  contents: write   # criar release e subir asset
+  contents: write
 
 jobs:
   publicar:
-    # Windows obrigatorio por duas razoes: o jpackage so gera app-image do Windows
-    # RODANDO no Windows, e o sidecar-voz e codigo Win32 (DXGI, Media Foundation,
-    # WASAPI, COM) — nao existe para compilar em outro lugar.
     runs-on: windows-latest
 
     steps:
@@ -38,10 +22,6 @@ jobs:
         id: versao
         shell: pwsh
         run: |
-          # Fonte UNICA da versao. Ninguem digita numero de versao neste fluxo.
-          # Saiu do desktopApp/build.gradle.kts quando o APK do Android passou a
-          # ser publicado junto. O Android foi arquivado depois, mas a fonte fica
-          # aqui: e o unico lugar do repositorio que diz a versao em voz alta.
           $m = Select-String -Path mobile-native/gradle.properties -Pattern '^astraVersion=(.+)$'
           if (-not $m) { throw "nao achei astraVersion" }
           $v = $m.Matches[0].Groups[1].Value.Trim()
@@ -63,10 +43,6 @@ jobs:
           "existe=$existe" >> $env:GITHUB_OUTPUT
           if ($existe) { Write-Host "release $tag ja existe — nada a fazer" }
           else { Write-Host "release $tag ainda nao existe — vamos publicar" }
-          # "Nao existe" e uma RESPOSTA, nao um erro: o `gh release view` sai com
-          # codigo != 0 nesse caso, e o pwsh do Actions reprova o passo inteiro pelo
-          # ultimo exit code. Sem este exit 0 explicito, o fluxo morria justamente
-          # quando havia algo pra publicar (e passava quando nao havia).
           exit 0
 
       - name: Setup JDK 21
@@ -76,20 +52,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # VERSAO FIXA, DE PROPOSITO — nao trocar por "stable".
-      #
-      # O astra-voz.exe tem 27,76 MB crus / 9,58 MB comprimidos, e a atualizacao
-      # incremental so reaproveita arquivo cujo CRC bate com o que ja esta
-      # instalado. Binario de Go diferente = 9,58 MB baixados a toa, que eram 64%
-      # de TODO o delta de uma atualizacao (15,0 MB medidos no 1.0.22 -> 1.0.23).
-      #
-      # O `go build` ja usa -trimpath e agora -buildvcs=false, entao o binario e
-      # reproduzivel DESDE QUE o compilador seja o mesmo. Sem este passo, o Go e o
-      # que vier na imagem do runner naquela semana — e quando a imagem trocar de
-      # versao, o sidecar volta a ser reconstruido diferente sem ninguem ter
-      # tocado nele.
-      #
-      # Manter igual ao `go` do sidecar-voz/go.mod.
       - name: Setup Go 1.26.5
         if: steps.checar.outputs.existe == 'False'
         uses: actions/setup-go@v5
@@ -97,16 +59,10 @@ jobs:
           go-version: '1.26.5'
           cache-dependency-path: sidecar-voz/go.sum
 
-      # Sem este passo o sidecar compila igual, mas SEM cancelador de eco proprio,
-      # e a voz volta a ficar presa nos 16 kHz do cancelador do Windows. Ele deixa
-      # o compilador C e a biblioteca prontos; o -Pastra.aec3=1 la embaixo e o que
-      # de fato liga a marca de build.
       - name: Preparar o cancelador de eco
         if: steps.checar.outputs.existe == 'False'
         uses: ./.github/actions/cancelador-de-eco
 
-      # O ffmpeg (ddagrab) e grande e fica FORA do git — cachear evita rebaixar
-      # ~100MB a cada release.
       - name: Cache do ffmpeg
         if: steps.checar.outputs.existe == 'False'
         uses: actions/cache@v4
@@ -119,34 +75,8 @@ jobs:
         shell: pwsh
         working-directory: mobile-native
         run: |
-          # Sem -Pastra.distDir aqui: aquele desvio existe so porque o repo do dono
-          # mora num caminho com acento, e o jpackage nao engole. No runner o
-          # caminho e limpo, entao o build padrao serve.
-          #
-          # -Pastra.canal=estavel esconde os diagnosticos de voz. O default e "dev":
-          # se um dia essa flag cair fora daqui, o build publicado mostra diagnostico
-          # a mais, que e o erro barato. O caro seria o inverso.
-          #
-          # As ASPAS sao obrigatorias e nao sao estilo. Sem elas o pwsh parte o
-          # argumento no ponto e o Gradle recebe ".canal=estavel" como se fosse
-          # nome de tarefa: "Task '.canal=estavel' not found". Todo -Pchave.com.ponto
-          # que passar por aqui precisa vir entre aspas.
-          #
-          # -Pastra.aec3=1 e o que liga o cancelador de eco. Ele e OBRIGATORIO na
-          # release e nao tem plano B: um build publicado sem AEC3 devolveria a voz
-          # aos 16 kHz sem avisar ninguem, e ainda faria todo mundo baixar 10 MB de
-          # sidecar de novo na volta. Falhar aqui e mais barato que publicar isso.
           ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel" "-Pastra.aec3=1"
 
-      # O Android foi arquivado na branch arquivo/android em 06/09/2026, entao nao
-      # ha mais o que compilar aqui. O APK continua indo nas releases porque o
-      # popup de download oferece Windows e Android, e um botao que cai numa
-      # release sem APK e pior que botao nenhum.
-      #
-      # O que vai e o ULTIMO APK que foi realmente compilado, com o NOME DA VERSAO
-      # DELE — nao renomeado para a versao nova. Renomear faria a pessoa baixar um
-      # binario velho achando que e o atual; o nome preserva a verdade sem tirar o
-      # download de quem ja usa o Android.
       - name: Buscar o APK congelado
         if: steps.checar.outputs.existe == 'False'
         id: apk
@@ -252,10 +182,7 @@ jobs:
             Get-ChildItem mobile-native -Recurse -Filter "Astra-*-win-x64.zip" | ForEach-Object { $_.FullName }
             throw "zip nao encontrado em $zip"
           }
-          # SHA-256 ao lado do zip. O app baixa este arquivo e confere ANTES de
-          # trocar a pasta da versao — antes ele so olhava o Content-Length, que
-          # pega download truncado mas nao pega arquivo trocado.
-          # Formato do `sha256sum` ("<hash>  <nome>") porque e o que o cliente le.
+
           $sha  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           $hashFile = "$zip.sha256"
           "$sha  $asset" | Out-File -FilePath $hashFile -Encoding ascii -NoNewline
@@ -263,9 +190,6 @@ jobs:
 
           $arquivos = @($zip, $hashFile)
 
-          # O APK congelado entra como veio da release anterior: mesmo arquivo,
-          # mesmo nome, mesmo hash. Nao ha o que recalcular — recalcular seria
-          # justamente a chance de trocar o nome sem querer.
           if ("${{ steps.apk.outputs.achou }}" -eq "True") {
             $apk = "apk-congelado/${{ steps.apk.outputs.nome }}"
             if (-not (Test-Path $apk)) { throw "apk congelado sumiu em $apk" }
@@ -279,9 +203,6 @@ jobs:
             --notes "Atualizacao automatica. O Astra baixa sozinho na proxima abertura."
           if ($LASTEXITCODE -ne 0) { throw "gh release create falhou" }
 
-      # Publicar nao basta: o que importa e o APP achar. Ele nao usa a API do
-      # GitHub — le o 302 de /releases/latest, tira a tag e monta a URL do zip por
-      # convencao. Entao a conferencia tem que passar por esse mesmo caminho.
       - name: Conferir pelo caminho que o app usa
         id: conferir
         if: steps.checar.outputs.existe == 'False'
@@ -291,19 +212,6 @@ jobs:
           $asset = "${{ steps.versao.outputs.asset }}"
           $repo  = $env:GITHUB_REPOSITORY
 
-          # HttpWebRequest e nao Invoke-WebRequest. As mesmas tres armadilhas que
-          # ja tinham derrubado o tools/publicar-release.ps1 estavam AQUI tambem —
-          # este passo nunca conferiu nada, so falhava:
-          #
-          #  1. `-MaximumRedirection 0` LANCA "maximum redirection count has been
-          #     exceeded" em vez de devolver o 302. Era o erro desta execucao.
-          #  2. `-UseBasicParsing` devolve .Headers.Location VAZIO, calado — pior
-          #     que falhar, porque a conferencia "passa" sem conferir.
-          #  3. O CDN do GitHub responde 404 a HEAD de asset valido, de vez em
-          #     quando. Por isso o teste e um GET de UM BYTE (espera 206).
-          #
-          # E o ponteiro /releases/latest demora segundos pra apontar pra tag nova:
-          # por isso tenta 5x em vez de um Start-Sleep chutado.
           $tagVista = ''
           foreach ($tentativa in 1..15) {
             $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
@@ -323,8 +231,6 @@ jobs:
             $codigo -eq 206 -or $codigo -eq 200
           } catch { $false }
 
-          # O hash tem que estar la tambem: sem ele o app aceita o zip sem
-          # conferir, e o motivo de nao conferir seria invisivel.
           $okHash = try {
             $h = [System.Net.HttpWebRequest]::Create("$zipUrl.sha256"); $h.UserAgent = 'Astra-Release-CI'
             $hr = $h.GetResponse(); $c2 = [int]$hr.StatusCode; $hr.Close()

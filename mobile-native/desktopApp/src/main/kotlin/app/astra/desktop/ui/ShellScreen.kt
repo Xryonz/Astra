@@ -85,8 +85,11 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ServerDto
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -114,7 +117,10 @@ fun ShellScreen(
     onNotifUnread: (Int) -> Unit = {},
 ) {
     val koin = GlobalContext.get()
-    val scope = rememberCoroutineScope()
+    val escopoDaTela = rememberCoroutineScope()
+    val scope = remember(escopoDaTela) {
+        CoroutineScope(escopoDaTela.coroutineContext + SupervisorJob(escopoDaTela.coroutineContext.job))
+    }
     val socket = remember { koin.get<DesktopSocket>() }
     val prefs = remember { koin.get<DesktopPrefs>() }
     val prefState by prefs.state.collectAsState()

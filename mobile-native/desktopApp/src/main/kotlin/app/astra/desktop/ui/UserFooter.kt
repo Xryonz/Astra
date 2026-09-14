@@ -81,6 +81,7 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.User
 import app.astra.desktop.xp.XpStore
 import app.astra.mobile.core.network.UserApi
@@ -268,15 +269,27 @@ fun UserFooter(
                     },
                     label = "statusOuNivel",
                 ) { emHover ->
-                    Text(
-                        if (emHover) "nível ${progresso.nivel} · ${progresso.noNivel}/${progresso.paraOProximo} de brilho"
-                        else statusLabel(status),
-                        style = TextStyle(
-                            color = if (emHover) Obsidian.text2 else Obsidian.text3,
-                            fontSize = 11.sp,
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
+                    val cor = if (emHover) Obsidian.text2 else Obsidian.text3
+                    val estilo = TextStyle(color = cor, fontSize = 11.sp)
+                    if (emHover) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("nível ${progresso.nivel}", style = estilo, maxLines = 1)
+                            Spacer(Modifier.width(7.dp))
+                            LIcon(Lucide.Sparkles, tint = cor, size = 11.dp, rotulo = "de brilho")
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                "${progresso.noNivel}/${progresso.paraOProximo}",
+                                style = estilo,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    } else {
+                        Text(
+                            statusLabel(status),
+                            style = estilo,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             if (statusOpen) {

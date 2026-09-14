@@ -25,7 +25,7 @@ private const val ALVO_PADRAO_MS = 16.7
 
 object Afinador {
 
-    private class SYSTEM_POWER_STATUS : Structure() {
+    internal class SYSTEM_POWER_STATUS : Structure() {
         @JvmField var ACLineStatus: Byte = 0
         @JvmField var BatteryFlag: Byte = 0
         @JvmField var BatteryLifePercent: Byte = 0
@@ -65,11 +65,18 @@ object Afinador {
     private var apertadas = 0
     private var folgadas = 0
 
+    @Volatile private var energiaIlegivel = false
+
     fun naBateria(): Boolean {
+        if (energiaIlegivel) return false
         val k = Kernel32.I ?: return false
-        val estado = SYSTEM_POWER_STATUS()
-        if (!runCatching { k.GetSystemPowerStatus(estado) }.getOrDefault(false)) return false
-        return estado.ACLineStatus.toInt() == 0
+        return runCatching {
+            val estado = SYSTEM_POWER_STATUS()
+            k.GetSystemPowerStatus(estado) && estado.ACLineStatus.toInt() == 0
+        }.getOrElse {
+            energiaIlegivel = true
+            false
+        }
     }
 
     private fun pisoDoContexto(): Int = when {

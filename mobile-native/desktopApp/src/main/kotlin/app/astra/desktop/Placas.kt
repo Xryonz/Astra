@@ -44,7 +44,9 @@ object Placas {
 
     fun porId(id: String?): Placa? = id?.let { alvo -> todas.firstOrNull { it.id == alvo } }
 
-    private fun descobrir(): List<Placa> {
+    private fun descobrir(): List<Placa> = runCatching { enumerar() }.getOrDefault(emptyList())
+
+    private fun enumerar(): List<Placa> {
         val u = U32.I ?: return emptyList()
         val achadas = LinkedHashMap<String, Placa>()
         for (i in 0 until 16) {

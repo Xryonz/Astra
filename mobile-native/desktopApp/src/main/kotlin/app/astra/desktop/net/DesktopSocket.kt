@@ -238,12 +238,14 @@ class DesktopSocket(
         heartbeatTimer = java.util.Timer("astra-socket", true).apply {
             scheduleAtFixedRate(object : java.util.TimerTask() {
                 override fun run() {
-                    tique++
-                    val s = socket
-                    if (s?.connected() == true) {
-                        if (tique % 5 == 0) runCatching { s.emit("heartbeat") }
-                    } else {
-                        tentar(agora = false)
+                    runCatching {
+                        tique++
+                        val s = socket
+                        if (s?.connected() == true) {
+                            if (tique % 5 == 0) s.emit("heartbeat")
+                        } else {
+                            tentar(agora = false)
+                        }
                     }
                 }
             }, 5_000L, 5_000L)

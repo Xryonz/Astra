@@ -12,13 +12,20 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
 
 @Stable
-class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : FonteDeAparelhos {
+class VoiceSession(escopoDaTela: CoroutineScope, private val koin: Koin) : FonteDeAparelhos {
+
+    private val scope = CoroutineScope(
+        escopoDaTela.coroutineContext + SupervisorJob(escopoDaTela.coroutineContext.job),
+    )
+
     var joined by mutableStateOf<ChannelDto?>(null)
         private set
 

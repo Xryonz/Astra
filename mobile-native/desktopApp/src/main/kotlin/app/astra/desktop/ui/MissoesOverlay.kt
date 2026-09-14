@@ -44,8 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.CornerRadius
 import app.astra.desktop.xp.XpStore
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ProgressoDto
@@ -61,7 +59,6 @@ import app.astra.mobile.core.network.dto.ItemMissaoDto
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Medal
-import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.Star
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
@@ -222,28 +219,16 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("nível ${p.nivel}", style = Tipo.apoio, maxLines = 1)
                 Spacer(Modifier.width(12.dp))
-                Moeda(Lucide.Sparkles, "${p.xp}", Obsidian.text2, "de brilho")
+                Moeda(null, "${p.xp}", Obsidian.text2, "de brilho")
                 Spacer(Modifier.width(12.dp))
                 Moeda(Lucide.Star, "${p.estrelas}", Obsidian.text2, "estrelas")
             }
             Spacer(Modifier.height(8.dp))
-            val fracao = fracaoDe(p)
-            Canvas(Modifier.fillMaxWidth().height(5.dp)) {
-                val r = CornerRadius(size.height / 2f)
-                drawRoundRect(color = Obsidian.void, size = size, cornerRadius = r)
-                val w = (size.width * fracao).coerceIn(0f, size.width)
-                if (w > 0f) {
-                    drawRoundRect(
-                        color = Obsidian.accent,
-                        size = androidx.compose.ui.geometry.Size(w, size.height),
-                        cornerRadius = r,
-                    )
-                }
-            }
+            BarraDeXpEmPixels(fracaoDe(p), Obsidian.accent, Modifier.fillMaxWidth().height(11.dp))
             Spacer(Modifier.height(5.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Moeda(
-                    Lucide.Sparkles,
+                    null,
                     "${p.noNivel} / ${p.paraOProximo}",
                     Obsidian.text3,
                     "de brilho",
@@ -376,7 +361,7 @@ private fun LinhaDeMissao(
         } else {
             val cor = if (m.concluida) Obsidian.text3 else Obsidian.accent
             Row(Modifier.width(LARGURA_DA_RECOMPENSA), verticalAlignment = Alignment.CenterVertically) {
-                LIcon(Lucide.Sparkles, tint = cor, size = 11.dp, rotulo = "de brilho")
+                BrilhoEmPixels(cor, 11.dp, "de brilho")
                 Spacer(Modifier.width(3.dp))
                 Text(
                     "+${m.xp}",
@@ -394,14 +379,15 @@ private fun LinhaDeMissao(
 
 @Composable
 private fun Moeda(
-    icone: androidx.compose.ui.graphics.vector.ImageVector,
+    icone: androidx.compose.ui.graphics.vector.ImageVector?,
     valor: String,
     cor: Color,
     rotulo: String,
     tamanho: androidx.compose.ui.unit.TextUnit = 11.sp,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        LIcon(icone, tint = cor, size = 12.dp, rotulo = rotulo)
+        if (icone == null) BrilhoEmPixels(cor, 12.dp, rotulo)
+        else LIcon(icone, tint = cor, size = 12.dp, rotulo = rotulo)
         Spacer(Modifier.width(4.dp))
         Text(valor, style = TextStyle(color = cor, fontSize = tamanho, fontFamily = DmMono))
     }

@@ -42,7 +42,6 @@ import app.astra.desktop.xp.MissoesStore
 import app.astra.mobile.core.network.dto.MissaoConcluidaDto
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Sparkles
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
@@ -110,7 +109,7 @@ private fun CartaoDeMissao(m: MissaoConcluidaDto) {
             )
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LIcon(Lucide.Sparkles, tint = Obsidian.accent, size = 11.dp, rotulo = "de brilho")
+                BrilhoEmPixels(Obsidian.accent, 11.dp, "de brilho")
                 Spacer(Modifier.width(3.dp))
                 Text(
                     "+${m.xp} esperando resgate",

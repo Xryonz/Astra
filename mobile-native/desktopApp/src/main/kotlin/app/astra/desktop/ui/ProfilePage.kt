@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -455,12 +454,7 @@ private fun cargoLegivel(role: String): String? = when (role.uppercase()) {
 @Composable
 private fun BarraDeNivel(p: ProgressoDto) {
     val fracao = if (p.paraOProximo > 0) (p.noNivel.toFloat() / p.paraOProximo).coerceIn(0f, 1f) else 0f
-    Box(
-        Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).drawBehind {
-            drawRect(Obsidian.overlay)
-            drawRect(Obsidian.accent, size = Size(size.width * fracao, size.height))
-        },
-    )
+    BarraDeXpEmPixels(fracao, Obsidian.accent, Modifier.fillMaxWidth().height(11.dp))
 }
 
 @Composable

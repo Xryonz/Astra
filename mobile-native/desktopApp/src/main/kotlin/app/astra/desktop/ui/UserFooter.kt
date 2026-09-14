@@ -81,7 +81,6 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.User
 import app.astra.desktop.xp.XpStore
 import app.astra.mobile.core.network.UserApi
@@ -275,7 +274,7 @@ fun UserFooter(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("nível ${progresso.nivel}", style = estilo, maxLines = 1)
                             Spacer(Modifier.width(7.dp))
-                            LIcon(Lucide.Sparkles, tint = cor, size = 11.dp, rotulo = "de brilho")
+                            BrilhoEmPixels(cor, 11.dp, "de brilho")
                             Spacer(Modifier.width(3.dp))
                             Text(
                                 "${progresso.noNivel}/${progresso.paraOProximo}",

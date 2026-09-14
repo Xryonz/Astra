@@ -131,24 +131,31 @@ internal fun Rail(
         if (i != null) {
             arrasto.id = lista[i].id
             arrasto.indice = i
-            arrasto.comecouEm = i
+            arrasto.mexeu = false
             arrasto.pontoY = y
         }
     }
     val acompanharOPonteiro = {
         val lista = itensAgora
-        val alvo = alvoEm(estadoDaLista.layoutInfo, arrasto.pontoY, lista.size)
-        if (alvo >= 0 && alvo != arrasto.indice) {
-            val ids = lista.map { it.id }.toMutableList()
-            ids.add(alvo, ids.removeAt(arrasto.indice))
-            ordem = ids
-            arrasto.indice = alvo
+        val ondeEstaAgora = lista.indexOfFirst { it.id == arrasto.id }
+        if (ondeEstaAgora < 0) {
+            arrasto.soltar()
+        } else {
+            arrasto.indice = ondeEstaAgora
+            val alvo = alvoEm(estadoDaLista.layoutInfo, arrasto.pontoY, lista.size)
+            if (alvo >= 0 && alvo != ondeEstaAgora) {
+                val ids = lista.map { it.id }.toMutableList()
+                ids.add(alvo, ids.removeAt(ondeEstaAgora))
+                ordem = ids
+                arrasto.indice = alvo
+                arrasto.mexeu = true
+            }
         }
     }
     val soltarOArrasto = {
-        val mudou = arrasto.indice != arrasto.comecouEm
+        val mexeu = arrasto.mexeu
         arrasto.soltar()
-        if (mudou) prefs.guardarOrdemDasConstelacoes(ordem)
+        if (mexeu) prefs.guardarOrdemDasConstelacoes(ordem)
     }
     LaunchedEffect(arrasto.arrastando) {
         if (!arrasto.arrastando) return@LaunchedEffect
@@ -432,13 +439,13 @@ private fun naOrdemEscolhida(servers: List<ServerDto>, ordem: List<String>): Lis
 private class ArrastoDaRail {
     var id by mutableStateOf<String?>(null)
     var indice by mutableStateOf(-1)
-    var comecouEm by mutableStateOf(-1)
+    var mexeu by mutableStateOf(false)
     var pontoY by mutableStateOf(0f)
     val arrastando: Boolean get() = id != null
     fun soltar() {
         id = null
         indice = -1
-        comecouEm = -1
+        mexeu = false
         pontoY = 0f
     }
 }

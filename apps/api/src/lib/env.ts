@@ -41,6 +41,7 @@ const EnvSchema = z.object({
   LOG_LEVEL:            z.enum(['debug', 'info', 'warn', 'error']).optional(),
 
   RELEASE:              z.string().optional(),
+  RENDER_GIT_COMMIT:    z.string().optional(),
 
   LIVEKIT_URL:          z.string().url().optional(),
   LIVEKIT_API_KEY:      z.string().optional(),
@@ -67,3 +68,6 @@ if (!result.success) {
 }
 
 export const env = result.data
+
+export const release: string | null =
+  env.RELEASE ?? env.RENDER_GIT_COMMIT?.slice(0, 7) ?? null

@@ -1,6 +1,6 @@
 
 import * as Sentry from '@sentry/node'
-import { env } from './env'
+import { env, release } from './env'
 import { logger } from './logger'
 
 let initialized = false
@@ -14,7 +14,7 @@ export function initSentry(): void {
   Sentry.init({
     dsn:              env.SENTRY_DSN,
     environment:      env.SENTRY_ENVIRONMENT ?? env.NODE_ENV,
-    release:          env.RELEASE,
+    release:          release ?? undefined,
     tracesSampleRate: env.SENTRY_TRACES_SAMPLE,
 
     sendDefaultPii:   false,

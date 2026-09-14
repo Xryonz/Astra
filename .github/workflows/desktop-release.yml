@@ -283,6 +283,7 @@ jobs:
       # GitHub — le o 302 de /releases/latest, tira a tag e monta a URL do zip por
       # convencao. Entao a conferencia tem que passar por esse mesmo caminho.
       - name: Conferir pelo caminho que o app usa
+        id: conferir
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
         run: |
@@ -304,7 +305,7 @@ jobs:
           # E o ponteiro /releases/latest demora segundos pra apontar pra tag nova:
           # por isso tenta 5x em vez de um Start-Sleep chutado.
           $tagVista = ''
-          foreach ($tentativa in 1..5) {
+          foreach ($tentativa in 1..15) {
             $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
             $req.AllowAutoRedirect = $false
             $req.UserAgent = 'Astra-Release-CI'
@@ -312,7 +313,7 @@ jobs:
             $loc = $resp.Headers['Location']; $resp.Close()
             $tagVista = ("$loc" -split '/releases/tag/')[-1]
             if ($tagVista -eq $tag) { break }
-            if ($tentativa -lt 5) { Start-Sleep -Seconds 4 }
+            if ($tentativa -lt 15) { Start-Sleep -Seconds 10 }
           }
 
           $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
@@ -330,14 +331,23 @@ jobs:
             $c2 -eq 200
           } catch { $false }
 
+          $arquivosOk = $ok -and $okHash
+          "arquivosOk=$arquivosOk" >> $env:GITHUB_OUTPUT
+
           Write-Host "latest aponta pra: $tagVista (esperado $tag)"
           Write-Host "zip acessivel    : $ok"
           Write-Host "sha256 acessivel : $okHash"
-          if ($tagVista -ne $tag -or -not $ok -or -not $okHash) { throw "PUBLICOU MAS O APP NAO VAI ACHAR" }
+
+          if (-not $arquivosOk) { throw "PUBLICOU MAS O ARQUIVO NAO BAIXA" }
+          if ($tagVista -ne $tag) {
+            Write-Host "::error::o ponteiro /releases/latest ainda aponta pra $tagVista"
+            Write-Host "os arquivos estao no lugar, entao a release FICA — o ponteiro costuma se acertar sozinho"
+            throw "PONTEIRO ATRASADO — confira em alguns minutos antes de mexer"
+          }
           Write-Host "OK — os amigos recebem na proxima abertura do Astra."
 
       - name: Desfazer publicacao que falhou
-        if: failure() && steps.checar.outputs.existe == 'False'
+        if: failure() && steps.checar.outputs.existe == 'False' && steps.conferir.outputs.arquivosOk != 'True'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

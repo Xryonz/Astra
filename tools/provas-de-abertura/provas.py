@@ -135,7 +135,7 @@ PROVAS = [
     Prova("padrao", "a maquina do dia a dia, sem nada fora do lugar"),
     Prova(
         "computador-fraco",
-        "dois nucleos e pouca memoria — o Astra liga a economia sozinho",
+        "dois nucleos e pouca memoria — o mesmo Astra de todo mundo, sem tratamento especial",
         opcoes_java="-XX:ActiveProcessorCount=2 -Xmx512m",
     ),
     Prova(

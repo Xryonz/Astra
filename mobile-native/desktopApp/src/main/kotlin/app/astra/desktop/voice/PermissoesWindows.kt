@@ -50,6 +50,7 @@ data class Checagem(
     val explica: String,
     val ajustes: String? = null,
     val podeDesfazer: Boolean = false,
+    val podeResolver: Boolean = false,
 )
 
 object PermissoesWindows {
@@ -239,12 +240,14 @@ object PermissoesWindows {
                     "no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não " +
                     "conecta assim. Liberar remove o bloqueio.",
                 "windowsdefender://network/",
+                podeResolver = true,
             )
             semRegra.isNotEmpty() -> Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
                 "O Windows ainda vai perguntar por ${semRegra.joinToString(" e ", transform = ::apelido)} " +
                     "na primeira call. Liberar agora resolve antes — e vale também para as versões que vierem.",
                 "windowsdefender://network/",
+                podeResolver = true,
             )
             !fixoCoberto -> Checagem(
                 Permissao.REDE, Acesso.OK,
@@ -253,6 +256,7 @@ object PermissoesWindows {
                     "endereço fixo e encerra isso.",
                 "windowsdefender://network/",
                 podeDesfazer = true,
+                podeResolver = true,
             )
             else -> Checagem(
                 Permissao.REDE, Acesso.OK,

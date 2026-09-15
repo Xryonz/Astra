@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,8 +73,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import app.astra.mobile.core.network.SoundApi
 import app.astra.mobile.core.network.dto.ServerSoundDto
 import app.astra.mobile.core.network.dto.TocarSomRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.Settings
@@ -90,8 +93,11 @@ import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.voice.AparelhoDeAudio
 import app.astra.desktop.voice.CallNaSala
+import app.astra.desktop.voice.Permissao
+import app.astra.desktop.voice.PermissoesWindows
 import app.astra.desktop.voice.QuadroDeTela
 import app.astra.desktop.voice.VoiceStatus
 import kotlinx.coroutines.flow.StateFlow
@@ -160,6 +166,8 @@ fun VoiceView(
             }
         }
         Spacer(Modifier.height(14.dp))
+
+        FaixaDoFirewall()
 
         val connected = status as? VoiceStatus.Connected
 
@@ -626,6 +634,87 @@ private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPic
             }
         }
     }
+}
+
+private const val FIREWALL_DISPENSADO = "firewall:dispensado"
+
+@Composable
+private fun FaixaDoFirewall() {
+    val store = remember { GlobalContext.get().get<SessionStore>() }
+    var recado by remember { mutableStateOf<String?>(null) }
+    var liberando by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
+
+    suspend fun conferir() {
+        val c = withContext(Dispatchers.IO) { PermissoesWindows.uma(Permissao.REDE) }
+        recado = c.explica.takeIf { c.podeResolver }
+    }
+
+    LaunchedEffect(Unit) {
+        if (store.uiPref(FIREWALL_DISPENSADO) == "1") return@LaunchedEffect
+        conferir()
+    }
+
+    val texto = recado ?: return
+    val forma = RoundedCornerShape(8.dp)
+    Column(
+        Modifier
+            .widthIn(max = 560.dp)
+            .fillMaxWidth()
+            .clip(forma)
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, forma)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+    ) {
+        Text(texto, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp))
+        Spacer(Modifier.height(9.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AcaoDaFaixa(
+                rotulo = if (liberando) "liberando…" else "liberar de vez",
+                cor = Obsidian.accent,
+                habilitado = !liberando,
+            ) {
+                liberando = true
+                escopo.launch {
+                    withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
+                    conferir()
+                    liberando = false
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            AcaoDaFaixa(rotulo = "agora não", cor = Obsidian.text3, habilitado = !liberando) {
+                store.setUiPref(FIREWALL_DISPENSADO, "1")
+                recado = null
+            }
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+}
+
+@Composable
+private fun AcaoDaFaixa(rotulo: String, cor: Color, habilitado: Boolean, aoClicar: () -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
+    val forma = RoundedCornerShape(6.dp)
+    Text(
+        rotulo,
+        style = TextStyle(
+            color = if (habilitado) cor else Obsidian.text3.copy(alpha = 0.45f),
+            fontSize = 12.sp,
+        ),
+        modifier = Modifier
+            .clickScale(fonte, formaDoFoco = forma)
+            .clip(forma)
+            .background(if (sobre && habilitado) Obsidian.hover else Color.Transparent)
+            .hoverable(fonte)
+            .clickable(
+                interactionSource = fonte,
+                indication = null,
+                enabled = habilitado,
+                onClick = aoClicar,
+            )
+            .padding(horizontal = 9.dp, vertical = 6.dp),
+    )
 }
 
 private enum class CallTone { Normal, Active, Danger }

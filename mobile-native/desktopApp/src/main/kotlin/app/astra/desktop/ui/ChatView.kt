@@ -812,14 +812,6 @@ private fun MessageRow(
             }
         }
     }) {
-    if (confirmDelete) {
-        ConfirmPopup(
-            message = "apagar esta mensagem? não há como desfazer.",
-            confirmLabel = "apagar",
-            onConfirm = { confirmDelete = false; onDelete() },
-            onDismiss = { confirmDelete = false },
-        )
-    }
     Box(
         Modifier
             .fillMaxWidth()
@@ -836,7 +828,7 @@ private fun MessageRow(
             .hoverable(interaction),
     ) {
         val dens = LocalMsgDensity.current
-        val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
+        val showPill = (hovered || pillHovered || pickerOpen || confirmDelete) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -864,6 +856,15 @@ private fun MessageRow(
                                 ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
                             }
                         }
+                    }
+                    if (confirmDelete) {
+                        ConfirmPopup(
+                            message = "apagar esta mensagem? não há como desfazer.",
+                            confirmLabel = "apagar",
+                            posicao = AoLadoDoBotao,
+                            onConfirm = { confirmDelete = false; onDelete() },
+                            onDismiss = { confirmDelete = false },
+                        )
                     }
                 }
             }

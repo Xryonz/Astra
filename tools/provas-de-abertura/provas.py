@@ -178,7 +178,7 @@ def esperar_marco(processo, rastro: Path, marco: str, segundos: float):
     return False, ler(rastro)
 
 
-def relatar_falha(processo, rastro: Path, texto: str) -> str:
+def relatar_falha(processo, rastro: Path, texto: str, pasta_do_app: Path) -> str:
     partes = []
     if processo.poll() is not None:
         partes.append("o processo saiu com codigo " + str(processo.returncode))
@@ -191,8 +191,8 @@ def relatar_falha(processo, rastro: Path, texto: str) -> str:
     falhas = rastro.parent / "falhas.txt"
     if falhas.exists():
         partes.append("falhas.txt:\n" + ler(falhas).strip())
-    for log in sorted(rastro.parent.glob("falha-jvm-*.log")):
-        partes.append(log.name + ":\n" + ler(log).strip()[:2000])
+    for log in sorted(pasta_do_app.rglob("falha-jvm-*.log")):
+        partes.append(log.name + " (a maquina virtual caiu):\n" + ler(log).strip()[:2000])
     return "\n".join(partes)
 
 
@@ -209,7 +209,7 @@ def rodar_segunda_copia(exe: Path, quarto: Path, base_java: str, segundos: float
             return True, "a segunda copia reconheceu a primeira e saiu"
         if MARCO_DESENHOU in texto:
             return False, "a segunda copia ABRIU do lado da primeira — a copia unica nao segurou"
-        return False, relatar_falha(segundo, rastro, texto)
+        return False, relatar_falha(segundo, rastro, texto, exe.parent)
     finally:
         encerrar(segundo)
 
@@ -230,7 +230,7 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
     try:
         desenhou, texto = esperar_marco(processo, rastro, MARCO_DESENHOU, segundos)
         if not desenhou:
-            return False, relatar_falha(processo, rastro, texto)
+            return False, relatar_falha(processo, rastro, texto, exe.parent)
         if prova.segunda_copia:
             return rodar_segunda_copia(exe, quarto, base_java, segundos)
         return True, primeira_linha_do_tempo(texto)

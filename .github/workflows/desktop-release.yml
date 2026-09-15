@@ -102,7 +102,7 @@ jobs:
             break
           }
 
-      - name: Abrir o Astra e esperar o primeiro quadro
+      - name: Abrir o Astra em dez condicoes diferentes
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
         run: |
@@ -110,63 +110,18 @@ jobs:
           $zip   = "mobile-native/desktopApp/build/$asset"
           if (-not (Test-Path $zip)) { throw "zip nao encontrado em $zip" }
 
-          $destino = Join-Path $env:RUNNER_TEMP 'prova-de-abertura'
+          $destino = Join-Path $env:RUNNER_TEMP 'astra-empacotado'
           if (Test-Path $destino) { Remove-Item -Recurse -Force $destino }
           Expand-Archive -Path $zip -DestinationPath $destino
-          $exe = Get-ChildItem $destino -Recurse -Filter 'Astra.exe' | Select-Object -First 1
-          if (-not $exe) { throw "Astra.exe nao encontrado dentro do zip" }
-          Write-Host "abrindo $($exe.FullName)"
 
-          $pastaDados = Join-Path $env:LOCALAPPDATA 'Astra'
-          $rastro     = Join-Path $pastaDados 'arranque.txt'
-          if (Test-Path $rastro) { Remove-Item -Force $rastro }
+          python --version
+          if ($LASTEXITCODE -ne 0) { throw "python nao esta disponivel neste runner" }
 
-          $env:JAVA_TOOL_OPTIONS = '-Dskiko.renderApi=SOFTWARE'
-          $proc = Start-Process -FilePath $exe.FullName -PassThru
-          $desenhou = $false
-          $morreu   = $false
-          try {
-            foreach ($tentativa in 1..60) {
-              Start-Sleep -Seconds 2
-              if (Test-Path $rastro) {
-                if ((Get-Content $rastro -Raw) -match 'primeiro quadro desenhado') {
-                  $desenhou = $true
-                  break
-                }
-              }
-              if ($proc.HasExited) { $morreu = $true; break }
-            }
-          } finally {
-            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
-            Get-Process astra-voz -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          python -u tools/provas-de-abertura/provas.py --de $destino --tempo 120 --java-base "-Dskiko.renderApi=SOFTWARE"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::o Astra reprovou em alguma condicao de abertura — publicacao abortada"
+            throw "o Astra nao abriu"
           }
-
-          if ($desenhou) {
-            Write-Host "OK — o Astra abriu e desenhou."
-            Get-Content $rastro
-            exit 0
-          }
-
-          Write-Host "::error::o Astra nao desenhou o primeiro quadro — publicacao abortada"
-          if ($morreu) { Write-Host "o processo MORREU sozinho (codigo $($proc.ExitCode))" }
-          else { Write-Host "o processo continuou vivo e NUNCA desenhou — travou na abertura" }
-          if (Test-Path $rastro) {
-            Write-Host "--- rastro de arranque ---"
-            Get-Content $rastro
-          } else {
-            Write-Host "o rastro nem chegou a ser escrito — morreu antes da main"
-          }
-          Get-ChildItem $pastaDados -Filter '*.txt' -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne 'arranque.txt' } | ForEach-Object {
-              Write-Host "--- $($_.Name) ---"
-              Get-Content $_.FullName
-            }
-          Get-ChildItem $destino -Recurse -Filter 'falha-jvm-*.log' -ErrorAction SilentlyContinue |
-            ForEach-Object {
-              Write-Host "--- $($_.Name) (a JVM caiu) ---"
-              Get-Content $_.FullName
-            }
-          throw "o Astra nao abriu"
 
       - name: Publicar release + asset
         if: steps.checar.outputs.existe == 'False'

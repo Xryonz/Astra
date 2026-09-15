@@ -53,6 +53,14 @@ CREATE INDEX IF NOT EXISTS "ServerAuditLog_serverId_createdAt_idx" ON "ServerAud
 ALTER TABLE "ServerMember" ADD COLUMN IF NOT EXISTS "nameColor" text;
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorColor" text;
 
+-- ===== Identidade de quem escreveu, congelada no envio =====
+-- Mensagem antiga deixa de acompanhar o perfil atual: quem trocar de nome ou
+-- foto não reescreve o próprio passado. Nulo significa mensagem anterior a
+-- isto, e nesse caso o perfil atual continua valendo (não há de onde tirar a
+-- identidade da época, e inventar seria mentir).
+ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorName" text;
+ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorAvatarUrl" text;
+
 -- ===== Troca de e-mail com confirmação no endereço novo =====
 -- O endereço só entra em "email" depois do código voltar certo, então erro de
 -- digitação não deixa a conta presa num endereço que não existe.

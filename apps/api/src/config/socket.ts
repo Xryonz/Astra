@@ -68,6 +68,7 @@ async function avisarMinhasConstelacoes(
 
 import { membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
 import { fichaDoCanal } from '../lib/fichaDoCanal'
+import { identidadeParaGuardar } from '../lib/autorDaMensagem'
 async function userCanAccessChannel(userId: string, channelId: string): Promise<boolean> {
   return userCanSeeChannel(userId, channelId)
 }
@@ -314,6 +315,7 @@ export function setupSocket(io: Server) {
           channelId,
           authorId:    userId,
           authorColor: membership?.nameColor ?? null,
+          ...identidadeParaGuardar(author),
           mentions:    mentionedIds.join(','),
           attachments: '[]',
         }).returning()
@@ -564,6 +566,7 @@ export function setupSocket(io: Server) {
         const [msgComando] = await db.insert(messages).values({
           content, channelId, authorId: userId,
           authorColor: membership?.nameColor ?? null,
+          ...identidadeParaGuardar(autor),
         }).returning()
 
         const depois = new Date(
@@ -571,6 +574,7 @@ export function setupSocket(io: Server) {
         )
         const [msgResposta] = await db.insert(messages).values({
           content: reply, channelId, authorId: botId, createdAt: depois,
+          ...identidadeParaGuardar(autorBot),
         }).returning()
 
         const enfeita = (m: typeof msgComando, author: unknown) => ({

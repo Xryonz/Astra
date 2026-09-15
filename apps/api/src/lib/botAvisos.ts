@@ -49,7 +49,13 @@ async function primeiraVez(chave: string, ttlSegundos: number): Promise<boolean>
 
 async function falar(channelId: string, texto: string, persona: Persona, botId: string): Promise<void> {
   const [linha] = await db.insert(messages)
-    .values({ content: texto, channelId, authorId: botId })
+    .values({
+      content: texto,
+      channelId,
+      authorId: botId,
+      authorName: persona.nome,
+      authorAvatarUrl: persona.avatar,
+    })
     .returning()
 
   io?.to(`channel:${channelId}`).emit('new_message', {

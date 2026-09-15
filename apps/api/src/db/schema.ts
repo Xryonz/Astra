@@ -283,6 +283,8 @@ export const messages = pgTable('Message', {
   channelId:   text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
   replyToId:   text('replyToId'),
   authorColor: text('authorColor'),
+  authorName:      text('authorName'),
+  authorAvatarUrl: text('authorAvatarUrl'),
 
   attachments: text('attachments').notNull().default('[]'),
   mentions:    text('mentions').notNull().default(''),

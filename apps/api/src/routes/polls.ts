@@ -11,6 +11,7 @@ import { messageLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { createId } from '../db/cuid'
+import { identidadeParaGuardar } from '../lib/autorDaMensagem'
 
 const CreatePollSchema = z.object({
   question:      z.string().min(3).max(300),
@@ -94,17 +95,18 @@ export function createPollsRouter(io: SocketServer) {
         closed:        false,
       }
 
+      const [author] = await db.select({
+        id: users.id, username: users.username,
+        displayName: users.displayName, avatarUrl: users.avatarUrl,
+      }).from(users).where(eq(users.id, req.userId!)).limit(1)
+
       const [inserted] = await db.insert(messages).values({
         content:   body.question,
         channelId,
         authorId:  req.userId!,
         poll:      JSON.stringify(poll),
+        ...identidadeParaGuardar(author),
       }).returning()
-
-      const [author] = await db.select({
-        id: users.id, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl,
-      }).from(users).where(eq(users.id, req.userId!)).limit(1)
 
       const payload = {
         ...inserted,

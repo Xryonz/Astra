@@ -25,6 +25,7 @@ import { messagesSentTotal } from '../lib/metrics'
 import { xpPorMensagem } from '../lib/xp'
 import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
+import { autorComoEra, identidadeParaGuardar } from '../lib/autorDaMensagem'
 
 interface CursorPayload {
   createdAt: Date
@@ -164,6 +165,8 @@ export function createMessagesRouter(io: SocketServer) {
         authorId:    messages.authorId,
         channelId:   messages.channelId,
         authorColor: messages.authorColor,
+        authorName:      messages.authorName,
+        authorAvatarUrl: messages.authorAvatarUrl,
         attachments: messages.attachments,
         mentions:    messages.mentions,
         edited:      messages.edited,
@@ -186,6 +189,8 @@ export function createMessagesRouter(io: SocketServer) {
         parentAuthorName:   parentAuthor.displayName,
         parentAuthorAvatar: parentAuthor.avatarUrl,
         parentAuthorFont:   parentAuthor.displayFont,
+        parentNomeGuardado: parent.authorName,
+        parentFotoGuardada: parent.authorAvatarUrl,
       })
         .from(messages)
         .innerJoin(users, eq(users.id, messages.authorId))
@@ -202,6 +207,9 @@ export function createMessagesRouter(io: SocketServer) {
 
       const shaped = items.map((r: any) => ({
         ...r,
+        author:      autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
+        authorName:      undefined,
+        authorAvatarUrl: undefined,
         attachments: safeParseAttachments(r.attachments),
         mentions:    mentionsArray(r.mentions),
         poll:        safeParsePoll(r.poll),
@@ -209,12 +217,13 @@ export function createMessagesRouter(io: SocketServer) {
           id:           r.parentId,
           content:      (r.parentContent ?? '').slice(0, 160),
           authorId:     r.parentAuthorId ?? null,
-          authorName:   r.parentAuthorName ?? 'Usuário',
-          authorAvatar: r.parentAuthorAvatar ?? null,
+          authorName:   r.parentNomeGuardado ?? r.parentAuthorName ?? 'Usuário',
+          authorAvatar: r.parentFotoGuardada ?? r.parentAuthorAvatar ?? null,
           authorFont:   r.parentAuthorFont ?? null,
         } : null,
         parentId: undefined, parentContent: undefined, parentAuthorId: undefined,
         parentAuthorName: undefined, parentAuthorAvatar: undefined, parentAuthorFont: undefined,
+        parentNomeGuardado: undefined, parentFotoGuardada: undefined,
       }))
 
       const withReactions = await attachReactions(shaped.reverse())
@@ -320,6 +329,7 @@ export function createMessagesRouter(io: SocketServer) {
 
       const [inserted] = await db.insert(messages).values({
         content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
+        ...identidadeParaGuardar(author),
         attachments: attachmentsJson,
         replyToId: validReplyToId,
         expiresAt,
@@ -549,6 +559,8 @@ export function createMessagesRouter(io: SocketServer) {
         authorId:    messages.authorId,
         channelId:   messages.channelId,
         authorColor: messages.authorColor,
+        authorName:      messages.authorName,
+        authorAvatarUrl: messages.authorAvatarUrl,
         mentions:    messages.mentions,
         edited:      messages.edited,
         pinned:      messages.pinned,
@@ -572,7 +584,13 @@ export function createMessagesRouter(io: SocketServer) {
         .orderBy(desc(messages.createdAt))
         .limit(50)
 
-      res.json({ data: rows.map((r: any) => ({ ...r, mentions: mentionsArray(r.mentions) })) })
+      res.json({ data: rows.map((r: any) => ({
+        ...r,
+        author: autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
+        authorName: undefined,
+        authorAvatarUrl: undefined,
+        mentions: mentionsArray(r.mentions),
+      })) })
     })
   )
 

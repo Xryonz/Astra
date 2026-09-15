@@ -15,6 +15,7 @@ MARCO_DESENHOU = "primeiro quadro desenhado"
 MARCO_RECUOU = "ja havia outro Astra aberto"
 MARCO_CHAMADO = "um segundo Astra pediu a frente"
 PORTA_DA_COPIA_UNICA = 47821
+CADEADO_DA_COPIA_UNICA = "Local\\Astra-copia-unica"
 
 
 def achar_astra(raiz: Path) -> Path:
@@ -128,9 +129,10 @@ def economia_desfeita(local: Path, roaming: Path) -> Optional[str]:
 
 
 TETO_PARA_SOLTAR_A_VAGA_S = 0.4
+TETO_DO_CAMINHO_CURTO = 60
 
 
-def vaga_livre() -> bool:
+def porta_livre() -> bool:
     tomada = socket.socket()
     try:
         tomada.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -140,6 +142,20 @@ def vaga_livre() -> bool:
         return False
     finally:
         tomada.close()
+
+
+def cadeado_livre() -> bool:
+    import ctypes
+
+    punho = ctypes.windll.kernel32.OpenMutexW(0x00100000, False, CADEADO_DA_COPIA_UNICA)
+    if punho:
+        ctypes.windll.kernel32.CloseHandle(punho)
+        return False
+    return True
+
+
+def vaga_livre() -> bool:
+    return porta_livre() and cadeado_livre()
 
 
 def esperar_a_vaga_abrir(teto: float) -> Optional[float]:
@@ -455,6 +471,7 @@ def main() -> int:
         help="opcoes de JVM aplicadas a todas as provas; como comecam com '-', passe colado "
         "(--java-base=-Dx=y) ou use ASTRA_PROVAS_JAVA_BASE",
     )
+    parser.add_argument("--base", help="pasta onde as provas montam os quartos; curta e melhor")
     parser.add_argument("--lista", action="store_true", help="listar as provas e sair")
     args = parser.parse_args()
 
@@ -478,7 +495,15 @@ def main() -> int:
         return 2
 
     exe = achar_astra(Path(args.de).resolve())
-    base = Path(os.environ.get("RUNNER_TEMP") or os.environ.get("TEMP") or ".") / "provas-de-abertura"
+    base = Path(args.base).resolve() if args.base else (
+        Path(os.environ.get("RUNNER_TEMP") or os.environ.get("TEMP") or ".") / "provas-de-abertura"
+    )
+    if len(str(base)) > TETO_DO_CAMINHO_CURTO:
+        print(
+            "aviso: a pasta das provas tem %d caracteres. O aviso entre copias viaja por arquivo, e "
+            "esse caminho tem teto de ~108 — acima disso o Astra recua para a porta de rede, e as "
+            "provas deixam de exercitar o caminho principal. Use --base com algo curto." % len(str(base))
+        )
     apagar(base)
     base.mkdir(parents=True, exist_ok=True)
 

@@ -46,7 +46,6 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
-import app.astra.desktop.update.UpdateState
 import app.astra.desktop.voice.QuemFala
 import app.astra.desktop.voice.Transmitindo
 import app.astra.desktop.xp.MissoesStore
@@ -94,10 +93,15 @@ import com.sun.jna.platform.win32.WinNT
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
+import java.nio.ByteBuffer
+import java.nio.channels.ServerSocketChannel
+import java.nio.channels.SocketChannel
+import java.nio.file.Files
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.net.ServerSocket
-import java.net.Socket
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import zed.rainxch.rikkaui.foundation.RikkaColors
@@ -275,46 +279,52 @@ private object Cadeado {
 
 object SingleInstance {
     private const val PORT = 47821
-    private const val PRAZO_PARA_CONECTAR_MS = 800
     private const val PRAZO_DA_RESPOSTA_MS = 5_000
     private const val PASSO_DA_ESPERA_MS = 50L
     private const val PRAZO_DO_CADEADO_MS = 4_000L
     private const val RESPOSTA_ATENDIDO = "atendido"
     private const val RESPOSTA_SUBINDO = "subindo"
     private const val ARQUIVO_DO_DONO = "dono.txt"
+    private const val ARQUIVO_DO_AVISO = "aviso.sock"
 
     private enum class Resposta { ATENDIDO, NINGUEM, TRAVADO }
 
     val activate = MutableStateFlow(0)
     private val atendidos = AtomicInteger(0)
     @Volatile private var janelaViva = false
-    private var server: ServerSocket? = null
+    private var ouvinte: ServerSocketChannel? = null
 
     val multi: Boolean get() = Multi.ligado
 
     private val fichaDoDono: File get() = File(CrashLog.dataDir(), ARQUIVO_DO_DONO)
+
+    private fun enderecoDoAviso(): UnixDomainSocketAddress? = runCatching {
+        UnixDomainSocketAddress.of(File(CrashLog.dataDir(), ARQUIVO_DO_AVISO).toPath())
+    }.getOrNull()
+
+    private fun enderecoDaPorta() = InetSocketAddress(InetAddress.getLoopbackAddress(), PORT)
 
     fun aJanelaRespondeu() { janelaViva = true }
 
     fun chamadoAtendido() { atendidos.incrementAndGet() }
 
     fun release() {
-        runCatching { server?.close() }
-        server = null
+        runCatching { ouvinte?.close() }
+        ouvinte = null
         Cadeado.soltar()
     }
 
     fun acquireOrSignal(): Boolean {
         if (multi) return true
         return when (Cadeado.segurar()) {
-            true -> { segurarAPorta(); true }
-            null -> pelaPortaSozinha()
+            true -> { abrirOAviso(); true }
+            null -> semCadeado()
             false -> cederOuAssumir()
         }
     }
 
-    private fun pelaPortaSozinha(): Boolean {
-        if (segurarAPorta()) return true
+    private fun semCadeado(): Boolean {
+        if (abrirOAviso()) return true
         FocoDoSistema.cederAFrenteAQualquerUm()
         return perguntarAoDono() != Resposta.ATENDIDO
     }
@@ -327,29 +337,37 @@ object SingleInstance {
             Resposta.NINGUEM -> Unit
         }
         Cadeado.esperarAbrir(PRAZO_DO_CADEADO_MS)
-        segurarAPorta()
+        abrirOAviso()
         return true
     }
 
-    private fun segurarAPorta(): Boolean = try {
-        server = ServerSocket().also { s ->
-            s.reuseAddress = true
-            s.bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 1)
-            runCatching { fichaDoDono.writeText(ProcessHandle.current().pid().toString()) }
-            thread(isDaemon = true, name = "astra-single-instance") {
-                while (!s.isClosed) runCatching { atender(s.accept()) }
-            }
+    private fun abrirOAviso(): Boolean {
+        val canal = porArquivo() ?: porPorta() ?: return false
+        ouvinte = canal
+        runCatching { fichaDoDono.writeText(ProcessHandle.current().pid().toString()) }
+        thread(isDaemon = true, name = "astra-copia-unica") {
+            while (canal.isOpen) runCatching { atender(canal.accept()) }
         }
-        true
-    } catch (e: IOException) {
-        false
+        return true
     }
 
-    private fun atender(cliente: Socket) = cliente.use {
+    private fun porArquivo(): ServerSocketChannel? {
+        val onde = enderecoDoAviso() ?: return null
+        return runCatching {
+            Files.deleteIfExists(onde.path)
+            ServerSocketChannel.open(StandardProtocolFamily.UNIX).also { it.bind(onde) }
+        }.getOrNull()
+    }
+
+    private fun porPorta(): ServerSocketChannel? = runCatching {
+        ServerSocketChannel.open().also { it.bind(enderecoDaPorta(), 1) }
+    }.getOrNull()
+
+    private fun atender(cliente: SocketChannel) = cliente.use {
         val alvo = activate.value + 1
         activate.value = alvo
         val recado = if (!janelaViva) RESPOSTA_SUBINDO else esperarAtendimento(alvo)
-        if (recado != null) it.getOutputStream().write(recado.toByteArray())
+        if (recado != null) it.write(ByteBuffer.wrap(recado.toByteArray()))
     }
 
     private fun esperarAtendimento(alvo: Int): String? {
@@ -361,19 +379,25 @@ object SingleInstance {
         return null
     }
 
+    private fun conectarAoDono(): SocketChannel? {
+        enderecoDoAviso()?.let { onde ->
+            runCatching { SocketChannel.open(onde) }.getOrNull()?.let { return it }
+        }
+        return runCatching { SocketChannel.open(enderecoDaPorta()) }.getOrNull()
+    }
+
     private fun perguntarAoDono(): Resposta {
-        val cliente = Socket()
+        val canal = conectarAoDono() ?: return Resposta.NINGUEM
+        val cortador = thread(isDaemon = true, name = "astra-prazo-do-aviso") {
+            runCatching { Thread.sleep(PRAZO_DA_RESPOSTA_MS.toLong()) }
+            runCatching { canal.close() }
+        }
         return try {
-            cliente.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), PRAZO_PARA_CONECTAR_MS)
-            cliente.soTimeout = PRAZO_DA_RESPOSTA_MS + PRAZO_PARA_CONECTAR_MS
-            val dito = runCatching {
-                cliente.getInputStream().readBytes().toString(Charsets.UTF_8).trim()
-            }.getOrDefault("")
-            if (dito.isEmpty()) Resposta.TRAVADO else Resposta.ATENDIDO
-        } catch (e: IOException) {
-            Resposta.NINGUEM
+            val lidos = runCatching { canal.read(ByteBuffer.allocate(64)) }.getOrDefault(-1)
+            if (lidos > 0) Resposta.ATENDIDO else Resposta.TRAVADO
         } finally {
-            runCatching { cliente.close() }
+            cortador.interrupt()
+            runCatching { canal.close() }
         }
     }
 

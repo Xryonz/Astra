@@ -130,6 +130,7 @@ def economia_desfeita(local: Path, roaming: Path) -> Optional[str]:
 
 TETO_PARA_SOLTAR_A_VAGA_S = 0.4
 TETO_DO_CAMINHO_CURTO = 60
+ESPERA_PELA_JANELA_S = 10.0
 
 
 def porta_livre() -> bool:
@@ -201,7 +202,12 @@ def fechar_pela_janela(processo) -> bool:
             achadas.append(janela)
         return True
 
-    user32.EnumWindows(visitar, 0)
+    limite = time.time() + ESPERA_PELA_JANELA_S
+    while not achadas and time.time() < limite:
+        user32.EnumWindows(visitar, 0)
+        if achadas:
+            break
+        time.sleep(0.25)
     for janela in achadas:
         user32.PostMessageW(janela, WM_CLOSE, 0, 0)
     return bool(achadas)
@@ -212,7 +218,11 @@ def rodar_reabrir_na_hora(exe: Path, local: Path, roaming: Path, base_java: str,
     recuo = pasta_de_dados(local) / "recuo.txt"
     trilha_da_primeira = ler(rastro)
     if not fechar_pela_janela(primeiro):
-        return False, "nao achei a janela do Astra para fechar pelo caminho da pessoa"
+        return False, (
+            "nao achei a janela do Astra em %.0f s para fecha-la pelo caminho da pessoa. "
+            "O Astra desenhou (a prova so chega aqui depois disso), entao ou a janela sumiu, "
+            "ou esta maquina nao deixa enumerar janelas" % ESPERA_PELA_JANELA_S
+        )
 
     soltou = esperar_a_vaga_abrir(TETO_PARA_SOLTAR_A_VAGA_S)
     if soltou is None:

@@ -103,6 +103,10 @@ def rastro_de_queda(local: Path, roaming: Path) -> None:
     )
 
 
+def fechar_de_vez(local: Path, roaming: Path) -> None:
+    escrever(pasta_de_sessao(roaming) / "ui.properties", "exitOnClose=1\n")
+
+
 def economia_imposta(local: Path, roaming: Path) -> None:
     escrever(
         pasta_de_sessao(roaming) / "ui.properties",
@@ -121,6 +125,104 @@ def economia_desfeita(local: Path, roaming: Path) -> Optional[str]:
     if sobrou:
         return "a economia imposta sobreviveu: " + " | ".join(sobrou)
     return None
+
+
+TETO_PARA_SOLTAR_A_VAGA_S = 0.4
+
+
+def vaga_livre() -> bool:
+    tomada = socket.socket()
+    try:
+        tomada.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        tomada.bind(("127.0.0.1", PORTA_DA_COPIA_UNICA))
+        return True
+    except OSError:
+        return False
+    finally:
+        tomada.close()
+
+
+def esperar_a_vaga_abrir(teto: float) -> Optional[float]:
+    comeco = time.time()
+    while time.time() - comeco < teto:
+        if vaga_livre():
+            return time.time() - comeco
+        time.sleep(0.02)
+    return None
+
+
+def fechar_pela_janela(processo) -> bool:
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    WM_CLOSE = 0x0010
+    PROCESS_QUERY_LIMITED = 0x1000
+
+    familia = {processo.pid}
+    achadas = []
+
+    def mesma_arvore(pid: int) -> bool:
+        if pid in familia:
+            return True
+        punho = kernel32.OpenProcess(PROCESS_QUERY_LIMITED, False, pid)
+        if not punho:
+            return False
+        nome = ctypes.create_unicode_buffer(512)
+        tamanho = wintypes.DWORD(512)
+        ok = kernel32.QueryFullProcessImageNameW(punho, 0, nome, ctypes.byref(tamanho))
+        kernel32.CloseHandle(punho)
+        return bool(ok) and nome.value.lower().endswith("\\astra.exe")
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def visitar(janela, _):
+        if not user32.IsWindowVisible(janela):
+            return True
+        dono = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(janela, ctypes.byref(dono))
+        if mesma_arvore(dono.value):
+            achadas.append(janela)
+        return True
+
+    user32.EnumWindows(visitar, 0)
+    for janela in achadas:
+        user32.PostMessageW(janela, WM_CLOSE, 0, 0)
+    return bool(achadas)
+
+
+def rodar_reabrir_na_hora(exe: Path, local: Path, roaming: Path, base_java: str, segundos: float, primeiro):
+    rastro = pasta_de_dados(local) / "arranque.txt"
+    recuo = pasta_de_dados(local) / "recuo.txt"
+    trilha_da_primeira = ler(rastro)
+    if not fechar_pela_janela(primeiro):
+        return False, "nao achei a janela do Astra para fechar pelo caminho da pessoa"
+
+    soltou = esperar_a_vaga_abrir(TETO_PARA_SOLTAR_A_VAGA_S)
+    if soltou is None:
+        return False, (
+            "ao fechar, o Astra segurou a vaga por mais de %.1f s. Quem clicar para reabrir nesse "
+            "intervalo esbarra em quem esta morrendo, ve um pisca e nada abre"
+            % TETO_PARA_SOLTAR_A_VAGA_S
+        )
+
+    segundo = abrir(exe, local, roaming, base_java)
+    comeco = time.time()
+    try:
+        limite = time.time() + segundos
+        while time.time() < limite:
+            agora = ler(rastro)
+            if agora != trilha_da_primeira and MARCO_DESENHOU in agora:
+                gasto = time.time() - comeco
+                return True, "vaga solta em %.2f s; reabriu em %.1f s" % (soltou, gasto)
+            if MARCO_RECUOU in ler(recuo):
+                return False, "reabrir logo apos fechar RECUOU: a vaga ainda estava presa"
+            if segundo.poll() is not None:
+                break
+            time.sleep(0.3)
+        return False, relatar_falha(segundo, rastro, ler(rastro), exe.parent)
+    finally:
+        encerrar(segundo)
 
 
 class VagaTomada:
@@ -163,6 +265,7 @@ class Prova:
     opcoes_java: str = ""
     segunda_copia: bool = False
     vaga_tomada: bool = False
+    reabrir_na_hora: bool = False
 
 
 PROVAS = [
@@ -202,6 +305,12 @@ PROVAS = [
         "vaga-tomada-por-quem-nao-responde",
         "a vaga da copia unica presa por quem nunca responde — o Astra abre assim mesmo",
         vaga_tomada=True,
+    ),
+    Prova(
+        "reabrir-na-hora",
+        "fechar e abrir de novo no instante seguinte — sem esbarrar em quem esta fechando",
+        preparar=fechar_de_vez,
+        reabrir_na_hora=True,
     ),
 ]
 
@@ -318,6 +427,8 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
                 return False, queixa
         if prova.segunda_copia:
             return rodar_segunda_copia(exe, local, roaming, base_java, segundos)
+        if prova.reabrir_na_hora:
+            return rodar_reabrir_na_hora(exe, local, roaming, base_java, segundos, processo)
         return True, primeira_linha_do_tempo(texto)
     finally:
         if intrusa:

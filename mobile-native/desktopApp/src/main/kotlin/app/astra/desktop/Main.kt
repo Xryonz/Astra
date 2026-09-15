@@ -89,6 +89,8 @@ import okio.Path.Companion.toPath
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.sun.jna.platform.win32.Kernel32
+import com.sun.jna.platform.win32.WinNT
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -233,12 +235,50 @@ object Multi {
     val ligado: Boolean get() = slot != null
 }
 
+private object Cadeado {
+    private const val NOME = "Local\\Astra-copia-unica"
+    private const val JA_EXISTE = 183
+
+    private var punho: WinNT.HANDLE? = null
+
+    fun segurar(): Boolean? = runCatching {
+        if (punho != null) return@runCatching true
+        val nucleo = Kernel32.INSTANCE
+        val novo = nucleo.CreateMutex(null, false, NOME) ?: return@runCatching null
+        if (nucleo.GetLastError() == JA_EXISTE) {
+            nucleo.CloseHandle(novo)
+            false
+        } else {
+            punho = novo
+            true
+        }
+    }.getOrNull()
+
+    fun soltar() {
+        val aberto = punho ?: return
+        punho = null
+        runCatching { Kernel32.INSTANCE.CloseHandle(aberto) }
+    }
+
+    fun esperarAbrir(prazoMs: Long): Boolean {
+        val fim = System.nanoTime() + prazoMs * 1_000_000L
+        while (System.nanoTime() < fim) {
+            when (segurar()) {
+                true -> return true
+                null -> return false
+                false -> Thread.sleep(50)
+            }
+        }
+        return segurar() == true
+    }
+}
+
 object SingleInstance {
     private const val PORT = 47821
     private const val PRAZO_PARA_CONECTAR_MS = 800
     private const val PRAZO_DA_RESPOSTA_MS = 5_000
     private const val PASSO_DA_ESPERA_MS = 50L
-    private const val PRAZO_DA_PORTA_MS = 4_000L
+    private const val PRAZO_DO_CADEADO_MS = 4_000L
     private const val RESPOSTA_ATENDIDO = "atendido"
     private const val RESPOSTA_SUBINDO = "subindo"
     private const val ARQUIVO_DO_DONO = "dono.txt"
@@ -261,21 +301,34 @@ object SingleInstance {
     fun release() {
         runCatching { server?.close() }
         server = null
+        Cadeado.soltar()
     }
 
     fun acquireOrSignal(): Boolean {
         if (multi) return true
+        return when (Cadeado.segurar()) {
+            true -> { segurarAPorta(); true }
+            null -> pelaPortaSozinha()
+            false -> cederOuAssumir()
+        }
+    }
+
+    private fun pelaPortaSozinha(): Boolean {
         if (segurarAPorta()) return true
         FocoDoSistema.cederAFrenteAQualquerUm()
-        return when (perguntarAoDono()) {
-            Resposta.ATENDIDO -> false
-            Resposta.NINGUEM -> { segurarAPorta(); true }
-            Resposta.TRAVADO -> {
-                if (encerrarOTravado()) esperarAPortaLivre()
-                segurarAPorta()
-                true
-            }
+        return perguntarAoDono() != Resposta.ATENDIDO
+    }
+
+    private fun cederOuAssumir(): Boolean {
+        FocoDoSistema.cederAFrenteAQualquerUm()
+        when (perguntarAoDono()) {
+            Resposta.ATENDIDO -> return false
+            Resposta.TRAVADO -> encerrarOTravado()
+            Resposta.NINGUEM -> Unit
         }
+        Cadeado.esperarAbrir(PRAZO_DO_CADEADO_MS)
+        segurarAPorta()
+        return true
     }
 
     private fun segurarAPorta(): Boolean = try {
@@ -338,27 +391,11 @@ object SingleInstance {
         }.getOrDefault(false)
     }
 
-    private fun esperarAPortaLivre() {
-        val fim = System.nanoTime() + PRAZO_DA_PORTA_MS * 1_000_000L
-        while (System.nanoTime() < fim) {
-            val livre = runCatching {
-                ServerSocket().use { s ->
-                    s.reuseAddress = true
-                    s.bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 1)
-                }
-                true
-            }.getOrDefault(false)
-            if (livre) return
-            Thread.sleep(PASSO_DA_ESPERA_MS)
-        }
-    }
 }
 
 const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
 const val ARG_MINIMIZADO = "--minimizado"
-
-private const val PRAZO_DO_PORTAO_MS = 8_000L
 
 private const val PRAZO_DA_IDENTIDADE_MS = 2_000L
 
@@ -373,11 +410,6 @@ private fun iconeDaJanela(): androidx.compose.ui.graphics.painter.Painter? = run
     val fluxo = Instalacao::class.java.getResourceAsStream("/astra-icon.png") ?: return null
     fluxo.use { androidx.compose.ui.graphics.painter.BitmapPainter(loadImageBitmap(it)) }
 }.getOrNull()
-
-private fun fecharCartaoDeAbertura() {
-    runCatching { java.awt.SplashScreen.getSplashScreen()?.close() }
-    Arranque.marcar("cartao de abertura fechado porque o Astra nasceu escondido")
-}
 
 private fun proximaManha(): Long {
     val agora = LocalDateTime.now()
@@ -399,7 +431,6 @@ fun main(args: Array<String>) {
     if (Arranque.modoSeguro) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
-    if (nascerEscondido) fecharCartaoDeAbertura()
     Vigia.vigiar(nascerEscondido)
     Arranque.marcar("vigia armado")
     val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {
@@ -463,21 +494,9 @@ fun main(args: Array<String>) {
             Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
         }
         val podeMostrarPortao = updater.installed && !nascerEscondido
-        val estadoDaAtualizacao by updater.state.collectAsState()
-        var portaoConvocado by remember { mutableStateOf(false) }
         var portaoFechado by remember { mutableStateOf(false) }
-        var prazoDoPortaoVenceu by remember { mutableStateOf(!podeMostrarPortao) }
-        val portaoNaTela = portaoConvocado && !portaoFechado
+        val portaoNaTela = podeMostrarPortao && !portaoFechado
         LaunchedEffect(Unit) { if (podeMostrarPortao) updater.check(mostrarFalha = false) }
-        LaunchedEffect(Unit) {
-            if (podeMostrarPortao) { delay(PRAZO_DO_PORTAO_MS); prazoDoPortaoVenceu = true }
-        }
-        LaunchedEffect(estadoDaAtualizacao, prazoDoPortaoVenceu) {
-            val noticia = estadoDaAtualizacao.let {
-                it is UpdateState.Available || it is UpdateState.Downloading || it is UpdateState.Ready
-            }
-            if (noticia && !prazoDoPortaoVenceu && !portaoFechado) portaoConvocado = true
-        }
         val escopoDaTela = rememberCoroutineScope()
         val escopoDaJanela = remember(escopoDaTela) { EscopoSupervisionado.sob(escopoDaTela) }
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
@@ -564,7 +583,11 @@ fun main(args: Array<String>) {
                 alwaysOnTop = true,
             ) {
                 marcoDoArranque("portao de atualizacao na tela")
-                UpdaterGate(updater, bootPrefs.reduceMotionEff, onDone = { portaoFechado = true })
+                UpdaterGate(
+                    updater,
+                    bootPrefs.reduceMotionEff,
+                    onDone = { portaoFechado = true; resgate++ },
+                )
             }
         }
 

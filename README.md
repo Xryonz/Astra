@@ -164,6 +164,12 @@ e permissões,
 configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
 duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento.
 
+Abrir o Astra começa pela tela de abertura, que procura versão nova e conta o que
+está acontecendo — as palavras espaciais enquanto procura, o nome da versão quando
+há uma, o progresso quando baixa. Ela sai sozinha: na hora, se estiver em dia; depois
+de dizer o motivo, se a consulta falhar. E ao sair entrega o lugar para a janela
+principal.
+
 **O Astra não mede a máquina de quem usa.** Não há afinação automática, degrau
 escondido nem qualidade escolhida por número de núcleos: todo mundo recebe o mesmo
 app. Quem cria conta escolhe um perfil — Leve, Equilibrado ou Completo — num passo
@@ -173,7 +179,17 @@ item a item em *Aparência*.
 Quando algo dá errado, o app deixa laudo em `%LOCALAPPDATA%\Astra`:
 `arranque.txt` marca por onde o arranque passou e em quanto tempo — onde a lista
 para é onde o app parou; `diagnostico.txt` traz placa, motor de desenho e versão;
-`falhas.txt` guarda o que estourou; `voz.txt` recebe o relato do sidecar.
+`falhas.txt` guarda o que estourou; `voz.txt` recebe o relato do sidecar;
+`recuo.txt` diz que uma segunda cópia reconheceu a primeira e saiu — e, quando foi
+o caso, que ela encerrou uma primeira que havia travado.
+
+**Só um Astra por vez, e sem pedir nada à rede.** Quem responde "já há um aberto?" é
+um cadeado nomeado do Windows: o sistema o solta no instante em que o processo
+termina, por saída limpa, queda ou encerramento forçado — então fechar e reabrir na
+hora seguinte simplesmente abre. O recado "traga a janela para a frente" viaja por um
+socket de arquivo (`aviso.sock`), não por porta de rede, para que o firewall não tenha
+nada a decidir. Onde o caminho do arquivo passa do teto do Windows (~108 caracteres),
+o Astra recua sozinho para uma porta em 127.0.0.1.
 
 ---
 
@@ -278,19 +294,28 @@ O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
 `desktop-v<versão>` e publica o asset `Astra-<versão>-win-x64.zip`. O app procura
 sozinho, confere o hash e troca os arquivos na próxima abertura.
 
-Antes de publicar, o zip recém-montado é aberto **onze vezes**, em onze condições
+Antes de publicar, o zip recém-montado é aberto **treze vezes**, em treze condições
 diferentes (`tools/provas-de-abertura`): máquina fraca, sem placa de vídeo, modo
 seguro, preferências corrompidas ou travadas, sessão pela metade, sem internet,
-abertura depois de uma queda, e uma segunda cópia com o app já aberto. Cada uma
-espera o primeiro quadro desenhado. Se qualquer uma falhar, **a publicação para** —
-nada chega a ninguém. As provas são Python de biblioteca padrão e rodam à mão:
+abertura depois de uma queda, uma segunda cópia com o app já aberto, a vaga da cópia
+única presa por um programa que nunca responde, e fechar e reabrir no instante
+seguinte. Se qualquer uma falhar, **a publicação para** — nada chega a ninguém.
+
+Desenhar um quadro é necessário e não é suficiente: uma janela pode desenhar atrás de
+todas as outras, e para quem está na frente do computador isso é igual a não abrir.
+Por isso as provas de segunda cópia e de reabertura cobram também que a janela que já
+existia seja trazida para a frente, e que a vaga fique livre depressa.
+
+As provas são Python de biblioteca padrão e rodam à mão:
 
 ```bash
 python -u tools/provas-de-abertura/provas.py --de <pasta do app> --tempo 75
 ```
 
-> O banco recusa começar se já houver um Astra aberto: a porta da cópia única é
-> global na máquina, e uma cópia viva faria toda prova sair pela porta errada.
+> O banco recusa começar se já houver um Astra aberto — uma cópia viva faria toda
+> prova sair pelo caminho errado. E use `--base` com uma pasta curta: o recado entre
+> cópias viaja por arquivo, e caminho de arquivo tem teto de ~108 caracteres no
+> Windows; acima disso as provas exercitam o recuo em vez do caminho principal.
 
 > O app minimiza para a bandeja em vez de fechar. Para testar um build novo, use
 > **Sair** na bandeja e reabra — fechar a janela não encerra o processo.

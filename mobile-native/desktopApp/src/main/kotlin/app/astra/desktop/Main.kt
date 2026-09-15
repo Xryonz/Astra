@@ -431,7 +431,11 @@ fun main(args: Array<String>) {
         }
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose
-        val onCloseApp = { if (exitOnClose) exitApplication() else { windowVisible = false } }
+        val sairDeVez = {
+            SingleInstance.release()
+            exitApplication()
+        }
+        val onCloseApp = { if (exitOnClose) sairDeVez() else { windowVisible = false } }
         val appIcon = remember { iconeDaJanela() }
         val bandeja = remember { Bandeja() }
 
@@ -536,7 +540,7 @@ fun main(args: Array<String>) {
                         )
                     }
                     if (isNotEmpty()) add(SeparadorDaBandeja)
-                    add(ItemDaBandeja("Sair", perigo = true) { exitApplication() })
+                    add(ItemDaBandeja("Sair", perigo = true) { sairDeVez() })
                 }
             },
         )

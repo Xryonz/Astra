@@ -10,6 +10,8 @@ object Arranque {
 
     const val MARCO_RECUOU = "ja havia outro Astra aberto — este saiu"
 
+    const val MARCO_CHAMADO = "um segundo Astra pediu a frente — trazendo a janela"
+
     const val MARCO_JANELA = "janela principal criada"
     private const val MARCO_DESENHOU = "primeiro quadro desenhado"
     private const val MARCO_ESCONDIDO = "nasceu escondido na bandeja — sem quadro por decisao"

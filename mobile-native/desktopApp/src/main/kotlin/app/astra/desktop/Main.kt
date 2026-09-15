@@ -345,6 +345,7 @@ fun main(args: Array<String>) {
         val activate by SingleInstance.activate.collectAsState()
         LaunchedEffect(activate) {
             if (activate > 0) {
+                Arranque.marcar(Arranque.MARCO_CHAMADO)
                 windowVisible = true
                 state.isMinimized = false
                 resgate++

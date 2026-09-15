@@ -12,6 +12,7 @@ from typing import Callable, Optional
 
 MARCO_DESENHOU = "primeiro quadro desenhado"
 MARCO_RECUOU = "ja havia outro Astra aberto"
+MARCO_CHAMADO = "um segundo Astra pediu a frente"
 PORTA_DA_COPIA_UNICA = 47821
 
 
@@ -161,7 +162,7 @@ PROVAS = [
     ),
     Prova(
         "segunda-copia",
-        "abrir de novo com um Astra ja aberto, na mesma pasta de dados",
+        "abrir de novo com um Astra ja aberto — a primeira tem de vir para a frente",
         segunda_copia=True,
     ),
 ]
@@ -235,13 +236,22 @@ def rodar_segunda_copia(exe: Path, local: Path, roaming: Path, base_java: str, s
     try:
         recuou, _ = esperar_marco(segundo, recuo, MARCO_RECUOU, segundos)
         depois = ler(rastro)
-        if recuou and depois == trilha_da_primeira:
-            return True, "a segunda copia reconheceu a primeira e saiu"
-        if recuou:
+        if not recuou:
+            if MARCO_DESENHOU in depois.replace(trilha_da_primeira, ""):
+                return False, "a segunda copia ABRIU do lado da primeira — a copia unica nao segurou"
+            return False, relatar_falha(segundo, rastro, depois, exe.parent)
+        if not depois.startswith(trilha_da_primeira):
             return False, "a segunda copia recuou, mas apagou a trilha da primeira"
-        if MARCO_DESENHOU in depois.replace(trilha_da_primeira, ""):
-            return False, "a segunda copia ABRIU do lado da primeira — a copia unica nao segurou"
-        return False, relatar_falha(segundo, rastro, depois, exe.parent)
+
+        limite = time.time() + segundos
+        while MARCO_CHAMADO not in ler(rastro) and time.time() < limite:
+            time.sleep(0.5)
+        if MARCO_CHAMADO not in ler(rastro):
+            return False, (
+                "a segunda copia saiu, mas a primeira nunca soube que foi chamada — "
+                "a janela ficaria escondida atras das outras"
+            )
+        return True, "a segunda copia recuou e a primeira foi trazida para a frente"
     finally:
         encerrar(segundo)
 

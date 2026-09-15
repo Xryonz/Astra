@@ -91,7 +91,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import com.sun.jna.platform.win32.Kernel32
 import com.sun.jna.platform.win32.WinNT
 import java.io.File
-import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.StandardProtocolFamily
@@ -324,21 +323,25 @@ object SingleInstance {
     }
 
     private fun semCadeado(): Boolean {
-        if (abrirOAviso()) return true
-        FocoDoSistema.cederAFrenteAQualquerUm()
-        return perguntarAoDono() != Resposta.ATENDIDO
+        if (cedeuAoDono()) return false
+        abrirOAviso()
+        return true
     }
 
     private fun cederOuAssumir(): Boolean {
+        if (cedeuAoDono()) return false
+        if (Cadeado.esperarAbrir(PRAZO_DO_CADEADO_MS)) abrirOAviso()
+        return true
+    }
+
+    private fun cedeuAoDono(): Boolean {
         FocoDoSistema.cederAFrenteAQualquerUm()
         when (perguntarAoDono()) {
-            Resposta.ATENDIDO -> return false
+            Resposta.ATENDIDO -> return true
             Resposta.TRAVADO -> encerrarOTravado()
             Resposta.NINGUEM -> Unit
         }
-        Cadeado.esperarAbrir(PRAZO_DO_CADEADO_MS)
-        abrirOAviso()
-        return true
+        return false
     }
 
     private fun abrirOAviso(): Boolean {

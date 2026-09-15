@@ -17,9 +17,11 @@ resolvia virou o alvo de paridade dos clientes nativos. Saiu do ar e saiu da bra
 principal em 14/09/2026, e vive em `arquivo/web` com o histórico inteiro.
 
 O Android saiu da branch principal em 06/09/2026 e vive em `arquivo/android`, com
-o histórico inteiro. As releases continuam trazendo o último APK que chegou a ser
-compilado — anexado com o nome da versão dele, não da versão nova, para que quem
-baixa veja exatamente o que está pegando.
+o histórico inteiro. **Nenhuma release traz APK**, e o `APK/README.md` diz isso a quem
+vai procurar: a última compilação que chegou a existir é muito anterior à versão do
+desktop, e entregá-la seria passar um Astra atrasado por atual. O fluxo de release
+ainda procura um APK congelado nas releases antigas e o anexaria se achasse — hoje
+não acha, e não achar não é erro.
 
 O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
 processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo

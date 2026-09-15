@@ -19,14 +19,14 @@ Downloads oficiais do Astra. Os arquivos ficam nos **[Releases do GitHub](https:
 
 ## 📱 Mobile (Android)
 
-**[⬇️ Baixar para Android](https://github.com/Xryonz/Astra/releases/latest)**
+**Não há download de Android, e é melhor dizer isso do que deixar você procurar.**
 
-1. Baixe o `Astra-<versão>-android.apk` do último release.
-2. O Android vai pedir permissão para instalar de fora da Play Store: **Configurações → Permitir desta fonte**.
-3. Abra o Astra.
+O cliente Android existe, funciona e está arquivado na branch `arquivo/android` com o histórico
+inteiro — mas nenhuma release traz APK, e a última compilação que chegou a existir é de uma versão
+bem anterior à do desktop. Instalar aquilo seria entregar um Astra atrasado se passando por atual.
 
-> O APK sai na mesma release do Windows e com a mesma versão. Não há atualização automática no Android: volte aqui quando quiser a versão nova.
+O trabalho hoje é todo no desktop. Quando o Android voltar, o download aparece aqui.
 
 ---
 
-<sub>Problemas pra abrir? Confirme que extraiu a pasta toda (o `Astra.exe` precisa das pastas `app/` e `runtime/` ao lado).</sub>
+<sub>Problemas para abrir? Confirme que extraiu a pasta toda (o `Astra.exe` precisa das pastas `app/` e `runtime/` ao lado).</sub>

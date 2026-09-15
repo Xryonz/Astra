@@ -249,12 +249,14 @@ export function createMessagesRouter(io: SocketServer) {
       let replyParent: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null } | null = null
       if (replyToId) {
         const [parent] = await db.select({
-          id:           messages.id,
-          content:      messages.content,
-          authorId:     messages.authorId,
-          authorName:   users.displayName,
-          authorAvatar: users.avatarUrl,
-          authorFont:   users.displayFont,
+          id:            messages.id,
+          content:       messages.content,
+          authorId:      messages.authorId,
+          authorName:    users.displayName,
+          authorAvatar:  users.avatarUrl,
+          authorFont:    users.displayFont,
+          nomeGuardado:  messages.authorName,
+          fotoGuardada:  messages.authorAvatarUrl,
         })
           .from(messages)
           .innerJoin(users, eq(users.id, messages.authorId))
@@ -266,8 +268,8 @@ export function createMessagesRouter(io: SocketServer) {
             id:           parent.id,
             content:      (parent.content ?? '').slice(0, 160),
             authorId:     parent.authorId,
-            authorName:   parent.authorName,
-            authorAvatar: parent.authorAvatar,
+            authorName:   parent.nomeGuardado ?? parent.authorName,
+            authorAvatar: parent.fotoGuardada ?? parent.authorAvatar,
             authorFont:   parent.authorFont,
           }
         }

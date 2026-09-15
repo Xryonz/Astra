@@ -4,6 +4,7 @@ import { db } from '../db'
 import { messages, channels, servers, serverMembers, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
+import { autorComoEra } from '../lib/autorDaMensagem'
 
 const router = Router()
 
@@ -32,6 +33,7 @@ router.get(
             id: messages.id, content: messages.content, channelId: messages.channelId, createdAt: messages.createdAt,
             channelName: channels.name, serverId: channels.serverId, serverName: servers.name,
             author: { id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl },
+            authorName: messages.authorName, authorAvatarUrl: messages.authorAvatarUrl,
           })
             .from(messages)
             .innerJoin(channels, eq(channels.id, messages.channelId))
@@ -77,7 +79,14 @@ router.get(
     const seenU = new Set<string>()
     const dedupUsers = usrs.filter((u) => seenU.has(u.id) ? false : (seenU.add(u.id), true))
 
-    res.json({ data: { messages: msgs, channels: chans, users: dedupUsers, servers: srvs } })
+    const mensagens = msgs.map((m: any) => ({
+      ...m,
+      author: autorComoEra(m.author, m.authorName, m.authorAvatarUrl),
+      authorName: undefined,
+      authorAvatarUrl: undefined,
+    }))
+
+    res.json({ data: { messages: mensagens, channels: chans, users: dedupUsers, servers: srvs } })
   })
 )
 

@@ -6,6 +6,7 @@ import { redis } from './redis'
 import { logger } from './logger'
 import { botNaOrbita } from './botScope'
 import { getBotId, personaDoDia, sincronizaPersona, type Persona } from './bot'
+import { identidadeParaGuardar } from './autorDaMensagem'
 
 let io: SocketServer | null = null
 export function ligarAvisosDaBot(server: SocketServer) { io = server }
@@ -53,8 +54,7 @@ async function falar(channelId: string, texto: string, persona: Persona, botId: 
       content: texto,
       channelId,
       authorId: botId,
-      authorName: persona.nome,
-      authorAvatarUrl: persona.avatar,
+      ...identidadeParaGuardar({ displayName: persona.nome, avatarUrl: persona.avatar }),
     })
     .returning()
 

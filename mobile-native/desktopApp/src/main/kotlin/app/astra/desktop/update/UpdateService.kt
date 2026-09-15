@@ -372,6 +372,7 @@ class UpdateService(private val http: OkHttpClient) {
         val palco = Instalacao.palcoPara(currentVersion)?.parentFile ?: return null
         return palco.listFiles()
             ?.filter { it.isDirectory && File(it, "Astra.exe").isFile }
+            ?.filter { isNewer(it.name, currentVersion) }
             ?.maxWithOrNull { a, b -> if (isNewer(a.name, b.name)) 1 else -1 }
     }
 }

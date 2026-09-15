@@ -35,39 +35,6 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
 
 @Composable
-fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Obsidian.overlay.copy(alpha = 0.96f))
-            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "✦ ajustado a este computador",
-                style = TextStyle(color = Obsidian.accent, fontSize = 14.sp, fontFamily = DmSerif),
-                modifier = Modifier.weight(1f),
-            )
-            val src = remember { MutableInteractionSource() }
-            Text(
-                "entendi",
-                style = Tipo.descricao,
-                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = aoDispensar),
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Encontrei $motivo, então o Astra começou no modo econômico: fundo parado e " +
-                "menos animação. Para ligar tudo, vá em Configurações › Desempenho.",
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-        )
-    }
-}
-
-@Composable
 fun FirstStepsCard(
     hasServer: Boolean,
     hasDm: Boolean,

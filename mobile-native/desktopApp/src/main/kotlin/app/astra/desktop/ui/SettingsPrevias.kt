@@ -600,9 +600,9 @@ private fun MedidaDoQuadro() {
     Spacer(Modifier.height(6.dp))
     Text(
         if (amostras == 0) {
-            "as barras acima são previsão; esta linha é o tempo real de desenho, e é nela que o Astra se baseia para baixar a qualidade sozinho."
+            "as barras acima são previsão; esta linha é o tempo real de desenho nesta máquina. O Astra não mexe em nada por conta dela — quem decide é você, aqui e em Aparência."
         } else {
-            "tempo real de desenho — é nesta medida que o Astra se baseia para baixar a qualidade sozinho."
+            "tempo real de desenho nesta máquina. O Astra não mexe em nada por conta dela — quem decide é você, aqui e em Aparência."
         },
         style = Tipo.apoio,
     )

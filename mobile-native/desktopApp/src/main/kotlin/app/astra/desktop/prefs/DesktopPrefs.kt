@@ -3,10 +3,7 @@ package app.astra.desktop.prefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import app.astra.desktop.Placas
 import app.astra.desktop.auth.SessionStore
-import com.sun.management.OperatingSystemMXBean
-import java.lang.management.ManagementFactory
 
 enum class AuroraQuality(val key: String, val octaves: Int) {
     HIGH("high", 3), MEDIUM("med", 2), LOW("low", 1);
@@ -32,14 +29,7 @@ enum class ScreenQuality(
 
     TINY_540_60("t54030", "540p 60fps — econômica", 960, 540, 60, 1_200_000);
     companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: padraoDaMaquina()
-
-        fun padraoDaMaquina(): ScreenQuality = when (Runtime.getRuntime().availableProcessors()) {
-            in 0..4 -> TINY_540_60
-            in 5..6 -> LIGHT_720_60
-            in 7..8 -> SMOOTH_720_60
-            else -> SHARP_1080_60
-        }
+        fun from(raw: String?) = entries.find { it.key == raw } ?: SMOOTH_720_60
     }
 }
 
@@ -59,13 +49,7 @@ enum class DensityPref(val key: String, val label: String, val topDp: Int, val g
     }
 }
 
-const val DEGRAU_SEM_FUNDO = 1
-const val DEGRAU_SEM_ESTRELAS = 2
-const val DEGRAU_SEM_PET = 3
-const val DEGRAU_SEM_CASCATA = 4
-const val DEGRAU_MAXIMO = 4
-
-private const val NUCLEOS_SEM_PLACA_DEDICADA = 8
+enum class PerfilDeDesempenho { LEVE, EQUILIBRADO, COMPLETO }
 
 class DesktopPrefs(private val store: SessionStore) {
     data class Prefs(
@@ -75,7 +59,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val silencioAte: Long = 0L,
         val atividadeVisivel: Boolean = false,
         val performanceMode: Boolean = false,
-        val perfAutomatico: String = "",
         val auroraEnabled: Boolean = false,
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
@@ -106,14 +89,12 @@ class DesktopPrefs(private val store: SessionStore) {
         val audioOutput: String? = null,
         val volumeDoMicrofone: Int = 100,
         val volumeDaEscuta: Int = 100,
-        val degrau: Int = 0,
         val emojiRecentes: List<String> = emptyList(),
     ) {
-        val auroraOn: Boolean get() = auroraEnabled && !performanceMode && degrau < DEGRAU_SEM_FUNDO
-        val starsOn: Boolean get() = starsEnabled && !performanceMode && degrau < DEGRAU_SEM_ESTRELAS
-        val petOn: Boolean get() = petLigado && degrau < DEGRAU_SEM_PET
-        val reduceMotionEff: Boolean get() =
-            reduceMotion || performanceMode || degrau >= DEGRAU_SEM_CASCATA
+        val auroraOn: Boolean get() = auroraEnabled && !performanceMode
+        val starsOn: Boolean get() = starsEnabled && !performanceMode
+        val petOn: Boolean get() = petLigado
+        val reduceMotionEff: Boolean get() = reduceMotion || performanceMode
     }
 
     private val _state = MutableStateFlow(read())
@@ -125,7 +106,7 @@ class DesktopPrefs(private val store: SessionStore) {
     private val _mudancasPendentes = MutableStateFlow(0)
     val mudancasPendentes = _mudancasPendentes.asStateFlow()
 
-    init { migrarCeu(); aferirAMaquina() }
+    init { migrarCeu(); desfazerEconomiaImposta() }
 
     fun abrirRascunho() {
         pendentes.clear()
@@ -149,8 +130,7 @@ class DesktopPrefs(private val store: SessionStore) {
         if (pendentes.isEmpty()) return
         pendentes.clear()
         _mudancasPendentes.value = 0
-        val doDisco = read()
-        _state.update { doDisco.copy(degrau = it.degrau) }
+        _state.value = read()
     }
 
     fun fecharRascunho() {
@@ -158,47 +138,11 @@ class DesktopPrefs(private val store: SessionStore) {
         rascunhando = false
     }
 
-    private fun aferirAMaquina() {
-        if (store.uiPref("performanceMode") != null) return
-        val motivo = motivoParaEconomizar() ?: return
-        store.setUiPref("performanceMode", "1")
-        store.setUiPref("perfAutomatico", motivo)
-        _state.update { it.copy(performanceMode = true, perfAutomatico = motivo) }
-    }
-
-    private fun motivoParaEconomizar(): String? {
-        val nucleos = Runtime.getRuntime().availableProcessors()
-        val ram = runCatching {
-            (ManagementFactory.getOperatingSystemMXBean() as OperatingSystemMXBean).totalMemorySize
-        }.getOrNull() ?: 0L
-        val gb = ram / 1024.0 / 1024.0 / 1024.0
-        return when {
-            ram > 0 && ram < 5L * 1024 * 1024 * 1024 -> "%.1f GB de memória".format(gb)
-            nucleos <= 2 -> "$nucleos núcleos de processador"
-            placaApertada(nucleos) -> "placa de vídeo integrada"
-            else -> null
-        }
-    }
-
-    private fun placaApertada(nucleos: Int): Boolean {
-        val placas = runCatching { Placas.todas }.getOrNull().orEmpty()
-        if (placas.isEmpty() || placas.any { it.dedicada }) return false
-        return nucleos <= NUCLEOS_SEM_PLACA_DEDICADA
-    }
-
-    fun aplicarDegrau(novo: Int) {
-        val alvo = novo.coerceIn(0, DEGRAU_MAXIMO)
-        if (_state.value.degrau == alvo) return
-        _state.update { it.copy(degrau = alvo) }
-    }
-
-    fun degrauAprendido(): Int =
-        store.uiPref("degrauAprendido")?.toIntOrNull()?.coerceIn(0, DEGRAU_MAXIMO) ?: 0
-
-    fun lembrarDegrau(novo: Int) {
-        val alvo = novo.coerceIn(0, DEGRAU_MAXIMO)
-        if (degrauAprendido() == alvo) return
-        store.setUiPref("degrauAprendido", alvo.toString())
+    fun aplicarPerfil(perfil: PerfilDeDesempenho) {
+        setAuroraEnabled(perfil == PerfilDeDesempenho.COMPLETO)
+        setStarsEnabled(perfil != PerfilDeDesempenho.LEVE)
+        setPetLigado(perfil == PerfilDeDesempenho.COMPLETO)
+        setReduceMotion(perfil == PerfilDeDesempenho.LEVE)
     }
 
     fun ordemDasConstelacoes(): List<String> =
@@ -208,9 +152,10 @@ class DesktopPrefs(private val store: SessionStore) {
         store.setUiPref("ordemDasConstelacoes", ids.joinToString(" "))
     }
 
-    fun dispensarAvisoDePerf() {
-        store.setUiPref("perfAutomatico", "")
-        _state.update { it.copy(perfAutomatico = "") }
+    private fun desfazerEconomiaImposta() {
+        if (store.uiPref("perfAutomatico").isNullOrBlank()) return
+        store.setUiPrefs(mapOf("perfAutomatico" to null, "degrauAprendido" to null, "performanceMode" to "0"))
+        _state.update { it.copy(performanceMode = false) }
     }
 
     private fun migrarCeu() {
@@ -228,7 +173,6 @@ class DesktopPrefs(private val store: SessionStore) {
         silencioAte = store.uiPref("silencioAte")?.toLongOrNull() ?: 0L,
         atividadeVisivel = store.uiPref("atividadeVisivel") == "1",
         performanceMode = store.uiPref("performanceMode") == "1",
-        perfAutomatico = store.uiPref("perfAutomatico") ?: "",
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") == "1",
@@ -260,7 +204,6 @@ class DesktopPrefs(private val store: SessionStore) {
         volumeDoMicrofone = store.uiPref("volumeDoMicrofone")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
         volumeDaEscuta = store.uiPref("volumeDaEscuta")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
-        degrau = store.uiPref("degrauAprendido")?.toIntOrNull()?.coerceIn(0, DEGRAU_MAXIMO) ?: 0,
     )
 
     private fun persist(key: String, on: Boolean) = anotar(key, if (on) "1" else "0")

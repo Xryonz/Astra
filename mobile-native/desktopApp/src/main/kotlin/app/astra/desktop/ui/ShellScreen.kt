@@ -12,7 +12,6 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -368,26 +367,17 @@ fun ShellScreen(
                 checklistActive = false
             }
         }
-        val avisoDePerf = prefs.state.value.perfAutomatico
-        val temAlgoNaVaga = checklistActive || avisoDePerf.isNotBlank()
-        val firstSteps: (@Composable () -> Unit)? = if (temAlgoNaVaga) {
+        val firstSteps: (@Composable () -> Unit)? = if (checklistActive) {
             {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (avisoDePerf.isNotBlank()) {
-                        AvisoDeMaquinaEconomica(avisoDePerf, prefs::dispensarAvisoDePerf)
-                    }
-                    if (checklistActive) {
-                        FirstStepsCard(
-                            hasServer = state.servers.isNotEmpty(),
-                            hasDm = state.dms.isNotEmpty(),
-                            hasAvatar = state.me?.avatarUrl != null,
-                            onDismiss = {
-                                onbStore.setUiPref("checklist:${session.userId}", "0")
-                                checklistActive = false
-                            },
-                        )
-                    }
-                }
+                FirstStepsCard(
+                    hasServer = state.servers.isNotEmpty(),
+                    hasDm = state.dms.isNotEmpty(),
+                    hasAvatar = state.me?.avatarUrl != null,
+                    onDismiss = {
+                        onbStore.setUiPref("checklist:${session.userId}", "0")
+                        checklistActive = false
+                    },
+                )
             }
         } else {
             null

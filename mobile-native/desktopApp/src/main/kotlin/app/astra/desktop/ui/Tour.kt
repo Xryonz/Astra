@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.PerfilDeDesempenho
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
@@ -61,8 +63,33 @@ enum class Marco {
     VOZ,
     SINO,
     BUSCA,
-    CEU,
+    DESEMPENHO,
 }
+
+private data class OpcaoDeDesempenho(
+    val perfil: PerfilDeDesempenho,
+    val nome: String,
+    val conta: String,
+)
+
+private val PERFIS = listOf(
+    OpcaoDeDesempenho(
+        PerfilDeDesempenho.LEVE,
+        "Leve",
+        "Sem fundo animado, sem estrelas e com menos movimento. Para notebook simples ou " +
+            "placa de vídeo integrada.",
+    ),
+    OpcaoDeDesempenho(
+        PerfilDeDesempenho.EQUILIBRADO,
+        "Equilibrado",
+        "Estrelas sim, fundo animado não. Serve na maioria das máquinas.",
+    ),
+    OpcaoDeDesempenho(
+        PerfilDeDesempenho.COMPLETO,
+        "Completo",
+        "Fundo animado, estrelas e o companheiro. Pede placa de vídeo dedicada.",
+    ),
+)
 
 internal data class PassoDoTour(
     val marco: Marco,
@@ -96,11 +123,11 @@ private val ESTREIA = listOf(
             "você conversa em outro canal.",
     ),
     PassoDoTour(
-        Marco.CEU,
-        "O céu do Astra",
-        "Este fundo é desenhado ao vivo pela placa de vídeo. Ele vem desligado de fábrica para " +
-            "poupar máquina modesta — mas se a sua dá conta, é assim que o Astra foi desenhado " +
-            "para ser visto.",
+        Marco.DESEMPENHO,
+        "Como a sua máquina deve tratar o Astra",
+        "O Astra não mede o seu computador nem decide por você: quem conhece a máquina é quem " +
+            "está nela. Escolha por onde começar — a tela muda enquanto você escolhe, e nada " +
+            "disto é definitivo.",
     ),
 )
 
@@ -192,15 +219,16 @@ fun TourNaTela(prefs: DesktopPrefs) {
     var origem by remember { mutableStateOf(Offset.Zero) }
     var tamanho by remember { mutableStateOf(Size.Zero) }
 
-    val ehCeu = passo.marco == Marco.CEU
-    var ceuAntes by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(ehCeu) {
-        if (!ehCeu) return@LaunchedEffect
-        ceuAntes = prefs.state.value.auroraEnabled
-        prefs.setAuroraEnabled(true)
+    val ehDesempenho = passo.marco == Marco.DESEMPENHO
+    var perfil by remember { mutableStateOf(PerfilDeDesempenho.EQUILIBRADO) }
+    var antesDaEscolha by remember { mutableStateOf<DesktopPrefs.Prefs?>(null) }
+    LaunchedEffect(ehDesempenho, perfil) {
+        if (!ehDesempenho) return@LaunchedEffect
+        if (antesDaEscolha == null) antesDaEscolha = prefs.state.value
+        prefs.aplicarPerfil(perfil)
     }
 
-    val destino = if (ehCeu) null else Tour.alvos[passo.marco]?.translate(-origem)
+    val destino = if (ehDesempenho) null else Tour.alvos[passo.marco]?.translate(-origem)
     val desenhado = remember { mutableStateOf<Rect?>(null) }
     LaunchedEffect(passo.marco, destino) {
         val para = destino
@@ -235,7 +263,7 @@ fun TourNaTela(prefs: DesktopPrefs) {
                 .fillMaxSize()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
         ) {
-            drawRect(Obsidian.void.copy(alpha = if (ehCeu) 0f else ESCURIDAO))
+            drawRect(Obsidian.void.copy(alpha = if (ehDesempenho) 0f else ESCURIDAO))
             buraco ?: return@Canvas
             val aberto = Rect(
                 buraco.left - respiro,
@@ -273,11 +301,12 @@ fun TourNaTela(prefs: DesktopPrefs) {
             CartaoDoTour(
                 passo = passo,
                 ultimo = Tour.indice == Tour.roteiro.lastIndex,
-                ehCeu = ehCeu,
+                ehDesempenho = ehDesempenho,
+                perfil = perfil,
+                aoEscolher = { perfil = it },
                 aoAvancar = { Tour.avancar() },
-                aoPular = { Tour.encerrar() },
-                aoRecusarCeu = {
-                    prefs.setAuroraEnabled(ceuAntes ?: false)
+                aoPular = {
+                    antesDaEscolha?.let { devolver(prefs, it) }
                     Tour.encerrar()
                 },
             )
@@ -298,14 +327,22 @@ private fun cantoDoCartao(buraco: Rect?, tela: Size, largura: Float, folga: Floa
     return Offset(centrado, (buraco.bottom + folga).coerceAtMost(tela.height - folga * 10f))
 }
 
+private fun devolver(prefs: DesktopPrefs, antes: DesktopPrefs.Prefs) {
+    prefs.setAuroraEnabled(antes.auroraEnabled)
+    prefs.setStarsEnabled(antes.starsEnabled)
+    prefs.setPetLigado(antes.petLigado)
+    prefs.setReduceMotion(antes.reduceMotion)
+}
+
 @Composable
 private fun CartaoDoTour(
     passo: PassoDoTour,
     ultimo: Boolean,
-    ehCeu: Boolean,
+    ehDesempenho: Boolean,
+    perfil: PerfilDeDesempenho,
+    aoEscolher: (PerfilDeDesempenho) -> Unit,
     aoAvancar: () -> Unit,
     aoPular: () -> Unit,
-    aoRecusarCeu: () -> Unit,
 ) {
     val forma = RoundedCornerShape(14.dp)
     Column(
@@ -331,18 +368,56 @@ private fun CartaoDoTour(
             passo.texto,
             style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 18.sp),
         )
+        if (ehDesempenho) {
+            Spacer(Modifier.height(12.dp))
+            PERFIS.forEachIndexed { indice, opcao ->
+                if (indice > 0) Spacer(Modifier.height(6.dp))
+                OpcaoDePerfil(opcao, opcao.perfil == perfil) { aoEscolher(opcao.perfil) }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Tudo isto continua em Aparência, item a item.",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
+            )
+        }
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (ehCeu) {
-                BotaoDoTour("prefiro liso", destaque = false, onClick = aoRecusarCeu)
-                Spacer(Modifier.width(8.dp))
-                BotaoDoTour("fica assim", destaque = true, onClick = aoAvancar)
-            } else {
-                BotaoDoTour("pular", destaque = false, onClick = aoPular)
-                Spacer(Modifier.width(8.dp))
-                BotaoDoTour(if (ultimo) "entendi" else "próximo", destaque = true, onClick = aoAvancar)
-            }
+            BotaoDoTour(if (ehDesempenho) "deixar como estava" else "pular", destaque = false, onClick = aoPular)
+            Spacer(Modifier.width(8.dp))
+            BotaoDoTour(if (ultimo) "entendi" else "próximo", destaque = true, onClick = aoAvancar)
         }
+    }
+}
+
+@Composable
+private fun OpcaoDePerfil(opcao: OpcaoDeDesempenho, escolhido: Boolean, aoEscolher: () -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
+    val forma = RoundedCornerShape(8.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickScale(fonte)
+            .clip(forma)
+            .background(if (escolhido || sobre) Obsidian.active else Obsidian.hover)
+            .border(1.dp, if (escolhido) Obsidian.accentDim else Obsidian.borderDim, forma)
+            .hoverable(fonte)
+            .clickable(interactionSource = fonte, indication = null, onClick = aoEscolher)
+            .padding(horizontal = 11.dp, vertical = 9.dp),
+    ) {
+        Text(
+            opcao.nome,
+            style = TextStyle(
+                color = if (escolhido) Obsidian.accent else Obsidian.text1,
+                fontSize = 13.sp,
+                fontWeight = if (escolhido) FontWeight.Medium else FontWeight.Normal,
+            ),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            opcao.conta,
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
+        )
     }
 }
 

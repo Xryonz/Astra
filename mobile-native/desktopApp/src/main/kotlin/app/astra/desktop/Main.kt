@@ -377,9 +377,6 @@ fun main(args: Array<String>) {
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
-        LaunchedEffect(Unit) {
-            Afinador.afinar(escopoDaJanela, GlobalContext.get().get()) { bandeja.avisar("Astra", it) }
-        }
         LaunchedEffect(Unit) { ModoTransmissao.vigiar(escopoDaJanela, GlobalContext.get().get()) }
         LaunchedEffect(Unit) {
             AtividadePublicador(

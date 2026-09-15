@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -226,23 +225,6 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
 
 @Composable
 internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arranque: RascunhoDoArranque) {
-    if (p.perfAutomatico.isNotBlank()) {
-        Box(
-            Modifier.widthIn(max = 560.dp).fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-        ) {
-            Text(
-                "O Astra ligou isto sozinho na primeira abertura: encontrou ${p.perfAutomatico} " +
-                    "nesta máquina. Desligue à vontade — a escolha passa a ser sua e ele não " +
-                    "mexe mais.",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-    }
     ToggleRow(
         "Modo desempenho",
         "desliga aurora + estrelas e reduz animações de uma vez — para jogar ou transmitir",

@@ -1,8 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -24,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,9 +32,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -45,12 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.Afinador
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.ui.theme.DmSerif
-import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.FamiliaDeTema
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -144,11 +136,6 @@ internal fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     LabeledControl("Fundo", "liso e o padrao; a aurora e um shader animado e cobra GPU") {
         SegmentedRow(FundoPref.entries.map { it.label to it }, fundoAtual(p)) { aplicarFundo(prefs, it) }
     }
-    Afinador.seguradoAgora(p)?.let {
-        Spacer(Modifier.height(8.dp))
-        Text(it, style = Tipo.nota.copy(color = Obsidian.accent))
-    }
-
     SettingsDivider()
     Spacer(Modifier.height(20.dp))
 }
@@ -288,50 +275,6 @@ internal fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         p.reduceMotion, prefs::setReduceMotion,
     )
     Spacer(Modifier.height(20.dp))
-}
-
-private const val CASCATA_PASSO_MS = 40
-private const val CASCATA_DURACAO_MS = 380
-private const val CASCATA_DEGRAUS = 16
-private val CASCATA_SUBIDA = 14.dp
-
-@Composable
-internal fun CascataVertical(
-    chave: Any?,
-    animar: Boolean,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    val deveAnimar = animar && !LocalReduceMotion.current
-    val totalMs = CASCATA_DURACAO_MS + CASCATA_PASSO_MS * CASCATA_DEGRAUS
-    val relogio = remember(chave) { Animatable(if (deveAnimar) 0f else 1f) }
-    LaunchedEffect(chave) {
-        if (deveAnimar) relogio.animateTo(1f, tween(totalMs, easing = LinearEasing))
-    }
-    val deslocamento = with(LocalDensity.current) { CASCATA_SUBIDA.toPx() }
-    Layout(content = content, modifier = modifier) { medidos, constraints ->
-        val filhos = medidos.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
-        val largura = if (constraints.hasBoundedWidth) constraints.maxWidth
-        else filhos.maxOfOrNull { it.width } ?: 0
-        layout(largura, filhos.sumOf { it.height }) {
-            val agora = relogio.value * totalMs
-            var y = 0
-            var degrau = 0
-            filhos.forEach { filho ->
-                val conta = filho.width > 0 && filho.height > 0
-                val meu = if (conta) degrau++ else degrau
-                val bruto =
-                    ((agora - meu.coerceAtMost(CASCATA_DEGRAUS) * CASCATA_PASSO_MS) / CASCATA_DURACAO_MS)
-                        .coerceIn(0f, 1f)
-                val progresso = EaseOutSoft.transform(bruto)
-                filho.placeWithLayer(0, y) {
-                    alpha = progresso
-                    translationY = (1f - progresso) * deslocamento
-                }
-                y += filho.height
-            }
-        }
-    }
 }
 
 private enum class FundoPref(val label: String) {

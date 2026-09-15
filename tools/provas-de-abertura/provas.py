@@ -101,11 +101,32 @@ def rastro_de_queda(local: Path, roaming: Path) -> None:
     )
 
 
+def economia_imposta(local: Path, roaming: Path) -> None:
+    escrever(
+        pasta_de_sessao(roaming) / "ui.properties",
+        "performanceMode=1\nperfAutomatico=2 nucleos de processador\ndegrauAprendido=3\n",
+    )
+
+
+def economia_desfeita(local: Path, roaming: Path) -> Optional[str]:
+    texto = ler(pasta_de_sessao(roaming) / "ui.properties")
+    sobrou = [
+        linha for linha in texto.splitlines()
+        if linha.startswith("performanceMode=1")
+        or linha.startswith("perfAutomatico=")
+        or linha.startswith("degrauAprendido=")
+    ]
+    if sobrou:
+        return "a economia imposta sobreviveu: " + " | ".join(sobrou)
+    return None
+
+
 @dataclass
 class Prova:
     nome: str
     conta: str
     preparar: Optional[Callable[[Path, Path], None]] = None
+    conferir: Optional[Callable[[Path, Path], Optional[str]]] = None
     opcoes_java: str = ""
     segunda_copia: bool = False
 
@@ -132,6 +153,12 @@ PROVAS = [
         opcoes_java="-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=1 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=1",
     ),
     Prova("abertura-apos-queda", "a abertura anterior criou a janela e nao desenhou", preparar=rastro_de_queda),
+    Prova(
+        "economia-imposta-some",
+        "quem teve economia ligada pelo app recebe o visual de volta",
+        preparar=economia_imposta,
+        conferir=economia_desfeita,
+    ),
     Prova("segunda-copia", "abrir de novo com um Astra ja aberto", segunda_copia=True),
 ]
 
@@ -231,6 +258,10 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
         desenhou, texto = esperar_marco(processo, rastro, MARCO_DESENHOU, segundos)
         if not desenhou:
             return False, relatar_falha(processo, rastro, texto, exe.parent)
+        if prova.conferir:
+            queixa = prova.conferir(local, roaming)
+            if queixa:
+                return False, queixa
         if prova.segunda_copia:
             return rodar_segunda_copia(exe, quarto, base_java, segundos)
         return True, primeira_linha_do_tempo(texto)

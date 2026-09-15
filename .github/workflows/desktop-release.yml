@@ -102,9 +102,11 @@ jobs:
             break
           }
 
-      - name: Abrir o Astra em dez condicoes diferentes
+      - name: Abrir o Astra em doze condicoes diferentes
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
+        env:
+          ASTRA_PROVAS_JAVA_BASE: -Dskiko.renderApi=SOFTWARE
         run: |
           $asset = "${{ steps.versao.outputs.asset }}"
           $zip   = "mobile-native/desktopApp/build/$asset"
@@ -117,7 +119,7 @@ jobs:
           python --version
           if ($LASTEXITCODE -ne 0) { throw "python nao esta disponivel neste runner" }
 
-          python -u tools/provas-de-abertura/provas.py --de $destino --tempo 120 --java-base "-Dskiko.renderApi=SOFTWARE"
+          python -u tools/provas-de-abertura/provas.py --de $destino --tempo 120
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::o Astra reprovou em alguma condicao de abertura — publicacao abortada"
             throw "o Astra nao abriu"

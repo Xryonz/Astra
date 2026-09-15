@@ -338,13 +338,19 @@ def main() -> int:
     parser.add_argument("--de", default=r"C:\Astra\atual", help="pasta onde o Astra empacotado esta")
     parser.add_argument("--apenas", action="append", help="rodar so estas provas")
     parser.add_argument("--tempo", type=float, default=90, help="segundos de espera por prova")
-    parser.add_argument("--java-base", default="", help="opcoes de JVM aplicadas a todas as provas")
+    parser.add_argument(
+        "--java-base",
+        default=os.environ.get("ASTRA_PROVAS_JAVA_BASE", ""),
+        help="opcoes de JVM aplicadas a todas as provas; como comecam com '-', passe colado "
+        "(--java-base=-Dx=y) ou use ASTRA_PROVAS_JAVA_BASE",
+    )
     parser.add_argument("--lista", action="store_true", help="listar as provas e sair")
     args = parser.parse_args()
 
     if args.lista:
+        coluna = max(len(p.nome) for p in PROVAS) + 2
         for prova in PROVAS:
-            print(prova.nome.ljust(26) + prova.conta)
+            print(prova.nome.ljust(coluna) + prova.conta)
         return 0
 
     escolhidas = PROVAS

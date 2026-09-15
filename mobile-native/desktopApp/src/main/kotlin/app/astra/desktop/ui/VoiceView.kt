@@ -652,6 +652,12 @@ private fun corDoGlifo(tone: CallTone, habilitado: Boolean) = when {
 }
 
 @Composable
+private fun fundoDoBotao(aceso: Boolean) = animateColorAsState(
+    if (aceso) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
+    tween(140),
+).value
+
+@Composable
 private fun CallSplitButton(
     icon: ImageVector,
     tone: CallTone,
@@ -672,10 +678,7 @@ private fun CallSplitButton(
         Row(verticalAlignment = Alignment.CenterVertically) {
             val daTela = remember { MutableInteractionSource() }
             val sobreATela by daTela.collectIsHoveredAsState()
-            val fundoDaTela by animateColorAsState(
-                if (sobreATela) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
-                tween(140),
-            )
+            val fundoDaTela = fundoDoBotao(sobreATela)
             Box(
                 Modifier
                     .size(ALTURA_DO_BOTAO)
@@ -698,10 +701,7 @@ private fun CallSplitButton(
 
             val daSeta = remember { MutableInteractionSource() }
             val sobreASeta by daSeta.collectIsHoveredAsState()
-            val fundoDaSeta by animateColorAsState(
-                if (sobreASeta || setaAberta) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
-                tween(140),
-            )
+            val fundoDaSeta = fundoDoBotao(sobreASeta || setaAberta)
             Box(
                 Modifier
                     .width(LARGURA_DA_SETA)
@@ -735,24 +735,12 @@ private fun CallIconButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val border by animateColorAsState(
-        when (tone) {
-            CallTone.Danger -> Obsidian.danger
-            CallTone.Active -> Obsidian.accent
-            CallTone.Normal -> Obsidian.borderMid
-        },
-        tween(140),
-    )
-    val fg = when {
-        !habilitado -> Obsidian.text3.copy(alpha = 0.45f)
-        tone == CallTone.Danger -> Obsidian.danger
-        tone == CallTone.Active -> Obsidian.accent
-        else -> Obsidian.text2
-    }
-    val bg by animateColorAsState(if (hovered) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f), tween(140))
+    val border = corDaBorda(tone)
+    val fg = corDoGlifo(tone, habilitado)
+    val bg = fundoDoBotao(hovered)
     Box(
         Modifier
-            .size(46.dp)
+            .size(ALTURA_DO_BOTAO)
             .clickScale(interaction)
             .clip(CircleShape)
             .background(bg)

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -75,12 +74,10 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
             style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
             modifier = Modifier.padding(start = 14.dp, top = 11.dp, bottom = 6.dp),
         )
-        val abertura = remember { Any() }
         LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp)) {
-            itemsIndexed(commands, key = { _, c -> c.name }) { indice, cmd ->
+            items(commands, key = { it.name }) { cmd ->
                 val interaction = remember { MutableInteractionSource() }
                 val hovered by interaction.collectIsHoveredAsState()
-                CascadeIn(index = indice, listKey = abertura) {
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -115,7 +112,6 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
                             maxLines = 1,
                         )
                     }
-                }
                 }
             }
         }

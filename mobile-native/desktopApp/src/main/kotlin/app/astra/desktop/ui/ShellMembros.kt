@@ -82,8 +82,6 @@ internal fun MembersPanel(
                         m = row.m,
                         online = row.online,
                         atividade = atividade[row.m.userId],
-                        cascadeIndex = row.cascadeIndex,
-                        chaveDaCascata = serverId,
                         isMe = row.m.userId == myId,
                         serverId = serverId,
                         isOwner = isOwner,
@@ -102,7 +100,7 @@ private sealed interface MemberPanelRow {
     data class Header(val id: String, val label: String, val count: Int, val iconUrl: String?) : MemberPanelRow {
         override val key get() = "h:$id"
     }
-    data class Person(val m: ServerMemberDto, val online: Boolean, val cascadeIndex: Int) : MemberPanelRow {
+    data class Person(val m: ServerMemberDto, val online: Boolean) : MemberPanelRow {
         override val key get() = "m:${m.userId}"
     }
 }
@@ -124,14 +122,13 @@ private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String
     val order = buckets.keys.sortedByDescending { roleById[it]?.position ?: Int.MIN_VALUE }
 
     val out = ArrayList<MemberPanelRow>()
-    var idx = 0
     for (key in order) {
         val role = roleById[key]
         val list = buckets[key] ?: continue
         val on = list.filter { online(it.userId) }.sortedBy { nameOf(it) }
         val off = list.filter { !online(it.userId) }.sortedBy { nameOf(it) }
         out.add(MemberPanelRow.Header(key.ifEmpty { "members" }, role?.name?.uppercase() ?: "MEMBROS", list.size, role?.iconUrl))
-        for (m in on + off) out.add(MemberPanelRow.Person(m, online(m.userId), idx++))
+        for (m in on + off) out.add(MemberPanelRow.Person(m, online(m.userId)))
     }
     return out
 }
@@ -161,8 +158,6 @@ private fun MemberRow(
     m: ServerMemberDto,
     online: Boolean,
     atividade: String?,
-    cascadeIndex: Int,
-    chaveDaCascata: Any?,
     isMe: Boolean,
     serverId: String?,
     isOwner: Boolean,
@@ -175,61 +170,59 @@ private fun MemberRow(
     val corDoNome = if (online) corDoMembro(m) else null
     val padraoDoNome = if (online) Obsidian.text2 else Obsidian.text3.copy(alpha = 0.65f)
     val avatarAlpha = if (online) 1f else 0.4f
-    CascadeIn(cascadeIndex, chaveDaCascata) {
-        var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
-        EditorialContextMenu(entries = {
-            buildList {
-                if (!isMe) add(MenuEntry.Item("sussurro", icon = Lucide.MessageCircle) { onStartDm(m.user.username, name) })
-                add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(m.userId)) })
-                if (isOwner && !isMe && serverId != null) {
-                    add(MenuEntry.Separator)
-                    add(MenuEntry.Item("expulsar", danger = true, icon = Lucide.UserMinus) { confirmMember = "kick" })
-                    add(MenuEntry.Item("banir", danger = true, icon = Lucide.Ban) { confirmMember = "ban" })
+    var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
+    EditorialContextMenu(entries = {
+        buildList {
+            if (!isMe) add(MenuEntry.Item("sussurro", icon = Lucide.MessageCircle) { onStartDm(m.user.username, name) })
+            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(m.userId)) })
+            if (isOwner && !isMe && serverId != null) {
+                add(MenuEntry.Separator)
+                add(MenuEntry.Item("expulsar", danger = true, icon = Lucide.UserMinus) { confirmMember = "kick" })
+                add(MenuEntry.Item("banir", danger = true, icon = Lucide.Ban) { confirmMember = "ban" })
+            }
+        }
+    }) {
+        confirmMember?.let { act ->
+            ConfirmPopup(
+                message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
+                confirmLabel = if (act == "ban") "banir" else "expulsar",
+                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
+                onDismiss = { confirmMember = null },
+            )
+        }
+        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.graphicsLayer { alpha = avatarAlpha }) {
+                    DesktopAvatar(m.user.avatarUrl, name, 26)
                 }
-            }
-        }) {
-            confirmMember?.let { act ->
-                ConfirmPopup(
-                    message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
-                    confirmLabel = if (act == "ban") "banir" else "expulsar",
-                    onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
-                    onDismiss = { confirmMember = null },
-                )
-            }
-            ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.graphicsLayer { alpha = avatarAlpha }) {
-                        DesktopAvatar(m.user.avatarUrl, name, 26)
-                    }
-                    Spacer(Modifier.width(9.dp))
-                    Column {
-                        NomeColorido(
-                            texto = name,
-                            cor = corDoNome,
-                            padrao = padraoDoNome,
-                            fontSize = 13.sp,
-                            fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (atividade != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    Modifier
-                                        .size(4.dp)
-                                        .clip(CircleShape)
-                                        .background(Obsidian.accent.copy(alpha = if (online) 0.85f else 0.4f)),
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    text = atividade,
-                                    style = Tipo.apoio,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
-                            }
+                Spacer(Modifier.width(9.dp))
+                Column {
+                    NomeColorido(
+                        texto = name,
+                        cor = corDoNome,
+                        padrao = padraoDoNome,
+                        fontSize = 13.sp,
+                        fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (atividade != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(Obsidian.accent.copy(alpha = if (online) 0.85f else 0.4f)),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = atividade,
+                                style = Tipo.apoio,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 }

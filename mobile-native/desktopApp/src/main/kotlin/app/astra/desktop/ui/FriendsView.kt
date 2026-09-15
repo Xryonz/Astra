@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -278,10 +278,8 @@ private fun FriendsList(
                     )
                 }
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {
-                    itemsIndexed(items, key = { _, f -> f.friendshipId }) { i, f ->
-                        CascadeIn(i, Unit) {
-                            FriendRow(f, onMessage = { onMessage(f.user) }, onRemove = { onRemove(f.friendshipId) })
-                        }
+                    items(items, key = { it.friendshipId }) { f ->
+                        FriendRow(f, onMessage = { onMessage(f.user) }, onRemove = { onRemove(f.friendshipId) })
                     }
                 }
             }
@@ -362,14 +360,12 @@ private fun PendingLists(
         if (incoming.isEmpty()) {
             item { Muted("nada por aqui") }
         } else {
-            itemsIndexed(incoming, key = { _, p -> p.friendshipId }) { i, p ->
-                CascadeIn(i, Unit) {
-                    PendingRow(p, trailing = {
-                        RowIconButton(Lucide.Check, tint = Obsidian.accent) { onAccept(p.friendshipId) }
-                        Spacer(Modifier.width(4.dp))
-                        RowIconButton(Lucide.X, tint = Obsidian.danger) { onDrop(p.friendshipId) }
-                    })
-                }
+            items(incoming, key = { it.friendshipId }) { p ->
+                PendingRow(p, trailing = {
+                    RowIconButton(Lucide.Check, tint = Obsidian.accent) { onAccept(p.friendshipId) }
+                    Spacer(Modifier.width(4.dp))
+                    RowIconButton(Lucide.X, tint = Obsidian.danger) { onDrop(p.friendshipId) }
+                })
             }
         }
         item {
@@ -379,21 +375,19 @@ private fun PendingLists(
         if (outgoing.isEmpty()) {
             item { Muted("nenhum enviado") }
         } else {
-            itemsIndexed(outgoing, key = { _, p -> p.friendshipId }) { i, p ->
-                CascadeIn(incoming.size + 1 + i, Unit) {
-                    PendingRow(p, trailing = {
-                        val src = remember { MutableInteractionSource() }
-                        Text(
-                            "cancelar",
-                            style = Tipo.descricao,
-                            modifier = Modifier
-                                .clickScale(src)
-                                .clip(RoundedCornerShape(7.dp))
-                                .clickable(interactionSource = src, indication = null) { onDrop(p.friendshipId) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                    })
-                }
+            items(outgoing, key = { it.friendshipId }) { p ->
+                PendingRow(p, trailing = {
+                    val src = remember { MutableInteractionSource() }
+                    Text(
+                        "cancelar",
+                        style = Tipo.descricao,
+                        modifier = Modifier
+                            .clickScale(src)
+                            .clip(RoundedCornerShape(7.dp))
+                            .clickable(interactionSource = src, indication = null) { onDrop(p.friendshipId) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                })
             }
         }
     }

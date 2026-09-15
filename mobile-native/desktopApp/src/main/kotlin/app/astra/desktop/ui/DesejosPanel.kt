@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -134,9 +134,7 @@ fun DesejosPanel(onClose: () -> Unit) {
                     modifier = Modifier.heightIn(max = 460.dp).padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    itemsIndexed(itens, key = { _, d -> d.id }) { i, d ->
-                        CascadeIn(index = i, listKey = itens.size) { LinhaDeDesejo(d) }
-                    }
+                    items(itens, key = { it.id }) { d -> LinhaDeDesejo(d) }
                 }
             }
 

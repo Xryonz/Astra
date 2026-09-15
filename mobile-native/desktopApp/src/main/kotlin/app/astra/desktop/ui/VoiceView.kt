@@ -59,9 +59,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import com.composables.icons.lucide.Activity
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.ChevronUp
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
@@ -338,9 +338,10 @@ fun VoiceView(
             val monitores by call.monitores.collectAsState()
             val janelas by call.janelas.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
+            var numerosAbertos by remember { mutableStateOf(false) }
             Box {
                 val salaDePe = connected != null
-                CallIconButton(
+                CallSplitButton(
                     icon = Lucide.ScreenShare,
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
                     rotulo = when {
@@ -348,6 +349,8 @@ fun VoiceView(
                         !salaDePe -> "A chamada está se restabelecendo"
                         else -> "Transmitir a tela"
                     },
+                    rotuloDaSeta = "Números da transmissão",
+                    setaAberta = numerosAbertos,
                     habilitado = transmitindo || salaDePe,
                     onClick = {
                         if (transmitindo) {
@@ -359,7 +362,20 @@ fun VoiceView(
                             call.pedirMonitores()
                         }
                     },
+                    aoAbrirSeta = { numerosAbertos = !numerosAbertos },
                 )
+                if (numerosAbertos) {
+                    Popup(
+                        popupPositionProvider = AboveAnchor,
+                        onDismissRequest = { numerosAbertos = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        NumerosDaTela(
+                            minha = relatorio,
+                            deQuemAssisto = ritmos[quemMostra].takeIf { quemMostra != CallNaSala.EU },
+                        )
+                    }
+                }
                 if (escolhendoTela && !transmitindo) {
                     Popup(
                         popupPositionProvider = NoMeioDaJanela,
@@ -405,27 +421,6 @@ fun VoiceView(
                                 style = Tipo.apoio,
                             )
                         }
-                    }
-                }
-            }
-            Box {
-                var numerosAbertos by remember { mutableStateOf(false) }
-                CallIconButton(
-                    icon = Lucide.Activity,
-                    tone = if (numerosAbertos) CallTone.Active else CallTone.Normal,
-                    rotulo = "Números da transmissão",
-                    onClick = { numerosAbertos = !numerosAbertos },
-                )
-                if (numerosAbertos) {
-                    Popup(
-                        popupPositionProvider = AboveAnchor,
-                        onDismissRequest = { numerosAbertos = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        NumerosDaTela(
-                            minha = relatorio,
-                            deQuemAssisto = ritmos[quemMostra].takeIf { quemMostra != CallNaSala.EU },
-                        )
                     }
                 }
             }
@@ -634,6 +629,101 @@ private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPic
 }
 
 private enum class CallTone { Normal, Active, Danger }
+
+private val ALTURA_DO_BOTAO = 46.dp
+private val RAIO_DO_BOTAO = 23.dp
+private val LARGURA_DA_SETA = 30.dp
+
+@Composable
+private fun corDaBorda(tone: CallTone) = animateColorAsState(
+    when (tone) {
+        CallTone.Danger -> Obsidian.danger
+        CallTone.Active -> Obsidian.accent
+        CallTone.Normal -> Obsidian.borderMid
+    },
+    tween(140),
+).value
+
+private fun corDoGlifo(tone: CallTone, habilitado: Boolean) = when {
+    !habilitado -> Obsidian.text3.copy(alpha = 0.45f)
+    tone == CallTone.Danger -> Obsidian.danger
+    tone == CallTone.Active -> Obsidian.accent
+    else -> Obsidian.text2
+}
+
+@Composable
+private fun CallSplitButton(
+    icon: ImageVector,
+    tone: CallTone,
+    rotulo: String,
+    rotuloDaSeta: String,
+    setaAberta: Boolean,
+    habilitado: Boolean,
+    onClick: () -> Unit,
+    aoAbrirSeta: () -> Unit,
+) {
+    val inteiro = RoundedCornerShape(RAIO_DO_BOTAO)
+    val esquerda = RoundedCornerShape(topStart = RAIO_DO_BOTAO, bottomStart = RAIO_DO_BOTAO)
+    val direita = RoundedCornerShape(topEnd = RAIO_DO_BOTAO, bottomEnd = RAIO_DO_BOTAO)
+    val borda = corDaBorda(tone)
+    val glifo = corDoGlifo(tone, habilitado)
+
+    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val daTela = remember { MutableInteractionSource() }
+            val sobreATela by daTela.collectIsHoveredAsState()
+            val fundoDaTela by animateColorAsState(
+                if (sobreATela) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
+                tween(140),
+            )
+            Box(
+                Modifier
+                    .size(ALTURA_DO_BOTAO)
+                    .clickScale(daTela, formaDoFoco = esquerda)
+                    .clip(esquerda)
+                    .background(fundoDaTela)
+                    .hoverable(daTela)
+                    .clickable(
+                        interactionSource = daTela,
+                        indication = null,
+                        enabled = habilitado,
+                        onClick = onClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(icon, tint = glifo, size = 20.dp, rotulo = rotulo)
+            }
+
+            Box(Modifier.width(1.dp).height(22.dp).background(Obsidian.borderMid))
+
+            val daSeta = remember { MutableInteractionSource() }
+            val sobreASeta by daSeta.collectIsHoveredAsState()
+            val fundoDaSeta by animateColorAsState(
+                if (sobreASeta || setaAberta) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
+                tween(140),
+            )
+            Box(
+                Modifier
+                    .width(LARGURA_DA_SETA)
+                    .height(ALTURA_DO_BOTAO)
+                    .clickScale(daSeta, formaDoFoco = direita)
+                    .clip(direita)
+                    .background(fundoDaSeta)
+                    .hoverable(daSeta)
+                    .clickable(interactionSource = daSeta, indication = null, onClick = aoAbrirSeta),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(
+                    if (setaAberta) Lucide.ChevronDown else Lucide.ChevronUp,
+                    tint = if (setaAberta) Obsidian.accent else Obsidian.text3,
+                    size = 16.dp,
+                    rotulo = rotuloDaSeta,
+                )
+            }
+        }
+        Box(Modifier.matchParentSize().border(1.dp, borda, inteiro))
+    }
+}
 
 @Composable
 private fun CallIconButton(

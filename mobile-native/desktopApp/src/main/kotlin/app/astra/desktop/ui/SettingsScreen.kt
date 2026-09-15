@@ -130,7 +130,6 @@ fun SettingsScreen(
 ) {
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabAtiva = tab
-    val jaAnimaram = remember { mutableSetOf<SettingsTab>() }
     val prefState by prefs.state.collectAsState()
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
     var perfilSalvo by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
@@ -281,8 +280,6 @@ fun SettingsScreen(
                     label = "settingsSection",
                 ) { current ->
                     val temPrevia = temPrevia(current)
-                    val jaVisto = current in jaAnimaram
-                    LaunchedEffect(current) { jaAnimaram += current }
                     Column(Modifier.fillMaxWidth()) {
                     Text(
                         current.label,
@@ -293,7 +290,7 @@ fun SettingsScreen(
                         SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth(), acoesDoCartao)
                         Spacer(Modifier.height(18.dp))
                     }
-                    CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, acoesDoCartao)

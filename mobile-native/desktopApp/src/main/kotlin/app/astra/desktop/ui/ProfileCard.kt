@@ -1,8 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -183,7 +181,7 @@ fun ProfileCard(
         }
 
         Column(Modifier.padding(horizontal = recuoH)) {
-            AvatarDoCartao(dados, completo, animar, acoesDaFoto)
+            AvatarDoCartao(dados, completo, acoesDaFoto)
             Column(Modifier.offset(y = if (completo) (-24).dp else (-40).dp)) {
                 if (completo) CorpoCompleto(dados, servidoresEmComum, animar, rodape)
                 else CorpoCompacto(dados, amigosEmComum, servidoresEmComum, cargos, rodape)
@@ -197,29 +195,12 @@ fun ProfileCard(
 private fun AvatarDoCartao(
     dados: DadosDoCartao,
     completo: Boolean,
-    animar: Boolean,
     acoesDaFoto: (() -> List<MenuEntry>)? = null,
 ) {
     val px = if (completo) 88 else 64
-    val reduzir = LocalReduceMotion.current
-    val pop = remember(dados.username, completo) {
-        Animatable(if (reduzir || !completo || !animar) 1f else 0f)
-    }
-    LaunchedEffect(dados.username, completo) {
-        if (pop.value < 1f) {
-            delay(200)
-            pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium))
-        }
-    }
     Box(
         Modifier
             .offset(y = if (completo) (-42).dp else (-px / 2 - 4).dp)
-            .graphicsLayer {
-                alpha = pop.value.coerceIn(0f, 1f)
-                val s = 0.6f + 0.4f * pop.value
-                scaleX = s
-                scaleY = s
-            }
             .clip(CircleShape)
             .background(Obsidian.raised)
             .padding(3.dp),

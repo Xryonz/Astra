@@ -1,8 +1,8 @@
 # Astra
 
 Plataforma de mensagens em tempo real — editorial-dark, anti-Discord. Constelações
-(servidores), órbitas (canais), sussurros (DMs), voz e vídeo, cargos, reações,
-enquetes, busca, notificações, XP e missões.
+(servidores), órbitas (canais), sussurros (DMs), voz e transmissão de tela, cargos,
+reações, enquetes, busca, notificações, XP e missões.
 
 **Três clientes sobre uma API só:**
 
@@ -34,7 +34,7 @@ aplicativo e morre com ele.
 
 ## Stack
 
-**Backend** (`apps/api`) — 36 grupos de rota
+**Backend** (`apps/api`) — 39 grupos de rota
 - Express 4 · TypeScript · Drizzle ORM 0.45
 - PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
 - LiveKit — voz e tela dos **três** clientes; o desktop entra na mesma sala por um
@@ -101,7 +101,7 @@ Go independente — o Gradle do desktop o compila e empacota junto do aplicativo
 > já custou tempo aqui.
 
 **Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Neon ·
-Redis → Upstash · arquivos → bucket S3 · voz e tela dos três clientes → LiveKit Cloud.
+Redis → Upstash · arquivos → bucket S3 ou R2 · voz e tela dos três clientes → LiveKit Cloud.
 
 ---
 
@@ -112,11 +112,15 @@ Redis → Upstash · arquivos → bucket S3 · voz e tela dos três clientes →
 menções com `@` e autocomplete, reações, enquetes, GIFs, figurinhas por
 constelação, emojis, anexos com prévia e lightbox, marcadores, busca global,
 histórico de destinos, tradução, fixar mensagem e menus de botão-direito em tudo.
+A mensagem guarda **quem a escreveu no instante do envio** — nome, foto e cor —, então
+trocar de perfil não reescreve o passado. Mensagem anterior a essa regra cai no perfil
+atual: não há de onde tirar a identidade da época, e carimbá-la seria inventar.
 
-**Voz e vídeo**
-Sala de voz por órbita com antessala, chamada de voz e vídeo dentro do sussurro
+**Voz e tela**
+Sala de voz por órbita com antessala, chamada de voz dentro do sussurro
 com registro no histórico ("Chamada perdida", "Chamada de 12 min"), transmissão
 de tela, painel flutuante da call ao navegar, soundboard por constelação.
+Não há câmera: o Astra é voz e tela, por decisão de escopo.
 Volume de entrada e de saída, volume por pessoa no botão-direito do cartão, e um
 sinal de três barras no rodapé que mostra ida e volta, tremor e perda da chamada.
 
@@ -125,6 +129,15 @@ Amigos com pedidos nos dois sentidos, presença ao vivo (online/ausente/ocupado/
 invisível), bloqueio, perfil com avatar, banner, pronomes, bio, recado, cor e
 fonte próprias, recorte de imagem embutido, cartão de perfil completo, cargos com
 cores/hierarquia/permissões, banimentos, convites e prévia de convite.
+
+**A bot da casa**
+Duas personas que se revezam: **Sparkle** na semana, **Sparxie** no fim de semana.
+A troca de turno é anunciada no canal, e a que estava de plantão fica gravada na
+mensagem — quando a outra assume, o aviso antigo continua assinado por quem o
+escreveu. Ela saúda quem chega na constelação, comemora nível, e atende por
+`/sparkle` ou `/sparxie` com 21 comandos entre utilidade e entretenimento (ajuda,
+status, sorteio, dado, enquete-relâmpago, "quem mandou"). Conversa por IA: Groq,
+com Gemini como alternativa.
 
 **Descoberta e chegada**
 Descobrir constelações públicas, entrada por convite, onboarding com checklist de
@@ -149,6 +162,12 @@ e permissões,
 configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
 duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento.
 
+**O Astra não mede a máquina de quem usa.** Não há afinação automática, degrau
+escondido nem qualidade escolhida por número de núcleos: todo mundo recebe o mesmo
+app. Quem cria conta escolhe um perfil — Leve, Equilibrado ou Completo — num passo
+do tour de estreia, com a tela mudando ao vivo enquanto escolhe, e tudo continua
+item a item em *Aparência*.
+
 Quando algo dá errado, o app deixa laudo em `%LOCALAPPDATA%\Astra`:
 `arranque.txt` marca por onde o arranque passou e em quanto tempo — onde a lista
 para é onde o app parou; `diagnostico.txt` traz placa, motor de desenho e versão;
@@ -158,9 +177,9 @@ para é onde o app parou; `diagnostico.txt` traz placa, motor de desenho e vers�
 
 ## Acessibilidade
 
-Não é item de backlog aqui — é regra de aceite pra tela nova:
+Não é item de backlog aqui — é regra de aceite para tela nova:
 
-- Todo botão só-ícone tem nome pro leitor de tela.
+- Todo botão só-ícone tem nome para o leitor de tela.
 - Foco de teclado é sempre visível, e o anel só aparece na navegação por teclado
   (o equivalente ao `:focus-visible` da web) — clicar com o mouse não desenha anel.
 - Alvo de clique mínimo de 24dp; o padrão do app é 26–34dp.
@@ -174,7 +193,7 @@ Não é item de backlog aqui — é regra de aceite pra tela nova:
 
 ## Setup local
 
-Requer Node 20+, PostgreSQL e Redis. Pro desktop, JDK 21.
+Requer Node 20+, PostgreSQL e Redis. Para o desktop, JDK 21.
 
 ```bash
 # 1. Instalar deps
@@ -190,7 +209,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Front em `http://localhost:5173` · API em `http://localhost:3001`.
+API em `http://localhost:3001`. O desktop aponta para ela sozinho em desenvolvimento.
 
 **Desktop:**
 
@@ -240,7 +259,7 @@ Sem passo de migration: o schema é garantido no boot por `ensureSchema`
 O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger externo
 (ex: cron-job.org) batendo em **`/live`**.
 
-> Aponte o pinger pro `/live`, **não** pro `/health`. O `/health` consulta Postgres
+> Aponte o pinger para o `/live`, **não** para o `/health`. O `/health` consulta Postgres
 > e Redis a cada chamada: pingado de minuto em minuto ele impede o Neon de
 > autossuspender e queima a cota de compute do plano free (erro `53000: exceeded
 > the compute time quota`, que derruba o deploy). `/live` só responde uptime —
@@ -248,7 +267,7 @@ O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger ext
 
 ### Desktop → GitHub Releases
 
-Publicar é **só subir a versão**. Não há tag pra criar nem zip pra arrastar:
+Publicar é **só subir a versão**. Não há tag para criar nem zip para arrastar:
 
 1. `mobile-native/gradle.properties` → `astraVersion=x.y.z`
 2. commit + push na `main`
@@ -257,7 +276,21 @@ O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
 `desktop-v<versão>` e publica o asset `Astra-<versão>-win-x64.zip`. O app procura
 sozinho, confere o hash e troca os arquivos na próxima abertura.
 
-> O app minimiza pra bandeja em vez de fechar. Pra testar um build novo, use
+Antes de publicar, o zip recém-montado é aberto **onze vezes**, em onze condições
+diferentes (`tools/provas-de-abertura`): máquina fraca, sem placa de vídeo, modo
+seguro, preferências corrompidas ou travadas, sessão pela metade, sem internet,
+abertura depois de uma queda, e uma segunda cópia com o app já aberto. Cada uma
+espera o primeiro quadro desenhado. Se qualquer uma falhar, **a publicação para** —
+nada chega a ninguém. As provas são Python de biblioteca padrão e rodam à mão:
+
+```bash
+python -u tools/provas-de-abertura/provas.py --de <pasta do app> --tempo 75
+```
+
+> O banco recusa começar se já houver um Astra aberto: a porta da cópia única é
+> global na máquina, e uma cópia viva faria toda prova sair pela porta errada.
+
+> O app minimiza para a bandeja em vez de fechar. Para testar um build novo, use
 > **Sair** na bandeja e reabra — fechar a janela não encerra o processo.
 
 ### Pós-deploy
@@ -298,9 +331,9 @@ npm run img:encolher -- --vai # executa de verdade
 A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
 fallback, e não quebra o boot:
 
-- `LIVEKIT_*` — sem isso, voz/vídeo off nos três clientes
+- `LIVEKIT_*` — sem isso, voz e tela off nos três clientes
 - `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
-- `S3_*` / `R2_*` — em desenvolvimento, o upload cai pro disco local
+- `S3_*` / `R2_*` — em desenvolvimento, o upload cai para o disco local
   (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do
   servidor é efêmero, e gravar ali produziria URLs que morrem no próximo deploy,
   deixando a imagem quebrada no banco para sempre. O log diz quais variáveis faltam
@@ -317,7 +350,7 @@ fallback, e não quebra o boot:
 Editorial-dark "obsidiana", dark-only por escolha. O acento de fábrica é
 **branco** (`#D4D8E0`, preset "Obsidiana") — âmbar é uma opção entre 19, não o
 padrão. O fundo padrão é liso; aurora e estrelas são escolha em
-*Aparência › Fundo*, e dá pra ligar as duas.
+*Aparência › Fundo*, e dá para ligar as duas.
 
 Três regras carregam o resto:
 
@@ -457,8 +490,7 @@ casa, não exigência da licença.
 
 ## Adiante
 
-- **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
-  também no sussurro.
+- **A bot no sussurro** — hoje ela só fala nas constelações; falta responder na DM.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
 - **Destino dos convites** — a prévia do link manda a pessoa para o site, que foi
   arquivado. Falta escolher para onde ela deve ir agora.

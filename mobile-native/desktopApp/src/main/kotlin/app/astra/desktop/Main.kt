@@ -253,6 +253,7 @@ object SingleInstance {
         }
         true
     } catch (e: IOException) {
+        FocoDoSistema.cederAFrenteAQualquerUm()
         val existe = runCatching {
             Socket().use { it.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 800) }
         }.isSuccess
@@ -295,6 +296,10 @@ private fun proximaManha(): Long {
 fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
+    if (!SingleInstance.acquireOrSignal()) {
+        Arranque.recuou()
+        return
+    }
     CrashLog.install()
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
@@ -307,10 +312,6 @@ fun main(args: Array<String>) {
     val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {
         WindowsAppId.aplicar()
         Arranque.marcar("identidade no Windows aplicada")
-    }
-    if (!SingleInstance.acquireOrSignal()) {
-        Arranque.marcar("ja havia outro Astra aberto — este saiu")
-        return
     }
     Arranque.marcar("instancia unica garantida")
     startKoin { modules(appModule) }
@@ -346,6 +347,7 @@ fun main(args: Array<String>) {
             if (activate > 0) {
                 windowVisible = true
                 state.isMinimized = false
+                resgate++
             }
         }
 

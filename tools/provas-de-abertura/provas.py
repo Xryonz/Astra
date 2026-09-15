@@ -159,7 +159,11 @@ PROVAS = [
         preparar=economia_imposta,
         conferir=economia_desfeita,
     ),
-    Prova("segunda-copia", "abrir de novo com um Astra ja aberto", segunda_copia=True),
+    Prova(
+        "segunda-copia",
+        "abrir de novo com um Astra ja aberto, na mesma pasta de dados",
+        segunda_copia=True,
+    ),
 ]
 
 
@@ -223,20 +227,21 @@ def relatar_falha(processo, rastro: Path, texto: str, pasta_do_app: Path) -> str
     return "\n".join(partes)
 
 
-def rodar_segunda_copia(exe: Path, quarto: Path, base_java: str, segundos: float):
-    local = quarto / "local-2"
-    roaming = quarto / "roaming-2"
-    pasta_de_dados(local).mkdir(parents=True, exist_ok=True)
-    pasta_de_sessao(roaming).mkdir(parents=True, exist_ok=True)
+def rodar_segunda_copia(exe: Path, local: Path, roaming: Path, base_java: str, segundos: float):
     rastro = pasta_de_dados(local) / "arranque.txt"
+    recuo = pasta_de_dados(local) / "recuo.txt"
+    trilha_da_primeira = ler(rastro)
     segundo = abrir(exe, local, roaming, base_java)
     try:
-        recuou, texto = esperar_marco(segundo, rastro, MARCO_RECUOU, segundos)
-        if recuou:
+        recuou, _ = esperar_marco(segundo, recuo, MARCO_RECUOU, segundos)
+        depois = ler(rastro)
+        if recuou and depois == trilha_da_primeira:
             return True, "a segunda copia reconheceu a primeira e saiu"
-        if MARCO_DESENHOU in texto:
+        if recuou:
+            return False, "a segunda copia recuou, mas apagou a trilha da primeira"
+        if MARCO_DESENHOU in depois.replace(trilha_da_primeira, ""):
             return False, "a segunda copia ABRIU do lado da primeira — a copia unica nao segurou"
-        return False, relatar_falha(segundo, rastro, texto, exe.parent)
+        return False, relatar_falha(segundo, rastro, depois, exe.parent)
     finally:
         encerrar(segundo)
 
@@ -263,7 +268,7 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
             if queixa:
                 return False, queixa
         if prova.segunda_copia:
-            return rodar_segunda_copia(exe, quarto, base_java, segundos)
+            return rodar_segunda_copia(exe, local, roaming, base_java, segundos)
         return True, primeira_linha_do_tempo(texto)
     finally:
         encerrar(processo)

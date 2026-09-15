@@ -6,6 +6,9 @@ object Arranque {
     private const val FILE = "arranque.txt"
     private const val ANTERIOR = "arranque-anterior.txt"
     private const val MARCA_SEGURO = "modo-seguro.txt"
+    private const val RECUO = "recuo.txt"
+
+    const val MARCO_RECUOU = "ja havia outro Astra aberto — este saiu"
 
     const val MARCO_JANELA = "janela principal criada"
     private const val MARCO_DESENHOU = "primeiro quadro desenhado"
@@ -16,6 +19,7 @@ object Arranque {
     private val arquivo: File by lazy { File(CrashLog.dataDir(), FILE) }
     private val anterior: File by lazy { File(CrashLog.dataDir(), ANTERIOR) }
     private val marcaSegura: File by lazy { File(CrashLog.dataDir(), MARCA_SEGURO) }
+    private val recuo: File by lazy { File(CrashLog.dataDir(), RECUO) }
 
     var modoSeguro: Boolean = false
         private set
@@ -52,6 +56,10 @@ object Arranque {
     }
 
     fun nasceuEscondido() = marcar(MARCO_ESCONDIDO)
+
+    fun recuou() = runCatching {
+        recuo.writeText("$MARCO_RECUOU\n${java.time.LocalDateTime.now()}\n")
+    }
 
     fun armarModoSeguro() = runCatching { marcaSegura.writeText("armado pelo vigia\n") }
 

@@ -63,6 +63,13 @@ object Arranque {
         recuo.writeText("$MARCO_RECUOU\n${java.time.LocalDateTime.now()}\n")
     }
 
+    fun recuouDeUmTravado(pid: Long) = runCatching {
+        recuo.writeText(
+            "o Astra de numero $pid segurava a vaga e nao respondia — encerrado para abrir outro\n" +
+                "${java.time.LocalDateTime.now()}\n",
+        )
+    }
+
     fun armarModoSeguro() = runCatching { marcaSegura.writeText("armado pelo vigia\n") }
 
     fun sairDoModoSeguro() = runCatching { marcaSegura.delete() }.getOrDefault(false)

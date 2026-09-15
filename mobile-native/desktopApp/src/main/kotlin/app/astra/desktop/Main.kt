@@ -89,12 +89,14 @@ import okio.Path.Companion.toPath
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import zed.rainxch.rikkaui.foundation.RikkaColors
 import zed.rainxch.rikkaui.foundation.RikkaTheme
@@ -233,31 +235,122 @@ object Multi {
 
 object SingleInstance {
     private const val PORT = 47821
+    private const val PRAZO_PARA_CONECTAR_MS = 800
+    private const val PRAZO_DA_RESPOSTA_MS = 5_000
+    private const val PASSO_DA_ESPERA_MS = 50L
+    private const val PRAZO_DA_PORTA_MS = 4_000L
+    private const val RESPOSTA_ATENDIDO = "atendido"
+    private const val RESPOSTA_SUBINDO = "subindo"
+    private const val ARQUIVO_DO_DONO = "dono.txt"
+
+    private enum class Resposta { ATENDIDO, NINGUEM, TRAVADO }
+
     val activate = MutableStateFlow(0)
+    private val atendidos = AtomicInteger(0)
+    @Volatile private var janelaViva = false
     private var server: ServerSocket? = null
 
     val multi: Boolean get() = Multi.ligado
+
+    private val fichaDoDono: File get() = File(CrashLog.dataDir(), ARQUIVO_DO_DONO)
+
+    fun aJanelaRespondeu() { janelaViva = true }
+
+    fun chamadoAtendido() { atendidos.incrementAndGet() }
 
     fun release() {
         runCatching { server?.close() }
         server = null
     }
 
-    fun acquireOrSignal(): Boolean = if (multi) true else try {
+    fun acquireOrSignal(): Boolean {
+        if (multi) return true
+        if (segurarAPorta()) return true
+        FocoDoSistema.cederAFrenteAQualquerUm()
+        return when (perguntarAoDono()) {
+            Resposta.ATENDIDO -> false
+            Resposta.NINGUEM -> { segurarAPorta(); true }
+            Resposta.TRAVADO -> {
+                if (encerrarOTravado()) esperarAPortaLivre()
+                segurarAPorta()
+                true
+            }
+        }
+    }
+
+    private fun segurarAPorta(): Boolean = try {
         server = ServerSocket().also { s ->
             s.reuseAddress = true
             s.bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 1)
+            runCatching { fichaDoDono.writeText(ProcessHandle.current().pid().toString()) }
             thread(isDaemon = true, name = "astra-single-instance") {
-                while (!s.isClosed) runCatching { s.accept().close(); activate.value++ }
+                while (!s.isClosed) runCatching { atender(s.accept()) }
             }
         }
         true
     } catch (e: IOException) {
-        FocoDoSistema.cederAFrenteAQualquerUm()
-        val existe = runCatching {
-            Socket().use { it.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 800) }
-        }.isSuccess
-        !existe
+        false
+    }
+
+    private fun atender(cliente: Socket) = cliente.use {
+        val alvo = activate.value + 1
+        activate.value = alvo
+        val recado = if (!janelaViva) RESPOSTA_SUBINDO else esperarAtendimento(alvo)
+        if (recado != null) it.getOutputStream().write(recado.toByteArray())
+    }
+
+    private fun esperarAtendimento(alvo: Int): String? {
+        val fim = System.nanoTime() + PRAZO_DA_RESPOSTA_MS * 1_000_000L
+        while (System.nanoTime() < fim) {
+            if (atendidos.get() >= alvo) return RESPOSTA_ATENDIDO
+            Thread.sleep(PASSO_DA_ESPERA_MS)
+        }
+        return null
+    }
+
+    private fun perguntarAoDono(): Resposta {
+        val cliente = Socket()
+        return try {
+            cliente.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), PRAZO_PARA_CONECTAR_MS)
+            cliente.soTimeout = PRAZO_DA_RESPOSTA_MS + PRAZO_PARA_CONECTAR_MS
+            val dito = runCatching {
+                cliente.getInputStream().readBytes().toString(Charsets.UTF_8).trim()
+            }.getOrDefault("")
+            if (dito.isEmpty()) Resposta.TRAVADO else Resposta.ATENDIDO
+        } catch (e: IOException) {
+            Resposta.NINGUEM
+        } finally {
+            runCatching { cliente.close() }
+        }
+    }
+
+    private fun encerrarOTravado(): Boolean {
+        val pid = runCatching { fichaDoDono.readText().trim().toLong() }.getOrNull() ?: return false
+        if (pid == ProcessHandle.current().pid()) return false
+        if (ProcessHandle.of(pid).isEmpty) return false
+        Arranque.recuouDeUmTravado(pid)
+        return runCatching {
+            ProcessBuilder("taskkill", "/T", "/F", "/PID", pid.toString())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+                .waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+        }.getOrDefault(false)
+    }
+
+    private fun esperarAPortaLivre() {
+        val fim = System.nanoTime() + PRAZO_DA_PORTA_MS * 1_000_000L
+        while (System.nanoTime() < fim) {
+            val livre = runCatching {
+                ServerSocket().use { s ->
+                    s.reuseAddress = true
+                    s.bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 1)
+                }
+                true
+            }.getOrDefault(false)
+            if (livre) return
+            Thread.sleep(PASSO_DA_ESPERA_MS)
+        }
     }
 }
 
@@ -342,13 +435,19 @@ fun main(args: Array<String>) {
         val appIcon = remember { iconeDaJanela() }
         val bandeja = remember { Bandeja() }
 
+        val trazerParaAFrente = { recentrar: Boolean ->
+            windowVisible = true
+            state.isMinimized = false
+            if (recentrar) state.position = WindowPosition(Alignment.Center)
+            resgate++
+        }
+
         val activate by SingleInstance.activate.collectAsState()
         LaunchedEffect(activate) {
             if (activate > 0) {
                 Arranque.marcar(Arranque.MARCO_CHAMADO)
-                windowVisible = true
-                state.isMinimized = false
-                resgate++
+                trazerParaAFrente(false)
+                SingleInstance.chamadoAtendido()
             }
         }
 
@@ -394,12 +493,7 @@ fun main(args: Array<String>) {
             aoAtivar = { windowVisible = true; state.isMinimized = false },
             itens = {
                 buildList {
-                    add(ItemDaBandeja("Abrir o Astra") {
-                        windowVisible = true
-                        state.isMinimized = false
-                        state.position = WindowPosition(Alignment.Center)
-                        resgate++
-                    })
+                    add(ItemDaBandeja("Abrir o Astra") { trazerParaAFrente(true) })
                     EstadoNaBandeja.atual?.let { atual ->
                         if (isNotEmpty()) add(SeparadorDaBandeja)
                         ESTADOS_NA_BANDEJA.forEach { escolha ->
@@ -487,6 +581,7 @@ fun main(args: Array<String>) {
                 withFrameNanos { }
                 Arranque.desenhou()
                 Vigia.apareceu(window)
+                SingleInstance.aJanelaRespondeu()
             }
             LaunchedEffect(resgate) {
                 if (resgate > 0) runCatching { window.toFront(); window.requestFocus() }
@@ -494,7 +589,7 @@ fun main(args: Array<String>) {
             if (voltandoDeAtualizacao) {
                 LaunchedEffect(Unit) {
                     delay(400)
-                    runCatching { window.toFront(); window.requestFocus() }
+                    resgate++
                 }
             }
             setSingletonImageLoaderFactory { ctx ->

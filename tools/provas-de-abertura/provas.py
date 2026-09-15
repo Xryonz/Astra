@@ -5,6 +5,7 @@ import socket
 import stat
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,6 +123,37 @@ def economia_desfeita(local: Path, roaming: Path) -> Optional[str]:
     return None
 
 
+class VagaTomada:
+    def __init__(self) -> None:
+        self.servidor = socket.socket()
+        self.servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.servidor.bind(("127.0.0.1", PORTA_DA_COPIA_UNICA))
+        self.servidor.listen(2)
+        self.presos: list = []
+        self.vivo = True
+        threading.Thread(target=self._aceitar, daemon=True).start()
+
+    def _aceitar(self) -> None:
+        while self.vivo:
+            try:
+                cliente, _ = self.servidor.accept()
+            except OSError:
+                return
+            self.presos.append(cliente)
+
+    def fechar(self) -> None:
+        self.vivo = False
+        for cliente in self.presos:
+            try:
+                cliente.close()
+            except OSError:
+                pass
+        try:
+            self.servidor.close()
+        except OSError:
+            pass
+
+
 @dataclass
 class Prova:
     nome: str
@@ -130,6 +162,7 @@ class Prova:
     conferir: Optional[Callable[[Path, Path], Optional[str]]] = None
     opcoes_java: str = ""
     segunda_copia: bool = False
+    vaga_tomada: bool = False
 
 
 PROVAS = [
@@ -164,6 +197,11 @@ PROVAS = [
         "segunda-copia",
         "abrir de novo com um Astra ja aberto — a primeira tem de vir para a frente",
         segunda_copia=True,
+    ),
+    Prova(
+        "vaga-tomada-por-quem-nao-responde",
+        "a vaga da copia unica presa por quem nunca responde — o Astra abre assim mesmo",
+        vaga_tomada=True,
     ),
 ]
 
@@ -268,6 +306,7 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
 
     opcoes = (base_java + " " + prova.opcoes_java).strip()
     rastro = pasta_de_dados(local) / "arranque.txt"
+    intrusa = VagaTomada() if prova.vaga_tomada else None
     processo = abrir(exe, local, roaming, opcoes)
     try:
         desenhou, texto = esperar_marco(processo, rastro, MARCO_DESENHOU, segundos)
@@ -281,6 +320,8 @@ def rodar(prova: Prova, exe: Path, base: Path, base_java: str, segundos: float):
             return rodar_segunda_copia(exe, local, roaming, base_java, segundos)
         return True, primeira_linha_do_tempo(texto)
     finally:
+        if intrusa:
+            intrusa.fechar()
         encerrar(processo)
         esperar_porta_livre()
 

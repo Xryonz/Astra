@@ -157,7 +157,9 @@ XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
 com aviso, distintivos.
 
 **Casa da máquina (desktop)**
-Auto-update por zip-swap com verificação SHA-256, bandeja do sistema que troca o
+Auto-update por zip-swap com verificação SHA-256, que baixa só o que mudou, insiste
+quando a conexão oscila, retoma de onde parou o download do pacote inteiro e só mostra
+a versão nova ao atalho quando ela está inteira, bandeja do sistema que troca o
 estado (brilhando, ausente, não perturbe, invisível) e silencia os avisos sem abrir
 a janela, atalho no menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede
 e permissões,
@@ -167,8 +169,10 @@ duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento
 Abrir o Astra começa pela tela de abertura, que procura versão nova e conta o que
 está acontecendo — as palavras espaciais enquanto procura, o nome da versão quando
 há uma, o progresso quando baixa. Ela sai sozinha: na hora, se estiver em dia; depois
-de dizer o motivo, se a consulta falhar. E ao sair entrega o lugar para a janela
-principal.
+de dizer o motivo, se a consulta falhar. Se há versão nova, ela fica até a atualização
+terminar e o Astra reabrir já atualizado — a não ser que a conexão passe um minuto
+inteiro sem entregar nada; aí ela dá lugar à janela, e a atualização segue por trás,
+com um aviso na barra de título. E ao sair entrega o lugar para a janela principal.
 
 **O Astra não mede a máquina de quem usa.** Não há afinação automática, degrau
 escondido nem qualidade escolhida por número de núcleos: todo mundo recebe o mesmo

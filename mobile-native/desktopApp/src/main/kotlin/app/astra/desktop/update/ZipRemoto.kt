@@ -50,12 +50,12 @@ internal class ZipRemoto(private val http: OkHttpClient, private val url: String
         return tamanhoConhecido
     }
 
-    fun faixa(de: Long, ate: Long): ByteArray {
+    fun faixa(de: Long, ate: Long, aoReceber: (Long) -> Unit = {}): ByteArray {
         if (ate <= de) return ByteArray(0)
         var tentativa = 0
         while (true) {
             try {
-                return pedirFaixa(de, ate)
+                return pedirFaixa(de, ate, aoReceber)
             } catch (e: IOException) {
                 if (++tentativa >= TENTATIVAS_POR_FAIXA) throw e
                 Thread.sleep(PAUSA_ENTRE_TENTATIVAS_MS)
@@ -63,7 +63,7 @@ internal class ZipRemoto(private val http: OkHttpClient, private val url: String
         }
     }
 
-    private fun pedirFaixa(de: Long, ate: Long): ByteArray {
+    private fun pedirFaixa(de: Long, ate: Long, aoReceber: (Long) -> Unit): ByteArray {
         val req = Request.Builder().url(url)
             .header("User-Agent", "Astra-Desktop")
             .header("Range", "bytes=$de-${ate - 1}")
@@ -74,10 +74,18 @@ internal class ZipRemoto(private val http: OkHttpClient, private val url: String
                 tamanhoConhecido = it
             }
             val corpo = resp.body ?: throw IOException("faixa sem corpo")
-            val bruto = corpo.bytes()
-            if (bruto.size.toLong() != ate - de) {
-                throw IOException("faixa veio com ${bruto.size} bytes, esperava ${ate - de}")
+            val esperado = (ate - de).toInt()
+            val bruto = ByteArray(esperado)
+            var lidos = 0
+            corpo.byteStream().use { entrada ->
+                while (lidos < esperado) {
+                    val n = entrada.read(bruto, lidos, esperado - lidos)
+                    if (n < 0) break
+                    lidos += n
+                    aoReceber(lidos.toLong())
+                }
             }
+            if (lidos != esperado) throw IOException("faixa veio com $lidos bytes, esperava $esperado")
             return bruto
         }
     }

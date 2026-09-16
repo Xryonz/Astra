@@ -86,6 +86,8 @@ import kotlin.math.sin
 
 private const val prazoSemNoticias = 15_000L
 
+private const val prazoSemBytes = 60_000L
+
 private const val prazoDoReinicio = 25_000L
 
 @Composable
@@ -104,7 +106,13 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         }
     }
     LaunchedEffect(st) {
-        delay(if (st is UpdateState.Ready) prazoDoReinicio else prazoSemNoticias)
+        delay(
+            when (st) {
+                is UpdateState.Ready -> prazoDoReinicio
+                is UpdateState.Downloading -> prazoSemBytes
+                else -> prazoSemNoticias
+            },
+        )
         onDone()
     }
 

@@ -17,6 +17,7 @@ private const val VAO_QUE_VALE_PULAR = 96L * 1024
 private const val TETO_NA_MEMORIA = 64L * 1024 * 1024
 
 private const val FATIA_DA_CONFERENCIA = 0.35f
+private const val PASSO_MINIMO_DO_PROGRESSO = 0.002f
 
 internal data class Montagem(
     val reaproveitados: Int,
@@ -30,6 +31,13 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
     private val zip = ZipRemoto(http, url)
 
     fun montar(deOndeVem: File, paraOnde: File, aoAndar: (Float) -> Unit): Montagem? {
+        var informado = -1f
+        val avancar = { p: Float ->
+            if (p >= 1f || p - informado >= PASSO_MINIMO_DO_PROGRESSO) {
+                informado = p
+                aoAndar(p)
+            }
+        }
         val dir = zip.diretorio() ?: return null
         val arquivos = dir.entradas.filterNot { it.ehPasta }
         if (arquivos.isEmpty()) return null
@@ -59,7 +67,7 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
             }
             if (jaTenho.isFile) conferidos += jaTenho.length()
             if (totalAConferir > 0) {
-                aoAndar(FATIA_DA_CONFERENCIA * (conferidos.toFloat() / totalAConferir))
+                avancar(FATIA_DA_CONFERENCIA * (conferidos.toFloat() / totalAConferir))
             }
         }
 
@@ -73,23 +81,24 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
             if (!ligarOuCopiar(origem, destino)) return null
         }
 
-        var andados = 0L
-        aoAndar(if (totalBaixar == 0L) 1f else FATIA_DA_CONFERENCIA)
-        for (bloco in agrupar(baixar, dir)) {
-            val bruto = zip.faixa(bloco.de, bloco.ate)
+        val blocos = agrupar(baixar, dir)
+        val bytesDaRede = blocos.sumOf { it.ate - it.de }
+        var chegados = 0L
+        avancar(if (bytesDaRede == 0L) 1f else FATIA_DA_CONFERENCIA)
+        for (bloco in blocos) {
+            val bruto = zip.faixa(bloco.de, bloco.ate) { recebidos ->
+                val quanto = (chegados + recebidos).toFloat() / bytesDaRede
+                avancar((FATIA_DA_CONFERENCIA + (1f - FATIA_DA_CONFERENCIA) * quanto).coerceIn(0f, 1f))
+            }
+            chegados += bloco.ate - bloco.de
             for ((e, rel) in bloco.entradas) {
                 val destino = File(paraOnde, rel)
                 destino.parentFile?.mkdirs()
                 val dentro = (e.deslocamento - bloco.de).toInt()
                 if (!escrever(bruto, dentro, e, destino)) return null
-                andados += e.comprimido
-                if (totalBaixar > 0) {
-                    val quanto = andados.toFloat() / totalBaixar
-                    aoAndar((FATIA_DA_CONFERENCIA + (1f - FATIA_DA_CONFERENCIA) * quanto).coerceIn(0f, 1f))
-                }
             }
         }
-        aoAndar(1f)
+        avancar(1f)
 
         return Montagem(reaproveitar.size, baixar.size, totalBaixar, zip.tamanho())
     }

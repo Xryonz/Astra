@@ -31,6 +31,12 @@ private const val LATEST_PAGE = "https://github.com/$REPO/releases/latest"
 
 private const val INTERVALO_RONDA_MS = 20L * 60_000L
 
+private const val PASTA_DO_PACOTE = "Astra"
+
+private const val HTTP_FAIXA_ALEM_DO_FIM = 416
+
+private val VERSAO_NO_NOME = Regex("""\d+\.\d+\.\d+""")
+
 sealed interface UpdateState {
     data object Idle : UpdateState
     data object Checking : UpdateState
@@ -97,6 +103,8 @@ class UpdateService(private val http: OkHttpClient) {
         for (alvo in Instalacao.descartaveis()) {
             if (Instalacao.mesmaPasta(alvo, atual)) continue
             if (Instalacao.mesmaPasta(alvo, Instalacao.fixa)) continue
+            if (Instalacao.mesmaPasta(alvo, imagemPronta)) continue
+            if (VERSAO_NO_NOME.find(alvo.name)?.let { isNewer(it.value, currentVersion) } == true) continue
             val tamanho = alvo.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
             if (alvo.deleteRecursively()) liberado += tamanho
         }
@@ -197,32 +205,28 @@ class UpdateService(private val http: OkHttpClient) {
             stagingDir.deleteRecursively()
             newVersionDir.deleteRecursively()
 
+            val montada = File(stagingDir, PASTA_DO_PACOTE)
             val porPartes = runCatching {
-                MontagemPorPartes(clienteDeArquivo(), av.downloadUrl).montar(appRoot, newVersionDir) { p ->
+                MontagemPorPartes(clienteDeArquivo(), av.downloadUrl).montar(appRoot, montada) { p ->
                     _state.value = UpdateState.Downloading(av.version, p)
                 }
             }.getOrNull()
 
-            if (porPartes == null || !File(newVersionDir, "Astra.exe").isFile) {
-                newVersionDir.deleteRecursively()
+            val pronta = if (porPartes != null && File(montada, "Astra.exe").isFile) {
                 zipFile.delete()
+                montada
+            } else {
+                stagingDir.deleteRecursively()
                 download(av.downloadUrl, zipFile) { p ->
                     _state.value = UpdateState.Downloading(av.version, p)
                 }
-                conferirHash(av.downloadUrl, zipFile)
-                unzip(zipFile, stagingDir)
-                val exeRoot =
-                    if (File(stagingDir, "Astra.exe").exists()) stagingDir
-                    else stagingDir.listFiles()?.firstOrNull { File(it, "Astra.exe").exists() }
-                        ?: error("Astra.exe não encontrado no pacote")
-                newVersionDir.deleteRecursively()
-                if (!exeRoot.renameTo(newVersionDir)) {
-                    exeRoot.copyRecursively(newVersionDir, overwrite = true)
-                }
-                stagingDir.deleteRecursively()
-            } else {
-                zipFile.delete()
+                abrirOPacote(av.downloadUrl, zipFile, stagingDir)
             }
+            newVersionDir.deleteRecursively()
+            if (!pronta.renameTo(newVersionDir)) {
+                pronta.copyRecursively(newVersionDir, overwrite = true)
+            }
+            stagingDir.deleteRecursively()
             if (!File(newVersionDir, "app").isDirectory || !File(newVersionDir, "runtime").isDirectory) {
                 error("pacote incompleto")
             }
@@ -230,10 +234,20 @@ class UpdateService(private val http: OkHttpClient) {
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
             stagingDir.deleteRecursively()
-            zipFile.delete()
             newVersionDir.deleteRecursively()
             _state.value = UpdateState.Failed(stageFailReason(it), av.releaseUrl)
         }
+    }
+
+    private fun abrirOPacote(url: String, zip: File, destino: File): File = try {
+        conferirHash(url, zip)
+        unzip(zip, destino)
+        if (File(destino, "Astra.exe").isFile) destino
+        else destino.listFiles()?.firstOrNull { File(it, "Astra.exe").isFile }
+            ?: error("Astra.exe não encontrado no pacote")
+    } catch (e: Exception) {
+        zip.delete()
+        throw e
     }
 
     private fun stageFailReason(e: Throwable): String {
@@ -265,6 +279,10 @@ class UpdateService(private val http: OkHttpClient) {
             try {
                 var expected = -1L
                 client.newCall(reqB.build()).execute().use { resp ->
+                    if (resp.code == HTTP_FAIXA_ALEM_DO_FIM && have > 0) {
+                        onProgress(1f)
+                        return
+                    }
                     if (!resp.isSuccessful) error("HTTP ${resp.code}")
                     val body = resp.body ?: error("sem corpo")
                     val resuming = resp.code == 206 && have > 0

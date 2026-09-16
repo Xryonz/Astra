@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { Server as SocketServer } from 'socket.io'
 import { and, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm'
 import { z } from 'zod'

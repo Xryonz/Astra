@@ -19,9 +19,8 @@ principal em 14/09/2026, e vive em `arquivo/web` com o histórico inteiro.
 O Android saiu da branch principal em 06/09/2026 e vive em `arquivo/android`, com
 o histórico inteiro. **Nenhuma release traz APK**, e o `APK/README.md` diz isso a quem
 vai procurar: a última compilação que chegou a existir é muito anterior à versão do
-desktop, e entregá-la seria passar um Astra atrasado por atual. O fluxo de release
-ainda procura um APK congelado nas releases antigas e o anexaria se achasse — hoje
-não acha, e não achar não é erro.
+desktop, e entregá-la seria passar um Astra atrasado por atual. A release do desktop
+publica só o que o app usa: o pacote e o hash dele.
 
 O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
 processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo
@@ -157,7 +156,9 @@ XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
 com aviso, distintivos.
 
 **Casa da máquina (desktop)**
-Auto-update por zip-swap com verificação SHA-256, bandeja do sistema que troca o
+Auto-update por zip-swap assinado com Ed25519, que baixa só o que mudou, insiste
+quando a conexão oscila, retoma de onde parou o download do pacote inteiro e só mostra
+a versão nova ao atalho quando ela está inteira, bandeja do sistema que troca o
 estado (brilhando, ausente, não perturbe, invisível) e silencia os avisos sem abrir
 a janela, atalho no menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede
 e permissões,
@@ -167,8 +168,10 @@ duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento
 Abrir o Astra começa pela tela de abertura, que procura versão nova e conta o que
 está acontecendo — as palavras espaciais enquanto procura, o nome da versão quando
 há uma, o progresso quando baixa. Ela sai sozinha: na hora, se estiver em dia; depois
-de dizer o motivo, se a consulta falhar. E ao sair entrega o lugar para a janela
-principal.
+de dizer o motivo, se a consulta falhar. Se há versão nova, ela fica até a atualização
+terminar e o Astra reabrir já atualizado — a não ser que a conexão passe um minuto
+inteiro sem entregar nada; aí ela dá lugar à janela, e a atualização segue por trás,
+com um aviso na barra de título. E ao sair entrega o lugar para a janela principal.
 
 **O Astra não mede a máquina de quem usa.** Não há afinação automática, degrau
 escondido nem qualidade escolhida por número de núcleos: todo mundo recebe o mesmo
@@ -288,11 +291,21 @@ O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger ext
 Publicar é **só subir a versão**. Não há tag para criar nem zip para arrastar:
 
 1. `mobile-native/gradle.properties` → `astraVersion=x.y.z`
-2. commit + push na `main`
+2. pull request da `astra-dev` para a `main`, juntado com commit de merge quando a CI
+   passar — a `main` não aceita push direto
 
-O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
-`desktop-v<versão>` e publica o asset `Astra-<versão>-win-x64.zip`. O app procura
-sozinho, confere o hash e troca os arquivos na próxima abertura.
+O workflow `desktop-release.yml` trabalha em duas etapas separadas. A primeira monta o
+zip e o prova, com permissão só de leitura. A segunda não baixa nem executa nada do
+build: gera a lista com o SHA-256 de cada arquivo do pacote, assina essa lista com
+Ed25519, confere a assinatura contra a chave pública embutida no app e só então cria a
+tag `desktop-v<versão>` com o zip, o hash, a lista e a assinatura. O app procura
+sozinho e só instala se a assinatura bater com a chave dele e cada arquivo montado
+bater com a lista, nos dois caminhos de atualização.
+
+A chave privada vive **só** no segredo `ASTRA_CHAVE_DE_ASSINATURA` do repositório, e
+não existe reserva. Sem ela nenhuma release sai; se ela se perder ou vazar, quem estiver
+numa versão que confere assinatura só volta a atualizar reinstalando à mão. As
+ferramentas estão em `tools/assinatura`.
 
 Antes de publicar, o zip recém-montado é aberto **treze vezes**, em treze condições
 diferentes (`tools/provas-de-abertura`): máquina fraca, sem placa de vídeo, modo

@@ -18,7 +18,14 @@ function sanitizeShallowString(value: unknown): unknown {
 }
 
 export function sanitizeInputs(req: Request, _res: Response, next: NextFunction) {
-  if (req.query)  req.query  = sanitizeShallowString(req.query)  as Record<string, string>
+  if (req.query) {
+    Object.defineProperty(req, 'query', {
+      value: sanitizeShallowString(req.query),
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    })
+  }
   if (req.params) req.params = sanitizeShallowString(req.params) as Record<string, string>
   next()
 }

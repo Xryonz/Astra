@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { progressoDe, custoDoNivel, estrelasDaTrilha, XP_POR_MENSAGEM, XP_POR_MINUTO_CALL } from '../lib/xp'

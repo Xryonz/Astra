@@ -130,6 +130,10 @@ app.use('/api/servers', express.json({ limit: '16mb' }))
 app.use('/api/bots', express.json({ limit: '16mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
+app.use((req, _res, next) => {
+  if (req.body === undefined) req.body = {}
+  next()
+})
 app.use(sanitizeInputs)
 
 app.use(healthRouter)

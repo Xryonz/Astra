@@ -1,4 +1,5 @@
 ﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJLinkTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -89,6 +90,10 @@ tasks.matching {
         it.name == "packageDistributionForCurrentOS" ||
         it.name == "prepareAppResources"
 }.configureEach { dependsOn(compilarSidecarVoz) }
+
+tasks.withType<AbstractJLinkTask>().configureEach {
+    freeArgs.add("--include-locales=pt-BR,en")
+}
 
 tasks.register<Zip>("zipDistributable") {
     dependsOn("createDistributable")

@@ -38,6 +38,9 @@ private const val LOCALIZADOR_ZIP64 = 0x07064b50
 private const val COMENTARIO_MAXIMO = 65_535
 private const val RODAPE_FIXO = 22
 
+private const val TENTATIVAS_POR_FAIXA = 3
+private const val PAUSA_ENTRE_TENTATIVAS_MS = 1_500L
+
 internal class ZipRemoto(private val http: OkHttpClient, private val url: String) {
 
     private var tamanhoConhecido = -1L
@@ -49,6 +52,18 @@ internal class ZipRemoto(private val http: OkHttpClient, private val url: String
 
     fun faixa(de: Long, ate: Long): ByteArray {
         if (ate <= de) return ByteArray(0)
+        var tentativa = 0
+        while (true) {
+            try {
+                return pedirFaixa(de, ate)
+            } catch (e: IOException) {
+                if (++tentativa >= TENTATIVAS_POR_FAIXA) throw e
+                Thread.sleep(PAUSA_ENTRE_TENTATIVAS_MS)
+            }
+        }
+    }
+
+    private fun pedirFaixa(de: Long, ate: Long): ByteArray {
         val req = Request.Builder().url(url)
             .header("User-Agent", "Astra-Desktop")
             .header("Range", "bytes=$de-${ate - 1}")

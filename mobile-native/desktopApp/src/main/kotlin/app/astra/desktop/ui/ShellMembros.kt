@@ -190,7 +190,7 @@ private fun MemberRow(
                 onDismiss = { confirmMember = null },
             )
         }
-        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
+        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles, entraPelaDireita = true) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -165,15 +165,19 @@ private fun LinhaDaConta(
         Text(
             rotulo,
             style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            valor,
-            style = Tipo.corpo,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 240.dp),
+            softWrap = false,
         )
+        Spacer(Modifier.width(12.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            Text(
+                valor,
+                style = Tipo.corpo,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 240.dp),
+            )
+        }
         if (acao != null) {
             Spacer(Modifier.width(12.dp))
             val toque = remember { MutableInteractionSource() }

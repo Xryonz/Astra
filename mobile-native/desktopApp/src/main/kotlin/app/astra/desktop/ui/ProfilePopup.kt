@@ -1,9 +1,11 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -105,6 +107,7 @@ fun ProfileAnchor(
     isMe: Boolean,
     onStartDm: (username: String, title: String) -> Unit,
     cargos: List<MemberRoleDto> = emptyList(),
+    entraPelaDireita: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -135,6 +138,7 @@ fun ProfileAnchor(
                         onStartDm(u, t)
                     },
                     onOpenFull = { open = false; full = true },
+                    entraPelaDireita = entraPelaDireita,
                 )
             }
         }
@@ -189,6 +193,7 @@ private fun ProfilePopupCard(
     cargos: List<MemberRoleDto>,
     onStartDm: (String, String) -> Unit,
     onOpenFull: () -> Unit,
+    entraPelaDireita: Boolean = false,
 ) {
     val koin = GlobalContext.get()
     var visao by remember(userId) { mutableStateOf(cached(userId)) }
@@ -205,11 +210,14 @@ private fun ProfilePopupCard(
 
     val esqueletoDoPerfil = esperaLongaOBastante(visao == null)
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
-    AnimatedVisibility(
-        visibleState = entered,
-        enter = fadeIn(tween(240, easing = EaseSpring)) +
-            slideInVertically(tween(280, easing = EaseSpring)) { it / 10 },
-    ) {
+    val entrada = when {
+        LocalReduceMotion.current -> EnterTransition.None
+        entraPelaDireita -> fadeIn(tween(240, easing = EaseSpring)) +
+            slideInHorizontally(tween(280, easing = EaseSpring)) { it / 8 }
+        else -> fadeIn(tween(240, easing = EaseSpring)) +
+            slideInVertically(tween(280, easing = EaseSpring)) { it / 10 }
+    }
+    AnimatedVisibility(visibleState = entered, enter = entrada) {
         val v = visao
         if (v == null) {
             Column(

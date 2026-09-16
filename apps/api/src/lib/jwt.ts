@@ -28,11 +28,11 @@ export function generateRefreshToken(userId: string): string {
 }
 
 export function verifyAccessToken(token: string): TokenPayload {
-  return jwt.verify(token, env.JWT_ACCESS_SECRET) as TokenPayload
+  return jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as TokenPayload
 }
 
 export function verifyRefreshToken(token: string): RefreshPayload {
-  return jwt.verify(token, env.JWT_REFRESH_SECRET) as RefreshPayload
+  return jwt.verify(token, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as RefreshPayload
 }
 
 export function hashToken(token: string): string {

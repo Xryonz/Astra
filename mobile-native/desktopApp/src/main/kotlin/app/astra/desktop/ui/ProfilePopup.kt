@@ -213,7 +213,7 @@ private fun ProfilePopupCard(
         val v = visao
         if (v == null) {
             Column(
-                Modifier.width(320.dp).heightIn(min = ALTURA_MIN_CARTAO)
+                Modifier.width(320.dp).height(ALTURA_MIN_CARTAO)
                     .clip(RoundedCornerShape(12.dp))
                     .profileCardBackdrop(null)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),

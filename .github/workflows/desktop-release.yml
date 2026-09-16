@@ -9,11 +9,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  publicar:
+  empacotar:
     runs-on: windows-latest
+    outputs:
+      versao: ${{ steps.versao.outputs.versao }}
+      tag: ${{ steps.versao.outputs.tag }}
+      asset: ${{ steps.versao.outputs.asset }}
+      existe: ${{ steps.checar.outputs.existe }}
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -95,41 +100,93 @@ jobs:
             throw "o Astra nao abriu"
           }
 
-      - name: Publicar release + asset
+      - name: Entregar o pacote ao trabalho que assina
         if: steps.checar.outputs.existe == 'False'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pacote
+          path: mobile-native/desktopApp/build/${{ steps.versao.outputs.asset }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publicar:
+    needs: empacotar
+    if: needs.empacotar.outputs.existe == 'False'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            tools/assinatura
+            mobile-native/desktopApp/src/main/kotlin/app/astra/desktop/update
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Receber o pacote
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: pacote
+          path: pacote
+
+      - name: Assinar
+        shell: pwsh
+        env:
+          ASTRA_CHAVE_DE_ASSINATURA: ${{ secrets.ASTRA_CHAVE_DE_ASSINATURA }}
+        run: |
+          $zip  = "pacote/${{ needs.empacotar.outputs.asset }}"
+          if (-not (Test-Path $zip)) { throw "o pacote nao chegou em $zip" }
+          $base = $zip.Substring(0, $zip.Length - 4)
+          java tools/assinatura/Assinar.java $zip "${{ needs.empacotar.outputs.versao }}" "$base.manifesto" "$base.manifesto.sig"
+          if ($LASTEXITCODE -ne 0) { throw "a assinatura falhou — nada foi publicado" }
+
+      - name: Conferir a assinatura contra a chave do app
+        shell: pwsh
+        run: |
+          $zip  = "pacote/${{ needs.empacotar.outputs.asset }}"
+          $base = $zip.Substring(0, $zip.Length - 4)
+          java tools/assinatura/Conferir.java "$base.manifesto" "$base.manifesto.sig" mobile-native/desktopApp/src/main/kotlin/app/astra/desktop/update/Manifesto.kt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::o segredo de assinatura e a chave embutida no app nao combinam — o app recusaria esta versao"
+            throw "assinatura nao confere com o app"
+          }
+
+      - name: Publicar release + asset
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag   = "${{ steps.versao.outputs.tag }}"
-          $asset = "${{ steps.versao.outputs.asset }}"
-          $zip   = "mobile-native/desktopApp/build/$asset"
-          if (-not (Test-Path $zip)) {
-            Write-Host "procurando o zip..."
-            Get-ChildItem mobile-native -Recurse -Filter "Astra-*-win-x64.zip" | ForEach-Object { $_.FullName }
-            throw "zip nao encontrado em $zip"
-          }
+          $tag   = "${{ needs.empacotar.outputs.tag }}"
+          $asset = "${{ needs.empacotar.outputs.asset }}"
+          $zip   = "pacote/$asset"
+          $base  = $zip.Substring(0, $zip.Length - 4)
 
           $sha  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           $hashFile = "$zip.sha256"
           "$sha  $asset" | Out-File -FilePath $hashFile -Encoding ascii -NoNewline
           Write-Host "sha256: $sha"
 
-          $arquivos = @($zip, $hashFile)
+          $arquivos = @($zip, $hashFile, "$base.manifesto", "$base.manifesto.sig")
 
           gh release create $tag @arquivos `
             --repo $env:GITHUB_REPOSITORY `
-            --title "Astra ${{ steps.versao.outputs.versao }}" `
+            --title "Astra ${{ needs.empacotar.outputs.versao }}" `
             --notes "Atualizacao automatica. O Astra baixa sozinho na proxima abertura."
           if ($LASTEXITCODE -ne 0) { throw "gh release create falhou" }
 
       - name: Conferir pelo caminho que o app usa
         id: conferir
-        if: steps.checar.outputs.existe == 'False'
         shell: pwsh
         run: |
-          $tag   = "${{ steps.versao.outputs.tag }}"
-          $asset = "${{ steps.versao.outputs.asset }}"
+          $tag   = "${{ needs.empacotar.outputs.tag }}"
+          $asset = "${{ needs.empacotar.outputs.asset }}"
           $repo  = $env:GITHUB_REPOSITORY
 
           $tagVista = ''
@@ -145,26 +202,35 @@ jobs:
           }
 
           $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
+          $baseUrl = $zipUrl.Substring(0, $zipUrl.Length - 4)
           $ok = try {
             $g = [System.Net.HttpWebRequest]::Create($zipUrl); $g.UserAgent = 'Astra-Release-CI'; $g.AddRange(0, 0)
             $gr = $g.GetResponse(); $codigo = [int]$gr.StatusCode; $gr.Close()
             $codigo -eq 206 -or $codigo -eq 200
           } catch { $false }
 
-          $okHash = try {
-            $h = [System.Net.HttpWebRequest]::Create("$zipUrl.sha256"); $h.UserAgent = 'Astra-Release-CI'
-            $hr = $h.GetResponse(); $c2 = [int]$hr.StatusCode; $hr.Close()
-            $c2 -eq 200
-          } catch { $false }
+          $pequenoBaixa = {
+            param($url)
+            try {
+              $h = [System.Net.HttpWebRequest]::Create($url); $h.UserAgent = 'Astra-Release-CI'
+              $hr = $h.GetResponse(); $c = [int]$hr.StatusCode; $hr.Close()
+              $c -eq 200
+            } catch { $false }
+          }
+          $okHash       = & $pequenoBaixa "$zipUrl.sha256"
+          $okManifesto  = & $pequenoBaixa "$baseUrl.manifesto"
+          $okAssinatura = & $pequenoBaixa "$baseUrl.manifesto.sig"
 
-          $arquivosOk = $ok -and $okHash
+          $arquivosOk = $ok -and $okHash -and $okManifesto -and $okAssinatura
           "arquivosOk=$arquivosOk" >> $env:GITHUB_OUTPUT
 
-          Write-Host "latest aponta pra: $tagVista (esperado $tag)"
-          Write-Host "zip acessivel    : $ok"
-          Write-Host "sha256 acessivel : $okHash"
+          Write-Host "latest aponta pra : $tagVista (esperado $tag)"
+          Write-Host "zip acessivel     : $ok"
+          Write-Host "sha256 acessivel  : $okHash"
+          Write-Host "manifesto         : $okManifesto"
+          Write-Host "assinatura        : $okAssinatura"
 
-          if (-not $arquivosOk) { throw "PUBLICOU MAS O ARQUIVO NAO BAIXA" }
+          if (-not $arquivosOk) { throw "PUBLICOU MAS ALGUM ARQUIVO NAO BAIXA" }
           if ($tagVista -ne $tag) {
             Write-Host "::error::o ponteiro /releases/latest ainda aponta pra $tagVista"
             Write-Host "os arquivos estao no lugar, entao a release FICA — o ponteiro costuma se acertar sozinho"
@@ -173,12 +239,12 @@ jobs:
           Write-Host "OK — os amigos recebem na proxima abertura do Astra."
 
       - name: Desfazer publicacao que falhou
-        if: failure() && steps.checar.outputs.existe == 'False' && steps.conferir.outputs.arquivosOk != 'True'
+        if: failure() && steps.conferir.outputs.arquivosOk != 'True'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ steps.versao.outputs.tag }}"
+          $tag = "${{ needs.empacotar.outputs.tag }}"
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
             Write-Host "nada a desfazer — a release $tag nao chegou a ser criada"

@@ -156,7 +156,7 @@ XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
 com aviso, distintivos.
 
 **Casa da máquina (desktop)**
-Auto-update por zip-swap com verificação SHA-256, que baixa só o que mudou, insiste
+Auto-update por zip-swap assinado com Ed25519, que baixa só o que mudou, insiste
 quando a conexão oscila, retoma de onde parou o download do pacote inteiro e só mostra
 a versão nova ao atalho quando ela está inteira, bandeja do sistema que troca o
 estado (brilhando, ausente, não perturbe, invisível) e silencia os avisos sem abrir
@@ -291,11 +291,21 @@ O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger ext
 Publicar é **só subir a versão**. Não há tag para criar nem zip para arrastar:
 
 1. `mobile-native/gradle.properties` → `astraVersion=x.y.z`
-2. commit + push na `main`
+2. pull request da `astra-dev` para a `main`, juntado com commit de merge quando a CI
+   passar — a `main` não aceita push direto
 
-O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
-`desktop-v<versão>` e publica o asset `Astra-<versão>-win-x64.zip`. O app procura
-sozinho, confere o hash e troca os arquivos na próxima abertura.
+O workflow `desktop-release.yml` trabalha em duas etapas separadas. A primeira monta o
+zip e o prova, com permissão só de leitura. A segunda não baixa nem executa nada do
+build: gera a lista com o SHA-256 de cada arquivo do pacote, assina essa lista com
+Ed25519, confere a assinatura contra a chave pública embutida no app e só então cria a
+tag `desktop-v<versão>` com o zip, o hash, a lista e a assinatura. O app procura
+sozinho e só instala se a assinatura bater com a chave dele e cada arquivo montado
+bater com a lista, nos dois caminhos de atualização.
+
+A chave privada vive **só** no segredo `ASTRA_CHAVE_DE_ASSINATURA` do repositório, e
+não existe reserva. Sem ela nenhuma release sai; se ela se perder ou vazar, quem estiver
+numa versão que confere assinatura só volta a atualizar reinstalando à mão. As
+ferramentas estão em `tools/assinatura`.
 
 Antes de publicar, o zip recém-montado é aberto **treze vezes**, em treze condições
 diferentes (`tools/provas-de-abertura`): máquina fraca, sem placa de vídeo, modo

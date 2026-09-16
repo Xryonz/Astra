@@ -35,6 +35,10 @@ private const val PASTA_DO_PACOTE = "Astra"
 
 private const val HTTP_FAIXA_ALEM_DO_FIM = 416
 
+private const val HTTP_NAO_ENCONTRADO = 404
+
+private const val TETO_DO_MANIFESTO = 1L * 1024 * 1024
+
 private val VERSAO_NO_NOME = Regex("""\d+\.\d+\.\d+""")
 
 sealed interface UpdateState {
@@ -205,6 +209,7 @@ class UpdateService(private val http: OkHttpClient) {
             stagingDir.deleteRecursively()
             newVersionDir.deleteRecursively()
 
+            val manifesto = baixarManifesto(av)
             val montada = File(stagingDir, PASTA_DO_PACOTE)
             val porPartes = runCatching {
                 MontagemPorPartes(clienteDeArquivo(), av.downloadUrl).montar(appRoot, montada) { p ->
@@ -222,6 +227,7 @@ class UpdateService(private val http: OkHttpClient) {
                 }
                 abrirOPacote(av.downloadUrl, zipFile, stagingDir)
             }
+            manifesto.conferir(pronta)
             newVersionDir.deleteRecursively()
             if (!pronta.renameTo(newVersionDir)) {
                 pronta.copyRecursively(newVersionDir, overwrite = true)
@@ -239,6 +245,26 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
+    private fun baixarManifesto(av: UpdateState.Available): Manifesto {
+        val base = av.downloadUrl.removeSuffix(".zip")
+        return Manifesto.ler(
+            texto = baixarPequeno("$base.manifesto"),
+            assinatura = baixarPequeno("$base.manifesto.sig"),
+            versao = av.version,
+        )
+    }
+
+    private fun baixarPequeno(url: String): ByteArray {
+        val req = Request.Builder().url(url).header("User-Agent", "Astra-Desktop").build()
+        return http.newCall(req).execute().use { resp ->
+            if (resp.code == HTTP_NAO_ENCONTRADO) throw AssinaturaInvalida()
+            if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
+            val corpo = resp.body ?: throw IOException("sem corpo")
+            if (corpo.contentLength() > TETO_DO_MANIFESTO) throw AssinaturaInvalida()
+            corpo.bytes().also { if (it.size > TETO_DO_MANIFESTO) throw AssinaturaInvalida() }
+        }
+    }
+
     private fun abrirOPacote(url: String, zip: File, destino: File): File = try {
         conferirHash(url, zip)
         unzip(zip, destino)
@@ -253,6 +279,7 @@ class UpdateService(private val http: OkHttpClient) {
     private fun stageFailReason(e: Throwable): String {
         val m = e.message.orEmpty()
         return when {
+            e is AssinaturaInvalida -> e.message.orEmpty()
             e is UnknownHostException -> "sem internet — tente pelo site"
             m.contains("HTTP 404") -> "essa versão ainda não está no GitHub"
             m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"

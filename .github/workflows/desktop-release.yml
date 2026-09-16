@@ -72,31 +72,6 @@ jobs:
         run: |
           ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel" "-Pastra.aec3=1"
 
-      - name: Buscar o APK congelado
-        if: steps.checar.outputs.existe == 'False'
-        id: apk
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          "achou=False" >> $env:GITHUB_OUTPUT
-          $tags = gh release list --repo $env:GITHUB_REPOSITORY --limit 60 --json tagName `
-            | ConvertFrom-Json | ForEach-Object { $_.tagName }
-          foreach ($t in $tags) {
-            $nomes = (gh release view $t --repo $env:GITHUB_REPOSITORY --json assets `
-              | ConvertFrom-Json).assets.name
-            $alvo = $nomes | Where-Object { $_ -like "Astra-*-android.apk" } | Select-Object -First 1
-            if (-not $alvo) { continue }
-            New-Item -ItemType Directory -Force -Path apk-congelado | Out-Null
-            gh release download $t --repo $env:GITHUB_REPOSITORY `
-              --pattern "$alvo" --pattern "$alvo.sha256" --dir apk-congelado
-            if ($LASTEXITCODE -ne 0) { throw "falhei ao baixar $alvo de $t" }
-            "achou=True"  >> $env:GITHUB_OUTPUT
-            "nome=$alvo"  >> $env:GITHUB_OUTPUT
-            Write-Host "APK congelado: $alvo (da release $t)"
-            break
-          }
-
       - name: Abrir o Astra em doze condicoes diferentes
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
@@ -141,13 +116,6 @@ jobs:
           Write-Host "sha256: $sha"
 
           $arquivos = @($zip, $hashFile)
-
-          if ("${{ steps.apk.outputs.achou }}" -eq "True") {
-            $apk = "apk-congelado/${{ steps.apk.outputs.nome }}"
-            if (-not (Test-Path $apk)) { throw "apk congelado sumiu em $apk" }
-            $arquivos += $apk
-            if (Test-Path "$apk.sha256") { $arquivos += "$apk.sha256" }
-          }
 
           gh release create $tag @arquivos `
             --repo $env:GITHUB_REPOSITORY `

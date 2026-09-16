@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'

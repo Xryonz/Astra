@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
 import { users, userBlocks, friendships, dmConversations } from '../db/schema'

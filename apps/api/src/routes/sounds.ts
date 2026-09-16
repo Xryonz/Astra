@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { Server as SocketServer } from 'socket.io'
 import { and, asc, eq } from 'drizzle-orm'
 import { db } from '../db'

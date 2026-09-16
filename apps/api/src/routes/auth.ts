@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import bcrypt from 'bcryptjs'
 import { eq, or, and, isNull, gt } from 'drizzle-orm'
 import passport from '../config/passport'

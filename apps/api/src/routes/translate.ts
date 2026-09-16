@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
 import crypto from 'crypto'
 import { requireAuth } from '../middleware/auth'

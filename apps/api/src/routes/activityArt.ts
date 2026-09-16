@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Router, Response } from 'express'
+import type { Request } from '../lib/requisicao'
 import sharp from 'sharp'
 import { asyncHandler } from '../lib/asyncHandler'
 import { activityArtLimiter } from '../middleware/rateLimiter'

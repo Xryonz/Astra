@@ -32,8 +32,6 @@ import okhttp3.Request
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Codec
 import org.jetbrains.skia.Data
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.Surface
 import org.jetbrains.skia.Image as SkiaImage
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
@@ -159,25 +157,21 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val n = minOf(count, maxFrames)
     val fi = codec.framesInfo
     val bmp = Bitmap().apply { allocPixels(info) }
-    val surface = if (scale < 1f) Surface.makeRasterN32Premul(tw, th) else null
     val out = ArrayList<ImageBitmap>(n)
     val durs = ArrayList<Int>(n)
     for (i in 0 until n) {
         codec.readPixels(bmp, i)
         val full = SkiaImage.makeFromBitmap(bmp)
-        if (surface == null) {
-            out += full.toComposeImageBitmap()
-        } else {
-            surface.canvas.clear(0)
-            surface.canvas.drawImageRect(full, Rect.makeWH(tw.toFloat(), th.toFloat()))
+        if (scale < 1f) {
+            out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
             runCatching { full.close() }
-            out += surface.makeImageSnapshot().toComposeImageBitmap()
+        } else {
+            out += full.toComposeImageBitmap()
         }
         val d = fi.getOrNull(i)?.duration ?: 100
         durs += if (d <= 0) 100 else d
     }
     runCatching { bmp.close() }
-    runCatching { surface?.close() }
     AnimatedFrames(out, durs, tw, th)
 }.getOrNull()
 

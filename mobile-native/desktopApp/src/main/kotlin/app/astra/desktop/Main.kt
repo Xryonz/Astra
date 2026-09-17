@@ -58,6 +58,7 @@ import com.sun.jna.win32.StdCallLibrary
 import com.sun.jna.win32.W32APIOptions
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
+import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
 import app.astra.desktop.ui.Quadros
 import app.astra.desktop.ui.contandoQuadros
@@ -662,6 +663,7 @@ fun main(args: Array<String>) {
                     .components {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
+                        add(DecodificadorNitido.Fabrica())
                     }
                     .memoryCache {
                         coil3.memory.MemoryCache.Builder()

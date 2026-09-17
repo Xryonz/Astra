@@ -4,8 +4,8 @@ import { logger } from './logger'
 const INTERVALO_MS = 10 * 60 * 1000
 const TEMPO_LIMITE_MS = 20_000
 const FUSO_DA_CASA = 'America/Sao_Paulo'
-const COMECA_A_DORMIR = 2
-const VOLTA_A_ACORDAR = 9
+const COMECA_A_DORMIR = 0
+const VOLTA_A_ACORDAR = 7
 
 const relogioDaCasa = new Intl.DateTimeFormat('en-US', {
   timeZone: FUSO_DA_CASA,

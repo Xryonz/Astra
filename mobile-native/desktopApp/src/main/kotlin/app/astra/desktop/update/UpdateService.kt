@@ -74,6 +74,8 @@ class UpdateService(private val http: OkHttpClient) {
 
     private var imagemPronta: File? = null
 
+    private var ofertaPreparada: UpdateState.Available? = null
+
     private var ronda: Job? = null
 
     fun iniciarRonda(scope: CoroutineScope) {
@@ -237,6 +239,7 @@ class UpdateService(private val http: OkHttpClient) {
                 error("pacote incompleto")
             }
             imagemPronta = newVersionDir
+            ofertaPreparada = av
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
             stagingDir.deleteRecursively()
@@ -393,7 +396,11 @@ class UpdateService(private val http: OkHttpClient) {
     fun restartToInstall() {
         val nova = imagemPronta?.takeIf { File(it, "Astra.exe").isFile }
             ?: pastaDaMaiorVersao()
-            ?: return
+        if (nova == null) {
+            imagemPronta = null
+            _state.value = ofertaPreparada ?: UpdateState.Idle
+            return
+        }
         SingleInstance.release()
         if (Trocador.precisaTrocar(nova)) {
             FocoDoSistema.cederAFrenteAQualquerUm()
@@ -411,6 +418,7 @@ class UpdateService(private val http: OkHttpClient) {
             FocoDoSistema.cederAFrenteA(novo.pid())
             exitProcess(0)
         }
+        _state.value = UpdateState.Failed("não consegui reiniciar para instalar — feche e abra o Astra", LATEST_PAGE)
     }
 
     private fun pastaDaMaiorVersao(): File? {

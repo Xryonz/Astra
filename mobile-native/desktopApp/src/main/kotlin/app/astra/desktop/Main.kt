@@ -10,6 +10,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
@@ -610,12 +611,22 @@ fun main(args: Array<String>) {
                 alwaysOnTop = true,
             ) {
                 marcoDoArranque("portao de atualizacao na tela")
+                LaunchedEffect(Unit) {
+                    try {
+                        withFrameNanos { }
+                        Vigia.portaoApareceu()
+                        awaitCancellation()
+                    } finally {
+                        Vigia.portaoSaiu()
+                    }
+                }
                 UpdaterGate(
                     updater,
                     bootPrefs.reduceMotionEff,
                     onDone = { portaoFechado = true; resgate++ },
                 )
             }
+            return@application
         }
 
         Window(

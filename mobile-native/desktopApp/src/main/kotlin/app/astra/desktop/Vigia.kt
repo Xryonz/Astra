@@ -11,6 +11,11 @@ object Vigia {
 
     @Volatile private var apareceu = false
     @Volatile private var janelaExiste = false
+    @Volatile private var portaoNaTela = false
+
+    fun portaoApareceu() { portaoNaTela = true }
+
+    fun portaoSaiu() { portaoNaTela = false }
 
     fun apareceu(janela: java.awt.Window?) {
         apareceu = true
@@ -55,10 +60,11 @@ object Vigia {
     }
 
     private fun esperar(prazoMs: Long, pronto: () -> Boolean): Boolean {
-        val fim = System.nanoTime() + prazoMs * 1_000_000
-        while (System.nanoTime() < fim) {
+        var restanteMs = prazoMs
+        while (restanteMs > 0) {
             if (pronto()) return true
             Thread.sleep(PASSO_MS)
+            if (!portaoNaTela) restanteMs -= PASSO_MS
         }
         return pronto()
     }

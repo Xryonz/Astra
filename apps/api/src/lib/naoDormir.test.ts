@@ -21,19 +21,19 @@ describe('endereco que o servidor usa para se cutucar', () => {
 })
 
 describe('janela em que o servidor pode dormir', () => {
-  it('dorme das 2h as 9h de Sao Paulo', () => {
-    expect(horaDeDeixarDormir(new Date('2026-09-18T04:59:59Z'))).toBe(false)
-    expect(horaDeDeixarDormir(new Date('2026-09-18T05:00:00Z'))).toBe(true)
-    expect(horaDeDeixarDormir(new Date('2026-09-18T11:59:59Z'))).toBe(true)
-    expect(horaDeDeixarDormir(new Date('2026-09-18T12:00:00Z'))).toBe(false)
+  it('dorme da meia-noite as 7h de Sao Paulo, como o robo externo', () => {
+    expect(horaDeDeixarDormir(new Date('2026-09-18T02:59:59Z'))).toBe(false)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T03:00:00Z'))).toBe(true)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T09:59:59Z'))).toBe(true)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T10:00:00Z'))).toBe(false)
   })
 
   it('le o relogio de Sao Paulo, nao o do servidor em UTC', () => {
-    expect(horaDeDeixarDormir(new Date('2026-09-18T11:30:00Z'))).toBe(true)
-    expect(horaDeDeixarDormir(new Date('2026-09-18T04:30:00Z'))).toBe(false)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T09:30:00Z'))).toBe(true)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T02:30:00Z'))).toBe(false)
   })
 
   it('trata a meia-noite como zero hora, nao como vinte e quatro', () => {
-    expect(horaDeDeixarDormir(new Date('2026-09-18T03:00:00Z'))).toBe(false)
+    expect(horaDeDeixarDormir(new Date('2026-09-18T03:00:00Z'))).toBe(true)
   })
 })

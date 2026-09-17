@@ -42,6 +42,7 @@ const EnvSchema = z.object({
 
   RELEASE:              z.string().optional(),
   RENDER_GIT_COMMIT:    z.string().optional(),
+  RENDER_EXTERNAL_URL:  z.string().url().optional(),
 
   LIVEKIT_URL:          z.string().url().optional(),
   LIVEKIT_API_KEY:      z.string().optional(),

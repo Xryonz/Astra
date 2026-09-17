@@ -50,6 +50,7 @@ import pushRouter                        from './routes/push'
 import { initPush }                      from './lib/push'
 import { initFcm }                       from './lib/fcm'
 import { initMailer }                    from './lib/mailer'
+import { naoDeixarDormir }               from './lib/naoDormir'
 import gifRouter                         from './routes/gif'
 import unfurlRouter                      from './routes/unfurl'
 import activityArtRouter                 from './routes/activityArt'
@@ -269,4 +270,5 @@ httpServer.listen(env.PORT, async () => {
   initPush()
   void initFcm()
   initMailer()
+  naoDeixarDormir()
 })

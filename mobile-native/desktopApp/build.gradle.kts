@@ -1,6 +1,10 @@
 ﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.compose.desktop.application.tasks.AbstractJLinkTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.LocalDateTime
+import java.util.zip.CRC32
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -95,11 +99,39 @@ tasks.withType<AbstractJLinkTask>().configureEach {
     freeArgs.add("--include-locales=pt-BR,en")
 }
 
-tasks.register<Zip>("zipDistributable") {
+tasks.register("zipDistributable") {
     dependsOn("createDistributable")
-    from(layout.buildDirectory.dir("compose/binaries/main/app"))
-    archiveFileName.set("Astra-$astraVersion-win-x64.zip")
-    destinationDirectory.set(layout.buildDirectory)
+    val imagem = layout.buildDirectory.dir("compose/binaries/main/app")
+    val pacote = layout.buildDirectory.file("Astra-$astraVersion-win-x64.zip")
+    val jarDosModulos = Regex("""^(${project.name}|${project(":shared").name})-[0-9a-f]+\.jar$""")
+    inputs.dir(imagem)
+    outputs.file(pacote)
+    doLast {
+        val horaFixa = LocalDateTime.of(1980, 2, 1, 0, 0)
+        ZipOutputStream(pacote.get().asFile.outputStream().buffered()).use { zip ->
+            fun incluir(arquivo: File, nome: String) {
+                val entrada = ZipEntry(if (arquivo.isDirectory) "$nome/" else nome)
+                entrada.timeLocal = horaFixa
+                if (arquivo.isFile && jarDosModulos.matches(arquivo.name)) {
+                    val bytes = arquivo.readBytes()
+                    entrada.method = ZipEntry.STORED
+                    entrada.size = bytes.size.toLong()
+                    entrada.compressedSize = bytes.size.toLong()
+                    entrada.crc = CRC32().apply { update(bytes) }.value
+                    zip.putNextEntry(entrada)
+                    zip.write(bytes)
+                } else {
+                    zip.putNextEntry(entrada)
+                    if (arquivo.isFile) arquivo.inputStream().use { it.copyTo(zip) }
+                }
+                zip.closeEntry()
+                if (arquivo.isDirectory) {
+                    arquivo.listFiles().orEmpty().sortedBy { it.name }.forEach { incluir(it, "$nome/${it.name}") }
+                }
+            }
+            imagem.get().asFile.listFiles().orEmpty().sortedBy { it.name }.forEach { incluir(it, it.name) }
+        }
+    }
 }
 
 compose.desktop {

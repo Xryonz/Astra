@@ -37,7 +37,7 @@ aplicativo e morre com ele.
 
 **Backend** (`apps/api`) — 39 grupos de rota
 - Express 4 · TypeScript · Drizzle ORM 0.45
-- PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
+- PostgreSQL (Supabase) · Redis (Upstash, presença + cache) · Socket.io (realtime)
 - LiveKit — voz e tela dos **três** clientes; o desktop entra na mesma sala por um
   processo à parte (ver `sidecar-voz`)
 - Armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
@@ -101,7 +101,7 @@ Go independente — o Gradle do desktop o compila e empacota junto do aplicativo
 > telas. Paridade entre eles é reescrita, não reuso; planejar como se fosse reuso
 > já custou tempo aqui.
 
-**Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Neon ·
+**Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Supabase ·
 Redis → Upstash · arquivos → bucket S3 ou R2 · voz e tela dos três clientes → LiveKit Cloud.
 
 ---
@@ -253,11 +253,13 @@ cd mobile-native
 
 ## Deploy
 
-### API → Render (+ Neon + Upstash)
+### API → Render (+ Supabase + Upstash)
 
 Postgres e Redis são serviços externos, não add-ons do Render.
 
-1. Neon → cria um Postgres, copia a connection string → `DATABASE_URL`
+1. Supabase → cria um Postgres, copia a string do **Session pooler, porta 5432** →
+   `DATABASE_URL` (a conexão direta é IPv6 e o Render não alcança; a 6543 é o
+   transaction pooler e quebra os prepared statements do Drizzle)
 2. Upstash → cria um Redis, copia a URL (TLS `rediss://`) → `REDIS_URL`
 3. Render → New Web Service → conecta o repo
    - Build Command: `npm run build:api`
@@ -265,7 +267,7 @@ Postgres e Redis são serviços externos, não add-ons do Render.
    - Auto-Deploy: **On** (senão os pushes não sobem sozinhos — isso já custou
      uma caçada a um bug que estava corrigido no código e não no ar)
 4. Environment Variables (lista completa em `apps/api/.env.example`):
-   - `DATABASE_URL` (Neon) · `REDIS_URL` (Upstash)
+   - `DATABASE_URL` (Supabase) · `REDIS_URL` (Upstash)
    - `JWT_ACCESS_SECRET` + `JWT_REFRESH_SECRET`
      (gere com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
    - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
@@ -277,14 +279,20 @@ Postgres e Redis são serviços externos, não add-ons do Render.
 Sem passo de migration: o schema é garantido no boot por `ensureSchema`
 (DDL idempotente).
 
-O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger externo
-(ex: cron-job.org) batendo em **`/live`**.
+O plano free dorme após ~15min sem tráfego de entrada — a API se cutuca sozinha no
+`/live` a cada 10min (`lib/naoDormir.ts`, só em produção e só com `RENDER_EXTERNAL_URL`
+ou `API_URL`), e um pinger externo (ex: cron-job.org) cobre o resto, também no **`/live`**.
 
 > Aponte o pinger para o `/live`, **não** para o `/health`. O `/health` consulta Postgres
-> e Redis a cada chamada: pingado de minuto em minuto ele impede o Neon de
-> autossuspender e queima a cota de compute do plano free (erro `53000: exceeded
-> the compute time quota`, que derruba o deploy). `/live` só responde uptime —
-> segura o Render acordado sem tocar no banco.
+> e Redis a cada chamada: pingado de minuto em minuto ele segura o banco acordado sem
+> necessidade — foi assim que a cota de compute do Neon estourou em 2026-07-31 (erro
+> `53000: exceeded the compute time quota`) e derrubou o deploy, antes da mudança para
+> o Supabase. `/live` só responde uptime.
+
+> Acordado 24h o serviço consome ~744 das **750 horas free por mês da conta inteira**.
+> Cabe, com folga curta: um segundo serviço free na mesma conta suspende todos até o
+> mês virar. O Render também reinicia serviços free quando quer, e voltar leva ~1min —
+> no plano free não existe "nunca cair".
 
 ### Desktop → GitHub Releases
 

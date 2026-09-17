@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.voice.JanelaDaTela
 import app.astra.desktop.voice.MonitorDaTela
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image as SkiaImage
 import java.util.Base64
 import app.astra.desktop.ui.theme.Tipo
@@ -179,8 +182,10 @@ private fun CartaoDaFonte(
     val interacao = remember { MutableInteractionSource() }
     val sobre by interacao.collectIsHoveredAsState()
 
-    val figura: ImageBitmap? = remember(miniatura) {
-        miniatura?.takeIf { it.isNotBlank() }?.let { texto ->
+    var figura by remember(miniatura) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(miniatura) {
+        val texto = miniatura?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        figura = withContext(Dispatchers.Default) {
             runCatching {
                 SkiaImage.makeFromEncoded(Base64.getDecoder().decode(texto)).toComposeImageBitmap()
             }.getOrNull()
@@ -206,18 +211,12 @@ private fun CartaoDaFonte(
                 .background(Obsidian.void),
             contentAlignment = Alignment.Center,
         ) {
-            if (figura != null) {
+            figura?.let {
                 Image(
-                    figura,
+                    it,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                )
-            } else {
-                Text(
-                    "sem prévia",
-                    style = Tipo.nota,
-                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
             }
         }

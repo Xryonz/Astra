@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 )
 
@@ -178,7 +179,15 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 				return
 			}
 			defer fecharCOM()
-			responder(ListarMonitores())
+
+			lista, err := ListarMonitores()
+			responder(lista, err)
+			MiniaturasDosMonitores(lista, func(indice int, dados string) {
+				a.saida.Manda(Evento{
+					Ev: EvMiniatura, Tipo: alvoMonitor,
+					Par: strconv.Itoa(indice), Dados: dados,
+				})
+			})
 		}()
 		return nil
 
@@ -198,6 +207,12 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar janelas: " + err.Error()})
 			}
 			a.saida.Manda(Evento{Ev: EvJanelas, Janelas: lista})
+			MiniaturasDasJanelas(lista, func(id uint64, dados string) {
+				a.saida.Manda(Evento{
+					Ev: EvMiniatura, Tipo: alvoJanela,
+					Par: strconv.FormatUint(id, 10), Dados: dados,
+				})
+			})
 		}()
 		return nil
 

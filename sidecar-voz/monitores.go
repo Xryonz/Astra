@@ -55,17 +55,17 @@ type MonitorDaTela struct {
 }
 
 func ListarMonitores() ([]MonitorDaTela, error) {
-	achados, err := enumerarSaidas()
-	if err != nil {
-		return nil, err
-	}
-	for i := range achados {
-		if png, err := amostrarMonitor(achados[i].Indice); err == nil {
-			achados[i].Miniatura = base64.StdEncoding.EncodeToString(png)
-		}
+	return enumerarSaidas()
+}
 
+func MiniaturasDosMonitores(lista []MonitorDaTela, pronta func(int, string)) {
+	for _, m := range lista {
+		png, err := amostrarMonitor(m.Indice)
+		if err != nil {
+			continue
+		}
+		pronta(m.Indice, base64.StdEncoding.EncodeToString(png))
 	}
-	return achados, nil
 }
 
 func enumerarSaidas() ([]MonitorDaTela, error) {

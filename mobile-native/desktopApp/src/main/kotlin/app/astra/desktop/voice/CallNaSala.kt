@@ -140,6 +140,24 @@ class CallNaSala(
         sidecar.transmitirJanela(janela, largura, altura, fps, kbps, duasCamadas)
     }
 
+    private fun guardarMiniatura(tipo: String?, alvo: String?, dados: String?) {
+        if (alvo.isNullOrBlank() || dados.isNullOrBlank()) return
+        when (tipo) {
+            "monitor" -> {
+                val indice = alvo.toIntOrNull() ?: return
+                _monitores.value = _monitores.value?.map {
+                    if (it.indice == indice) it.copy(miniatura = dados) else it
+                }
+            }
+            "janela" -> {
+                val id = alvo.toULongOrNull() ?: return
+                _janelas.value = _janelas.value?.map {
+                    if (it.id == id) it.copy(miniatura = dados) else it
+                }
+            }
+        }
+    }
+
     fun pedirMonitores() {
         _monitores.value = null
         sidecar.pedirMonitores()
@@ -340,6 +358,7 @@ class CallNaSala(
                 }
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()
                 "janelas" -> _janelas.value = ev.janelas.orEmpty()
+                "miniatura" -> guardarMiniatura(ev.tipo, ev.par, ev.dados)
                 "tela" -> {
                     val quem = ev.par ?: return@collect
                     if (ev.valor == "1") {

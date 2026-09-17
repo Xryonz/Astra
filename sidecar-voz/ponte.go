@@ -86,7 +86,11 @@ const (
 
 	EvMonitores = "monitores"
 	EvJanelas   = "janelas"
+	EvMiniatura = "miniatura"
 	EvErro      = "erro"
+
+	alvoMonitor = "monitor"
+	alvoJanela  = "janela"
 
 	EvCaminho = "caminho"
 

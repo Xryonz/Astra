@@ -15,8 +15,8 @@ jobs:
       - name: acordar a API
         run: |
           codigo=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 \
-            https://astra-kwzc.onrender.com/health || echo 000)
-          echo "/health respondeu $codigo"
+            https://astra-kwzc.onrender.com/live || echo 000)
+          echo "/live respondeu $codigo"
           case "$codigo" in
             200|503) exit 0 ;;
             *) echo "::warning::a API nao respondeu ($codigo)"; exit 1 ;;

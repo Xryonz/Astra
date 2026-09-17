@@ -9,20 +9,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import app.astra.desktop.ui.theme.EaseOutStd
 
-private const val SAIDA_MS = 80
-private const val ENTRADA_MS = 150
+private const val ENTRADA_MS = 110
 
 @Composable
 fun <T> TrocaDePagina(
     alvo: T,
     modifier: Modifier = Modifier,
-    saidaMs: Int = SAIDA_MS,
     entradaMs: Int = ENTRADA_MS,
+    jaEstaPronto: (T) -> Boolean = { false },
     conteudo: @Composable (T) -> Unit,
 ) {
     val reduzir = LocalReduceMotion.current
@@ -31,15 +29,12 @@ fun <T> TrocaDePagina(
 
     LaunchedEffect(alvo, reduzir) {
         if (alvo == mostrado) return@LaunchedEffect
-        if (reduzir) {
-            mostrado = alvo
+        mostrado = alvo
+        if (reduzir || jaEstaPronto(alvo)) {
             opacidade.snapTo(1f)
             return@LaunchedEffect
         }
-        opacidade.animateTo(0f, tween(saidaMs, easing = EaseOutStd))
-        mostrado = alvo
-        withFrameNanos {}
-        withFrameNanos {}
+        opacidade.snapTo(0f)
         opacidade.animateTo(1f, tween(entradaMs, easing = EaseOutStd))
     }
 

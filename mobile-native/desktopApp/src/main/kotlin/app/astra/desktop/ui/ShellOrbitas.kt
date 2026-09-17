@@ -206,10 +206,9 @@ internal fun Sidebar(
                     header()
                 }
 
-                val esqueletoDaLateral = esperaLongaOBastante(loading)
                 Box(Modifier.weight(1f)) {
                     when {
-                        loading -> { if (esqueletoDaLateral) SidebarSkeleton() }
+                        loading -> EsperaNoTopo(true)
                         sel is Selection.Dms -> Column(Modifier.fillMaxSize()) {
                             FriendsNavRow(active = friendsOpen, onClick = onOpenFriends)
                             DmList(dms, servers, onToggleMute, onMarkRead, onCloseDm, activeChatId, unread, dmTyping, dmPresence, onOpenChat)

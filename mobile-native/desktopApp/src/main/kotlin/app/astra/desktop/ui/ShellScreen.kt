@@ -516,6 +516,7 @@ fun ShellScreen(
                 state.dms.find { it.id == alvo.id }?.otherUser?.displayFont
             },
             createChatVm = createChatVm,
+            jaTemNaMemoria = { cacheDeConversas.ler(it) != null },
             members = state.members,
             me = state.me,
             loading = state.loading,

@@ -9,6 +9,7 @@ import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -23,6 +24,7 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.net.UnknownHostException
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 import kotlin.system.exitProcess
 
@@ -77,6 +79,8 @@ class UpdateService(private val http: OkHttpClient) {
     private var ofertaPreparada: UpdateState.Available? = null
 
     private var ronda: Job? = null
+
+    private val baixando = AtomicBoolean(false)
 
     fun iniciarRonda(scope: CoroutineScope) {
         if (!installed || ronda?.isActive == true) return
@@ -189,18 +193,27 @@ class UpdateService(private val http: OkHttpClient) {
         return false
     }
 
-    suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO) {
+    suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO + NonCancellable) {
+        if (!baixando.compareAndSet(false, true)) return@withContext
+        try {
+            prepararVersao(av)
+        } finally {
+            baixando.set(false)
+        }
+    }
+
+    private suspend fun prepararVersao(av: UpdateState.Available) {
         val appRoot = Instalacao.imagem ?: run {
             _state.value = UpdateState.Failed("não achei a pasta do app", av.releaseUrl)
-            return@withContext
+            return
         }
         val newVersionDir = Instalacao.palcoPara(av.version) ?: run {
             _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
-            return@withContext
+            return
         }
         val palco = newVersionDir.parentFile ?: run {
             _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
-            return@withContext
+            return
         }
         palco.mkdirs()
         val zipsDir = (Instalacao.pastaDosZips() ?: palco).apply { mkdirs() }
@@ -208,16 +221,21 @@ class UpdateService(private val http: OkHttpClient) {
         val stagingDir = File(palco, ".staging-${av.version}")
         runCatching {
             _state.value = UpdateState.Downloading(av.version, 0f)
-            stagingDir.deleteRecursively()
             newVersionDir.deleteRecursively()
 
             val manifesto = baixarManifesto(av)
             val montada = File(stagingDir, PASTA_DO_PACOTE)
-            val porPartes = runCatching {
+            val porPartes = try {
                 MontagemPorPartes(clienteDeArquivo(), av.downloadUrl).montar(appRoot, montada) { p ->
                     _state.value = UpdateState.Downloading(av.version, p)
                 }
-            }.getOrNull()
+            } catch (_: FaixaRecusada) {
+                null
+            } catch (e: IOException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
 
             val pronta = if (porPartes != null && File(montada, "Astra.exe").isFile) {
                 zipFile.delete()
@@ -242,7 +260,7 @@ class UpdateService(private val http: OkHttpClient) {
             ofertaPreparada = av
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
-            stagingDir.deleteRecursively()
+            if (it !is IOException) stagingDir.deleteRecursively()
             newVersionDir.deleteRecursively()
             _state.value = UpdateState.Failed(stageFailReason(it), av.releaseUrl)
         }
@@ -295,7 +313,8 @@ class UpdateService(private val http: OkHttpClient) {
 
     private fun clienteDeArquivo(): OkHttpClient = http.newBuilder()
         .callTimeout(Duration.ZERO)
-        .readTimeout(Duration.ofSeconds(120))
+        .connectTimeout(Duration.ofSeconds(15))
+        .readTimeout(Duration.ofSeconds(20))
         .build()
 
     private fun download(url: String, dest: File, onProgress: (Float) -> Unit) {
@@ -339,6 +358,7 @@ class UpdateService(private val http: OkHttpClient) {
                 onProgress(1f)
                 return
             } catch (e: IOException) {
+                if (dest.length() > have) attempt = 0
                 if (attempt >= 3) throw e
                 Thread.sleep(1500)
             }

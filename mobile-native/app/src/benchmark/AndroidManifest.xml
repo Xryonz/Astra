@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Overlay so do build type "benchmark": marca o app como profileable pra
+     BaselineProfileRule coletar em device sem root (Android 13+). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <profileable
+            android:shell="true"
+            tools:targetApi="q" />
+    </application>
+</manifest>

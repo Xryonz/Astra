@@ -61,13 +61,18 @@ type DestinoDaTela interface {
 	Contar() (assistindo, total int)
 }
 
+type corridaDaTela struct {
+	parar  context.CancelFunc
+	parada chan struct{}
+	calar  atomic.Bool
+}
+
 type Emissor struct {
 	plateia DestinoDaTela
 	saida   *Escritor
 
-	mu     sync.Mutex
-	parar  context.CancelFunc
-	parada chan struct{}
+	mu    sync.Mutex
+	atual *corridaDaTela
 
 	querChave atomic.Bool
 
@@ -89,38 +94,44 @@ func (e *Emissor) EsquecerPar(par string) { e.perdas.Esquecer(par) }
 func (e *Emissor) PedirQuadroChave() { e.querChave.Store(true) }
 
 func (e *Emissor) Ligar(aj AjustesDaTela) {
-	e.Desligar()
+	e.encerrar(true)
 
 	ctx, cancelar := context.WithCancel(context.Background())
-	parada := make(chan struct{})
+	corrida := &corridaDaTela{parar: cancelar, parada: make(chan struct{})}
 
 	e.mu.Lock()
-	e.parar = cancelar
-	e.parada = parada
+	e.atual = corrida
 	e.mu.Unlock()
 
 	go func() {
-		defer close(parada)
+		defer close(corrida.parada)
 		if err := e.laco(ctx, aj); err != nil && ctx.Err() == nil {
 
 			fmt.Fprintf(os.Stderr, "transmissão parou: %v\n", err)
 			e.saida.Manda(Evento{Ev: EvErro, Msg: "transmissão parou: " + err.Error()})
 		}
-		e.saida.Manda(Evento{Ev: EvTransmissao, V: "0"})
+		if !corrida.calar.Load() {
+			e.saida.Manda(Evento{Ev: EvTransmissao, V: "0"})
+		}
 	}()
 }
 
-func (e *Emissor) Desligar() {
+func (e *Emissor) Desligar() { e.encerrar(false) }
+
+func (e *Emissor) encerrar(trocandoDeFonte bool) {
 	e.mu.Lock()
-	parar, parada := e.parar, e.parada
-	e.parar, e.parada = nil, nil
+	corrida := e.atual
+	e.atual = nil
 	e.mu.Unlock()
 
-	if parar == nil {
+	if corrida == nil {
 		return
 	}
-	parar()
-	<-parada
+	if trocandoDeFonte {
+		corrida.calar.Store(true)
+	}
+	corrida.parar()
+	<-corrida.parada
 }
 
 func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {

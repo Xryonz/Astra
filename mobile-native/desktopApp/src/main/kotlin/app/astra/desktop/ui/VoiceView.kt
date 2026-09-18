@@ -346,6 +346,7 @@ fun VoiceView(
             val monitores by call.monitores.collectAsState()
             val janelas by call.janelas.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
+            var fonteNoAr by remember { mutableStateOf<FonteEscolhida?>(null) }
             var numerosAbertos by remember { mutableStateOf(false) }
             Box {
                 val salaDePe = connected != null
@@ -353,7 +354,7 @@ fun VoiceView(
                     icon = Lucide.ScreenShare,
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
                     rotulo = when {
-                        transmitindo -> "Parar a transmissão"
+                        transmitindo -> "Trocar ou parar a transmissão"
                         !salaDePe -> "A chamada está se restabelecendo"
                         else -> "Transmitir a tela"
                     },
@@ -361,14 +362,8 @@ fun VoiceView(
                     setaAberta = numerosAbertos,
                     habilitado = transmitindo || salaDePe,
                     onClick = {
-                        if (transmitindo) {
-                            call.pararDeTransmitir()
-                            transmissaoAvisada = false
-                            escolhendoTela = false
-                        } else {
-                            escolhendoTela = true
-                            call.pedirMonitores()
-                        }
+                        escolhendoTela = true
+                        call.pedirMonitores()
                     },
                     aoAbrirSeta = { numerosAbertos = !numerosAbertos },
                 )
@@ -384,13 +379,24 @@ fun VoiceView(
                         )
                     }
                 }
-                if (escolhendoTela && !transmitindo) {
+                if (escolhendoTela) {
                     Popup(
                         popupPositionProvider = NoMeioDaJanela,
                         onDismissRequest = { escolhendoTela = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        SeletorDeTela(monitores, janelas, { call.pedirJanelas() }) { fonte ->
+                        SeletorDeTela(
+                            monitores,
+                            janelas,
+                            noAr = fonteNoAr.takeIf { transmitindo },
+                            aoPedirJanelas = { call.pedirJanelas() },
+                            aoParar = {
+                                escolhendoTela = false
+                                call.pararDeTransmitir()
+                                fonteNoAr = null
+                                transmissaoAvisada = false
+                            },
+                        ) { fonte ->
                             escolhendoTela = false
                             val q = prefState.screenQuality
                             when (fonte) {
@@ -399,6 +405,7 @@ fun VoiceView(
                                 is FonteEscolhida.Janela ->
                                     call.transmitirJanela(fonte.id, q.width, q.height, q.fps, q.bitrate / 1000)
                             }
+                            fonteNoAr = fonte
                             transmissaoAvisada = true
                         }
                     }
@@ -424,8 +431,8 @@ fun VoiceView(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Quem está na sala recebe a imagem. Para trocar de tela, " +
-                                    "pare a transmissão e escolha outra.",
+                                "Quem está na sala recebe a imagem. Para trocar de tela ou " +
+                                    "encerrar, abra o mesmo botão de novo.",
                                 style = Tipo.apoio,
                             )
                         }

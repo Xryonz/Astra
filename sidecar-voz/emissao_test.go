@@ -74,6 +74,31 @@ func TestPerfilSaiDoSPS(t *testing.T) {
 	}
 }
 
+func TestTrocarDeFonteNaoAvisaQueParou(t *testing.T) {
+	precisaDeTela(t)
+	precisaDeVideo(t)
+
+	recolhidos := make(chan Evento, 512)
+	e := NovoEmissor(&destinoFalso{}, NewEscritor(coletor{recolhidos}), nil)
+
+	e.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
+	time.Sleep(700 * time.Millisecond)
+	e.Ligar(AjustesDaTela{Monitor: 0, Largura: 960, Altura: 540, Fps: 30, Kbps: 1500})
+	time.Sleep(700 * time.Millisecond)
+	e.Desligar()
+
+	close(recolhidos)
+	parou := 0
+	for ev := range recolhidos {
+		if ev.Ev == EvTransmissao && ev.V == "0" {
+			parou++
+		}
+	}
+	if parou != 1 {
+		t.Fatalf("o emissor avisou %d vezes que parou; trocar de fonte não pode avisar, só o desligar de verdade", parou)
+	}
+}
+
 func TestEmissorTransmiteDeVerdade(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)

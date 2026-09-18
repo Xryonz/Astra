@@ -63,7 +63,9 @@ sealed interface FonteEscolhida {
 fun SeletorDeTela(
     monitores: List<MonitorDaTela>?,
     janelas: List<JanelaDaTela>?,
+    noAr: FonteEscolhida?,
     aoPedirJanelas: () -> Unit,
+    aoParar: () -> Unit,
     aoEscolher: (FonteEscolhida) -> Unit,
 ) {
     var emJanelas by remember { mutableStateOf(false) }
@@ -77,8 +79,13 @@ fun SeletorDeTela(
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
             .padding(12.dp),
     ) {
+        if (noAr != null) {
+            BotaoDeParar(aoParar)
+            Spacer(Modifier.height(12.dp))
+        }
+
         Text(
-            "O que compartilhar",
+            if (noAr != null) "Trocar para" else "O que compartilhar",
             style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
         )
         Spacer(Modifier.height(10.dp))
@@ -99,7 +106,10 @@ fun SeletorDeTela(
                     procurando = "procurando as janelas abertas…",
                     vazio = "nenhuma janela aberta para compartilhar",
                 ) { j ->
-                    CartaoDaFonte(j.miniatura, j.nome, "${j.largura} × ${j.altura}") {
+                    CartaoDaFonte(
+                        j.miniatura, j.nome, "${j.largura} × ${j.altura}",
+                        noAr = (noAr as? FonteEscolhida.Janela)?.id == j.id,
+                    ) {
                         aoEscolher(FonteEscolhida.Janela(j.id, j.largura, j.altura))
                     }
                 }
@@ -109,7 +119,10 @@ fun SeletorDeTela(
                     procurando = "procurando as telas desta máquina…",
                     vazio = "nenhuma tela disponível para compartilhar",
                 ) { m ->
-                    CartaoDaFonte(m.miniatura, nomeDaTela(m), "${m.largura} × ${m.altura}") {
+                    CartaoDaFonte(
+                        m.miniatura, nomeDaTela(m), "${m.largura} × ${m.altura}",
+                        noAr = (noAr as? FonteEscolhida.Monitor)?.indice == m.indice,
+                    ) {
                         aoEscolher(FonteEscolhida.Monitor(m.indice))
                     }
                 }
@@ -173,10 +186,34 @@ private fun AbaDaFonte(rotulo: String, ativa: Boolean, aoClicar: () -> Unit) {
 }
 
 @Composable
+private fun BotaoDeParar(aoClicar: () -> Unit) {
+    val interacao = remember { MutableInteractionSource() }
+    val sobre by interacao.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (sobre) Obsidian.hover else Obsidian.overlay)
+            .border(1.dp, Obsidian.danger.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+            .hoverable(interacao)
+            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
+            .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Parar de transmitir",
+            style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+        )
+    }
+}
+
+@Composable
 private fun CartaoDaFonte(
     miniatura: String?,
     titulo: String,
     tamanho: String,
+    noAr: Boolean,
     aoClicar: () -> Unit,
 ) {
     val interacao = remember { MutableInteractionSource() }
@@ -197,7 +234,11 @@ private fun CartaoDaFonte(
             .width(LarguraDoCartao)
             .clip(RoundedCornerShape(8.dp))
             .background(if (sobre) Obsidian.hover else Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .border(
+                1.dp,
+                if (noAr) Obsidian.accent else Obsidian.borderDim,
+                RoundedCornerShape(8.dp),
+            )
             .hoverable(interacao)
             .clickScale(interacao)
             .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
@@ -227,10 +268,18 @@ private fun CartaoDaFonte(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
-            tamanho,
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                tamanho,
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+            )
+            if (noAr) {
+                Text(
+                    "  ·  no ar",
+                    style = TextStyle(color = Obsidian.accent, fontSize = 10.sp),
+                )
+            }
+        }
     }
 }
 

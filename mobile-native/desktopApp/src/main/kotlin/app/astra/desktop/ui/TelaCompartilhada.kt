@@ -119,8 +119,9 @@ fun TelaCompartilhada(
                     return@drawBehind
                 }
 
+                val suave = FilterMipmap(FilterMode.LINEAR, MipmapMode.NONE)
                 val vizinho = FilterMipmap(FilterMode.NEAREST, MipmapMode.NONE)
-                val sB = brilho.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, vizinho)
+                val sB = brilho.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, suave)
                 val sC = cor.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, vizinho)
                 construtor.child("brilho", sB)
                 construtor.child("cor", sC)

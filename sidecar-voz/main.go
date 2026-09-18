@@ -69,6 +69,9 @@ type App struct {
 	entrega    *EntregaDeQuadros
 	misturador *Misturador
 	motor      *Motor
+
+	mudo  bool
+	surdo bool
 }
 
 func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
@@ -117,10 +120,14 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 
 	case CmdMudo:
 		a.aplicarMudo(cmd.Ligado)
+		a.mudo = cmd.Ligado
+		a.sala.AnunciarEstado(a.mudo, a.surdo)
 		return nil
 
 	case CmdSurdo:
 		a.motor.DefinirSurdo(cmd.Ligado)
+		a.surdo = cmd.Ligado
+		a.sala.AnunciarEstado(a.mudo, a.surdo)
 		return nil
 
 	case CmdTratamento:

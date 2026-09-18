@@ -182,6 +182,8 @@ fun VoiceView(
         val relatorio by call.relatorioDaTela.collectAsState()
         val ritmos by call.ritmoDeQuemMostra.collectAsState()
         val volumes by call.volumes.collectAsState()
+        val mudos by call.mudosDaSala.collectAsState()
+        val surdos by call.surdosDaSala.collectAsState()
 
         val mostrando = remember(mostrandoOutros, transmitindo) {
             if (transmitindo) mostrandoOutros + CallNaSala.EU else mostrandoOutros
@@ -201,13 +203,16 @@ fun VoiceView(
             onDispose { call.assistir(null) }
         }
 
-        val tiles = remember(connected, me, micOn, pessoaPorId, channel.name, mostrando, quemMostra, transmitindo) {
+        val tiles = remember(
+            connected, me, micOn, ensurdecido, pessoaPorId, channel.name,
+            mostrando, quemMostra, transmitindo, mudos, surdos,
+        ) {
             buildList {
                 if (connected != null) {
                     add(
                         Tile(
                             CallNaSala.EU, "você", connected.mySpeaking, me?.avatarUrl,
-                            isMe = true, muted = !micOn,
+                            isMe = true, muted = !micOn, surdo = ensurdecido,
                             transmitindo = transmitindo,
                             emCartaz = quemMostra == CallNaSala.EU,
                         ),
@@ -220,7 +225,9 @@ fun VoiceView(
                         add(
                             Tile(
                                 p.identity, nome, p.speaking, membro?.user?.avatarUrl,
-                                isMe = false, muted = false,
+                                isMe = false,
+                                muted = p.identity in mudos,
+                                surdo = p.identity in surdos,
                                 transmitindo = p.identity in mostrando,
                                 emCartaz = p.identity == quemMostra,
                                 fonte = membro?.user?.displayFont,
@@ -968,6 +975,7 @@ private data class Tile(
     val avatarUrl: String?,
     val isMe: Boolean,
     val muted: Boolean,
+    val surdo: Boolean = false,
     val transmitindo: Boolean = false,
     val emCartaz: Boolean = false,
     val fonte: String? = null,
@@ -1117,8 +1125,11 @@ private fun ParticipantTile(
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (tile.muted) {
-                LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp)
+            if (tile.surdo) {
+                LIcon(Lucide.VolumeX, tint = Obsidian.danger, size = 13.dp, rotulo = "não está ouvindo")
+                Spacer(Modifier.width(4.dp))
+            } else if (tile.muted) {
+                LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp, rotulo = "microfone fechado")
                 Spacer(Modifier.width(4.dp))
             }
             if (tile.transmitindo) {

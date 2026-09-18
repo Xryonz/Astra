@@ -66,6 +66,12 @@ class CallNaSala(
     private val _caminhoDaTela = MutableStateFlow<LeituraDoCaminho?>(null)
     val caminhoDaTela = _caminhoDaTela.asStateFlow()
 
+    private val _mudosDaSala = MutableStateFlow<Set<String>>(emptySet())
+    val mudosDaSala = _mudosDaSala.asStateFlow()
+
+    private val _surdosDaSala = MutableStateFlow<Set<String>>(emptySet())
+    val surdosDaSala = _surdosDaSala.asStateFlow()
+
     private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
     val monitores = _monitores.asStateFlow()
 
@@ -110,6 +116,8 @@ class CallNaSala(
         sidecar.deixarSala()
         naSala.clear()
         falando.clear()
+        _mudosDaSala.value = emptySet()
+        _surdosDaSala.value = emptySet()
 
         tarefas.forEach { it.cancel() }
         tarefas.clear()
@@ -138,6 +146,16 @@ class CallNaSala(
 
     fun transmitirJanela(janela: ULong, largura: Int, altura: Int, fps: Int, kbps: Int) {
         sidecar.transmitirJanela(janela, largura, altura, fps, kbps, duasCamadas)
+    }
+
+    private fun guardarEstadoDoPar(quem: String?, oQue: String?, ligado: Boolean) {
+        if (quem.isNullOrBlank()) return
+        val alvo = when (oQue) {
+            "mudo" -> _mudosDaSala
+            "surdo" -> _surdosDaSala
+            else -> return
+        }
+        alvo.value = if (ligado) alvo.value + quem else alvo.value - quem
     }
 
     private fun guardarMiniatura(tipo: String?, alvo: String?, dados: String?) {
@@ -359,6 +377,7 @@ class CallNaSala(
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()
                 "janelas" -> _janelas.value = ev.janelas.orEmpty()
                 "miniatura" -> guardarMiniatura(ev.tipo, ev.par, ev.dados)
+                "estado-da-voz" -> guardarEstadoDoPar(ev.par, ev.tipo, ev.valor == "1")
                 "tela" -> {
                     val quem = ev.par ?: return@collect
                     if (ev.valor == "1") {
@@ -421,6 +440,8 @@ class CallNaSala(
         naSala.remove(quem)
         falando.remove(quem)
         _mostrandoTela.value = _mostrandoTela.value - quem
+        _mudosDaSala.value = _mudosDaSala.value - quem
+        _surdosDaSala.value = _surdosDaSala.value - quem
         sidecar.quadros.esquecer(quem)
     }
 

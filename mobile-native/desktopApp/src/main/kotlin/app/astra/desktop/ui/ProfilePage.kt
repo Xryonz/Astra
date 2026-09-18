@@ -202,7 +202,7 @@ fun ProfilePage(
                 ) {
                     val d = data
                     if (d == null) {
-                        Column(Modifier.fillMaxWidth()) { EsperaNoTopo(true) }
+                        EsperaNoTopo(true)
                     } else {
                         val nome = d.user.displayName ?: d.user.username
                         Column(

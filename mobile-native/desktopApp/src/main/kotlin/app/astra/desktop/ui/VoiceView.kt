@@ -88,6 +88,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
+import kotlin.math.roundToInt
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -1041,8 +1042,13 @@ private fun larguraDoBloco(quantos: Int, espacoNaLargura: Dp, espacoNaAltura: Dp
     return minOf(pelaLargura, pelaAltura).coerceIn(LARGURA_MINIMA_DO_BLOCO, LARGURA_MAXIMA_DO_BLOCO)
 }
 
-private fun diametroDoRetrato(largura: Dp): Dp =
-    (largura * FATIA_DO_RETRATO).coerceIn(62.dp, 150.dp)
+private const val DEGRAU_DO_RETRATO = 8
+
+private fun diametroDoRetrato(largura: Dp): Dp {
+    val bruto = (largura * FATIA_DO_RETRATO).coerceIn(62.dp, 150.dp)
+    val degraus = (bruto.value / DEGRAU_DO_RETRATO).roundToInt()
+    return (degraus * DEGRAU_DO_RETRATO).dp.coerceIn(62.dp, 150.dp)
+}
 
 @Composable
 private fun ParticipantTile(

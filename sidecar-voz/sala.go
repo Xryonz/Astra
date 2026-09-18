@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -34,7 +35,60 @@ type Sala struct {
 	noPalco  string
 	banda    cc.BandwidthEstimator
 
+	meuMudo  bool
+	meuSurdo bool
+
 	bandaMedida bool
+}
+
+type recadoDeEstado struct {
+	Astra string `json:"astra"`
+	Mudo  bool   `json:"mudo"`
+	Surdo bool   `json:"surdo"`
+}
+
+const recadoDeEstadoDaVoz = "estado-da-voz"
+
+func (s *Sala) AnunciarEstado(mudo, surdo bool) {
+	s.mu.Lock()
+	s.meuMudo, s.meuSurdo = mudo, surdo
+	quarto := s.sala
+	s.mu.Unlock()
+	s.contarComoEstou(quarto)
+}
+
+func (s *Sala) contarComoEstou(quarto *lksdk.Room) {
+	if quarto == nil {
+		return
+	}
+	s.mu.Lock()
+	recado := recadoDeEstado{Astra: recadoDeEstadoDaVoz, Mudo: s.meuMudo, Surdo: s.meuSurdo}
+	s.mu.Unlock()
+
+	dados, err := json.Marshal(recado)
+	if err != nil {
+		return
+	}
+	if err := quarto.LocalParticipant.PublishData(dados); err != nil {
+		fmt.Fprintf(os.Stderr, "não consegui contar meu estado à sala: %v\n", err)
+	}
+}
+
+func (s *Sala) aoChegarRecado(pacote lksdk.DataPacket, de lksdk.DataReceiveParams) {
+	usuario, ok := pacote.(*lksdk.UserDataPacket)
+	if !ok {
+		return
+	}
+	var recado recadoDeEstado
+	if err := json.Unmarshal(usuario.Payload, &recado); err != nil || recado.Astra != recadoDeEstadoDaVoz {
+		return
+	}
+	quem := de.SenderIdentity
+	if quem == "" {
+		return
+	}
+	s.saida.Manda(Evento{Ev: EvEstadoDaVoz, Par: quem, Tipo: "mudo", V: umOuZero(recado.Mudo)})
+	s.saida.Manda(Evento{Ev: EvEstadoDaVoz, Par: quem, Tipo: "surdo", V: umOuZero(recado.Surdo)})
 }
 
 const (
@@ -74,9 +128,14 @@ func (s *Sala) Entrar(url, token string) error {
 			OnTrackSubscribed:   s.aoAssinar,
 			OnTrackUnsubscribed: s.aoDesassinar,
 			OnTrackPublished:    s.aoPublicarem,
+			OnDataPacket:        s.aoChegarRecado,
 		},
 		OnParticipantConnected: func(rp *lksdk.RemoteParticipant) {
 			s.saida.Manda(Evento{Ev: EvEstado, Par: rp.Identity(), V: "connected"})
+			s.mu.Lock()
+			quarto := s.sala
+			s.mu.Unlock()
+			s.contarComoEstou(quarto)
 		},
 		OnParticipantDisconnected: func(rp *lksdk.RemoteParticipant) {
 			quem := rp.Identity()
@@ -131,6 +190,7 @@ func (s *Sala) Entrar(url, token string) error {
 
 	fmt.Fprintf(os.Stderr, "na sala %q como %q\n", quarto.Name(), quarto.LocalParticipant.Identity())
 	s.saida.Manda(Evento{Ev: EvEstado, V: "connected"})
+	s.contarComoEstou(quarto)
 
 	for _, rp := range quarto.GetRemoteParticipants() {
 		s.saida.Manda(Evento{Ev: EvEstado, Par: rp.Identity(), V: "connected"})

@@ -65,6 +65,7 @@ internal fun Stage(
     botDoOutroLado: Boolean,
     fonteDoSussurro: String?,
     createChatVm: (ChatTarget) -> ChatVm,
+    jaTemNaMemoria: (ChatTarget) -> Boolean,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
     loading: Boolean,
@@ -149,6 +150,7 @@ internal fun Stage(
         TrocaDePagina(
             alvo = chat,
             modifier = Modifier.fillMaxSize(),
+            jaEstaPronto = { it != null && jaTemNaMemoria(it) },
         ) { target ->
             if (target != null) {
                 key(target.id) {
@@ -168,10 +170,9 @@ internal fun Stage(
                 )
                 }
             } else {
-                val esqueletoDoPalco = esperaLongaOBastante(loading)
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
-                        loading -> { if (esqueletoDoPalco) ChatSkeleton() }
+                        loading -> EsperaNoTopo(true, Modifier.align(Alignment.TopCenter))
                         error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
                             Spacer(Modifier.height(10.dp))

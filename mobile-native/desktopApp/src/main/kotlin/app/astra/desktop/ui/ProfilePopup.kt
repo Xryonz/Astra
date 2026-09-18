@@ -12,11 +12,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -36,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -63,8 +60,6 @@ import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import org.koin.core.context.GlobalContext
-import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
-import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
 private const val CACHE_MS = 5 * 60_000L
 
@@ -208,7 +203,6 @@ private fun ProfilePopupCard(
         atividade = runCatching { koin.get<UserApi>().activity(userId).data?.get(userId) }.getOrNull()
     }
 
-    val esqueletoDoPerfil = esperaLongaOBastante(visao == null)
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
     val entrada = when {
         LocalReduceMotion.current -> EnterTransition.None
@@ -225,7 +219,7 @@ private fun ProfilePopupCard(
                     .clip(RoundedCornerShape(12.dp))
                     .profileCardBackdrop(null)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
-            ) { if (esqueletoDoPerfil) CardSkeleton() }
+            ) { EsperaNoTopo(true) }
         } else {
             val p = v.user
             ProfileCard(
@@ -280,31 +274,3 @@ private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit)
     }
 }
 
-@Composable
-private fun ColumnScope.CardSkeleton() {
-    val shimmer = SkeletonAnimation.Shimmer
-    Skeleton(Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect), shimmer, RectangleShape)
-    Column(Modifier.weight(1f).padding(16.dp)) {
-        Skeleton(Modifier.size(52.dp), shimmer, CircleShape)
-        Spacer(Modifier.height(10.dp))
-        Skeleton(Modifier.width(150.dp).height(14.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(6.dp))
-        Skeleton(Modifier.width(100.dp).height(10.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(14.dp))
-        Skeleton(Modifier.fillMaxWidth().height(10.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(5.dp))
-        Skeleton(Modifier.width(180.dp).height(10.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(14.dp))
-        Skeleton(Modifier.width(70.dp).height(9.dp), shimmer, RoundedCornerShape(5.dp))
-        Spacer(Modifier.height(7.dp))
-        Row {
-            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
-            Spacer(Modifier.width(6.dp))
-            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
-            Spacer(Modifier.width(6.dp))
-            Skeleton(Modifier.size(26.dp), shimmer, RoundedCornerShape(7.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        Skeleton(Modifier.fillMaxWidth().height(33.dp), shimmer, RoundedCornerShape(8.dp))
-    }
-}

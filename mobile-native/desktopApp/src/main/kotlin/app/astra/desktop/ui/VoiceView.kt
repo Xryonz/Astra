@@ -1,12 +1,9 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -20,6 +17,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -54,7 +53,6 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -82,14 +80,15 @@ import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.Settings
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isFinite
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.roundToInt
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -178,6 +177,8 @@ fun VoiceView(
         val relatorio by call.relatorioDaTela.collectAsState()
         val ritmos by call.ritmoDeQuemMostra.collectAsState()
         val volumes by call.volumes.collectAsState()
+        val mudos by call.mudosDaSala.collectAsState()
+        val surdos by call.surdosDaSala.collectAsState()
 
         val mostrando = remember(mostrandoOutros, transmitindo) {
             if (transmitindo) mostrandoOutros + CallNaSala.EU else mostrandoOutros
@@ -197,13 +198,16 @@ fun VoiceView(
             onDispose { call.assistir(null) }
         }
 
-        val tiles = remember(connected, me, micOn, pessoaPorId, channel.name, mostrando, quemMostra, transmitindo) {
+        val tiles = remember(
+            connected, me, micOn, ensurdecido, pessoaPorId, channel.name,
+            mostrando, quemMostra, transmitindo, mudos, surdos,
+        ) {
             buildList {
                 if (connected != null) {
                     add(
                         Tile(
                             CallNaSala.EU, "você", connected.mySpeaking, me?.avatarUrl,
-                            isMe = true, muted = !micOn,
+                            isMe = true, muted = !micOn, surdo = ensurdecido,
                             transmitindo = transmitindo,
                             emCartaz = quemMostra == CallNaSala.EU,
                         ),
@@ -216,7 +220,9 @@ fun VoiceView(
                         add(
                             Tile(
                                 p.identity, nome, p.speaking, membro?.user?.avatarUrl,
-                                isMe = false, muted = false,
+                                isMe = false,
+                                muted = p.identity in mudos,
+                                surdo = p.identity in surdos,
                                 transmitindo = p.identity in mostrando,
                                 emCartaz = p.identity == quemMostra,
                                 fonte = membro?.user?.displayFont,
@@ -346,6 +352,7 @@ fun VoiceView(
             val monitores by call.monitores.collectAsState()
             val janelas by call.janelas.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
+            var fonteNoAr by remember { mutableStateOf<FonteEscolhida?>(null) }
             var numerosAbertos by remember { mutableStateOf(false) }
             Box {
                 val salaDePe = connected != null
@@ -353,7 +360,7 @@ fun VoiceView(
                     icon = Lucide.ScreenShare,
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
                     rotulo = when {
-                        transmitindo -> "Parar a transmissão"
+                        transmitindo -> "Trocar ou parar a transmissão"
                         !salaDePe -> "A chamada está se restabelecendo"
                         else -> "Transmitir a tela"
                     },
@@ -361,14 +368,8 @@ fun VoiceView(
                     setaAberta = numerosAbertos,
                     habilitado = transmitindo || salaDePe,
                     onClick = {
-                        if (transmitindo) {
-                            call.pararDeTransmitir()
-                            transmissaoAvisada = false
-                            escolhendoTela = false
-                        } else {
-                            escolhendoTela = true
-                            call.pedirMonitores()
-                        }
+                        escolhendoTela = true
+                        call.pedirMonitores()
                     },
                     aoAbrirSeta = { numerosAbertos = !numerosAbertos },
                 )
@@ -384,13 +385,24 @@ fun VoiceView(
                         )
                     }
                 }
-                if (escolhendoTela && !transmitindo) {
+                if (escolhendoTela) {
                     Popup(
                         popupPositionProvider = NoMeioDaJanela,
                         onDismissRequest = { escolhendoTela = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        SeletorDeTela(monitores, janelas, { call.pedirJanelas() }) { fonte ->
+                        SeletorDeTela(
+                            monitores,
+                            janelas,
+                            noAr = fonteNoAr.takeIf { transmitindo },
+                            aoPedirJanelas = { call.pedirJanelas() },
+                            aoParar = {
+                                escolhendoTela = false
+                                call.pararDeTransmitir()
+                                fonteNoAr = null
+                                transmissaoAvisada = false
+                            },
+                        ) { fonte ->
                             escolhendoTela = false
                             val q = prefState.screenQuality
                             when (fonte) {
@@ -399,6 +411,7 @@ fun VoiceView(
                                 is FonteEscolhida.Janela ->
                                     call.transmitirJanela(fonte.id, q.width, q.height, q.fps, q.bitrate / 1000)
                             }
+                            fonteNoAr = fonte
                             transmissaoAvisada = true
                         }
                     }
@@ -424,8 +437,8 @@ fun VoiceView(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Quem está na sala recebe a imagem. Para trocar de tela, " +
-                                    "pare a transmissão e escolha outra.",
+                                "Quem está na sala recebe a imagem. Para trocar de tela ou " +
+                                    "encerrar, abra o mesmo botão de novo.",
                                 style = Tipo.apoio,
                             )
                         }
@@ -465,11 +478,13 @@ fun VoiceView(
                     }
                 }
             }
+            Spacer(Modifier.width(8.dp))
             CallIconButton(
                 icon = Lucide.PhoneOff,
                 tone = CallTone.Danger,
                 rotulo = "Sair da chamada",
                 onClick = onLeave,
+                preenchido = true,
             )
         }
     }
@@ -784,6 +799,7 @@ private fun CallSplitButton(
                 contentAlignment = Alignment.Center,
             ) {
                 LIcon(icon, tint = glifo, size = 20.dp, rotulo = rotulo)
+                DicaAcima(rotulo, sobreATela && habilitado)
             }
 
             Box(Modifier.width(1.dp).height(22.dp).background(Obsidian.borderMid))
@@ -808,6 +824,7 @@ private fun CallSplitButton(
                     size = 16.dp,
                     rotulo = rotuloDaSeta,
                 )
+                DicaAcima(rotuloDaSeta, sobreASeta && !setaAberta)
             }
         }
         Box(Modifier.matchParentSize().border(1.dp, borda, inteiro))
@@ -821,24 +838,32 @@ private fun CallIconButton(
     rotulo: String,
     onClick: () -> Unit,
     habilitado: Boolean = true,
+    preenchido: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val border = corDaBorda(tone)
-    val fg = corDoGlifo(tone, habilitado)
-    val bg = fundoDoBotao(hovered)
-    Box(
-        Modifier
-            .size(ALTURA_DO_BOTAO)
-            .clickScale(interaction)
-            .clip(CircleShape)
-            .background(bg)
-            .border(1.dp, border, CircleShape)
-            .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, enabled = habilitado, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)
+    val fg = if (preenchido) Obsidian.void else corDoGlifo(tone, habilitado)
+    val fundoCheio by animateColorAsState(
+        if (hovered) Obsidian.danger else Obsidian.danger.copy(alpha = 0.82f),
+        tween(140),
+    )
+    val bg = if (preenchido) fundoCheio else fundoDoBotao(hovered)
+    Box {
+        Box(
+            Modifier
+                .size(ALTURA_DO_BOTAO)
+                .clickScale(interaction)
+                .clip(CircleShape)
+                .background(bg)
+                .border(1.dp, border, CircleShape)
+                .hoverable(interaction)
+                .clickable(interactionSource = interaction, indication = null, enabled = habilitado, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)
+        }
+        DicaAcima(rotulo, hovered && habilitado)
     }
 }
 
@@ -945,6 +970,7 @@ private data class Tile(
     val avatarUrl: String?,
     val isMe: Boolean,
     val muted: Boolean,
+    val surdo: Boolean = false,
     val transmitindo: Boolean = false,
     val emCartaz: Boolean = false,
     val fonte: String? = null,
@@ -959,27 +985,30 @@ private fun ParticipantGrid(
     aoMudarVolume: (String, Int) -> Unit = { _, _ -> },
     aoEscolherTela: (String) -> Unit = {},
 ) {
-    FlowRow(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        tiles.forEach { t ->
-            key(t.key) {
-                PopIn {
-                    if (t.isMe) {
-                        ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) }
-                    } else {
-                        EditorialContextMenu(entries = {
-                            listOf(
-                                MenuEntry.VolumeSub(
-                                    label = "volume",
-                                    porcento = volumeDe(t.key),
-                                    onChange = { aoMudarVolume(t.key, it) },
-                                ),
-                            )
-                        }) {
-                            ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        val largura = larguraDoBloco(tiles.size, maxWidth, maxHeight)
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ESPACO_ENTRE_BLOCOS, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(ESPACO_ENTRE_BLOCOS),
+        ) {
+            tiles.forEach { t ->
+                key(t.key) {
+                    PopIn {
+                        if (t.isMe) {
+                            ParticipantTile(t, previa, largura) { aoEscolherTela(t.key) }
+                        } else {
+                            EditorialContextMenu(entries = {
+                                listOf(
+                                    MenuEntry.VolumeSub(
+                                        label = "volume",
+                                        porcento = volumeDe(t.key),
+                                        onChange = { aoMudarVolume(t.key, it) },
+                                    ),
+                                )
+                            }) {
+                                ParticipantTile(t, previa, largura) { aoEscolherTela(t.key) }
+                            }
                         }
                     }
                 }
@@ -988,23 +1017,51 @@ private fun ParticipantGrid(
     }
 }
 
+private val ESPACO_ENTRE_BLOCOS = 10.dp
+private val LARGURA_MINIMA_DO_BLOCO = 164.dp
+private val LARGURA_MAXIMA_DO_BLOCO = 288.dp
+
+private val SOBRA_ABAIXO_DO_RETRATO = 70.dp
+private const val FATIA_DO_RETRATO = 0.45f
+
+private fun larguraDoBloco(quantos: Int, espacoNaLargura: Dp, espacoNaAltura: Dp): Dp {
+    if (quantos <= 0) return LARGURA_MINIMA_DO_BLOCO
+
+    val cabemNaLinha = ((espacoNaLargura + ESPACO_ENTRE_BLOCOS) /
+        (LARGURA_MINIMA_DO_BLOCO + ESPACO_ENTRE_BLOCOS)).toInt().coerceAtLeast(1)
+    val colunas = minOf(quantos, cabemNaLinha)
+    val linhas = (quantos + colunas - 1) / colunas
+
+    val pelaLargura = (espacoNaLargura - ESPACO_ENTRE_BLOCOS * (colunas - 1)) / colunas
+    if (!espacoNaAltura.isFinite) {
+        return pelaLargura.coerceIn(LARGURA_MINIMA_DO_BLOCO, LARGURA_MAXIMA_DO_BLOCO)
+    }
+
+    val alturaPorLinha = (espacoNaAltura - ESPACO_ENTRE_BLOCOS * (linhas - 1)) / linhas
+    val pelaAltura = (alturaPorLinha - SOBRA_ABAIXO_DO_RETRATO) / FATIA_DO_RETRATO
+    return minOf(pelaLargura, pelaAltura).coerceIn(LARGURA_MINIMA_DO_BLOCO, LARGURA_MAXIMA_DO_BLOCO)
+}
+
+private const val DEGRAU_DO_RETRATO = 8
+
+private fun diametroDoRetrato(largura: Dp): Dp {
+    val bruto = (largura * FATIA_DO_RETRATO).coerceIn(62.dp, 150.dp)
+    val degraus = (bruto.value / DEGRAU_DO_RETRATO).roundToInt()
+    return (degraus * DEGRAU_DO_RETRATO).dp.coerceIn(62.dp, 150.dp)
+}
+
 @Composable
 private fun ParticipantTile(
     tile: Tile,
     previa: StateFlow<Map<String, QuadroDeTela>>? = null,
-    modifier: Modifier = Modifier,
+    largura: Dp = LARGURA_MINIMA_DO_BLOCO,
     aoEscolherTela: () -> Unit = {},
 ) {
+    val retrato = diametroDoRetrato(largura)
+    val modifier = Modifier.width(largura)
     val reduce = LocalReduceMotion.current
-    val active = LocalWindowActive.current
     val interacao = remember { MutableInteractionSource() }
     val podeTrocar = tile.transmitindo && (!tile.emCartaz || tile.isMe)
-    val orbit = if (tile.speaking && !reduce && active) {
-        rememberInfiniteTransition(label = "orbit-${tile.label}").animateFloat(
-            0f, (2.0 * Math.PI).toFloat(),
-            infiniteRepeatable(tween(2600, easing = LinearEasing)),
-        )
-    } else null
 
     val borderColor by animateColorAsState(
         if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
@@ -1034,7 +1091,7 @@ private fun ParticipantTile(
     ) {
         if (tile.isMe && tile.transmitindo && previa != null) {
             Box(
-                Modifier.width(140.dp).height(79.dp)
+                Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Obsidian.void),
                 contentAlignment = Alignment.Center,
@@ -1042,27 +1099,22 @@ private fun ParticipantTile(
                 TelaCompartilhada(previa, CallNaSala.EU, Modifier.fillMaxSize())
             }
         } else {
-            Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(retrato + 12.dp), contentAlignment = Alignment.Center) {
             if (tile.speaking) {
                 Box(Modifier.fillMaxSize().drawBehind {
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
-                    orbit?.let { ph ->
-                        val r = size.minDimension / 2f
-                        val ang = ph.value
-                        val trail = Offset(center.x + cos(ang - 0.35f) * r, center.y + sin(ang - 0.35f) * r)
-                        val star = Offset(center.x + cos(ang) * r, center.y + sin(ang) * r)
-                        drawCircle(Obsidian.accent.copy(alpha = 0.35f), radius = 1.5.dp.toPx(), center = trail)
-                        drawCircle(Obsidian.accent, radius = 3.dp.toPx(), center = star)
-                    }
                 })
             }
-            DesktopAvatar(tile.avatarUrl, tile.label, 62)
+            DesktopAvatar(tile.avatarUrl, tile.label, retrato.value.toInt())
             }
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (tile.muted) {
-                LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp)
+            if (tile.surdo) {
+                LIcon(Lucide.VolumeX, tint = Obsidian.danger, size = 13.dp, rotulo = "não está ouvindo")
+                Spacer(Modifier.width(4.dp))
+            } else if (tile.muted) {
+                LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp, rotulo = "microfone fechado")
                 Spacer(Modifier.width(4.dp))
             }
             if (tile.transmitindo) {

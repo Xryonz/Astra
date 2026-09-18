@@ -52,8 +52,8 @@ func nivelDe(pcm []int16) float64 {
 	return math.Sqrt(soma/float64(len(pcm))) / 32768
 }
 
-func marcaDeFala(falando bool) string {
-	if falando {
+func umOuZero(ligado bool) string {
+	if ligado {
 		return "1"
 	}
 	return "0"

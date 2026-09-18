@@ -84,9 +84,14 @@ const (
 
 	EvAparelhos = "aparelhos"
 
-	EvMonitores = "monitores"
-	EvJanelas   = "janelas"
-	EvErro      = "erro"
+	EvMonitores   = "monitores"
+	EvJanelas     = "janelas"
+	EvMiniatura   = "miniatura"
+	EvEstadoDaVoz = "estado-da-voz"
+	EvErro        = "erro"
+
+	alvoMonitor = "monitor"
+	alvoJanela  = "janela"
 
 	EvCaminho = "caminho"
 

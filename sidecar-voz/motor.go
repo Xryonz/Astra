@@ -218,7 +218,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 
 	defer func() {
 		if det.Calar() {
-			m.saida.Manda(Evento{Ev: EvFala, V: marcaDeFala(false)})
+			m.saida.Manda(Evento{Ev: EvFala, V: umOuZero(false)})
 		}
 	}()
 
@@ -295,7 +295,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 				paraODetector = quadro
 			}
 			if det.Alimentar(paraODetector, time.Now()) {
-				m.saida.Manda(Evento{Ev: EvFala, V: marcaDeFala(det.Falando())})
+				m.saida.Manda(Evento{Ev: EvFala, V: umOuZero(det.Falando())})
 			}
 
 			if !mudo {

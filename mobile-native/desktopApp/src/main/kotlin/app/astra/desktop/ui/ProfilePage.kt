@@ -158,7 +158,6 @@ fun ProfilePage(
         }
     }
 
-    val esqueletoDaPagina = esperaLongaOBastante(data == null)
     Popup(
         popupPositionProvider = CenterFill,
         onDismissRequest = { requestClose() },
@@ -203,7 +202,7 @@ fun ProfilePage(
                 ) {
                     val d = data
                     if (d == null) {
-                        Column(Modifier.fillMaxWidth()) { if (esqueletoDaPagina) PageSkeleton() }
+                        EsperaNoTopo(true)
                     } else {
                         val nome = d.user.displayName ?: d.user.username
                         Column(
@@ -476,27 +475,3 @@ private fun Insignia(icone: String, nome: String, corHex: String?) {
     }
 }
 
-@Composable
-private fun PageSkeleton() {
-    Box(Modifier.fillMaxWidth().height(140.dp).background(Obsidian.overlay))
-    Column(Modifier.padding(horizontal = 20.dp)) {
-        Box(
-            Modifier
-                .offset(y = (-38).dp)
-                .clip(CircleShape)
-                .background(Obsidian.raised)
-                .border(4.dp, Obsidian.borderMid, CircleShape)
-                .padding(4.dp),
-        ) {
-            Box(Modifier.size(88.dp).clip(CircleShape).background(Obsidian.overlay))
-        }
-        Column(Modifier.offset(y = (-24).dp)) {
-            Box(Modifier.width(180.dp).height(20.dp).clip(RoundedCornerShape(6.dp)).background(Obsidian.overlay))
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.width(120.dp).height(12.dp).clip(RoundedCornerShape(5.dp)).background(Obsidian.overlay))
-            Spacer(Modifier.height(24.dp))
-            Box(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(5.dp)).background(Obsidian.overlay))
-            Spacer(Modifier.height(20.dp))
-        }
-    }
-}

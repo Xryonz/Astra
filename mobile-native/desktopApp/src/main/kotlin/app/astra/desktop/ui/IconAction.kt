@@ -132,6 +132,50 @@ fun BotaoIcone(
     }
 }
 
+@Composable
+fun DicaAcima(dica: String, sobHover: Boolean) {
+    var mostrar by remember { mutableStateOf(false) }
+    LaunchedEffect(sobHover) {
+        if (!sobHover) { mostrar = false; return@LaunchedEffect }
+        delay(ESPERA_DICA_MS)
+        mostrar = true
+    }
+    if (!mostrar) return
+
+    val margem = with(LocalDensity.current) { 8.dp.roundToPx() }
+    Popup(popupPositionProvider = remember(margem) { AcimaCentralizado(margem) }) {
+        Box(
+            Modifier
+                .popupReveal(originX = 0.5f, originY = 1f)
+                .clip(RoundedCornerShape(7.dp))
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp)),
+        ) {
+            Text(
+                dica,
+                style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            )
+        }
+    }
+}
+
+private class AcimaCentralizado(private val margem: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val acima = anchorBounds.top - popupContentSize.height - margem
+        val y = if (acima >= 0) acima
+        else (anchorBounds.bottom + margem).coerceAtMost(windowSize.height - popupContentSize.height)
+        return IntOffset(x, y)
+    }
+}
+
 private class AbaixoCentralizado(private val margem: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,

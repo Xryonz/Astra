@@ -43,15 +43,54 @@ type JanelaDaTela struct {
 }
 
 func ListarJanelas() ([]JanelaDaTela, error) {
-	achadas := enumerarJanelas()
-	for i := range achadas {
-		png, err := amostrarJanela(uintptr(achadas[i].Identificador), achadas[i].Largura, achadas[i].Altura)
+	return enumerarJanelas(), nil
+}
+
+func MiniaturasDasJanelas(lista []JanelaDaTela, pronta func(uint64, string)) {
+	if len(lista) == 0 {
+		return
+	}
+	placa, err := abrirPlacaDeVideo()
+	if err != nil {
+		return
+	}
+	defer placa.Fechar()
+
+	for _, j := range lista {
+		png, err := amostrarJanelaCom(placa, uintptr(j.Identificador), j.Largura, j.Altura)
 		if err != nil {
 			continue
 		}
-		achadas[i].Miniatura = base64.StdEncoding.EncodeToString(png)
+		pronta(j.Identificador, base64.StdEncoding.EncodeToString(png))
 	}
-	return achadas, nil
+}
+
+func amostrarJanelaCom(placa *Tela, h uintptr, largura, altura int) ([]byte, error) {
+	captura, err := AbrirCapturaDeJanela(placa.dispositivo, h, largura, altura)
+	if err != nil {
+		return nil, err
+	}
+	tela := &Tela{dispositivo: placa.dispositivo, contexto: placa.contexto, janela: captura}
+	defer func() {
+		tela.SoltarQuadro()
+		captura.Fechar()
+	}()
+
+	l, a := tela.Tamanho()
+	var textura objeto
+	for tentativa := 0; tentativa < 8 && textura == 0; tentativa++ {
+		t, err := tela.ProximoQuadro(120)
+		if err != nil {
+			return nil, err
+		}
+		textura = t
+	}
+	if textura == 0 {
+		return nil, fmt.Errorf("a janela não entregou quadro")
+	}
+	defer textura.soltar()
+
+	return miniaturaDe(tela, textura, l, a)
 }
 
 func enumerarJanelas() []JanelaDaTela {
@@ -128,32 +167,4 @@ func descreverJanela(h uintptr) (JanelaDaTela, bool) {
 		Largura:       largura,
 		Altura:        altura,
 	}, true
-}
-
-func amostrarJanela(h uintptr, largura, altura int) ([]byte, error) {
-	tela, err := AbrirJanela(h, largura, altura)
-	if err != nil {
-		return nil, err
-	}
-	defer tela.Fechar()
-
-	l, a := tela.Tamanho()
-	var textura objeto
-	for tentativa := 0; tentativa < 8 && textura == 0; tentativa++ {
-		t, err := tela.ProximoQuadro(120)
-		if err != nil {
-			return nil, err
-		}
-		if t == 0 {
-			continue
-		}
-		textura = t
-	}
-	if textura == 0 {
-		return nil, fmt.Errorf("a janela não entregou quadro")
-	}
-	defer textura.soltar()
-	defer tela.SoltarQuadro()
-
-	return miniaturaDe(tela, textura, l, a)
 }

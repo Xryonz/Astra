@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"os"
 	"testing"
 	"time"
@@ -114,9 +115,19 @@ func TestMiniaturaDeJanela(t *testing.T) {
 	defer PrenderNaThread()()
 
 	j := umaJanelaQualquer(t)
-	png, err := amostrarJanela(uintptr(j.Identificador), j.Largura, j.Altura)
+	var emBase64 string
+	MiniaturasDasJanelas([]JanelaDaTela{j}, func(id uint64, dados string) {
+		if id != j.Identificador {
+			t.Errorf("a miniatura veio marcada com %d, esperava %d", id, j.Identificador)
+		}
+		emBase64 = dados
+	})
+	if emBase64 == "" {
+		t.Fatalf("nenhuma miniatura saiu para %q", j.Nome)
+	}
+	png, err := base64.StdEncoding.DecodeString(emBase64)
 	if err != nil {
-		t.Fatalf("amostrar %q: %v", j.Nome, err)
+		t.Fatalf("a miniatura de %q não veio em base64: %v", j.Nome, err)
 	}
 	if len(png) < 100 {
 		t.Fatalf("a miniatura saiu com %d bytes", len(png))

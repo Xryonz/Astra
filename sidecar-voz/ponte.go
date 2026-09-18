@@ -88,7 +88,7 @@ const (
 	EvJanelas     = "janelas"
 	EvMiniatura   = "miniatura"
 	EvEstadoDaVoz = "estado-da-voz"
-	EvErro      = "erro"
+	EvErro        = "erro"
 
 	alvoMonitor = "monitor"
 	alvoJanela  = "janela"

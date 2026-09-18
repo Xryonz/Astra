@@ -91,13 +91,6 @@ func (s *Sala) aoChegarRecado(pacote lksdk.DataPacket, de lksdk.DataReceiveParam
 	s.saida.Manda(Evento{Ev: EvEstadoDaVoz, Par: quem, Tipo: "surdo", V: umOuZero(recado.Surdo)})
 }
 
-func umOuZero(ligado bool) string {
-	if ligado {
-		return "1"
-	}
-	return "0"
-}
-
 const (
 	bandaInicialDoGcc = 1_500_000
 	bandaMaximaDoGcc  = 12_000_000

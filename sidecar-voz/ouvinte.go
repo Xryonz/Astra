@@ -26,7 +26,7 @@ func (p *Ouvinte) queremVer() bool {
 }
 
 func (p *Ouvinte) avisarFala(falando bool) {
-	p.saida.Manda(Evento{Ev: EvFala, Par: p.id, V: marcaDeFala(falando)})
+	p.saida.Manda(Evento{Ev: EvFala, Par: p.id, V: umOuZero(falando)})
 }
 
 func (p *Ouvinte) receber(remota *webrtc.TrackRemote) {

@@ -29,7 +29,7 @@ private const val VOLTA_MS = 1_100
 private const val ESPERA_ATE_VALER_A_LINHA_MS = 160L
 
 @Composable
-fun esperaLongaOBastante(carregando: Boolean): Boolean {
+private fun esperaLongaOBastante(carregando: Boolean): Boolean {
     var passouDoLimiar by remember { mutableStateOf(false) }
     LaunchedEffect(carregando) {
         if (!carregando) {

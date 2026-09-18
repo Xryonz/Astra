@@ -168,31 +168,3 @@ func descreverJanela(h uintptr) (JanelaDaTela, bool) {
 		Altura:        altura,
 	}, true
 }
-
-func amostrarJanela(h uintptr, largura, altura int) ([]byte, error) {
-	tela, err := AbrirJanela(h, largura, altura)
-	if err != nil {
-		return nil, err
-	}
-	defer tela.Fechar()
-
-	l, a := tela.Tamanho()
-	var textura objeto
-	for tentativa := 0; tentativa < 8 && textura == 0; tentativa++ {
-		t, err := tela.ProximoQuadro(120)
-		if err != nil {
-			return nil, err
-		}
-		if t == 0 {
-			continue
-		}
-		textura = t
-	}
-	if textura == 0 {
-		return nil, fmt.Errorf("a janela não entregou quadro")
-	}
-	defer textura.soltar()
-	defer tela.SoltarQuadro()
-
-	return miniaturaDe(tela, textura, l, a)
-}

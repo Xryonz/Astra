@@ -1,12 +1,9 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -56,7 +53,6 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -92,8 +88,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
-import kotlin.math.cos
-import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -1060,15 +1054,8 @@ private fun ParticipantTile(
     val retrato = diametroDoRetrato(largura)
     val modifier = Modifier.width(largura)
     val reduce = LocalReduceMotion.current
-    val active = LocalWindowActive.current
     val interacao = remember { MutableInteractionSource() }
     val podeTrocar = tile.transmitindo && (!tile.emCartaz || tile.isMe)
-    val orbit = if (tile.speaking && !reduce && active) {
-        rememberInfiniteTransition(label = "orbit-${tile.label}").animateFloat(
-            0f, (2.0 * Math.PI).toFloat(),
-            infiniteRepeatable(tween(2600, easing = LinearEasing)),
-        )
-    } else null
 
     val borderColor by animateColorAsState(
         if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
@@ -1110,14 +1097,6 @@ private fun ParticipantTile(
             if (tile.speaking) {
                 Box(Modifier.fillMaxSize().drawBehind {
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
-                    orbit?.let { ph ->
-                        val r = size.minDimension / 2f
-                        val ang = ph.value
-                        val trail = Offset(center.x + cos(ang - 0.35f) * r, center.y + sin(ang - 0.35f) * r)
-                        val star = Offset(center.x + cos(ang) * r, center.y + sin(ang) * r)
-                        drawCircle(Obsidian.accent.copy(alpha = 0.35f), radius = 1.5.dp.toPx(), center = trail)
-                        drawCircle(Obsidian.accent, radius = 3.dp.toPx(), center = star)
-                    }
                 })
             }
             DesktopAvatar(tile.avatarUrl, tile.label, retrato.value.toInt())

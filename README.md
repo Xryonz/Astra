@@ -101,8 +101,9 @@ Go independente — o Gradle do desktop o compila e empacota junto do aplicativo
 > telas. Paridade entre eles é reescrita, não reuso; planejar como se fosse reuso
 > já custou tempo aqui.
 
-**Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Supabase ·
-Redis → Upstash · arquivos → bucket S3 ou R2 · voz e tela dos três clientes → LiveKit Cloud.
+**Hospedagem:** API → Render (US East) · Postgres → Supabase · Redis → Upstash ·
+arquivos → bucket S3 ou R2 · voz e tela dos três clientes → LiveKit Cloud. O web saiu da
+lista quando foi arquivado.
 
 ---
 

@@ -7,7 +7,6 @@ import coil3.decode.Decoder
 import coil3.decode.ImageSource
 import coil3.fetch.SourceFetchResult
 import coil3.request.Options
-import coil3.size.Precision
 import coil3.size.pxOrElse
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Canvas
@@ -22,6 +21,7 @@ private const val MAIOR_REDUCAO_POR_ETAPA = 2f
 
 fun reduzirEmEtapas(origem: SkiaImage, larguraAlvo: Int, alturaAlvo: Int): Bitmap {
     var atual = origem
+    var minhaImagem: SkiaImage? = null
     var minhaVez: Surface? = null
 
     while (atual.width > larguraAlvo * MAIOR_REDUCAO_POR_ETAPA &&
@@ -39,21 +39,27 @@ fun reduzirEmEtapas(origem: SkiaImage, larguraAlvo: Int, alturaAlvo: Int): Bitma
             null,
             true,
         )
-        val anterior = minhaVez
+        val imagemAnterior = minhaImagem
+        val superficieAnterior = minhaVez
         atual = meia.makeImageSnapshot()
+        minhaImagem = atual
         minhaVez = meia
-        anterior?.close()
+        imagemAnterior?.close()
+        superficieAnterior?.close()
     }
 
     val destino = Bitmap().apply { allocN32Pixels(larguraAlvo, alturaAlvo) }
-    Canvas(destino).drawImageRect(
-        atual,
-        Rect.makeWH(atual.width.toFloat(), atual.height.toFloat()),
-        Rect.makeWH(larguraAlvo.toFloat(), alturaAlvo.toFloat()),
-        SamplingMode.MITCHELL,
-        null,
-        true,
-    )
+    Canvas(destino).use { pincel ->
+        pincel.drawImageRect(
+            atual,
+            Rect.makeWH(atual.width.toFloat(), atual.height.toFloat()),
+            Rect.makeWH(larguraAlvo.toFloat(), alturaAlvo.toFloat()),
+            SamplingMode.MITCHELL,
+            null,
+            true,
+        )
+    }
+    minhaImagem?.close()
     minhaVez?.close()
     destino.setImmutable()
     return destino
@@ -74,7 +80,7 @@ class DecodificadorNitido(
             larguraPedida.toDouble() / original.width,
             alturaPedida.toDouble() / original.height,
         )
-        if (fator >= 1.0 || opcoes.precision == Precision.EXACT && fator <= 0.0) {
+        if (fator >= 1.0 || fator <= 0.0) {
             val copia = Bitmap.makeFromImage(original).apply { setImmutable() }
             original.close()
             return DecodeResult(image = copia.asImage(), isSampled = false)

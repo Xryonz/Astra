@@ -9,6 +9,8 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 
@@ -70,7 +72,7 @@ object Atualizador {
         )
     }
 
-    fun baixar(nova: VersaoNova, pasta: File): File {
+    fun baixar(nova: VersaoNova, pasta: File, aoAvancar: (Float) -> Unit = {}): File {
         val pronto = File(pasta, "${nova.versao}.apk")
         if (pronto.exists()) return pronto
         pasta.mkdirs()
@@ -86,8 +88,11 @@ object Atualizador {
             if (resposta.code != 416) {
                 if (!resposta.isSuccessful) throw IOException("download respondeu ${resposta.code}")
                 val corpo = resposta.body ?: throw IOException("download sem corpo")
-                FileOutputStream(parcial, resposta.code == 206).use { saida ->
-                    corpo.byteStream().use { it.copyTo(saida) }
+                val continuando = resposta.code == 206
+                val inicio = if (continuando) jaBaixado else 0L
+                val tamanho = corpo.contentLength().takeIf { it > 0 }?.let { it + inicio }
+                FileOutputStream(parcial, continuando).use { saida ->
+                    corpo.byteStream().use { copiarContando(it, saida, inicio, tamanho, aoAvancar) }
                 }
             }
         }
@@ -105,6 +110,31 @@ object Atualizador {
         parcial.delete()
         if (!descomprimindo.renameTo(pronto)) throw IOException("não foi possível guardar o pacote")
         return pronto
+    }
+
+    private fun copiarContando(
+        entrada: InputStream,
+        saida: OutputStream,
+        inicio: Long,
+        tamanho: Long?,
+        aoAvancar: (Float) -> Unit,
+    ) {
+        val pedaco = ByteArray(64 * 1024)
+        var copiado = inicio
+        var ultimoPorCento = -1L
+        while (true) {
+            val lidos = entrada.read(pedaco)
+            if (lidos < 0) break
+            saida.write(pedaco, 0, lidos)
+            copiado += lidos
+            if (tamanho != null) {
+                val porCento = copiado * 100 / tamanho
+                if (porCento != ultimoPorCento) {
+                    ultimoPorCento = porCento
+                    aoAvancar(porCento.coerceAtMost(100) / 100f)
+                }
+            }
+        }
     }
 
     fun ehMaisNova(candidata: String, instalada: String): Boolean = comparar(candidata, instalada) > 0

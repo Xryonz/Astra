@@ -23,9 +23,19 @@ sealed interface AvisoDeAtualizacao {
     data class Falhou(val versao: String, val pagina: String) : AvisoDeAtualizacao
 }
 
+sealed interface EstadoDaVersao {
+    data class EmDia(val conferidoEm: Long) : EstadoDaVersao
+    data object SemConexao : EstadoDaVersao
+    data class Baixando(val versao: String, val progresso: Float) : EstadoDaVersao
+    data class Pronta(val versao: String) : EstadoDaVersao
+    data class Interrompida(val versao: String, val pagina: String) : EstadoDaVersao
+}
+
 object CuidadorDeAtualizacao {
 
     private const val UMA_HORA = 60 * 60 * 1000L
+    private const val VINTE_MINUTOS = 20 * 60 * 1000L
+    private const val UM_MINUTO = 60 * 1000L
     private const val LIMITE_DE_FALHAS = 2
 
     private const val ULTIMA_CONSULTA = "ultima_consulta"
@@ -41,16 +51,31 @@ object CuidadorDeAtualizacao {
     var visivel = false
         private set
 
+    @Volatile
+    private var falhaDeRede = false
+
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val trava = Mutex()
+    private val baixando = Mutex()
     private val _aviso = MutableStateFlow<AvisoDeAtualizacao?>(null)
     val aviso: StateFlow<AvisoDeAtualizacao?> = _aviso.asStateFlow()
+    private val _estado = MutableStateFlow<EstadoDaVersao>(EstadoDaVersao.EmDia(0L))
+    val estado: StateFlow<EstadoDaVersao> = _estado.asStateFlow()
 
     fun aoVoltarAoApp(contexto: Context) {
         val app = contexto.applicationContext
         visivel = true
         TrabalhoDeInstalar.cancelar(app)
-        escopo.launch { trava.withLock { cuidar(app) } }
+        escopo.launch { cuidar(app) }
+    }
+
+    suspend fun procurarAgora(contexto: Context) {
+        val app = contexto.applicationContext
+        escopo.launch {
+            trava.withLock { consultar(memoria(app), UM_MINUTO) }
+            atualizarEstado(app)
+        }.join()
+        escopo.launch { baixarSePendente(app) }
     }
 
     fun aoSairDoApp(contexto: Context) {
@@ -86,22 +111,30 @@ object CuidadorDeAtualizacao {
 
     fun pedirToque(contexto: Context) {
         memoria(contexto).edit { putBoolean(PRECISA_DE_TOQUE, true) }
-        atualizarAviso(contexto)
+        atualizarTela(contexto)
     }
 
     fun falhou(contexto: Context, versao: String) {
         registrarFalha(memoria(contexto), versao)
-        atualizarAviso(contexto)
+        atualizarTela(contexto)
     }
 
-    private fun cuidar(app: Context) {
-        val m = memoria(app)
-        val agora = System.currentTimeMillis()
-        faxina(app, m)
-        if (agora - m.getLong(ADIADO_EM, 0) >= UMA_HORA) m.edit { remove(ADIADO_EM) }
+    private suspend fun cuidar(app: Context) {
+        trava.withLock {
+            val m = memoria(app)
+            faxina(app, m)
+            if (System.currentTimeMillis() - m.getLong(ADIADO_EM, 0) >= UMA_HORA) m.edit { remove(ADIADO_EM) }
+            consultar(m, VINTE_MINUTOS)
+        }
+        baixarSePendente(app)
+    }
 
-        if (agora - m.getLong(ULTIMA_CONSULTA, 0) >= UMA_HORA) {
-            runCatching { Atualizador.procurar(BuildConfig.VERSION_NAME) }.onSuccess { nova ->
+    private fun consultar(m: SharedPreferences, intervalo: Long) {
+        val agora = System.currentTimeMillis()
+        if (agora - m.getLong(ULTIMA_CONSULTA, 0) < intervalo) return
+        runCatching { Atualizador.procurar(BuildConfig.VERSION_NAME) }
+            .onSuccess { nova ->
+                falhaDeRede = false
                 m.edit {
                     putLong(ULTIMA_CONSULTA, agora)
                     if (nova != null) {
@@ -111,20 +144,30 @@ object CuidadorDeAtualizacao {
                     }
                 }
             }
-        }
+            .onFailure { falhaDeRede = true }
+    }
 
-        val versao = pendente(m)
-        if (versao != null && !desistiu(m, versao) && !apk(app, versao).exists()) {
-            val nova = VersaoNova(
-                versao = versao,
-                endereco = m.getString(PENDENTE_ENDERECO, null).orEmpty(),
-                pagina = m.getString(PENDENTE_PAGINA, null).orEmpty(),
-            )
-            runCatching { Atualizador.baixar(nova, pasta(app)) }
-                .onFailure { if (it is PacoteCorrompido) registrarFalha(m, versao) }
+    private fun baixarSePendente(app: Context) {
+        if (!baixando.tryLock()) return
+        try {
+            val m = memoria(app)
+            val versao = pendente(m)
+            if (versao != null && !desistiu(m, versao) && !apk(app, versao).exists()) {
+                val nova = VersaoNova(
+                    versao = versao,
+                    endereco = m.getString(PENDENTE_ENDERECO, null).orEmpty(),
+                    pagina = m.getString(PENDENTE_PAGINA, null).orEmpty(),
+                )
+                runCatching {
+                    Atualizador.baixar(nova, pasta(app)) { _estado.value = EstadoDaVersao.Baixando(versao, it) }
+                }
+                    .onSuccess { falhaDeRede = false }
+                    .onFailure { if (it is PacoteCorrompido) registrarFalha(m, versao) else falhaDeRede = true }
+            }
+        } finally {
+            baixando.unlock()
         }
-
-        atualizarAviso(app)
+        atualizarTela(app)
         if (!visivel) agendarSePronta(app)
     }
 
@@ -161,7 +204,26 @@ object CuidadorDeAtualizacao {
             Instalador.instalar(app, apk(app, versao), versao)
         } catch (e: Exception) {
             registrarFalha(m, versao)
-            atualizarAviso(app)
+            atualizarTela(app)
+        }
+    }
+
+    private fun atualizarTela(app: Context) {
+        atualizarAviso(app)
+        atualizarEstado(app)
+    }
+
+    private fun atualizarEstado(app: Context) {
+        val m = memoria(app)
+        val versao = pendente(m)
+        _estado.value = when {
+            versao != null && desistiu(m, versao) ->
+                EstadoDaVersao.Interrompida(versao, m.getString(PENDENTE_PAGINA, null).orEmpty())
+            versao != null && apk(app, versao).exists() -> EstadoDaVersao.Pronta(versao)
+            falhaDeRede -> EstadoDaVersao.SemConexao
+            versao != null -> (_estado.value as? EstadoDaVersao.Baixando)?.takeIf { it.versao == versao }
+                ?: EstadoDaVersao.Baixando(versao, 0f)
+            else -> EstadoDaVersao.EmDia(m.getLong(ULTIMA_CONSULTA, 0L))
         }
     }
 

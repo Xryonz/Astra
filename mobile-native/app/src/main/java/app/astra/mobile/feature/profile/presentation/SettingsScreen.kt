@@ -56,6 +56,7 @@ fun SettingsScreen(
     onOpenSessions: () -> Unit,
     onOpenData: () -> Unit,
     onOpenWishing: () -> Unit,
+    onOpenAbout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -100,6 +101,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
             SectionHeader("comunidade")
             SettingsRow("Estrela Cadente", "sugira ideias pro Astra", onOpenWishing)
+
+            Spacer(Modifier.height(20.dp))
+            SectionHeader("astra")
+            SettingsRow("Sobre", "versão e atualizações", onOpenAbout)
 
             Spacer(Modifier.height(20.dp))
             val logoutShape = RoundedCornerShape(14.dp)

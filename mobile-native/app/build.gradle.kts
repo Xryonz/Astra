@@ -77,6 +77,12 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+        create("ensaio") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-teste-v\"")
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {

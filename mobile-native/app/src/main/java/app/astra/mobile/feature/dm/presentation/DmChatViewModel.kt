@@ -1,5 +1,7 @@
 package app.astra.mobile.feature.dm.presentation
 
+import app.astra.mobile.core.network.FriendsApi
+import app.astra.mobile.feature.friends.domain.model.Presence
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -31,6 +33,7 @@ class DmChatViewModel @Inject constructor(
     private val imageUploader: ImageUploader,
     private val translator: Translator,
     private val socketManager: SocketManager,
+    private val friendsApi: FriendsApi,
     @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -58,12 +61,13 @@ class DmChatViewModel @Inject constructor(
             repository.conversations().onSuccess { list ->
                 val conv = list.find { it.id == conversationId }
                 otherUserId = conv?.otherUserId
-                _state.update { it.copy(muted = conv?.muted == true) }
+                _state.update { it.copy(muted = conv?.muted == true, outroAvatar = conv?.otherAvatarUrl) }
                 conv?.let {
                     launch(Dispatchers.IO) {
                         DmShortcuts.push(appContext, conversationId, it.otherName, it.otherAvatarUrl)
                     }
                 }
+                lerStatusDoOutro()
             }
         }
     }
@@ -134,6 +138,22 @@ class DmChatViewModel @Inject constructor(
 
     fun onInput(value: String) {
         handleTyping(value)
+    }
+
+    fun lerStatusDoOutro() {
+        val outro = otherUserId ?: return
+        viewModelScope.launch {
+            val amigo = runCatching { friendsApi.friends().data.orEmpty() }.getOrNull()
+                ?.firstOrNull { it.user.id == outro }
+            _state.update { it.copy(outroStatus = amigo?.presence?.let(::presencaDe)) }
+        }
+    }
+
+    private fun presencaDe(bruta: String): Presence = when (bruta.uppercase()) {
+        "ONLINE" -> Presence.ONLINE
+        "IDLE" -> Presence.IDLE
+        "DND" -> Presence.DND
+        else -> Presence.OFFLINE
     }
 
     fun attachImages(files: List<UploadFile>) {

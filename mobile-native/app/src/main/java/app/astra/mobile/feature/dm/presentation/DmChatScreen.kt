@@ -1,5 +1,9 @@
 package app.astra.mobile.feature.dm.presentation
 
+import app.astra.mobile.feature.friends.domain.model.Presence
+import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.StatusDot
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -116,6 +120,20 @@ fun DmChatScreen(
                 title = viewModel.otherName,
                 marginalia = if (state.ringing) "chamando..." else "sussurro",
                 onBack = onBack,
+                leading = {
+                    Box {
+                        AstraAvatar(state.outroAvatar, viewModel.otherName, size = 38)
+                        state.outroStatus?.let { presenca ->
+                            StatusDot(
+                                status = quandoStatus(presenca),
+                                bordered = true,
+                                borderColor = astraColors.base,
+                                cutoutColor = astraColors.base,
+                                modifier = Modifier.align(Alignment.BottomEnd),
+                            )
+                        }
+                    }
+                },
                 trailing = {
                     Box(
                         modifier = Modifier
@@ -270,4 +288,11 @@ fun DmChatScreen(
         onConfirm = { deleteTarget?.let { viewModel.deleteMessage(it.id) }; deleteTarget = null },
         onDismiss = { deleteTarget = null },
     )
+}
+
+private fun quandoStatus(presenca: Presence): UserStatus = when (presenca) {
+    Presence.ONLINE -> UserStatus.ONLINE
+    Presence.IDLE -> UserStatus.IDLE
+    Presence.DND -> UserStatus.DND
+    Presence.OFFLINE -> UserStatus.OFFLINE
 }

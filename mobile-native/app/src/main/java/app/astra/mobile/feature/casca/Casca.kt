@@ -171,6 +171,11 @@ fun Casca(
                         aoBuscar = aoAbrirBusca,
                         aoAbrirAmigos = aoAbrirAmigos,
                         aoNovoSussurro = { novoSussurro = true },
+                        aoSilenciar = { conversa, silenciar ->
+                            viewModel.silenciarConversa(conversa.id, silenciar)
+                        },
+                        aoFechar = { conversa -> viewModel.fecharConversa(conversa.id) },
+                        pedidos = estado.pedidosDeAmizade,
                     )
                 }
             }

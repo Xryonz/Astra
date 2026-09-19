@@ -77,6 +77,15 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao marcar como lido"))
     }
 
+    override suspend fun close(conversationId: String): Result<Unit> = try {
+        dmApi.close(conversationId)
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao fechar a conversa"))
+    }
+
     override suspend fun setMuted(conversationId: String, muted: Boolean): Result<Unit> = try {
         if (muted) dmApi.mute(conversationId) else dmApi.unmute(conversationId)
         Result.success(Unit)

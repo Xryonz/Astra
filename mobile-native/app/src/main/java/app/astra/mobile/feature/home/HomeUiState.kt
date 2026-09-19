@@ -51,6 +51,7 @@ data class HomeUiState(
     val manageError: String? = null,
 
     val unreadNotifs: Int = 0,
+    val pedidosDeAmizade: Int = 0,
 
     val needsOnboarding: Boolean = false,
 

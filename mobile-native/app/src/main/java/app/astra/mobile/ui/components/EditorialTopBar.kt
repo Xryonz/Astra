@@ -34,6 +34,7 @@ fun EditorialTopBar(
     modifier: Modifier = Modifier,
     marginalia: String? = null,
     onBack: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -55,6 +56,10 @@ fun EditorialTopBar(
                     .padding(horizontal = 14.dp, vertical = 4.dp),
             )
             Spacer(Modifier.width(4.dp))
+        }
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(10.dp))
         }
         Column(Modifier.weight(1f)) {
             if (marginalia != null) {

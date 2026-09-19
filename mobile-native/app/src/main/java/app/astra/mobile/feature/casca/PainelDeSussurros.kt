@@ -20,6 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +57,9 @@ fun PainelDeSussurros(
     aoBuscar: () -> Unit,
     aoAbrirAmigos: () -> Unit,
     aoNovoSussurro: () -> Unit,
+    aoSilenciar: (Conversation, Boolean) -> Unit,
+    aoFechar: (Conversation) -> Unit,
+    pedidos: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -68,7 +78,13 @@ fun PainelDeSussurros(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Acao(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar, modifier = Modifier.weight(1f))
-            Acao(icone = Lucide.UserPlus, rotulo = "Amigos", aoTocar = aoAbrirAmigos, modifier = Modifier.weight(1f))
+            Acao(
+                icone = Lucide.UserPlus,
+                rotulo = "Amigos",
+                aoTocar = aoAbrirAmigos,
+                marca = pedidos,
+                modifier = Modifier.weight(1f),
+            )
             Acao(icone = Lucide.Plus, rotulo = "Novo", aoTocar = aoNovoSussurro, modifier = Modifier.weight(1f))
         }
 
@@ -93,7 +109,10 @@ fun PainelDeSussurros(
                 LinhaDeSussurro(
                     conversa = conversa,
                     naoLido = conversa.id in naoLidos && conversa.id !in silenciados,
+                    silenciada = conversa.id in silenciados,
                     aoTocar = { aoAbrir(conversa) },
+                    aoSilenciar = { aoSilenciar(conversa, conversa.id !in silenciados) },
+                    aoFechar = { aoFechar(conversa) },
                 )
             }
         }
@@ -106,6 +125,7 @@ private fun Acao(
     rotulo: String,
     aoTocar: () -> Unit,
     modifier: Modifier = Modifier,
+    marca: Int = 0,
 ) {
     val forma = RoundedCornerShape(8.dp)
     Row(
@@ -121,18 +141,42 @@ private fun Acao(
         Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(rotulo, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+        if (marca > 0) {
+            Spacer(Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(astraColors.accent)
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    text = if (marca > 9) "9+" else "$marca",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = astraColors.textInv,
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun LinhaDeSussurro(conversa: Conversation, naoLido: Boolean, aoTocar: () -> Unit) {
+private fun LinhaDeSussurro(
+    conversa: Conversation,
+    naoLido: Boolean,
+    silenciada: Boolean,
+    aoTocar: () -> Unit,
+    aoSilenciar: () -> Unit,
+    aoFechar: () -> Unit,
+) {
     val forma = RoundedCornerShape(8.dp)
+    var menu by remember { mutableStateOf(false) }
+    Box {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(forma)
             .background(if (naoLido) astraColors.raised else androidx.compose.ui.graphics.Color.Transparent)
-            .clickable(onClick = aoTocar)
+            .combinedClickable(onClick = aoTocar, onLongClick = { menu = true })
             .padding(horizontal = 10.dp, vertical = 9.dp)
             .semantics { contentDescription = "Sussurro com ${conversa.otherName}" },
         verticalAlignment = Alignment.CenterVertically,
@@ -162,6 +206,26 @@ private fun LinhaDeSussurro(conversa: Conversation, naoLido: Boolean, aoTocar: (
                 Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
             }
         }
+    }
+    DropdownMenu(
+        expanded = menu,
+        onDismissRequest = { menu = false },
+        modifier = Modifier.background(astraColors.overlay),
+    ) {
+        DropdownMenuItem(
+            text = {
+                Text(
+                    if (silenciada) "Reativar avisos" else "Silenciar conversa",
+                    color = astraColors.text1,
+                )
+            },
+            onClick = { menu = false; aoSilenciar() },
+        )
+        DropdownMenuItem(
+            text = { Text("Fechar conversa", color = astraColors.danger) },
+            onClick = { menu = false; aoFechar() },
+        )
+    }
     }
 }
 

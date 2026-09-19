@@ -225,6 +225,33 @@ class HomeViewModel @Inject constructor(
                 val count = notificationsApi.unread().data?.count ?: 0
                 _state.update { it.copy(unreadNotifs = count) }
             } catch (_: Exception) {}
+            try {
+                val pedidos = friendsApi.incoming().data.orEmpty().size
+                _state.update { it.copy(pedidosDeAmizade = pedidos) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun silenciarConversa(conversationId: String, silenciada: Boolean) {
+        _state.update {
+            it.copy(
+                mutedConvs = if (silenciada) it.mutedConvs + conversationId else it.mutedConvs - conversationId,
+            )
+        }
+        viewModelScope.launch { dmRepository.setMuted(conversationId, silenciada) }
+    }
+
+    fun fecharConversa(conversationId: String) {
+        _state.update { it.copy(dms = it.dms.filterNot { conversa -> conversa.id == conversationId }) }
+        viewModelScope.launch {
+            dmRepository.close(conversationId)
+                .onFailure { reloadConversas() }
+        }
+    }
+
+    private suspend fun reloadConversas() {
+        dmRepository.conversations().onSuccess { conversas ->
+            _state.update { it.copy(dms = conversas) }
         }
     }
 

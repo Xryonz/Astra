@@ -73,11 +73,15 @@ fun FriendsScreen(
                 trailing = { TopBarAction("+", onClick = { showAdd = true }) },
             )
 
+            val emOrbita = remember(state.friends) {
+                state.friends.filter { it.presence != Presence.OFFLINE }
+            }
+
             AstraTabs(
-                tabs = listOf("Estrelas", "Pedidos", "Enviados"),
-                counts = listOf(state.friends.size, state.incoming.size, state.outgoing.size),
+                tabs = listOf("Em órbita", "Estrelas", "Pedidos"),
+                counts = listOf(emOrbita.size, state.friends.size, state.incoming.size + state.outgoing.size),
                 selectedIndex = state.tab.ordinal,
-                onSelect = { viewModel.selectTab(FriendsTab.values()[it]) },
+                onSelect = { viewModel.selectTab(FriendsTab.entries[it]) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             )
 
@@ -90,6 +94,21 @@ fun FriendsScreen(
                     }
                 }
                 else -> when (state.tab) {
+                    FriendsTab.EM_ORBITA ->
+                        if (emOrbita.isEmpty()) {
+                            EmptyState("Ninguém em órbita", "quem estiver online aparece aqui")
+                        } else {
+                            LazyColumn(Modifier.fillMaxSize()) {
+                                items(emOrbita, key = { it.friendshipId }) { f ->
+                                    FriendRow(
+                                        f,
+                                        onClick = { onOpenProfile(f.userId, f.displayName) },
+                                        onRemove = { viewModel.remove(f.friendshipId) },
+                                    )
+                                }
+                            }
+                        }
+
                     FriendsTab.AMIGOS ->
                         if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "toque em + pra alinhar uma estrela")
                         else LazyColumn(Modifier.fillMaxSize()) {
@@ -103,28 +122,42 @@ fun FriendsScreen(
                         }
 
                     FriendsTab.PEDIDOS ->
-                        if (state.incoming.isEmpty()) EmptyState("Nenhum pedido", "convites recebidos aparecem aqui")
-                        else LazyColumn(Modifier.fillMaxSize()) {
-                            items(state.incoming, key = { it.friendshipId }) { r ->
-                                RequestRow(
-                                    r,
-                                    primaryLabel = "Aceitar",
-                                    onPrimary = { viewModel.accept(r.friendshipId) },
-                                    onSecondary = { viewModel.remove(r.friendshipId) },
-                                )
-                            }
-                        }
-
-                    FriendsTab.ENVIADOS ->
-                        if (state.outgoing.isEmpty()) EmptyState("Nada enviado", "seus convites pendentes aparecem aqui")
-                        else LazyColumn(Modifier.fillMaxSize()) {
-                            items(state.outgoing, key = { it.friendshipId }) { r ->
-                                RequestRow(
-                                    r,
-                                    primaryLabel = null,
-                                    onPrimary = {},
-                                    onSecondary = { viewModel.remove(r.friendshipId) },
-                                )
+                        if (state.incoming.isEmpty() && state.outgoing.isEmpty()) {
+                            EmptyState("Nenhum pedido", "convites recebidos e enviados aparecem aqui")
+                        } else {
+                            LazyColumn(Modifier.fillMaxSize()) {
+                                if (state.incoming.isNotEmpty()) {
+                                    item(key = "recebidos") {
+                                        MarginaliaLabel(
+                                            "recebidos",
+                                            Modifier.padding(start = 22.dp, top = 10.dp, bottom = 6.dp),
+                                        )
+                                    }
+                                    items(state.incoming, key = { it.friendshipId }) { r ->
+                                        RequestRow(
+                                            r,
+                                            primaryLabel = "Aceitar",
+                                            onPrimary = { viewModel.accept(r.friendshipId) },
+                                            onSecondary = { viewModel.remove(r.friendshipId) },
+                                        )
+                                    }
+                                }
+                                if (state.outgoing.isNotEmpty()) {
+                                    item(key = "enviados") {
+                                        MarginaliaLabel(
+                                            "enviados",
+                                            Modifier.padding(start = 22.dp, top = 16.dp, bottom = 6.dp),
+                                        )
+                                    }
+                                    items(state.outgoing, key = { it.friendshipId }) { r ->
+                                        RequestRow(
+                                            r,
+                                            primaryLabel = null,
+                                            onPrimary = {},
+                                            onSecondary = { viewModel.remove(r.friendshipId) },
+                                        )
+                                    }
+                                }
                             }
                         }
                 }

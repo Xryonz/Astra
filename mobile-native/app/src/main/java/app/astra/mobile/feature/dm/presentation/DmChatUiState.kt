@@ -2,6 +2,7 @@ package app.astra.mobile.feature.dm.presentation
 
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.feature.dm.domain.model.DmMessage
+import app.astra.mobile.feature.friends.domain.model.Presence
 
 data class DmChatUiState(
     val loading: Boolean = true,
@@ -24,4 +25,7 @@ data class DmChatUiState(
     val ringing: Boolean = false,
 
     val muted: Boolean = false,
+
+    val outroAvatar: String? = null,
+    val outroStatus: Presence? = null,
 )

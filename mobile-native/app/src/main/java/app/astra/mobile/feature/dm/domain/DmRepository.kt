@@ -34,5 +34,7 @@ interface DmRepository {
 
     suspend fun setMuted(conversationId: String, muted: Boolean): Result<Unit>
 
+    suspend fun close(conversationId: String): Result<Unit>
+
     fun incomingConversations(): Flow<String>
 }

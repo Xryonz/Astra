@@ -20,9 +20,12 @@ val androidVersionCode: Int = androidVersion.split('.').let { p ->
     n[0] * 10_000 + n[1] * 100 + n[2]
 }
 
-val keystorePropsFile = rootProject.file("keystore.properties")
-val keystoreProps = Properties().apply {
-    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+val arquivoDaChave: File? = providers.gradleProperty("astra.chaveAndroid").orNull
+    ?.takeIf { it.isNotBlank() }
+    ?.let { File(it) }
+    ?.also { require(it.exists()) { "astra.chaveAndroid aponta para um arquivo que nao existe: $it" } }
+val dadosDaChave = Properties().apply {
+    arquivoDaChave?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -40,12 +43,12 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropsFile.exists()) {
+        if (arquivoDaChave != null) {
             create("release") {
-                storeFile = file(keystoreProps["storeFile"] as String)
-                storePassword = keystoreProps["storePassword"] as String
-                keyAlias = keystoreProps["keyAlias"] as String
-                keyPassword = keystoreProps["keyPassword"] as String
+                storeFile = file(dadosDaChave["storeFile"] as String)
+                storePassword = dadosDaChave["storePassword"] as String
+                keyAlias = dadosDaChave["keyAlias"] as String
+                keyPassword = dadosDaChave["keyPassword"] as String
             }
         }
     }
@@ -63,7 +66,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = if (keystorePropsFile.exists()) {
+            signingConfig = if (arquivoDaChave != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

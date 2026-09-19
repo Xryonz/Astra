@@ -94,7 +94,12 @@ object Instalacao {
 
     fun descartaveis(): List<File> {
         val lista = ArrayList<File>()
-        reserva?.let { if (it.isDirectory) lista.add(it) }
+        reserva?.let { principal ->
+            if (principal.isDirectory) lista.add(principal)
+            principal.parentFile?.listFiles()?.filterTo(lista) {
+                it.isDirectory && it.name.startsWith(principal.name + "-")
+            }
+        }
         val comLancador = raiz
         if (comLancador != null) {
             File(comLancador, PASTA_DAS_VERSOES).listFiles()?.filterTo(lista) { it.isDirectory }

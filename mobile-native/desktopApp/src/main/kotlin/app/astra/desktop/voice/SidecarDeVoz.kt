@@ -212,6 +212,7 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         }
         val p = construtor.start()
         processo.set(p)
+        vivos.add(p)
         entrada.set(p.outputStream.bufferedWriter())
 
         launch(Dispatchers.IO) {
@@ -225,6 +226,7 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         val codigo = runCatching { p.waitFor() }.getOrDefault(-1)
         entrada.set(null)
         processo.compareAndSet(p, null)
+        vivos.remove(p)
         codigo
     }
 
@@ -237,6 +239,25 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
                 return@forEachLine
             }
             _eventos.tryEmit(ev)
+        }
+    }
+
+    companion object {
+        private val vivos = java.util.concurrent.ConcurrentHashMap.newKeySet<Process>()
+
+        fun encerrarTodos(prazoMs: Long) {
+            val fim = System.currentTimeMillis() + prazoMs
+            val presentes = vivos.toList()
+            presentes.forEach { runCatching { it.destroy() } }
+            presentes.forEach { p ->
+                val resta = (fim - System.currentTimeMillis()).coerceAtLeast(0L)
+                runCatching { p.waitFor(resta, java.util.concurrent.TimeUnit.MILLISECONDS) }
+                if (p.isAlive) runCatching { p.destroyForcibly() }
+            }
+            presentes.forEach { p ->
+                runCatching { p.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS) }
+                vivos.remove(p)
+            }
         }
     }
 }

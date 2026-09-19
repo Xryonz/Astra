@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <application
         android:name=".AstraApplication"
@@ -84,5 +86,14 @@
         <receiver
             android:name=".core.push.ReplyReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".core.update.ResultadoDaInstalacao"
+            android:exported="false" />
+
+        <service
+            android:name=".core.update.TrabalhoDeInstalar"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

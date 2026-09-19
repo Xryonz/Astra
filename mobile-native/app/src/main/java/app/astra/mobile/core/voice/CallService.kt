@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import app.astra.mobile.MainActivity
+import app.astra.mobile.core.update.CuidadorDeAtualizacao
 
 class CallService : Service() {
 
@@ -21,6 +22,7 @@ class CallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val name = intent?.getStringExtra(EXTRA_NAME) ?: "Chamada de voz"
+        emAndamento = true
         ensureChannel()
         ServiceCompat.startForeground(
             this,
@@ -30,6 +32,12 @@ class CallService : Service() {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0,
         )
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        emAndamento = false
+        CuidadorDeAtualizacao.aoTerminarChamada(this)
+        super.onDestroy()
     }
 
     private fun ensureChannel() {
@@ -67,6 +75,10 @@ class CallService : Service() {
         private const val NOTIF_ID = 4201
         private const val CHANNEL_ID = "astra_call"
         private const val EXTRA_NAME = "name"
+
+        @Volatile
+        var emAndamento = false
+            private set
 
         fun start(ctx: Context, name: String) {
             ContextCompat.startForegroundService(

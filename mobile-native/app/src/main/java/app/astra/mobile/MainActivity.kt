@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.deeplink.PendingShare
 import app.astra.mobile.core.share.DmShortcuts
+import app.astra.mobile.core.update.CuidadorDeAtualizacao
 import app.astra.mobile.core.crash.CrashReporter
 import app.astra.mobile.core.crash.CrashScreen
 import app.astra.mobile.core.data.AppPrefs
@@ -81,6 +82,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleDeepLink(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        CuidadorDeAtualizacao.aoVoltarAoApp(this)
+    }
+
+    override fun onStop() {
+        CuidadorDeAtualizacao.aoSairDoApp(this)
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {

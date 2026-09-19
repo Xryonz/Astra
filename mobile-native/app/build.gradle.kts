@@ -11,12 +11,12 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-val astraVersion: String = providers.gradleProperty("astraVersion").get()
+val androidVersion: String = providers.gradleProperty("androidVersion").get()
 
-val astraVersionCode: Int = astraVersion.split('.').let { p ->
-    require(p.size == 3) { "astraVersion precisa ser maior.menor.correcao, veio \"$astraVersion\"" }
-    val n = p.map { it.toIntOrNull() ?: error("astraVersion nao numerico: \"$astraVersion\"") }
-    require(n.all { it in 0..99 }) { "cada parte de astraVersion vai ate 99, veio \"$astraVersion\"" }
+val androidVersionCode: Int = androidVersion.split('.').let { p ->
+    require(p.size == 3) { "androidVersion precisa ser maior.menor.correcao, veio \"$androidVersion\"" }
+    val n = p.map { it.toIntOrNull() ?: error("androidVersion nao numerico: \"$androidVersion\"") }
+    require(n.all { it in 0..99 }) { "cada parte de androidVersion vai ate 99, veio \"$androidVersion\"" }
     n[0] * 10_000 + n[1] * 100 + n[2]
 }
 
@@ -33,8 +33,8 @@ android {
         applicationId = "app.astra.mobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = astraVersionCode
-        versionName = astraVersion
+        versionCode = androidVersionCode
+        versionName = androidVersion
 
         buildConfigField("String", "BASE_URL", "\"https://astra-kwzc.onrender.com/\"")
     }
@@ -53,8 +53,10 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-teste-v\"")
         }
         release {
+            buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-v\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -87,11 +89,25 @@ android {
         buildConfig = true
     }
 
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+
     applicationVariants.all {
         val variantName = name
         outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
-                if (variantName == "release") "Astra-$astraVersion-android.apk" else "Astra.apk"
+            val saida = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val processador = saida.filters.firstOrNull { it.filterType == "ABI" }?.identifier
+            saida.outputFileName = when (processador) {
+                "arm64-v8a" -> "Astra-$androidVersion-android.apk"
+                "armeabi-v7a" -> "Astra-$androidVersion-android-32bits.apk"
+                else -> if (variantName == "release") "Astra-$androidVersion-android-universal.apk" else "Astra.apk"
+            }
         }
     }
 }

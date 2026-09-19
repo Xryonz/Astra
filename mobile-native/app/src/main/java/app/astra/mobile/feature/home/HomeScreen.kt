@@ -248,9 +248,11 @@ fun HomeScreen(
                     .background(astraColors.base.copy(alpha = 0.16f))
                     .border(1.dp, astraColors.borderMid, RoundedCornerShape(topStart = 24.dp)),
             ) {
+            Column(Modifier.fillMaxSize()) {
+            CartaoDeAtualizacao(Modifier.padding(horizontal = 18.dp).padding(top = 14.dp))
             AnimatedContent(
                 targetState = selected,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 transitionSpec = {
 
                     (slideInHorizontally(tween(520, easing = EaseSpring)) { w -> -w / 4 } + fadeIn(tween(420)))
@@ -361,6 +363,7 @@ fun HomeScreen(
                     onCreateChannel = { name, isVoice -> viewModel.createChannel(srv.id, name, isVoice) },
                 )
               }
+            }
             }
             }
             }

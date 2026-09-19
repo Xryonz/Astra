@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,7 @@ fun LinhaDeProgresso(modifier: Modifier = Modifier) {
         label = "avanco",
     )
 
-    Canvas(modifier.fillMaxWidth().height(ALTURA)) {
+    Canvas(modifier.fillMaxWidth().height(ALTURA).clipToBounds()) {
         val traco = size.width * FATIA_DO_TRACO
         drawRect(
             color = cor,

@@ -92,6 +92,7 @@ export function createReadsRouter(io: SocketServer) {
         .innerJoin(messages, and(
           eq(messages.channelId, channels.id),
           isNull(messages.deletedAt),
+          isNull(messages.kind),
           ne(messages.authorId, req.userId!),
           or(isNull(channelReads.lastReadAt), gt(messages.createdAt, channelReads.lastReadAt)),
         ))

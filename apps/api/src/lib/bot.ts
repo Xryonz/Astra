@@ -68,6 +68,10 @@ export function personaDoDia(agora: Date = new Date()): Persona {
   return ehTurnoDaSparxie(agora) ? SPARXIE : SPARKLE
 }
 
+export function personaPorChave(chave: Persona['chave']): Persona {
+  return chave === 'sparxie' ? SPARXIE : SPARKLE
+}
+
 export const PREFIXOS_BOT = ['/sparkle', '/sparxie', '/astra'] as const
 
 export function prefixoUsado(content: string): string | null {
@@ -80,8 +84,7 @@ export function semPrefixo(content: string): string {
   return p ? content.trimStart().slice(p.length).trim() : content.trim()
 }
 
-export async function personaComAjustes(): Promise<Persona> {
-  const base = personaDoDia()
+export async function personaComAjustes(base: Persona = personaDoDia()): Promise<Persona> {
   try {
     const [ajuste] = await db.select().from(botPersonas)
       .where(eq(botPersonas.chave, base.chave)).limit(1)

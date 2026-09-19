@@ -32,7 +32,7 @@ import inviteRouter          from './routes/invites'
 import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
 import { attachRealtime }                from './lib/realtime'
-import { ligarAvisosDaBot, agendarTrocaDeTurno } from './lib/botAvisos'
+import { ligarAvisosDaBot, agendarTrocaDeTurno, corrigirAutoriaAntigaDaBot } from './lib/botAvisos'
 import { iniciarRelogioDeCall }          from './lib/xp'
 import { eventoDeMissao }                from './lib/missoes'
 import { createMessagesRouter }          from './routes/messages'
@@ -257,6 +257,7 @@ httpServer.listen(env.PORT, async () => {
   await ensureCategorySchema()
   await initBot()
   void garantirBotEmTodas()
+  void corrigirAutoriaAntigaDaBot()
   agendarTrocaDeTurno()
   logger.info('Bot', IA_LIGADA ? `Pronto — IA: ${IA_PROVEDOR} (${MODELO_CONVERSA}).` : 'Pronto — IA DESLIGADA: nenhuma chave no ambiente (GROQ_API_KEY?). So os comandos funcionam.')
   startRetentionWorker()

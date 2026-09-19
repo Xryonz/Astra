@@ -80,6 +80,7 @@ data class ChatMessage(
     val clientNonce: String? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
+    val kind: String? = null,
 )
 
 data class PendingFile(val file: File, val mime: String)
@@ -850,6 +851,7 @@ class ChatVm(
             attachments = attachments,
             poll = poll,
             clientNonce = clientNonce,
+            kind = kind,
         )
     }
 

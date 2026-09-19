@@ -1,11 +1,11 @@
 import type { Server as SocketServer } from 'socket.io'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { channels, messages, serverMembers, servers, users } from '../db/schema'
 import { redis } from './redis'
 import { logger } from './logger'
 import { botNaOrbita } from './botScope'
-import { getBotId, personaDoDia, sincronizaPersona, type Persona } from './bot'
+import { getBotId, personaComAjustes, personaDoDia, personaPorChave, sincronizaPersona, type Persona } from './bot'
 import { identidadeParaGuardar } from './autorDaMensagem'
 
 let io: SocketServer | null = null
@@ -48,12 +48,21 @@ async function primeiraVez(chave: string, ttlSegundos: number): Promise<boolean>
   }
 }
 
-async function falar(channelId: string, texto: string, persona: Persona, botId: string): Promise<void> {
+export const KIND_PASSAGEM_DE_TURNO = 'passagem'
+
+async function falar(
+  channelId: string,
+  texto: string,
+  persona: Persona,
+  botId: string,
+  kind: string | null = null,
+): Promise<void> {
   const [linha] = await db.insert(messages)
     .values({
       content: texto,
       channelId,
       authorId: botId,
+      kind,
       ...identidadeParaGuardar({ displayName: persona.nome, avatarUrl: persona.avatar }),
     })
     .returning()
@@ -136,10 +145,6 @@ const DESPEDIDAS: Record<Persona['chave'], string> = {
   sparkle: 'Fecho por aqui. Boa virada — a Sparxie assume agora.',
   sparxie: 'Fim do meu turno. Semana nova é com a Sparkle.',
 }
-const CHEGADAS: Record<Persona['chave'], string> = {
-  sparkle: 'Voltei. Semana começando — `/sparkle ajuda` se precisar de mim.',
-  sparxie: 'Cheguei. O fim de semana é meu: `/sparxie festa` se travar no que fazer.',
-}
 
 export async function verificarTrocaDeTurno(): Promise<void> {
   try {
@@ -160,17 +165,64 @@ export async function verificarTrocaDeTurno(): Promise<void> {
       .from(serverMembers).where(eq(serverMembers.userId, botId))
     if (constelacoes.length === 0) return
 
-    const persona = await sincronizaPersona(botId)
+    const quemEntra = await sincronizaPersona(botId)
+    const quemSai = await personaComAjustes(personaPorChave(sai))
+    const passagem = `${quemSai.nome} passou o turno para ${quemEntra.nome}`
 
     for (const c of constelacoes) {
       const channelId = await canalDeAvisos(c.serverId)
       if (!channelId) continue
-      await falar(channelId, DESPEDIDAS[sai], persona, botId)
-      await falar(channelId, CHEGADAS[entra.chave], persona, botId)
+      await falar(channelId, passagem, quemEntra, botId, KIND_PASSAGEM_DE_TURNO)
     }
     logger.info('Bot', `troca de turno anunciada: entra ${entra.nome}`)
   } catch (e) {
     logger.error('Bot', `troca de turno falhou: ${(e as Error).message}`)
+  }
+}
+
+const INICIO_DAS_PERSONAS = new Date('2026-08-01T17:30:58Z')
+const VIRADA_PARA_SEXTA_E_SABADO = new Date('2026-08-09T19:27:23Z')
+
+export function chaveNaEpoca(instante: Date): Persona['chave'] {
+  const dia = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(instante)
+  const daSparxie = instante < VIRADA_PARA_SEXTA_E_SABADO
+    ? dia === 'Sat' || dia === 'Sun'
+    : dia === 'Fri' || dia === 'Sat'
+  return daSparxie ? 'sparxie' : 'sparkle'
+}
+
+export function quemDisse(conteudo: string, instante: Date): Persona['chave'] {
+  const despediu = (Object.keys(DESPEDIDAS) as Persona['chave'][]).find((c) => DESPEDIDAS[c] === conteudo)
+  return despediu ?? chaveNaEpoca(instante)
+}
+
+export async function corrigirAutoriaAntigaDaBot(): Promise<void> {
+  try {
+    const botId = await getBotId()
+    if (!botId) return
+    const antigas = await db.select({ id: messages.id, content: messages.content, createdAt: messages.createdAt })
+      .from(messages)
+      .where(and(
+        eq(messages.authorId, botId),
+        isNull(messages.authorName),
+        gte(messages.createdAt, INICIO_DAS_PERSONAS),
+      ))
+    if (antigas.length === 0) return
+
+    const porPersona: Record<Persona['chave'], string[]> = { sparkle: [], sparxie: [] }
+    for (const m of antigas) porPersona[quemDisse(m.content, m.createdAt)].push(m.id)
+
+    for (const chave of ['sparkle', 'sparxie'] as const) {
+      const ids = porPersona[chave]
+      if (ids.length === 0) continue
+      const persona = await personaComAjustes(personaPorChave(chave))
+      await db.update(messages)
+        .set(identidadeParaGuardar({ displayName: persona.nome, avatarUrl: persona.avatar }))
+        .where(inArray(messages.id, ids))
+    }
+    logger.info('Bot', `autoria antiga corrigida: ${porPersona.sparkle.length} da Sparkle, ${porPersona.sparxie.length} da Sparxie`)
+  } catch (e) {
+    logger.error('Bot', `correcao da autoria antiga falhou: ${(e as Error).message}`)
   }
 }
 

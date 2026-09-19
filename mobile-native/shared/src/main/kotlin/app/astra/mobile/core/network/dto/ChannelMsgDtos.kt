@@ -19,6 +19,7 @@ data class ChannelMessageDto(
     val attachments: List<AttachmentDto> = emptyList(),
     val poll: PollDto? = null,
     val clientNonce: String? = null,
+    val kind: String? = null,
 )
 
 @Serializable

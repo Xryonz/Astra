@@ -285,6 +285,7 @@ export const messages = pgTable('Message', {
   authorColor: text('authorColor'),
   authorName:      text('authorName'),
   authorAvatarUrl: text('authorAvatarUrl'),
+  kind:            text('kind'),
 
   attachments: text('attachments').notNull().default('[]'),
   mentions:    text('mentions').notNull().default(''),

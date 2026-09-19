@@ -90,7 +90,7 @@ async function listServersForUser(userId: string) {
       lastAt:    sql<Date>`MAX(${messages.createdAt})`.as('lastAt'),
     })
       .from(messages)
-      .where(inArray(messages.channelId, channelIds))
+      .where(and(inArray(messages.channelId, channelIds), isNull(messages.kind)))
       .groupBy(messages.channelId)
     lastByChannel = new Map(lastRows.map((r) => [r.channelId, r.lastAt]))
   }

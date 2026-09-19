@@ -26,4 +26,5 @@ data class MessageEntity(
     val reactionsJson: String? = null,
     val attachmentsJson: String? = null,
     val pollJson: String? = null,
+    val kind: String? = null,
 )

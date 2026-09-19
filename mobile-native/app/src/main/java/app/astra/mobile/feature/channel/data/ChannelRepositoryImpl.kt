@@ -298,6 +298,7 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     replyToContent = replyTo?.content,
     attachments = attachments.map { it.toModel() },
     poll = poll?.toDomain(currentUserId),
+    kind = kind,
 )
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
@@ -320,6 +321,7 @@ private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageE
     reactionsJson = if (reactions.isEmpty()) null else json.encodeToString(reactions),
     attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
     pollJson = poll?.let { json.encodeToString(it) },
+    kind = kind,
 )
 
 private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
@@ -349,5 +351,6 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
         replyToContent = replyToContent,
         attachments = attachments,
         poll = poll,
+        kind = kind,
     )
 }

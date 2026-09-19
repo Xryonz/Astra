@@ -88,6 +88,7 @@ fun ChannelChatScreen(
     var pollOpen by remember { mutableStateOf(false) }
     var emojiOpen by remember { mutableStateOf(false) }
     var reactionTarget by remember { mutableStateOf<ChatRow?>(null) }
+    var emojiPendente by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -144,6 +145,7 @@ fun ChannelChatScreen(
                                     replyContent = m.replyToContent,
                                     attachments = m.attachments,
                                     translation = state.translations[m.id],
+                                    kind = m.kind,
                                     poll = m.poll?.let { p ->
                                         PollUi(
                                             question = p.question,
@@ -202,7 +204,9 @@ fun ChannelChatScreen(
             )
 
             ChatInputBar(
-                text = state.input,
+                rascunhoExterno = state.input,
+                emojiPendente = emojiPendente,
+                aoUsarEmoji = { emojiPendente = null },
                 sending = state.sending,
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
@@ -227,7 +231,7 @@ fun ChannelChatScreen(
         if (emojiOpen) {
             EmojiPickerSheet(
                 onPick = { emoji ->
-                    viewModel.onInput(state.input + emoji)
+                    emojiPendente = emoji
                     emojiOpen = false
                 },
                 onClose = { emojiOpen = false },

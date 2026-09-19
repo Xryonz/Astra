@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Immutable
@@ -593,6 +594,7 @@ data class ChatRow(
     val attachments: List<Attachment> = emptyList(),
     val translation: String? = null,
     val poll: PollUi? = null,
+    val kind: String? = null,
 )
 
 @Composable
@@ -629,9 +631,13 @@ fun ChatMessageList(
     val groupedIds = remember(rows) {
         buildSet {
             for (i in 1 until rows.size) {
-                if (rows[i - 1].mine == rows[i].mine && rows[i - 1].authorName == rows[i].authorName) {
-                    add(rows[i].id)
-                }
+                val anterior = rows[i - 1]
+                val atual = rows[i]
+                val mesmaPessoa = anterior.mine == atual.mine &&
+                    anterior.authorId == atual.authorId &&
+                    anterior.authorName == atual.authorName &&
+                    anterior.authorAvatar == atual.authorAvatar
+                if (mesmaPessoa && anterior.kind == null && atual.kind == null) add(atual.id)
             }
         }
     }
@@ -645,7 +651,11 @@ fun ChatMessageList(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = 10.dp),
         ) {
-            items(rows.asReversed(), key = { it.id }) { row ->
+            items(rows.asReversed(), key = { it.id }, contentType = { it.kind ?: "mensagem" }) { row ->
+                if (row.kind != null) {
+                    LinhaDePassagem(row.content)
+                    return@items
+                }
                 val isNew = remember(row.id) {
                     val n = row.id !in animated
                     animated.add(row.id)
@@ -691,6 +701,23 @@ fun ChatMessageList(
         lightbox?.let { (imgs, idx) ->
             Lightbox(images = imgs, startIndex = idx, onDismiss = { lightbox = null })
         }
+    }
+}
+
+@Composable
+private fun LinhaDePassagem(texto: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f).height(1.dp).background(astraColors.border))
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodySmall,
+            color = astraColors.text3,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        Box(Modifier.weight(1f).height(1.dp).background(astraColors.border))
     }
 }
 
@@ -827,23 +854,36 @@ fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> U
 
 @Composable
 fun ChatInputBar(
-    text: String,
+    rascunhoExterno: String,
     sending: Boolean,
     onInput: (String) -> Unit,
-    onSend: () -> Unit,
+    onSend: (String) -> Unit,
     onAttach: (() -> Unit)? = null,
     onGif: (() -> Unit)? = null,
     onPoll: (() -> Unit)? = null,
     onEmoji: (() -> Unit)? = null,
     uploading: Boolean = false,
     hasAttachments: Boolean = false,
+    emojiPendente: String? = null,
+    aoUsarEmoji: () -> Unit = {},
 ) {
-    val canSend = (text.isNotBlank() || hasAttachments) && !sending && !uploading
+    var texto by rememberSaveable { mutableStateOf(rascunhoExterno) }
+    LaunchedEffect(rascunhoExterno) {
+        if (rascunhoExterno != texto) texto = rascunhoExterno
+    }
+    LaunchedEffect(emojiPendente) {
+        val emoji = emojiPendente ?: return@LaunchedEffect
+        texto += emoji
+        onInput(texto)
+        aoUsarEmoji()
+    }
+
+    val canSend = (texto.isNotBlank() || hasAttachments) && !sending && !uploading
     val hapticsOn = LocalAppPrefs.current.haptics
     val haptic = LocalHapticFeedback.current
     val send = {
         if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-        onSend()
+        onSend(texto)
     }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -888,8 +928,8 @@ fun ChatInputBar(
         }
 
         Input(
-            value = text,
-            onValueChange = onInput,
+            value = texto,
+            onValueChange = { novo -> texto = novo; onInput(novo) },
             modifier = Modifier
                 .weight(1f)
 

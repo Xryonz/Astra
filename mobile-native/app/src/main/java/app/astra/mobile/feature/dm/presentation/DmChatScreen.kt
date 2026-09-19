@@ -74,6 +74,7 @@ fun DmChatScreen(
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var gifOpen by remember { mutableStateOf(false) }
     var emojiOpen by remember { mutableStateOf(false) }
+    var emojiPendente by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.joinCall.collect { onJoinCall(viewModel.conversationId, viewModel.otherName) }
@@ -221,7 +222,9 @@ fun DmChatScreen(
             )
 
             ChatInputBar(
-                text = state.input,
+                rascunhoExterno = state.input,
+                emojiPendente = emojiPendente,
+                aoUsarEmoji = { emojiPendente = null },
                 sending = state.sending,
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
@@ -236,7 +239,7 @@ fun DmChatScreen(
         if (emojiOpen) {
             EmojiPickerSheet(
                 onPick = { emoji ->
-                    viewModel.onInput(state.input + emoji)
+                    emojiPendente = emoji
                     emojiOpen = false
                 },
                 onClose = { emojiOpen = false },

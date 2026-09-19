@@ -133,7 +133,6 @@ class DmChatViewModel @Inject constructor(
     }
 
     fun onInput(value: String) {
-        _state.update { it.copy(input = value) }
         handleTyping(value)
     }
 
@@ -222,8 +221,8 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
-    fun send() {
-        val text = _state.value.input.trim()
+    fun send(rascunho: String) {
+        val text = rascunho.trim()
         val pending = _state.value.pendingAttachments
         if ((text.isEmpty() && pending.isEmpty()) || _state.value.sending || _state.value.uploading) return
         stopTypingNow()

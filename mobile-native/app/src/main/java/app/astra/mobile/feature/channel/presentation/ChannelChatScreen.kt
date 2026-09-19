@@ -1,5 +1,16 @@
 package app.astra.mobile.feature.channel.presentation
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxHeight
+import app.astra.mobile.feature.server.presentation.ServerMembersScreen
+import app.astra.mobile.ui.components.puxarDaDireita
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +90,7 @@ import kotlinx.coroutines.withContext
 fun ChannelChatScreen(
     onBack: () -> Unit,
     onOpenProfile: (String, String) -> Unit = { _, _ -> },
+    temOrbita: Boolean = false,
     viewModel: ChannelChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -105,8 +117,16 @@ fun ChannelChatScreen(
         }
     }
 
+    var membrosAbertos by remember { mutableStateOf(false) }
+
     CosmicBackground {
-        Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .imePadding()
+                .edgeSwipeBack(onBack)
+                .then(if (temOrbita) Modifier.puxarDaDireita { membrosAbertos = true } else Modifier),
+        ) {
             EditorialTopBar(
                 title = "# ${viewModel.channelName}",
                 marginalia = "orbita de texto",
@@ -246,6 +266,45 @@ fun ChannelChatScreen(
                 },
                 onClose = { reactionTarget = null },
             )
+        }
+
+        AnimatedVisibility(
+            visible = membrosAbertos,
+            enter = fadeIn(tween(140)),
+            exit = fadeOut(tween(120)),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(astraColors.void.copy(alpha = 0.55f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { membrosAbertos = false },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = membrosAbertos,
+            modifier = Modifier.align(Alignment.CenterEnd),
+            enter = slideInHorizontally(tween(260)) { it },
+            exit = slideOutHorizontally(tween(220)) { it },
+        ) {
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.84f)
+                    .background(astraColors.base),
+            ) {
+                ServerMembersScreen(
+                    onBack = { membrosAbertos = false },
+                    onOpenProfile = onOpenProfile,
+                )
+            }
+        }
+
+        if (membrosAbertos) {
+            BackHandler { membrosAbertos = false }
         }
 
         if (gifOpen) {

@@ -130,12 +130,13 @@ private object Routes {
     const val SERVER_CHANNELS_MGMT = "server/{serverId}/channels-manage"
     fun serverChannelsManage(id: String) = "server/$id/channels-manage"
     const val CHANNELS = "channels/{serverId}?name={name}"
-    const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
+    const val CHANNEL_CHAT = "channel/{channelId}?name={name}&serverId={serverId}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
 
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
-    fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
+    fun channelChat(id: String, name: String, serverId: String = "") =
+        "channel/$id?name=${Uri.encode(name)}&serverId=${Uri.encode(serverId)}"
     fun call(id: String, name: String, serverId: String, kind: String = "channel") =
         "call/$id?name=${Uri.encode(name)}&serverId=$serverId&kind=$kind"
     fun join(code: String? = null) =
@@ -170,7 +171,7 @@ fun AstraApp() {
                 }
                 composable(Routes.HOME) {
                     Casca(
-                        aoAbrirCanal = { id, nome -> nav.navigate(Routes.channelChat(id, nome)) },
+                        aoAbrirCanal = { id, nome, orbitaId -> nav.navigate(Routes.channelChat(id, nome, orbitaId)) },
                         aoAbrirSussurro = { id, nome -> nav.navigate(Routes.dmChat(id, nome)) },
                         aoAbrirAjustesDaOrbita = { id -> nav.navigate(Routes.serverEdit(id)) },
                         aoEntrarNaVoz = { canalId, nome, orbitaId ->
@@ -372,11 +373,13 @@ fun AstraApp() {
                     arguments = listOf(
                         navArgument("channelId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("serverId") { type = NavType.StringType; defaultValue = "" },
                     ),
-                ) {
+                ) { entrada ->
                     ChannelChatScreen(
                         onBack = { nav.popBackStack() },
                         onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                        temOrbita = !entrada.arguments?.getString("serverId").isNullOrBlank(),
                     )
                 }
                 composable(

@@ -5,6 +5,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
+fun Modifier.puxarDaDireita(aoPuxar: () -> Unit): Modifier = this.pointerInput(Unit) {
+    val bordaPx = 20.dp.toPx()
+    val limitePx = 90.dp.toPx()
+    var daBorda = false
+    var andado = 0f
+    detectHorizontalDragGestures(
+        onDragStart = { inicio -> daBorda = inicio.x >= size.width - bordaPx; andado = 0f },
+        onHorizontalDrag = { _, dx -> if (daBorda) andado += dx },
+        onDragEnd = {
+            if (daBorda && andado <= -limitePx) aoPuxar()
+            daBorda = false
+            andado = 0f
+        },
+        onDragCancel = { daBorda = false; andado = 0f },
+    )
+}
+
 fun Modifier.edgeSwipeBack(onBack: () -> Unit): Modifier = this.pointerInput(Unit) {
     val edgePx = 20.dp.toPx()
     val thresholdPx = 90.dp.toPx()

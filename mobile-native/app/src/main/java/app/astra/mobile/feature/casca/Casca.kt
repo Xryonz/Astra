@@ -36,7 +36,7 @@ import app.astra.mobile.ui.theme.astraColors
 
 @Composable
 fun Casca(
-    aoAbrirCanal: (id: String, nome: String) -> Unit,
+    aoAbrirCanal: (id: String, nome: String, orbitaId: String) -> Unit,
     aoAbrirSussurro: (id: String, nome: String) -> Unit,
     aoAbrirAjustesDaOrbita: (serverId: String) -> Unit,
     aoEntrarNaVoz: (canalId: String, nome: String, orbitaId: String) -> Unit,
@@ -151,7 +151,7 @@ fun Casca(
                         vozAtiva = estado.activeVoice,
                         aoAbrirCanal = { canal ->
                             viewModel.markChannelSeen(canal.id)
-                            aoAbrirCanal(canal.id, canal.name)
+                            aoAbrirCanal(canal.id, canal.name, orbitaAberta.id)
                         },
                         aoEntrarNaVoz = { canal -> aoEntrarNaVoz(canal.id, canal.name, orbitaAberta.id) },
                         aoBuscar = aoAbrirBusca,

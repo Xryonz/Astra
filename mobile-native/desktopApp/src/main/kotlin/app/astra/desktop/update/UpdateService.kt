@@ -1,11 +1,13 @@
 package app.astra.desktop.update
 
 import app.astra.desktop.ARG_POS_ATUALIZACAO
+import app.astra.desktop.ARG_TROCA_FALHOU
 import app.astra.desktop.FocoDoSistema
 import app.astra.desktop.Instalacao
 import app.astra.desktop.Lancador
 import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
+import app.astra.desktop.voice.SidecarDeVoz
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -142,7 +144,15 @@ class UpdateService(private val http: OkHttpClient) {
             return@withContext
         }
         if (!isNewer(release.version, currentVersion)) {
+            TentativasDeInstalar.esquecer()
             _state.value = UpdateState.UpToDate(vista = release.version)
+            return@withContext
+        }
+        if (TentativasDeInstalar.desistiu(release.version)) {
+            _state.value = UpdateState.Failed(
+                "a instalação automática da ${release.version} falhou duas vezes — baixe pela página da versão",
+                release.releaseUrl,
+            )
             return@withContext
         }
         _state.value = UpdateState.Available(
@@ -421,10 +431,12 @@ class UpdateService(private val http: OkHttpClient) {
             _state.value = ofertaPreparada ?: UpdateState.Idle
             return
         }
+        SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
         SingleInstance.release()
         if (Trocador.precisaTrocar(nova)) {
             FocoDoSistema.cederAFrenteAQualquerUm()
-            if (Trocador.trocar(nova, ARG_POS_ATUALIZACAO)) exitProcess(0)
+            val seFalhar = "$ARG_TROCA_FALHOU=${nova.name}"
+            if (Trocador.trocar(nova, ARG_POS_ATUALIZACAO, seFalhar)) exitProcess(0)
         }
         val exe = File(nova, "Astra.exe")
         val novo = runCatching {

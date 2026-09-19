@@ -46,6 +46,7 @@ import app.astra.desktop.net.Servidor
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.update.TentativasDeInstalar
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.voice.QuemFala
 import app.astra.desktop.voice.Transmitindo
@@ -424,6 +425,8 @@ object SingleInstance {
 
 const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
+const val ARG_TROCA_FALHOU = "--a-troca-falhou"
+
 const val ARG_MINIMIZADO = "--minimizado"
 
 private const val PRAZO_DA_IDENTIDADE_MS = 2_000L
@@ -455,6 +458,10 @@ fun main(args: Array<String>) {
         return
     }
     CrashLog.install()
+    args.firstOrNull { it.startsWith("$ARG_TROCA_FALHOU=") }
+        ?.substringAfter('=')
+        ?.takeIf { it.isNotBlank() }
+        ?.let(TentativasDeInstalar::registrarFalha)
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     if (Arranque.modoSeguro) {

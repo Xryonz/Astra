@@ -9,16 +9,17 @@ private const val VALIDADE_DO_ROTEIRO_MS = 60L * 60_000L
 
 private val ROTEIRO = """
 Option Explicit
-Dim fso, shell, alvo, nova, fixa, reserva, exe, extra, voltas
+Dim fso, shell, alvo, nova, fixa, reserva, exe, extra, falhou, voltas, guardada
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
-If WScript.Arguments.Count < 6 Then WScript.Quit 1
+If WScript.Arguments.Count < 7 Then WScript.Quit 1
 alvo = WScript.Arguments(0)
 nova = WScript.Arguments(1)
 fixa = WScript.Arguments(2)
 reserva = WScript.Arguments(3)
 exe = WScript.Arguments(4)
 extra = WScript.Arguments(5)
+falhou = WScript.Arguments(6)
 WScript.Sleep 1500
 voltas = 0
 Do While Vivo(alvo) And voltas < 240
@@ -26,33 +27,82 @@ Do While Vivo(alvo) And voltas < 240
     voltas = voltas + 1
 Loop
 If Vivo(alvo) Then
-    Abrir exe
+    Abrir exe, falhou
     WScript.Quit 1
 End If
+
 On Error Resume Next
-If fso.FolderExists(reserva) Then fso.DeleteFolder reserva, True
-Err.Clear
-If fso.FolderExists(fixa) Then fso.MoveFolder fixa, reserva
-If Err.Number <> 0 Then
+guardada = NomeLivre(reserva)
+If guardada = "" Then
     Err.Clear
     On Error GoTo 0
-    Abrir exe
+    Abrir exe, falhou
     WScript.Quit 1
 End If
-fso.MoveFolder nova, fixa
-If Err.Number <> 0 Or Not fso.FileExists(exe) Then
+
+If Not Mover(fixa, guardada) Then
+    Err.Clear
+    On Error GoTo 0
+    Abrir exe, falhou
+    WScript.Quit 1
+End If
+
+If Not Mover(nova, fixa) Or Not fso.FileExists(exe) Then
     Err.Clear
     If fso.FolderExists(fixa) Then fso.DeleteFolder fixa, True
     Err.Clear
-    fso.MoveFolder reserva, fixa
+    fso.MoveFolder guardada, fixa
     Err.Clear
+    On Error GoTo 0
+    Abrir exe, falhou
+    WScript.Quit 1
 End If
 On Error GoTo 0
-Abrir exe
+Abrir exe, extra
 
-Sub Abrir(caminho)
+Function NomeLivre(preferido)
+    Dim candidato, sufixo
     On Error Resume Next
-    If fso.FileExists(caminho) Then shell.Run Chr(34) & caminho & Chr(34) & " " & extra, 1, False
+    NomeLivre = ""
+    If Not fso.FolderExists(preferido) Then
+        NomeLivre = preferido
+        Exit Function
+    End If
+    Err.Clear
+    fso.DeleteFolder preferido, True
+    Err.Clear
+    If Not fso.FolderExists(preferido) Then
+        NomeLivre = preferido
+        Exit Function
+    End If
+    For sufixo = 1 To 40
+        candidato = preferido & "-" & sufixo
+        If Not fso.FolderExists(candidato) Then
+            NomeLivre = candidato
+            Exit Function
+        End If
+    Next
+End Function
+
+Function Mover(origem, destino)
+    Dim tentativa
+    On Error Resume Next
+    Mover = False
+    For tentativa = 1 To 8
+        Err.Clear
+        fso.MoveFolder origem, destino
+        If Err.Number = 0 And fso.FolderExists(destino) Then
+            Mover = True
+            Exit Function
+        End If
+        WScript.Sleep 500
+    Next
+    Err.Clear
+End Function
+
+Sub Abrir(caminho, marca)
+    On Error Resume Next
+    If fso.FileExists(caminho) Then shell.Run Chr(34) & caminho & Chr(34) & " " & marca, 1, False
     On Error GoTo 0
 End Sub
 
@@ -78,7 +128,7 @@ internal object Trocador {
         return !Instalacao.mesmaPasta(nova, fixa)
     }
 
-    fun trocar(nova: File, argumento: String): Boolean {
+    fun trocar(nova: File, seDerCerto: String, seFalhar: String): Boolean {
         val fixa = Instalacao.fixa ?: return false
         val reserva = Instalacao.reserva ?: return false
         val exe = Instalacao.exeFixo ?: return false
@@ -93,7 +143,8 @@ internal object Trocador {
                 fixa.absolutePath,
                 reserva.absolutePath,
                 exe.absolutePath,
-                argumento,
+                seDerCerto,
+                seFalhar,
             ).redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()

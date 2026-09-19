@@ -7,7 +7,7 @@ runs:
   steps:
     - name: MinGW travado
       id: cache-mingw
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: C:\aec3\mingw64
         key: mingw-winlibs-gcc16.1.0-mingwucrt14.0.0-r4
@@ -30,7 +30,7 @@ runs:
 
     - name: Biblioteca do AEC3
       id: cache-aec3
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: C:\aec3\out
         key: aec3-d0569cfa-gcc16.1.0-ndebug-v1

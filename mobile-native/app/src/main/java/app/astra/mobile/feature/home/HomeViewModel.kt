@@ -214,6 +214,11 @@ class HomeViewModel @Inject constructor(
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
 
+    fun setStatus(status: UserStatus) {
+        _state.update { it.copy(myStatus = status) }
+        viewModelScope.launch { userRepository.setStatus(status) }
+    }
+
     fun refreshNotifications() {
         viewModelScope.launch {
             try {

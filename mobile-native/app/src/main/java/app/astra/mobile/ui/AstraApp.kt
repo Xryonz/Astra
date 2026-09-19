@@ -56,7 +56,7 @@ import app.astra.mobile.feature.discover.presentation.DiscoverScreen
 import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
-import app.astra.mobile.feature.home.HomeScreen
+import app.astra.mobile.feature.casca.Casca
 import app.astra.mobile.feature.search.SearchScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsFeedScreen
@@ -149,7 +149,7 @@ fun AstraApp() {
     val reduceMotion = LocalAppPrefs.current.reduceMotion
     val transitionsOn = LocalAppPrefs.current.transitionsOn
 
-    CosmicBackdrop(interactive = true) {
+    Box(Modifier.fillMaxSize().background(astraColors.void)) {
 
         if (loggedIn != null) {
             val nav = rememberNavController()
@@ -169,21 +169,21 @@ fun AstraApp() {
                     RegisterScreen(onGoToLogin = { nav.popBackStack() })
                 }
                 composable(Routes.HOME) {
-                    HomeScreen(
-                        onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
-                        onOpenServerEdit = { id -> nav.navigate(Routes.serverEdit(id)) },
-                        onOpenJoin = { nav.navigate(Routes.join()) },
-                        onOpenDiscover = { nav.navigate(Routes.DISCOVER) },
-                        onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
-                        onOpenDms = { nav.navigate(Routes.DMS) },
-                        onOpenSearch = { nav.navigate(Routes.SEARCH) },
-                        onOpenFriends = { nav.navigate(Routes.FRIENDS) },
-                        onOpenSettings = { nav.navigate(Routes.SETTINGS) },
-                        onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
-                        onOpenNotifications = { nav.navigate(Routes.NOTIF_FEED) },
-                        onOpenOnboarding = { nav.navigate(Routes.ONBOARDING) },
-                        onOpenVerifyEmail = { nav.navigate(Routes.VERIFY_EMAIL) },
-                        onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
+                    Casca(
+                        aoAbrirCanal = { id, nome -> nav.navigate(Routes.channelChat(id, nome)) },
+                        aoAbrirSussurro = { id, nome -> nav.navigate(Routes.dmChat(id, nome)) },
+                        aoAbrirAjustesDaOrbita = { id -> nav.navigate(Routes.serverEdit(id)) },
+                        aoEntrarNaVoz = { canalId, nome, orbitaId ->
+                            nav.navigate(Routes.call(canalId, nome, orbitaId))
+                        },
+                        aoAbrirBusca = { nav.navigate(Routes.SEARCH) },
+                        aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
+                        aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
+                        aoAbrirPerfil = { nav.navigate(Routes.SETTINGS) },
+                        aoAbrirDescobrir = { nav.navigate(Routes.DISCOVER) },
+                        aoAbrirConvite = { nav.navigate(Routes.join()) },
+                        aoAbrirOnboarding = { nav.navigate(Routes.ONBOARDING) },
+                        aoAbrirVerificacao = { nav.navigate(Routes.VERIFY_EMAIL) },
                     )
                 }
                 composable(Routes.ONBOARDING) {

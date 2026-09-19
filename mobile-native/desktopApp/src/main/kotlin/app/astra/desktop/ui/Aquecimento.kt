@@ -65,14 +65,12 @@ private val TELAS_PESADAS = listOf(
     "app.astra.desktop.ui.ImageCropKt",
 )
 
-private const val PARTE_DO_VOCABULARIO = 0.3f
-
 private const val PECAS_DO_VOCABULARIO = 4
 
 private val TOTAL_DE_PECAS = FAMILIAS.size + PECAS_DO_VOCABULARIO
 
 @Composable
-fun Aquecimento(aoAvancar: (Float) -> Unit = {}, aoTerminar: () -> Unit = {}) {
+fun Aquecimento(aoTerminar: () -> Unit = {}) {
     var pecas by remember { mutableStateOf(0) }
     val resolvedorDeFontes = LocalFontFamilyResolver.current
     LaunchedEffect(Unit) {
@@ -84,17 +82,14 @@ fun Aquecimento(aoAvancar: (Float) -> Unit = {}, aoTerminar: () -> Unit = {}) {
         repeat(TOTAL_DE_PECAS) { i ->
             pecas = i + 1
             withFrameNanos { }
-            aoAvancar(PARTE_DO_VOCABULARIO * (i + 1) / TOTAL_DE_PECAS)
         }
         pecas = 0
         val carregador = Obsidian::class.java.classLoader
-        TELAS_PESADAS.forEachIndexed { i, nome ->
+        TELAS_PESADAS.forEach { nome ->
             withContext(Dispatchers.IO) {
                 runCatching { Class.forName(nome, false, carregador) }
             }
             withFrameNanos { }
-            val feito = (i + 1f) / TELAS_PESADAS.size
-            aoAvancar(PARTE_DO_VOCABULARIO + (1f - PARTE_DO_VOCABULARIO) * feito)
         }
         aoTerminar()
     }

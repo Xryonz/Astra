@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { channels, messages, servers } from '../db/schema'
 import { servidorDeSocket } from './realtime'
@@ -9,7 +9,7 @@ import { esquecerFichaDoCanal } from './fichaDoCanal'
 async function ultimaMensagemDe(channelId: string): Promise<Date | null> {
   const [linha] = await db.select({ quando: sql<Date | null>`MAX(${messages.createdAt})` })
     .from(messages)
-    .where(eq(messages.channelId, channelId))
+    .where(and(eq(messages.channelId, channelId), isNull(messages.kind)))
   return linha?.quando ?? null
 }
 

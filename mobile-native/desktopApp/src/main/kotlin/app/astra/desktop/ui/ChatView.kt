@@ -192,9 +192,12 @@ private const val JANELA_DO_GRUPO_MIN = 5L
 
 private val LARGURA_DO_TRACO = 28.dp
 
+private const val KIND_PASSAGEM_DE_TURNO = "passagem"
+
 private sealed interface LinhaDoChat {
     data class Dia(val chave: String, val rotulo: String) : LinhaDoChat
     data class Fala(val msg: ChatMessage, val agrupada: Boolean) : LinhaDoChat
+    data class Passagem(val id: String, val texto: String) : LinhaDoChat
 }
 
 private fun rotuloDoDia(dia: LocalDate, hoje: LocalDate): String = when (dia) {
@@ -210,7 +213,7 @@ private fun montarLinhas(mensagens: List<ChatMessage>): List<LinhaDoChat> {
     val linhas = ArrayList<LinhaDoChat>(mensagens.size + 4)
     var diaAnterior: LocalDate? = null
     var instanteAnterior: Instant? = null
-    var autorAnterior: String? = null
+    var anterior: ChatMessage? = null
 
     for (m in mensagens) {
         val instante = runCatching { Instant.parse(m.createdAt) }.getOrNull()
@@ -218,22 +221,34 @@ private fun montarLinhas(mensagens: List<ChatMessage>): List<LinhaDoChat> {
         if (dia != null && dia != diaAnterior) {
             linhas += LinhaDoChat.Dia(dia.toString(), rotuloDoDia(dia, hoje))
             diaAnterior = dia
-            autorAnterior = null
+            anterior = null
             instanteAnterior = null
         }
+        if (m.kind == KIND_PASSAGEM_DE_TURNO) {
+            linhas += LinhaDoChat.Passagem(m.id, m.content)
+            anterior = null
+            instanteAnterior = null
+            continue
+        }
+        val mesmaIdentidade = anterior != null &&
+            anterior.authorId == m.authorId &&
+            anterior.authorName == m.authorName &&
+            anterior.authorAvatar == m.authorAvatar
         val agrupada = m.replyTo == null &&
-            autorAnterior == m.authorId &&
+            mesmaIdentidade &&
             instante != null && instanteAnterior != null &&
             Duration.between(instanteAnterior, instante).toMinutes() < JANELA_DO_GRUPO_MIN
         linhas += LinhaDoChat.Fala(m, agrupada)
-        autorAnterior = m.authorId
+        anterior = m
         if (instante != null) instanteAnterior = instante
     }
     return linhas
 }
 
 private fun ondeEsta(linhas: List<LinhaDoChat>, messageId: String): Int =
-    linhas.indexOfFirst { it is LinhaDoChat.Fala && it.msg.id == messageId }
+    linhas.indexOfFirst {
+        (it is LinhaDoChat.Fala && it.msg.id == messageId) || (it is LinhaDoChat.Passagem && it.id == messageId)
+    }
 
 private data class AncoraDoHistorico(val chave: String, val deslocamento: Int, val quantasTinha: Int)
 
@@ -424,7 +439,10 @@ fun ChatView(
                 ) {
                     for (linha in linhas) when (linha) {
                         is LinhaDoChat.Dia -> item(key = "dia:${linha.chave}", contentType = "dia") {
-                            SeparadorDeDia(linha.rotulo)
+                            SeparadorDoChat(linha.rotulo)
+                        }
+                        is LinhaDoChat.Passagem -> item(key = linha.id, contentType = "dia") {
+                            SeparadorDoChat(linha.texto)
                         }
                         is LinhaDoChat.Fala -> item(
                             key = linha.msg.id,
@@ -1718,7 +1736,7 @@ private fun Center(text: String) {
 }
 
 @Composable
-private fun SeparadorDeDia(rotulo: String) {
+private fun SeparadorDoChat(rotulo: String) {
     val traco = Obsidian.borderDim.copy(alpha = 0.7f)
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),

@@ -168,6 +168,7 @@ export function createMessagesRouter(io: SocketServer) {
         authorColor: messages.authorColor,
         authorName:      messages.authorName,
         authorAvatarUrl: messages.authorAvatarUrl,
+        kind:            messages.kind,
         attachments: messages.attachments,
         mentions:    messages.mentions,
         edited:      messages.edited,

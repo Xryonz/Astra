@@ -1,5 +1,6 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -33,12 +34,20 @@ import app.astra.desktop.ui.theme.Cinzel
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-private const val VELOCIDADE_DO_PROGRESSO = 5f
-private const val CHEGADA = 0.002f
+private const val ETAPAS = 4
+private const val DURACAO_DA_ETAPA_MS = 1_500L
+private const val MINIMO_NA_TELA_MS = ETAPAS * DURACAO_DA_ETAPA_MS
+private const val TETO_ENQUANTO_AQUECE = 0.98f
 private const val ENTRADA_MS = 1100
 private const val ESPERA_PARA_CURIOSIDADE_MS = 1_400L
-private const val MINIMO_NA_TELA_MS = 2_500L
-private const val PASSEIO_DA_ENTRADA = 0.18f
+
+private fun progressoNoInstante(ms: Long, suave: Boolean): Float {
+    val etapa = (ms / DURACAO_DA_ETAPA_MS).toInt()
+    if (etapa >= ETAPAS) return 1f
+    val dentroDaEtapa = (ms % DURACAO_DA_ETAPA_MS).toFloat() / DURACAO_DA_ETAPA_MS
+    val avanco = if (suave) FastOutSlowInEasing.transform(dentroDaEtapa) else 1f
+    return (etapa + avanco) / ETAPAS
+}
 
 @Composable
 fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
@@ -57,25 +66,14 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
         aoTerminar()
     }
 
-    var alvo by remember { mutableStateOf(0f) }
     var progresso by remember { mutableStateOf(0f) }
-    androidx.compose.runtime.LaunchedEffect(comecouAAparecer) {
-        if (comecouAAparecer != 0L && alvo == 0f) alvo = PASSEIO_DA_ENTRADA
-    }
-    androidx.compose.runtime.LaunchedEffect(reduceMotion) {
-        if (reduceMotion) {
-            androidx.compose.runtime.snapshotFlow { alvo }.collect { progresso = it }
-            return@LaunchedEffect
-        }
-        var anterior = 0L
+    androidx.compose.runtime.LaunchedEffect(comecouAAparecer, reduceMotion) {
+        if (comecouAAparecer == 0L) return@LaunchedEffect
         while (true) {
-            androidx.compose.runtime.withFrameNanos { agora ->
-                val passo = if (anterior == 0L) 0f else (agora - anterior) / 1_000_000_000f
-                anterior = agora
-                val falta = alvo - progresso
-                val fatia = (passo * VELOCIDADE_DO_PROGRESSO).coerceIn(0f, 1f)
-                progresso = if (falta < CHEGADA) alvo else progresso + falta * fatia
-            }
+            androidx.compose.runtime.withFrameNanos { }
+            val ms = (System.nanoTime() - comecouAAparecer) / 1_000_000
+            val noTempo = progressoNoInstante(ms, suave = !reduceMotion)
+            progresso = if (aquecido) noTempo else minOf(noTempo, TETO_ENQUANTO_AQUECE)
         }
     }
 
@@ -115,7 +113,7 @@ fun TelaDeCarregamento(reduceMotion: Boolean, aoTerminar: () -> Unit) {
         )
         val entradaTerminou = (entrada?.value ?: 1f) >= 1f
         if (comecouAAparecer != 0L && entradaTerminou) {
-            Aquecimento(aoAvancar = { alvo = PASSEIO_DA_ENTRADA + (1f - PASSEIO_DA_ENTRADA) * it }, aoTerminar = { aquecido = true })
+            Aquecimento(aoTerminar = { aquecido = true })
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

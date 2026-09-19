@@ -60,6 +60,7 @@ ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorColor" text;
 -- identidade da época, e inventar seria mentir).
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorName" text;
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorAvatarUrl" text;
+ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "kind" text;
 
 -- ===== Troca de e-mail com confirmação no endereço novo =====
 -- O endereço só entra em "email" depois do código voltar certo, então erro de

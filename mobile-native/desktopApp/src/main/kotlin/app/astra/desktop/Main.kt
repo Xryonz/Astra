@@ -47,6 +47,7 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.TentativasDeInstalar
+import app.astra.desktop.update.Trocador
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.voice.QuemFala
 import app.astra.desktop.voice.Transmitindo
@@ -425,8 +426,6 @@ object SingleInstance {
 
 const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
-const val ARG_TROCA_FALHOU = "--a-troca-falhou"
-
 const val ARG_MINIMIZADO = "--minimizado"
 
 private const val PRAZO_DA_IDENTIDADE_MS = 2_000L
@@ -451,6 +450,7 @@ private fun proximaManha(): Long {
 }
 
 fun main(args: Array<String>) {
+    if (Trocador.executarSePedido(args)) return
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO || it.startsWith("$ARG_POS_ATUALIZACAO=") }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     if (!SingleInstance.acquireOrSignal()) {
@@ -458,7 +458,7 @@ fun main(args: Array<String>) {
         return
     }
     CrashLog.install()
-    val trocaFalhou = TentativasDeInstalar.trocaFalhou(args, System.getProperty("astra.version") ?: "dev")
+    val trocaFalhou = !Multi.ligado && TentativasDeInstalar.aoAbrir(System.getProperty("astra.version") ?: "dev")
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     if (Arranque.modoSeguro) {

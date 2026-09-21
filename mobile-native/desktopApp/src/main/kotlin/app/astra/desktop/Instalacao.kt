@@ -6,6 +6,7 @@ object Instalacao {
 
     const val PASTA_FIXA = "atual"
     const val SUFIXO_DA_RESERVA = ".antiga"
+    const val SUFIXO_DA_COPIA = ".nova"
 
     private const val LANCADOR = "launch.vbs"
     private const val EXECUTAVEL = "Astra.exe"
@@ -100,6 +101,9 @@ object Instalacao {
                 it.isDirectory && it.name.startsWith(principal.name + "-")
             }
         }
+        fixa?.let { alvo -> File(alvo.parentFile, alvo.name + SUFIXO_DA_COPIA) }
+            ?.takeIf { it.isDirectory }
+            ?.let(lista::add)
         val comLancador = raiz
         if (comLancador != null) {
             File(comLancador, PASTA_DAS_VERSOES).listFiles()?.filterTo(lista) { it.isDirectory }

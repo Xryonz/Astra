@@ -455,7 +455,7 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
                 is UpdateState.Ready -> {
                     TituloDoAviso("${s.version} pronto — reinicie para aplicar", onClose = null)
                     Spacer(Modifier.height(10.dp))
-                    AcaoDoAviso("reiniciar") { updater.restartToInstall() }
+                    AcaoDoAviso("reiniciar") { scope.launch { updater.restartToInstall() } }
                 }
                 else -> {}
             }

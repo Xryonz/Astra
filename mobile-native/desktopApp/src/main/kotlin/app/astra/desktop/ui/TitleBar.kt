@@ -258,7 +258,7 @@ private fun PontoDeAtualizacao(updater: UpdateService) {
                             maxLines = 1,
                         )
                         Spacer(Modifier.width(10.dp))
-                        AcaoDaFaixa("reiniciar") { updater.restartToInstall() }
+                        AcaoDaFaixa("reiniciar") { scope.launch { updater.restartToInstall() } }
                     }
                     else -> {}
                 }

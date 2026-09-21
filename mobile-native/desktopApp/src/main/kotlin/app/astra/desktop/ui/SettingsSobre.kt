@@ -109,7 +109,7 @@ internal fun AboutSection() {
         is UpdateState.Ready -> {
             AboutStatus("${s.version} baixada — reinicie para aplicar")
             Spacer(Modifier.height(10.dp))
-            AboutButton("reiniciar agora", accent = true) { updater.restartToInstall() }
+            AboutButton("reiniciar agora", accent = true) { scope.launch { updater.restartToInstall() } }
         }
         is UpdateState.Failed -> {
             AboutStatus(s.reason)

@@ -1,7 +1,6 @@
 package app.astra.desktop.update
 
 import app.astra.desktop.ARG_POS_ATUALIZACAO
-import app.astra.desktop.ARG_TROCA_FALHOU
 import app.astra.desktop.FocoDoSistema
 import app.astra.desktop.Instalacao
 import app.astra.desktop.Lancador
@@ -94,6 +93,8 @@ class UpdateService(private val http: OkHttpClient) {
     private var ronda: Job? = null
 
     private val baixando = AtomicBoolean(false)
+
+    private val reiniciando = AtomicBoolean(false)
 
     fun iniciarRonda(scope: CoroutineScope) {
         if (!installed || ronda?.isActive == true) return
@@ -423,7 +424,16 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
-    fun restartToInstall() {
+    suspend fun restartToInstall() = withContext(Dispatchers.IO + NonCancellable) {
+        if (!reiniciando.compareAndSet(false, true)) return@withContext
+        try {
+            reiniciarParaInstalar()
+        } finally {
+            reiniciando.set(false)
+        }
+    }
+
+    private fun reiniciarParaInstalar() {
         val nova = imagemPronta?.takeIf { File(it, "Astra.exe").isFile }
             ?: pastaDaMaiorVersao()
         if (nova == null) {
@@ -432,17 +442,27 @@ class UpdateService(private val http: OkHttpClient) {
             return
         }
         val versaoNova = VERSAO_NO_NOME.find(nova.name)?.value ?: nova.name
-        val chegou = "$ARG_POS_ATUALIZACAO=$versaoNova"
+        if (!TentativasDeInstalar.registrarTentativa(versaoNova)) {
+            _state.value = UpdateState.Failed("não consegui registrar a atualização — feche e abra o Astra", LATEST_PAGE)
+            return
+        }
         SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
-        SingleInstance.release()
         if (Trocador.precisaTrocar(nova)) {
             FocoDoSistema.cederAFrenteAQualquerUm()
-            val seFalhar = "$ARG_TROCA_FALHOU=$versaoNova"
-            if (Trocador.trocar(nova, chegou, seFalhar)) exitProcess(0)
+            if (Trocador.preparar(nova, versaoNova) && Trocador.trocar(nova, versaoNova)) {
+                SingleInstance.release()
+                exitProcess(0)
+            }
+            _state.value = UpdateState.Failed(
+                "a instalação da $versaoNova não começou — tente de novo ou baixe pela página da versão",
+                LATEST_PAGE,
+            )
+            return
         }
+        SingleInstance.release()
         val exe = File(nova, "Astra.exe")
         val novo = runCatching {
-            ProcessBuilder(exe.absolutePath, chegou)
+            ProcessBuilder(exe.absolutePath, "$ARG_POS_ATUALIZACAO=$versaoNova")
                 .directory(exe.parentFile)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)

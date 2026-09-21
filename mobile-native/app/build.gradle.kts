@@ -57,9 +57,11 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-teste-v\"")
+            buildConfigField("String", "PUBLICACAO_FIXA", "\"android-teste\"")
         }
         release {
             buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-v\"")
+            buildConfigField("String", "PUBLICACAO_FIXA", "\"android\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -81,6 +83,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".debug"
             buildConfigField("String", "ETIQUETA_DE_ATUALIZACAO", "\"android-teste-v\"")
+            buildConfigField("String", "PUBLICACAO_FIXA", "\"android-teste\"")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

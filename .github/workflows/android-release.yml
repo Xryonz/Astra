@@ -216,6 +216,30 @@ jobs:
             *) echo "::error::a mais recente do GitHub deixou de ser o desktop"; exit 1 ;;
           esac
 
+      - name: Anunciar a versao aos celulares
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          {
+            echo "astra-android 1"
+            echo "versao $VERSAO"
+            for nome in android android-32bits; do
+              echo "$(sha256sum "assinados/Astra-$VERSAO-$nome.apk" | cut -d' ' -f1)  Astra-$VERSAO-$nome.apk"
+            done
+          } > versao.txt
+          cat versao.txt
+          gh release upload android versao.txt --repo "$GITHUB_REPOSITORY" --clobber
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/android/versao.txt"
+          for tentativa in 1 2 3 4 5 6; do
+            if curl -sSL -A 'Astra-Release-CI' "$url" | cmp -s - versao.txt; then
+              echo "anuncio no ar"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::o anuncio ainda nao confere; ate ele aparecer, os celulares usam a busca pelas etiquetas"
+
       - name: Desfazer publicacao que falhou
         if: failure()
         env:

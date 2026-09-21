@@ -20,15 +20,16 @@ import java.io.File
 sealed interface AvisoDeAtualizacao {
     data object PedirPermissao : AvisoDeAtualizacao
     data class Pronta(val versao: String) : AvisoDeAtualizacao
-    data class Falhou(val versao: String, val pagina: String) : AvisoDeAtualizacao
+    data class Falhou(val versao: String, val pagina: String, val motivo: String? = null) : AvisoDeAtualizacao
 }
 
 sealed interface EstadoDaVersao {
     data class EmDia(val conferidoEm: Long) : EstadoDaVersao
     data object SemConexao : EstadoDaVersao
+    data class SemEspaco(val versao: String) : EstadoDaVersao
     data class Baixando(val versao: String, val progresso: Float) : EstadoDaVersao
     data class Pronta(val versao: String) : EstadoDaVersao
-    data class Interrompida(val versao: String, val pagina: String) : EstadoDaVersao
+    data class Interrompida(val versao: String, val pagina: String, val motivo: String? = null) : EstadoDaVersao
 }
 
 object CuidadorDeAtualizacao {
@@ -43,9 +44,11 @@ object CuidadorDeAtualizacao {
     private const val PENDENTE_VERSAO = "pendente_versao"
     private const val PENDENTE_ENDERECO = "pendente_endereco"
     private const val PENDENTE_PAGINA = "pendente_pagina"
+    private const val PENDENTE_IMPRESSAO = "pendente_impressao"
     private const val PRECISA_DE_TOQUE = "precisa_de_toque"
     private const val FALHA_VERSAO = "falha_versao"
     private const val FALHAS = "falhas"
+    private const val MOTIVO = "motivo"
 
     @Volatile
     var visivel = false
@@ -53,6 +56,9 @@ object CuidadorDeAtualizacao {
 
     @Volatile
     private var falhaDeRede = false
+
+    @Volatile
+    private var semEspaco = false
 
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val trava = Mutex()
@@ -141,6 +147,8 @@ object CuidadorDeAtualizacao {
                         putString(PENDENTE_VERSAO, nova.versao)
                         putString(PENDENTE_ENDERECO, nova.endereco)
                         putString(PENDENTE_PAGINA, nova.pagina)
+                        if (nova.impressao != null) putString(PENDENTE_IMPRESSAO, nova.impressao)
+                        else remove(PENDENTE_IMPRESSAO)
                     }
                 }
             }
@@ -157,12 +165,26 @@ object CuidadorDeAtualizacao {
                     versao = versao,
                     endereco = m.getString(PENDENTE_ENDERECO, null).orEmpty(),
                     pagina = m.getString(PENDENTE_PAGINA, null).orEmpty(),
+                    impressao = m.getString(PENDENTE_IMPRESSAO, null),
                 )
                 runCatching {
                     Atualizador.baixar(nova, pasta(app)) { _estado.value = EstadoDaVersao.Baixando(versao, it) }
                 }
-                    .onSuccess { falhaDeRede = false }
-                    .onFailure { if (it is PacoteCorrompido) registrarFalha(m, versao) else falhaDeRede = true }
+                    .onSuccess { apk ->
+                        falhaDeRede = false
+                        semEspaco = false
+                        ConferenciaDoPacote.motivoParaRecusar(app, apk)?.let { motivo ->
+                            apk.delete()
+                            desistirCom(m, versao, motivo)
+                        }
+                    }
+                    .onFailure {
+                        when (it) {
+                            is PacoteCorrompido -> registrarFalha(m, versao)
+                            is SemEspaco -> semEspaco = true
+                            else -> falhaDeRede = true
+                        }
+                    }
             }
         } finally {
             baixando.unlock()
@@ -178,9 +200,11 @@ object CuidadorDeAtualizacao {
                 remove(PENDENTE_VERSAO)
                 remove(PENDENTE_ENDERECO)
                 remove(PENDENTE_PAGINA)
+                remove(PENDENTE_IMPRESSAO)
                 remove(PRECISA_DE_TOQUE)
                 remove(FALHA_VERSAO)
                 remove(FALHAS)
+                remove(MOTIVO)
             }
             pasta(app).deleteRecursively()
         } else if (desistiu(m, versao)) {
@@ -200,8 +224,15 @@ object CuidadorDeAtualizacao {
     }
 
     private fun instalar(app: Context, m: SharedPreferences, versao: String) {
+        val pacote = apk(app, versao)
+        ConferenciaDoPacote.motivoParaRecusar(app, pacote)?.let { motivo ->
+            pacote.delete()
+            desistirCom(m, versao, motivo)
+            atualizarTela(app)
+            return
+        }
         try {
-            Instalador.instalar(app, apk(app, versao), versao)
+            Instalador.instalar(app, pacote, versao)
         } catch (e: Exception) {
             registrarFalha(m, versao)
             atualizarTela(app)
@@ -218,8 +249,13 @@ object CuidadorDeAtualizacao {
         val versao = pendente(m)
         _estado.value = when {
             versao != null && desistiu(m, versao) ->
-                EstadoDaVersao.Interrompida(versao, m.getString(PENDENTE_PAGINA, null).orEmpty())
+                EstadoDaVersao.Interrompida(
+                    versao,
+                    m.getString(PENDENTE_PAGINA, null).orEmpty(),
+                    m.getString(MOTIVO, null),
+                )
             versao != null && apk(app, versao).exists() -> EstadoDaVersao.Pronta(versao)
+            versao != null && semEspaco -> EstadoDaVersao.SemEspaco(versao)
             falhaDeRede -> EstadoDaVersao.SemConexao
             versao != null -> (_estado.value as? EstadoDaVersao.Baixando)?.takeIf { it.versao == versao }
                 ?: EstadoDaVersao.Baixando(versao, 0f)
@@ -233,7 +269,11 @@ object CuidadorDeAtualizacao {
         _aviso.value = when {
             m.contains(ADIADO_EM) -> null
             versao != null && desistiu(m, versao) ->
-                AvisoDeAtualizacao.Falhou(versao, m.getString(PENDENTE_PAGINA, null).orEmpty())
+                AvisoDeAtualizacao.Falhou(
+                    versao,
+                    m.getString(PENDENTE_PAGINA, null).orEmpty(),
+                    m.getString(MOTIVO, null),
+                )
             versao != null && apk(app, versao).exists() &&
                 (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || m.getBoolean(PRECISA_DE_TOQUE, false)) ->
                 AvisoDeAtualizacao.Pronta(versao)
@@ -251,6 +291,15 @@ object CuidadorDeAtualizacao {
         m.edit {
             putString(FALHA_VERSAO, versao)
             putInt(FALHAS, falhas)
+            remove(MOTIVO)
+        }
+    }
+
+    private fun desistirCom(m: SharedPreferences, versao: String, motivo: String) {
+        m.edit {
+            putString(FALHA_VERSAO, versao)
+            putInt(FALHAS, LIMITE_DE_FALHAS)
+            putString(MOTIVO, motivo)
         }
     }
 

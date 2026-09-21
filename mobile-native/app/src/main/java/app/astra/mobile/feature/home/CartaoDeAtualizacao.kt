@@ -69,7 +69,8 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
             )
             is AvisoDeAtualizacao.Falhou -> Triple(
                 "Atualização interrompida",
-                "A instalação automática da versão ${a.versao} falhou duas vezes. Baixe pela página da versão.",
+                a.motivo?.let { "A versão ${a.versao} não foi instalada: $it. Baixe pela página da versão." }
+                    ?: "A instalação automática da versão ${a.versao} falhou duas vezes. Baixe pela página da versão.",
                 "Abrir página",
             )
             null -> return@AnimatedVisibility

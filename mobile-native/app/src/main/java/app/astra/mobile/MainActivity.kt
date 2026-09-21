@@ -7,10 +7,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +35,7 @@ import app.astra.mobile.core.data.PreferencesStore
 import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.ui.AstraApp
 import app.astra.mobile.ui.LocalAppPrefs
+import app.astra.mobile.ui.components.Afundar
 import app.astra.mobile.ui.theme.AstraTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -48,6 +52,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var preferencesStore: PreferencesStore
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -60,6 +65,8 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalToastHostState provides toastState,
                     LocalAppPrefs provides prefs,
+                    LocalIndication provides remember(prefs.reduceMotion) { Afundar(prefs.reduceMotion) },
+                    LocalRippleConfiguration provides null,
                 ) {
                     Box(Modifier.fillMaxSize()) {
                         var crash by remember { mutableStateOf(CrashReporter.read(this@MainActivity)) }

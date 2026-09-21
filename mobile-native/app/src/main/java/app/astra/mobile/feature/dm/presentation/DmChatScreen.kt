@@ -61,6 +61,8 @@ import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TypingIndicator
+import app.astra.mobile.ui.components.Viagem
+import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.Dispatchers
@@ -118,11 +120,17 @@ fun DmChatScreen(
         Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
             EditorialTopBar(
                 title = viewModel.otherName,
-                marginalia = if (state.ringing) "chamando..." else "sussurro",
+                marginalia = if (state.ringing) "chamando..." else null,
                 onBack = onBack,
+                modificadorDoTitulo = Modifier.viajante(Viagem.nomeDoSussurro(viewModel.conversationId), ehTexto = true),
                 leading = {
                     Box {
-                        AstraAvatar(state.outroAvatar, viewModel.otherName, size = 38)
+                        AstraAvatar(
+                            state.outroAvatar,
+                            viewModel.otherName,
+                            modifier = Modifier.viajante(Viagem.fotoDoSussurro(viewModel.conversationId)),
+                            size = 38,
+                        )
                         state.outroStatus?.let { presenca ->
                             StatusDot(
                                 status = quandoStatus(presenca),
@@ -198,6 +206,7 @@ fun DmChatScreen(
                                     replyContent = m.replyToContent,
                                     attachments = m.attachments,
                                     translation = state.translations[m.id],
+                                    criadaEm = m.createdAt,
                                 )
                             }
                         }

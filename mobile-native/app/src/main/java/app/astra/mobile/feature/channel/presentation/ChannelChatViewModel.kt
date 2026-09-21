@@ -57,7 +57,7 @@ class ChannelChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val channelId: String = savedStateHandle["channelId"] ?: ""
+    val channelId: String = savedStateHandle["channelId"] ?: ""
     val channelName: String = savedStateHandle["name"] ?: "canal"
 
     private val _state = MutableStateFlow(ChannelChatUiState())

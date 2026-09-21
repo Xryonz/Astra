@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.ChartColumn
@@ -96,6 +95,10 @@ import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogFooter
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogHeader
 import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
+import java.time.Duration
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
 
@@ -193,6 +196,7 @@ fun MessageBubble(
     animateIn: Boolean,
     sweep: Boolean,
     grouped: Boolean = false,
+    hora: String? = null,
     edited: Boolean = false,
     pinned: Boolean = false,
     reactions: List<ReactionChip> = emptyList(),
@@ -266,17 +270,23 @@ fun MessageBubble(
                 val nameColor = remember(authorColor) { parseNameColor(authorColor) }
                 val baseStyle = MaterialTheme.typography.labelLarge
                 val nameMod = Modifier.padding(start = 4.dp, bottom = 3.dp)
-                Text(
-                    text = authorName,
-                    style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
-                    fontFamily = displayFontFamily(authorFont),
-                    color = when (nameColor) {
-                        is NameColor.Solid -> nameColor.color
-                        is NameColor.Gradient -> Color.Unspecified
-                        null -> astraColors.accent
-                    },
-                    modifier = if (onAuthorClick != null) nameMod.clickable(onClick = onAuthorClick) else nameMod,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = authorName,
+                        style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
+                        fontFamily = displayFontFamily(authorFont),
+                        color = when (nameColor) {
+                            is NameColor.Solid -> nameColor.color
+                            is NameColor.Gradient -> Color.Unspecified
+                            null -> astraColors.accent
+                        },
+                        modifier = if (onAuthorClick != null) nameMod.clickable(onClick = onAuthorClick) else nameMod,
+                    )
+                    if (hora != null) {
+                        Spacer(Modifier.width(8.dp))
+                        MarginaliaLabel(hora, Modifier.padding(bottom = 3.dp))
+                    }
+                }
             }
             Box(contentAlignment = Alignment.CenterStart) {
                 if (onReply != null) {
@@ -544,31 +554,31 @@ private fun MessageActionsMenu(
             }
         }
         if (onReply != null) {
-            DropdownMenuItem(
+            ItemDeMenu(
                 text = { Text("Responder", color = astraColors.text1) },
                 onClick = { onDismiss(); onReply() },
             )
         }
         if (onTranslate != null) {
-            DropdownMenuItem(
+            ItemDeMenu(
                 text = { Text("Traduzir", color = astraColors.text1) },
                 onClick = { onDismiss(); onTranslate() },
             )
         }
         if (onTogglePin != null) {
-            DropdownMenuItem(
+            ItemDeMenu(
                 text = { Text(if (pinned) "Desafixar" else "Fixar", color = astraColors.text1) },
                 onClick = { onDismiss(); onTogglePin() },
             )
         }
         if (onEdit != null) {
-            DropdownMenuItem(
+            ItemDeMenu(
                 text = { Text("Editar", color = astraColors.text1) },
                 onClick = { onDismiss(); onEdit() },
             )
         }
         if (onDelete != null) {
-            DropdownMenuItem(
+            ItemDeMenu(
                 text = { Text("Apagar", color = astraColors.danger) },
                 onClick = { onDismiss(); onDelete() },
             )
@@ -595,7 +605,24 @@ data class ChatRow(
     val translation: String? = null,
     val poll: PollUi? = null,
     val kind: String? = null,
+    val criadaEm: String? = null,
 )
+
+private const val PAUSA_QUE_QUEBRA_O_BLOCO_MIN = 7L
+
+private fun instanteDe(texto: String?): OffsetDateTime? =
+    texto?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+
+private fun horaCurta(instante: OffsetDateTime): String {
+    val local = instante.atZoneSameInstant(ZoneId.systemDefault())
+    val hoje = LocalDate.now(ZoneId.systemDefault())
+    val relogio = "%02d:%02d".format(local.hour, local.minute)
+    return when (local.toLocalDate()) {
+        hoje -> relogio
+        hoje.minusDays(1) -> "ontem $relogio"
+        else -> "%02d/%02d $relogio".format(local.dayOfMonth, local.monthValue)
+    }
+}
 
 @Composable
 fun ChatMessageList(
@@ -628,6 +655,7 @@ fun ChatMessageList(
         }
     }
 
+    val instantes = remember(rows) { rows.map { instanteDe(it.criadaEm) } }
     val groupedIds = remember(rows) {
         buildSet {
             for (i in 1 until rows.size) {
@@ -637,10 +665,15 @@ fun ChatMessageList(
                     anterior.authorId == atual.authorId &&
                     anterior.authorName == atual.authorName &&
                     anterior.authorAvatar == atual.authorAvatar
-                if (mesmaPessoa && anterior.kind == null && atual.kind == null) add(atual.id)
+                val deAnterior = instantes[i - 1]
+                val deAtual = instantes[i]
+                val semPausa = deAnterior == null || deAtual == null ||
+                    Duration.between(deAnterior, deAtual).toMinutes() < PAUSA_QUE_QUEBRA_O_BLOCO_MIN
+                if (mesmaPessoa && semPausa && anterior.kind == null && atual.kind == null) add(atual.id)
             }
         }
     }
+    val horas = remember(rows) { rows.indices.associate { i -> rows[i].id to instantes[i]?.let(::horaCurta) } }
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
 
@@ -672,6 +705,7 @@ fun ChatMessageList(
                     animateIn = isNew,
                     sweep = isNew && shownOnce,
                     grouped = row.id in groupedIds,
+                    hora = horas[row.id],
                     edited = row.edited,
                     pinned = row.pinned,
                     reactions = row.reactions,
@@ -728,7 +762,7 @@ private fun ComposerOption(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    DropdownMenuItem(
+    ItemDeMenu(
         leadingIcon = {
             Icon(icon, contentDescription = null, tint = astraColors.accent, modifier = Modifier.size(18.dp))
         },

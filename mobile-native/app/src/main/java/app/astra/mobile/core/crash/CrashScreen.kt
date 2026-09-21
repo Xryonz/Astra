@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -24,6 +22,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.mobile.ui.components.BotaoContornado
+import app.astra.mobile.ui.components.BotaoCheio
 
 @Composable
 fun CrashScreen(trace: String, onDismiss: () -> Unit) {
@@ -54,8 +54,8 @@ fun CrashScreen(trace: String, onDismiss: () -> Unit) {
             Text(trace, color = Color(0xFFD0D0D8), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { clip.setText(AnnotatedString(trace)) }) { Text("Copiar erro") }
-            OutlinedButton(onClick = onDismiss) { Text("Continuar") }
+            BotaoCheio(onClick = { clip.setText(AnnotatedString(trace)) }) { Text("Copiar erro") }
+            BotaoContornado(onClick = onDismiss) { Text("Continuar") }
         }
     }
 }

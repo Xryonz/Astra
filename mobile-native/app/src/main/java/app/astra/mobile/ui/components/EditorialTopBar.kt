@@ -35,6 +35,7 @@ fun EditorialTopBar(
     marginalia: String? = null,
     onBack: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
+    modificadorDoTitulo: Modifier = Modifier,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -72,6 +73,7 @@ fun EditorialTopBar(
                 color = astraColors.text1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = modificadorDoTitulo,
             )
         }
         trailing()

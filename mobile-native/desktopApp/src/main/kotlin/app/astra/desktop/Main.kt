@@ -451,17 +451,14 @@ private fun proximaManha(): Long {
 }
 
 fun main(args: Array<String>) {
-    val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
+    val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO || it.startsWith("$ARG_POS_ATUALIZACAO=") }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     if (!SingleInstance.acquireOrSignal()) {
         Arranque.recuou()
         return
     }
     CrashLog.install()
-    args.firstOrNull { it.startsWith("$ARG_TROCA_FALHOU=") }
-        ?.substringAfter('=')
-        ?.takeIf { it.isNotBlank() }
-        ?.let(TentativasDeInstalar::registrarFalha)
+    val trocaFalhou = TentativasDeInstalar.trocaFalhou(args, System.getProperty("astra.version") ?: "dev")
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     if (Arranque.modoSeguro) {
@@ -529,10 +526,10 @@ fun main(args: Array<String>) {
             Obsidian.aplicarContraste(bootPrefs.altoContraste)
             Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
         }
-        val podeMostrarPortao = updater.installed && !nascerEscondido
+        val podeMostrarPortao = updater.installed && !nascerEscondido && !trocaFalhou
         var portaoFechado by remember { mutableStateOf(false) }
         val portaoNaTela = podeMostrarPortao && !portaoFechado
-        LaunchedEffect(Unit) { if (podeMostrarPortao) updater.check(mostrarFalha = false) }
+        LaunchedEffect(Unit) { if (podeMostrarPortao || trocaFalhou) updater.check(mostrarFalha = false) }
         val escopoDaTela = rememberCoroutineScope()
         val escopoDaJanela = remember(escopoDaTela) { EscopoSupervisionado.sob(escopoDaTela) }
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
@@ -659,7 +656,7 @@ fun main(args: Array<String>) {
             LaunchedEffect(resgate) {
                 if (resgate > 0) runCatching { window.toFront(); window.requestFocus() }
             }
-            if (voltandoDeAtualizacao) {
+            if (voltandoDeAtualizacao || trocaFalhou) {
                 LaunchedEffect(Unit) {
                     delay(400)
                     resgate++

@@ -1,5 +1,7 @@
 package app.astra.mobile.ui.components
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -48,8 +50,15 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
         .clip(CircleShape)
         .background(astraColors.raised)
         .border(1.dp, astraColors.borderMid, CircleShape)
-    if (!url.isNullOrBlank()) {
-        AsyncImage(model = url, contentDescription = null, modifier = mod, contentScale = ContentScale.Crop)
+    var falhou by remember(url) { mutableStateOf(false) }
+    if (!url.isNullOrBlank() && !falhou) {
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            modifier = mod,
+            contentScale = ContentScale.Crop,
+            onError = { falhou = true },
+        )
     } else {
         Box(mod, contentAlignment = Alignment.Center) {
             Text(

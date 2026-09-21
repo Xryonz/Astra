@@ -22,6 +22,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,11 +103,13 @@ fun ColunaDeOrbitas(
                 aoTocar = { aoAbrirOrbita(orbita.id) },
                 aoSegurar = { aoSegurarOrbita(orbita.id) },
             ) {
-                if (orbita.iconUrl != null) {
+                var semImagem by remember(orbita.iconUrl) { mutableStateOf(orbita.iconUrl == null) }
+                if (!semImagem) {
                     AsyncImage(
                         model = orbita.iconUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
+                        onError = { semImagem = true },
                         modifier = Modifier.size(LADO).clip(CANTO),
                     )
                 } else {

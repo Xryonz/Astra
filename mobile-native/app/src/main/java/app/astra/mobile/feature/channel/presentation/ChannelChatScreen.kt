@@ -81,6 +81,8 @@ import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.components.TypingIndicator
+import app.astra.mobile.ui.components.Viagem
+import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -129,8 +131,8 @@ fun ChannelChatScreen(
         ) {
             EditorialTopBar(
                 title = "# ${viewModel.channelName}",
-                marginalia = "orbita de texto",
                 onBack = onBack,
+                modificadorDoTitulo = Modifier.viajante(Viagem.nomeDoCanal(viewModel.channelId), ehTexto = true),
                 trailing = {
                     NotifBellAction(mode = state.notifMode, onSelect = viewModel::setNotifMode)
                     TopBarAction(Lucide.Pin, "Mensagens fixadas", onClick = { viewModel.loadPinned(); pinnedOpen = true })
@@ -166,6 +168,7 @@ fun ChannelChatScreen(
                                     attachments = m.attachments,
                                     translation = state.translations[m.id],
                                     kind = m.kind,
+                                    criadaEm = m.createdAt,
                                     poll = m.poll?.let { p ->
                                         PollUi(
                                             question = p.question,

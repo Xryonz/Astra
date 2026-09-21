@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +47,7 @@ import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
+import app.astra.mobile.ui.components.BotaoDeTexto
 
 @Composable
 fun UserProfileScreen(
@@ -66,7 +66,7 @@ fun UserProfileScreen(
                 state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
-                        TextButton(onClick = viewModel::load) { Text("Tentar de novo", color = astraColors.accent) }
+                        BotaoDeTexto(onClick = viewModel::load) { Text("Tentar de novo", color = astraColors.accent) }
                     }
                 }
                 state.view != null -> {

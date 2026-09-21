@@ -119,6 +119,9 @@ fun TelaSobre(onBack: () -> Unit) {
                     EstadoDaVersao.SemConexao -> Situacao(
                         "Não foi possível falar com o GitHub. Verifique a conexão e tente de novo.",
                     )
+                    is EstadoDaVersao.SemEspaco -> Situacao(
+                        "Falta espaço no aparelho para baixar a ${e.versao}. Libere espaço e procure de novo.",
+                    )
                     is EstadoDaVersao.Baixando -> {
                         Situacao("Baixando a ${e.versao}… ${(e.progresso * 100).toInt()}%")
                         BarraDeProgresso(e.progresso)
@@ -136,7 +139,10 @@ fun TelaSobre(onBack: () -> Unit) {
                         )
                     }
                     is EstadoDaVersao.Interrompida -> {
-                        Situacao("A instalação automática da ${e.versao} falhou duas vezes.")
+                        Situacao(
+                            e.motivo?.let { "A ${e.versao} não foi instalada: $it." }
+                                ?: "A instalação automática da ${e.versao} falhou duas vezes.",
+                        )
                         AstraButton(
                             text = "Abrir página da versão",
                             onClick = { runCatching { navegador.openUri(e.pagina) } },

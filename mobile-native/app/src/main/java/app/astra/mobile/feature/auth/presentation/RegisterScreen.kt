@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +49,7 @@ import app.astra.mobile.ui.components.RomanNumeral
 import app.astra.mobile.ui.theme.AstraTheme
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.BotaoCheio
 
 @Composable
 fun RegisterScreen(
@@ -204,7 +204,7 @@ private fun RegisterContent(
             Spacer(Modifier.height(28.dp))
 
             Reveal(delayMillis = 420) {
-                Button(
+                BotaoCheio(
                     onClick = onSubmit,
                     enabled = !state.loading,
                     shape = RoundedCornerShape(12.dp),

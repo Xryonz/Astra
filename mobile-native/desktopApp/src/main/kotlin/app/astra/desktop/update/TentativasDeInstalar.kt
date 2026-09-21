@@ -10,6 +10,7 @@ internal object TentativasDeInstalar {
     private const val ARQUIVO = "tentativas-de-atualizar.txt"
     private const val LIMITE = 2
     private const val EM_CURSO = "em-curso"
+    private const val ILEGIVEL = "ilegivel"
 
     private data class Registro(val versao: String, val tentativas: Int, val emCurso: Boolean)
 
@@ -40,15 +41,15 @@ internal object TentativasDeInstalar {
         return gravar(Registro(versao, tentativas, emCurso = true))
     }
 
-    fun aoAbrir(emUso: String): Boolean {
-        val registro = ler() ?: return arquivo().exists()
-        if (!registro.emCurso) return false
+    fun aoAbrir(emUso: String): String? {
+        val registro = ler() ?: return if (arquivo().exists()) ILEGIVEL else null
+        if (!registro.emCurso) return null
         if (!isNewer(registro.versao, emUso)) {
             esquecer()
-            return false
+            return null
         }
         gravar(registro.copy(emCurso = false))
-        return true
+        return registro.versao
     }
 
     fun desistiu(versao: String): Boolean {

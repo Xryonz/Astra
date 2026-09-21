@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,6 +32,7 @@ import app.astra.mobile.feature.home.HomeViewModel
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.ItemDeMenu
 
 @Composable
 fun Casca(
@@ -262,7 +262,7 @@ fun Casca(
 
 @Composable
 private fun ItemDoMenu(rotulo: String, aoTocar: () -> Unit) {
-    DropdownMenuItem(
+    ItemDeMenu(
         text = { Text(rotulo, color = astraColors.text1) },
         onClick = aoTocar,
     )
@@ -275,7 +275,7 @@ private fun ItemDeStatus(
     viewModel: HomeViewModel,
     aoEscolher: () -> Unit,
 ) {
-    DropdownMenuItem(
+    ItemDeMenu(
         text = { Text(rotulo, color = astraColors.text1) },
         onClick = {
             viewModel.setStatus(status)

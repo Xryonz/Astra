@@ -25,6 +25,7 @@ import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.RefreshApi
+import app.astra.mobile.core.network.RelatosApi
 import app.astra.mobile.core.network.BadgeApi
 import app.astra.mobile.core.network.SearchApi
 import app.astra.mobile.core.network.EmojiApi
@@ -115,6 +116,7 @@ val appModule = module {
     single<BotPersonaApi> { get<Retrofit>(named("authed")).create(BotPersonaApi::class.java) }
     single<BotApi> { get<Retrofit>(named("authed")).create(BotApi::class.java) }
     single<BlockApi> { get<Retrofit>(named("authed")).create(BlockApi::class.java) }
+    single<RelatosApi> { get<Retrofit>(named("authed")).create(RelatosApi::class.java) }
 
     single { DesktopSocket(get(), get()) }
     single { XpStore(get(), get()) }

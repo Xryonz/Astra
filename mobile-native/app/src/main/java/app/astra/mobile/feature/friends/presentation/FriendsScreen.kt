@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,6 +49,7 @@ import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.BotaoDeTexto
 
 @Composable
 fun FriendsScreen(
@@ -90,7 +90,7 @@ fun FriendsScreen(
                 state.error != null -> CenterBox {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
-                        TextButton(onClick = viewModel::load) { Text("Tentar de novo", color = astraColors.accent) }
+                        BotaoDeTexto(onClick = viewModel::load) { Text("Tentar de novo", color = astraColors.accent) }
                     }
                 }
                 else -> when (state.tab) {

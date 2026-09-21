@@ -74,6 +74,7 @@ import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
+import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.InviteApi
@@ -123,7 +124,7 @@ fun ShellScreen(
         ShellVm(
             scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
             koin.get<NotificationApi>(), koin.get<InviteApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
-            koin.get<AvisosDaConta>(),
+            koin.get<AvisosDaConta>(), koin.get<BotPersonaApi>(),
         )
     }
     val state by vm.state.collectAsState()

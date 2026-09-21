@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +42,7 @@ import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.ItemDeMenu
 
 @Composable
 fun ServerMembersScreen(
@@ -119,31 +119,31 @@ fun ServerMembersScreen(
                             expanded = menuFor == m.memberId,
                             onDismissRequest = { menuFor = null },
                         ) {
-                            DropdownMenuItem(
+                            ItemDeMenu(
                                 text = { Text("Ver perfil") },
                                 onClick = { menuFor = null; onOpenProfile(m.userId, m.name) },
                             )
                             if (canAdmin) {
                                 if (m.role == "ADMIN") {
-                                    DropdownMenuItem(
+                                    ItemDeMenu(
                                         text = { Text("Remover admin") },
                                         onClick = { menuFor = null; viewModel.setAdmin(m.memberId, false) },
                                     )
                                 } else {
-                                    DropdownMenuItem(
+                                    ItemDeMenu(
                                         text = { Text("Tornar admin") },
                                         onClick = { menuFor = null; viewModel.setAdmin(m.memberId, true) },
                                     )
                                 }
                             }
                             if (canKick) {
-                                DropdownMenuItem(
+                                ItemDeMenu(
                                     text = { Text("Expulsar", color = astraColors.danger) },
                                     onClick = { menuFor = null; kickTarget = m },
                                 )
                             }
                             if (canBan) {
-                                DropdownMenuItem(
+                                ItemDeMenu(
                                     text = { Text("Banir", color = astraColors.danger) },
                                     onClick = { menuFor = null; banTarget = m },
                                 )

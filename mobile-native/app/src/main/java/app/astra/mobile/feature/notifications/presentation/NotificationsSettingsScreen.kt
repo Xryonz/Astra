@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import app.astra.mobile.ui.components.AstraSwitch
 import androidx.compose.material3.Text
@@ -40,6 +39,7 @@ import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
+import app.astra.mobile.ui.components.ItemDeMenu
 
 @Composable
 fun NotificationsSettingsScreen(
@@ -220,9 +220,9 @@ private fun HourPicker(label: String, value: Int?, onPick: (Int?) -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                DropdownMenuItem(text = { Text("—") }, onClick = { open = false; onPick(null) })
+                ItemDeMenu(text = { Text("—") }, onClick = { open = false; onPick(null) })
                 (0..23).forEach { h ->
-                    DropdownMenuItem(
+                    ItemDeMenu(
                         text = { Text(String.format("%02d:00", h)) },
                         onClick = { open = false; onPick(h) },
                     )

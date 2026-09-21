@@ -72,6 +72,7 @@ fun BarraPessoal(
                 }
             }
             .combinedClickable(onClick = aoTocar, onLongClick = aoSegurar)
+            .semantics { contentDescription = "Seu perfil: $nome, ${rotuloDoStatus(status)}" }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -94,7 +95,7 @@ fun BarraPessoal(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            MarginaliaLabel(recado?.takeIf { it.isNotBlank() } ?: rotuloDoStatus(status))
+            recado?.takeIf { it.isNotBlank() }?.let { MarginaliaLabel(it) }
         }
         Box(
             modifier = Modifier

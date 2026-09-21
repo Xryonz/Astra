@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,6 +33,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.BotaoDeTexto
 
 @Composable
 fun JoinServerScreen(
@@ -71,7 +71,7 @@ fun JoinServerScreen(
                         enabled = !state.loadingPreview,
                         label = { Text("convite") },
                     )
-                    TextButton(
+                    BotaoDeTexto(
                         onClick = viewModel::loadPreview,
                         enabled = state.code.isNotBlank() && !state.loadingPreview,
                     ) {

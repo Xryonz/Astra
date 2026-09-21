@@ -1,5 +1,7 @@
 package app.astra.mobile.ui
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +41,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.mobile.ui.components.LocalCena
+import app.astra.mobile.ui.components.LocalPalco
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSpring
@@ -143,6 +148,7 @@ private object Routes {
         if (code.isNullOrBlank()) "join" else "join?code=${Uri.encode(code)}"
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AstraApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
@@ -154,6 +160,8 @@ fun AstraApp() {
 
         if (loggedIn != null) {
             val nav = rememberNavController()
+            SharedTransitionLayout {
+            CompositionLocalProvider(LocalCena provides this) {
             NavHost(
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
@@ -170,6 +178,7 @@ fun AstraApp() {
                     RegisterScreen(onGoToLogin = { nav.popBackStack() })
                 }
                 composable(Routes.HOME) {
+                    CompositionLocalProvider(LocalPalco provides this) {
                     Casca(
                         aoAbrirCanal = { id, nome, orbitaId -> nav.navigate(Routes.channelChat(id, nome, orbitaId)) },
                         aoAbrirSussurro = { id, nome -> nav.navigate(Routes.dmChat(id, nome)) },
@@ -187,6 +196,7 @@ fun AstraApp() {
                         aoAbrirOnboarding = { nav.navigate(Routes.ONBOARDING) },
                         aoAbrirVerificacao = { nav.navigate(Routes.VERIFY_EMAIL) },
                     )
+                    }
                 }
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(onDone = { nav.popBackStack() })
@@ -377,11 +387,13 @@ fun AstraApp() {
                         navArgument("serverId") { type = NavType.StringType; defaultValue = "" },
                     ),
                 ) { entrada ->
-                    ChannelChatScreen(
-                        onBack = { nav.popBackStack() },
-                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
-                        temOrbita = !entrada.arguments?.getString("serverId").isNullOrBlank(),
-                    )
+                    CompositionLocalProvider(LocalPalco provides this) {
+                        ChannelChatScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                            temOrbita = !entrada.arguments?.getString("serverId").isNullOrBlank(),
+                        )
+                    }
                 }
                 composable(
                     route = Routes.CALL,
@@ -407,12 +419,16 @@ fun AstraApp() {
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
                 ) {
-                    DmChatScreen(
-                        onBack = { nav.popBackStack() },
-                        onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
-                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
-                    )
+                    CompositionLocalProvider(LocalPalco provides this) {
+                        DmChatScreen(
+                            onBack = { nav.popBackStack() },
+                            onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
+                            onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                        )
+                    }
                 }
+            }
+            }
             }
 
             LaunchedEffect(loggedIn) {

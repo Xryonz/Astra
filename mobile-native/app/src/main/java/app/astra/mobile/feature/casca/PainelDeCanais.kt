@@ -1,9 +1,15 @@
 package app.astra.mobile.feature.casca
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,8 +41,12 @@ import androidx.compose.ui.unit.dp
 import app.astra.mobile.feature.home.ActiveVoiceRoom
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Viagem
+import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.DmSerif
+import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
 import com.composables.icons.lucide.Hash
@@ -111,64 +121,73 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoAbrirAjustes: () -> Uni
             modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp, top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = orbita.name,
-                    fontFamily = DmSerif,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = astraColors.text1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                MarginaliaLabel(
-                    if (orbita.onlineCount > 0) {
-                        "${orbita.memberCount} pessoas · ${orbita.onlineCount} em órbita"
-                    } else {
-                        "${orbita.memberCount} pessoas"
-                    },
-                )
-            }
+            Text(
+                text = orbita.name,
+                fontFamily = DmSerif,
+                style = MaterialTheme.typography.headlineSmall,
+                color = astraColors.text1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            BotaoRedondo(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar)
+            Spacer(Modifier.width(8.dp))
             BotaoRedondo(icone = Lucide.Settings, rotulo = "Ajustes da órbita", aoTocar = aoAbrirAjustes)
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+internal fun BotaoRedondo(
+    icone: androidx.compose.ui.graphics.vector.ImageVector,
+    rotulo: String,
+    aoTocar: () -> Unit,
+    marca: Int = 0,
+) {
+    Box {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(astraColors.raised)
+                .border(1.dp, astraColors.border, CircleShape)
+                .clickable(onClick = aoTocar)
+                .semantics { contentDescription = if (marca > 0) "$rotulo, $marca novos" else rotulo },
+            contentAlignment = Alignment.Center,
         ) {
-            val forma = RoundedCornerShape(8.dp)
-            Row(
+            Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(17.dp))
+        }
+        if (marca > 0) {
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .clip(forma)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.border, forma)
-                    .clickable(onClick = aoBuscar)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .align(Alignment.TopEnd)
+                    .clip(CircleShape)
+                    .background(astraColors.accent)
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
             ) {
-                Icon(Lucide.Search, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Buscar", style = MaterialTheme.typography.bodyMedium, color = astraColors.text3)
+                ContadorQueMuda(if (marca > 9) "9+" else "$marca")
             }
         }
     }
 }
 
 @Composable
-private fun BotaoRedondo(
-    icone: androidx.compose.ui.graphics.vector.ImageVector,
-    rotulo: String,
-    aoTocar: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(38.dp)
-            .clip(CircleShape)
-            .background(astraColors.raised)
-            .border(1.dp, astraColors.border, CircleShape)
-            .clickable(onClick = aoTocar)
-            .semantics { contentDescription = rotulo },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(17.dp))
+internal fun ContadorQueMuda(texto: String) {
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    AnimatedContent(
+        targetState = texto,
+        transitionSpec = {
+            if (semMovimento) {
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+            } else {
+                (slideInVertically(tween(220, easing = EaseOutSoft)) { it } + fadeIn(tween(180))) togetherWith
+                    (slideOutVertically(tween(180, easing = EaseOutSoft)) { -it } + fadeOut(tween(140)))
+            }
+        },
+        label = "contador",
+    ) { valor ->
+        Text(valor, style = MaterialTheme.typography.labelSmall, color = astraColors.textInv)
     }
 }
 
@@ -198,14 +217,16 @@ private fun LinhaDeCanal(
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.width(10.dp))
-        Text(
-            text = canal.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (naoLido || aberto) astraColors.text1 else astraColors.text2,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Box(Modifier.weight(1f)) {
+            Text(
+                text = canal.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (naoLido || aberto) astraColors.text1 else astraColors.text2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (canal.isVoice) Modifier else Modifier.viajante(Viagem.nomeDoCanal(canal.id), ehTexto = true),
+            )
+        }
         if (naVoz > 0) MarginaliaLabel("$naVoz")
         if (naoLido && !aberto) {
             Spacer(Modifier.width(8.dp))

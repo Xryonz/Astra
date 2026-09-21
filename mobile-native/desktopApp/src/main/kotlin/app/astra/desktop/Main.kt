@@ -458,7 +458,9 @@ fun main(args: Array<String>) {
         return
     }
     CrashLog.install()
-    val trocaFalhou = !Multi.ligado && TentativasDeInstalar.aoAbrir(System.getProperty("astra.version") ?: "dev")
+    val trocaFalhou = !Multi.ligado &&
+        TentativasDeInstalar.aoAbrir(System.getProperty("astra.version") ?: "dev")
+            ?.also(RelatoDeFalha::contarTroca) != null
     Saida.capturar()
     Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     if (Arranque.modoSeguro) {

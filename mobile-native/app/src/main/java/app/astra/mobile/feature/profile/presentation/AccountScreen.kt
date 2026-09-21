@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +44,7 @@ import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.astraColors
+import app.astra.mobile.ui.components.BotaoCheio
 
 @Composable
 fun AccountScreen(
@@ -95,7 +95,7 @@ fun AccountScreen(
 
                 Spacer(Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(
+                    BotaoCheio(
                         onClick = viewModel::save,
                         enabled = state.dirty && !state.saving,
                         shape = RoundedCornerShape(12.dp),

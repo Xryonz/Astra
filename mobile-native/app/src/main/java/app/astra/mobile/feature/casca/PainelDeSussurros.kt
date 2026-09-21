@@ -1,8 +1,6 @@
 package app.astra.mobile.feature.casca
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,12 +15,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +43,9 @@ import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.UserPlus
 import java.time.Duration
 import java.time.OffsetDateTime
+import app.astra.mobile.ui.components.ItemDeMenu
+import app.astra.mobile.ui.components.Viagem
+import app.astra.mobile.ui.components.viajante
 
 @Composable
 fun PainelDeSussurros(
@@ -63,32 +62,22 @@ fun PainelDeSussurros(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
-        Text(
-            text = "Sussurros",
-            fontFamily = DmSerif,
-            style = MaterialTheme.typography.headlineSmall,
-            color = astraColors.text1,
-            modifier = Modifier.padding(start = 18.dp, top = 14.dp, bottom = 2.dp),
-        )
-        MarginaliaLabel("conversas de duas pessoas", Modifier.padding(start = 18.dp, bottom = 12.dp))
-
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Acao(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar, modifier = Modifier.weight(1f))
-            Acao(
-                icone = Lucide.UserPlus,
-                rotulo = "Amigos",
-                aoTocar = aoAbrirAmigos,
-                marca = pedidos,
+            Text(
+                text = "Sussurros",
+                fontFamily = DmSerif,
+                style = MaterialTheme.typography.headlineSmall,
+                color = astraColors.text1,
                 modifier = Modifier.weight(1f),
             )
-            Acao(icone = Lucide.Plus, rotulo = "Novo", aoTocar = aoNovoSussurro, modifier = Modifier.weight(1f))
+            BotaoRedondo(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar)
+            BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Amigos", aoTocar = aoAbrirAmigos, marca = pedidos)
+            BotaoRedondo(icone = Lucide.Plus, rotulo = "Novo sussurro", aoTocar = aoNovoSussurro)
         }
-
-        Spacer(Modifier.padding(top = 6.dp))
 
         if (sussurros.isEmpty()) {
             EmptyState(line = "Nenhum sussurro ainda", hint = "chame alguém pelo nome de usuário")
@@ -120,46 +109,6 @@ fun PainelDeSussurros(
 }
 
 @Composable
-private fun Acao(
-    icone: androidx.compose.ui.graphics.vector.ImageVector,
-    rotulo: String,
-    aoTocar: () -> Unit,
-    modifier: Modifier = Modifier,
-    marca: Int = 0,
-) {
-    val forma = RoundedCornerShape(8.dp)
-    Row(
-        modifier = modifier
-            .clip(forma)
-            .background(astraColors.raised)
-            .border(1.dp, astraColors.border, forma)
-            .clickable(onClick = aoTocar)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(rotulo, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
-        if (marca > 0) {
-            Spacer(Modifier.width(6.dp))
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(astraColors.accent)
-                    .padding(horizontal = 6.dp, vertical = 1.dp),
-            ) {
-                Text(
-                    text = if (marca > 9) "9+" else "$marca",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = astraColors.textInv,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun LinhaDeSussurro(
     conversa: Conversation,
     naoLido: Boolean,
@@ -181,7 +130,12 @@ private fun LinhaDeSussurro(
             .semantics { contentDescription = "Sussurro com ${conversa.otherName}" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AstraAvatar(conversa.otherAvatarUrl, conversa.otherName, size = 42)
+        AstraAvatar(
+            conversa.otherAvatarUrl,
+            conversa.otherName,
+            modifier = Modifier.viajante(Viagem.fotoDoSussurro(conversa.id)),
+            size = 42,
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -190,6 +144,7 @@ private fun LinhaDeSussurro(
                 color = if (naoLido) astraColors.text1 else astraColors.text2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.viajante(Viagem.nomeDoSussurro(conversa.id), ehTexto = true),
             )
             Text(
                 text = (if (conversa.lastFromMe) "Você: " else "") + conversa.preview,
@@ -199,12 +154,9 @@ private fun LinhaDeSussurro(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            MarginaliaLabel(haQuantoTempo(conversa.lastMessageAt))
-            if (naoLido) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
-            }
+        if (naoLido) {
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
         }
     }
     DropdownMenu(
@@ -212,7 +164,13 @@ private fun LinhaDeSussurro(
         onDismissRequest = { menu = false },
         modifier = Modifier.background(astraColors.overlay),
     ) {
-        DropdownMenuItem(
+        haQuantoTempo(conversa.lastMessageAt).takeIf { it.isNotEmpty() }?.let { quando ->
+            MarginaliaLabel(
+                if (quando == "agora") "última mensagem agora" else "última mensagem há $quando",
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        ItemDeMenu(
             text = {
                 Text(
                     if (silenciada) "Reativar avisos" else "Silenciar conversa",
@@ -221,7 +179,7 @@ private fun LinhaDeSussurro(
             },
             onClick = { menu = false; aoSilenciar() },
         )
-        DropdownMenuItem(
+        ItemDeMenu(
             text = { Text("Fechar conversa", color = astraColors.danger) },
             onClick = { menu = false; aoFechar() },
         )

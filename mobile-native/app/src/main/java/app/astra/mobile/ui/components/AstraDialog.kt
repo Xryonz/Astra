@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,10 +47,10 @@ fun AstraDialog(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (dismissText != null) {
-                TextButton(onClick = onDismiss) { Text(dismissText, color = astraColors.text2) }
+                BotaoDeTexto(onClick = onDismiss) { Text(dismissText, color = astraColors.text2) }
             }
             if (confirmText != null) {
-                TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+                BotaoDeTexto(onClick = onConfirm, enabled = confirmEnabled) {
                     Text(confirmText, color = confirmColor)
                 }
             }

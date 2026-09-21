@@ -45,6 +45,17 @@ private const val TETO_DO_MANIFESTO = 1L * 1024 * 1024
 
 private val VERSAO_NO_NOME = Regex("""\d+\.\d+\.\d+""")
 
+internal fun isNewer(a: String, b: String): Boolean {
+    val pa = a.split(".", "-").map { it.toIntOrNull() ?: 0 }
+    val pb = b.split(".", "-").map { it.toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(pa.size, pb.size)) {
+        val x = pa.getOrElse(i) { 0 }
+        val y = pb.getOrElse(i) { 0 }
+        if (x != y) return x > y
+    }
+    return false
+}
+
 sealed interface UpdateState {
     data object Idle : UpdateState
     data object Checking : UpdateState
@@ -190,17 +201,6 @@ class UpdateService(private val http: OkHttpClient) {
         is UnknownHostException -> "sem internet"
         is IOException -> "sem conexão com o GitHub"
         else -> "não foi possível verificar agora"
-    }
-
-    private fun isNewer(a: String, b: String): Boolean {
-        val pa = a.split(".", "-").map { it.toIntOrNull() ?: 0 }
-        val pb = b.split(".", "-").map { it.toIntOrNull() ?: 0 }
-        for (i in 0 until maxOf(pa.size, pb.size)) {
-            val x = pa.getOrElse(i) { 0 }
-            val y = pb.getOrElse(i) { 0 }
-            if (x != y) return x > y
-        }
-        return false
     }
 
     suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO + NonCancellable) {
@@ -431,16 +431,18 @@ class UpdateService(private val http: OkHttpClient) {
             _state.value = ofertaPreparada ?: UpdateState.Idle
             return
         }
+        val versaoNova = VERSAO_NO_NOME.find(nova.name)?.value ?: nova.name
+        val chegou = "$ARG_POS_ATUALIZACAO=$versaoNova"
         SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
         SingleInstance.release()
         if (Trocador.precisaTrocar(nova)) {
             FocoDoSistema.cederAFrenteAQualquerUm()
-            val seFalhar = "$ARG_TROCA_FALHOU=${nova.name}"
-            if (Trocador.trocar(nova, ARG_POS_ATUALIZACAO, seFalhar)) exitProcess(0)
+            val seFalhar = "$ARG_TROCA_FALHOU=$versaoNova"
+            if (Trocador.trocar(nova, chegou, seFalhar)) exitProcess(0)
         }
         val exe = File(nova, "Astra.exe")
         val novo = runCatching {
-            ProcessBuilder(exe.absolutePath, ARG_POS_ATUALIZACAO)
+            ProcessBuilder(exe.absolutePath, chegou)
                 .directory(exe.parentFile)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)

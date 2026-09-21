@@ -1,5 +1,7 @@
 package app.astra.desktop.update
 
+import app.astra.desktop.ARG_POS_ATUALIZACAO
+import app.astra.desktop.ARG_TROCA_FALHOU
 import app.astra.desktop.CrashLog
 import java.io.File
 
@@ -15,7 +17,20 @@ internal object TentativasDeInstalar {
         versao to falhas.toInt()
     }.getOrNull()
 
-    fun registrarFalha(versao: String) {
+    fun trocaFalhou(args: Array<String>, emUso: String): Boolean {
+        val versao = valorDe(args, ARG_TROCA_FALHOU)
+            ?: valorDe(args, ARG_POS_ATUALIZACAO)?.takeIf { isNewer(it, emUso) }
+            ?: return false
+        registrarFalha(versao)
+        return true
+    }
+
+    private fun valorDe(args: Array<String>, chave: String): String? =
+        args.firstOrNull { it.startsWith("$chave=") }
+            ?.substringAfter('=')
+            ?.takeIf { it.isNotBlank() }
+
+    private fun registrarFalha(versao: String) {
         val anterior = ler()
         val falhas = if (anterior?.first == versao) anterior.second + 1 else 1
         runCatching { arquivo().writeText("$versao $falhas") }

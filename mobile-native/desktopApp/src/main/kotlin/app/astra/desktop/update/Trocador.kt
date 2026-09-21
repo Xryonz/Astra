@@ -145,7 +145,8 @@ internal object Trocador {
                 exe.absolutePath,
                 seDerCerto,
                 seFalhar,
-            ).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            ).directory(fixa.parentFile ?: pastaDosRoteiros())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
             true

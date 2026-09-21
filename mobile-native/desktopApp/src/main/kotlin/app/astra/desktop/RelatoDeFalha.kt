@@ -33,6 +33,8 @@ object RelatoDeFalha {
     private const val TETO_DA_MENSAGEM = 2_000
     private const val MAXIMO_POR_SESSAO = 3
     private const val PRAZO_S = 12L
+    private const val DIARIO_DA_TROCA = "troca.log"
+    private const val TIPO_DA_TROCA = "atualizacao"
 
     @Volatile private var enviados = 0
 
@@ -58,6 +60,27 @@ object RelatoDeFalha {
         }
         thread(isDaemon = true, name = "astra-relato-de-falha") {
             runCatching { enviar(montar(versao, erro, rastroCompleto)) }
+        }
+    }
+
+    fun contarTroca(versaoAlvo: String) {
+        val versao = System.getProperty("astra.version") ?: return
+        val diario = runCatching { File(CrashLog.dataDir(), DIARIO_DA_TROCA).readText() }.getOrDefault("")
+        thread(isDaemon = true, name = "astra-relato-de-troca") {
+            runCatching {
+                enviar(
+                    Relato(
+                        instalacao = instalacao,
+                        versao = versao,
+                        so = semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO),
+                        placa = "",
+                        tipo = TIPO_DA_TROCA,
+                        mensagem = semNome("a troca para $versaoAlvo não se completou").take(TETO_DA_MENSAGEM),
+                        rastro = semNome(diario.ifBlank { "sem diário da troca" }).take(TETO_DO_TEXTO),
+                        arranque = "",
+                    ),
+                )
+            }
         }
     }
 

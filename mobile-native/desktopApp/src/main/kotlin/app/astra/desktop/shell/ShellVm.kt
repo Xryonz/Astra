@@ -7,10 +7,12 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.insistindoOuNulo
 import app.astra.desktop.net.mensagemDaApi
 import app.astra.desktop.prefs.AvisosDaConta
+import app.astra.desktop.profile.FotoPerdida
 import app.astra.desktop.ui.invalidateProfileCache
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceLog
 import app.astra.desktop.voice.VoiceSession
+import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.InviteApi
@@ -86,6 +88,7 @@ class ShellVm(
     private val json: Json,
     private val myId: String?,
     private val avisosDaConta: AvisosDaConta,
+    private val botPersonaApi: BotPersonaApi,
 ) {
     private val _state = MutableStateFlow(ShellUiState())
     val state = _state.asStateFlow()
@@ -334,6 +337,16 @@ class ShellVm(
             store.setUiPref("lastSelection", finalSelection.encode())
             if (finalSelection is Selection.Server) loadMembers(finalSelection.id)
             carregarPresencaDosSussurros()
+            recuperarFotosPerdidas()
+        }
+    }
+
+    private fun recuperarFotosPerdidas() {
+        scope.launch {
+            if (_state.value.me?.avatarUrl == null) {
+                FotoPerdida.recuperar(userApi)?.let { u -> _state.update { it.copy(me = u) } }
+            }
+            FotoPerdida.recuperarDasBots(botPersonaApi)
         }
     }
 

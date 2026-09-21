@@ -26,7 +26,7 @@ import { messagesSentTotal } from '../lib/metrics'
 import { xpPorMensagem } from '../lib/xp'
 import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
-import { autorComoEra, identidadeParaGuardar } from '../lib/autorDaMensagem'
+import { autorComoEra, fotoViva, identidadeParaGuardar } from '../lib/autorDaMensagem'
 
 interface CursorPayload {
   createdAt: Date
@@ -220,7 +220,7 @@ export function createMessagesRouter(io: SocketServer) {
           content:      (r.parentContent ?? '').slice(0, 160),
           authorId:     r.parentAuthorId ?? null,
           authorName:   r.parentNomeGuardado ?? r.parentAuthorName ?? 'Usuário',
-          authorAvatar: r.parentFotoGuardada ?? r.parentAuthorAvatar ?? null,
+          authorAvatar: fotoViva(r.parentFotoGuardada) ?? r.parentAuthorAvatar ?? null,
           authorFont:   r.parentAuthorFont ?? null,
         } : null,
         parentId: undefined, parentContent: undefined, parentAuthorId: undefined,
@@ -271,7 +271,7 @@ export function createMessagesRouter(io: SocketServer) {
             content:      (parent.content ?? '').slice(0, 160),
             authorId:     parent.authorId,
             authorName:   parent.nomeGuardado ?? parent.authorName,
-            authorAvatar: parent.fotoGuardada ?? parent.authorAvatar,
+            authorAvatar: fotoViva(parent.fotoGuardada) ?? parent.authorAvatar,
             authorFont:   parent.authorFont,
           }
         }

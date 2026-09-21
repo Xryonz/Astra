@@ -7,6 +7,9 @@ import kotlinx.serialization.json.JsonObject
 data class UserWrapper(val user: ProfileUserDto)
 
 @Serializable
+data class FotoPerdidaDto(val endereco: String? = null)
+
+@Serializable
 data class PreferenciasWrapper(
     val preferences: JsonObject = JsonObject(emptyMap()),
 )

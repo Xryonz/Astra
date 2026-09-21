@@ -1,9 +1,9 @@
 import { Router, Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import { and, desc, eq, inArray, ne, or } from 'drizzle-orm'
+import { and, desc, eq, inArray, like, ne, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
-import { users, servers, serverMembers, profileNotes, friendships } from '../db/schema'
+import { users, servers, serverMembers, profileNotes, friendships, messages } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -61,6 +61,21 @@ router.get(
       bannerColor: users.bannerColor,
     }).from(users).where(inArray(users.id, ids))
     res.json({ data: rows })
+  })
+)
+
+router.get(
+  '/me/foto-perdida',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const [eu] = await db.select({ avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    if (!eu || eu.avatarUrl) return res.json({ data: { endereco: null } })
+    const [ultima] = await db.select({ endereco: messages.authorAvatarUrl })
+      .from(messages)
+      .where(and(eq(messages.authorId, req.userId!), like(messages.authorAvatarUrl, '/uploads/%')))
+      .orderBy(desc(messages.createdAt))
+      .limit(1)
+    res.json({ data: { endereco: ultima?.endereco ?? null } })
   })
 )
 

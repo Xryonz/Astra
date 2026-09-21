@@ -1,0 +1,229 @@
+name: Android · publicar
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-native/**'
+      - '.github/workflows/android-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-publicar
+  cancel-in-progress: false
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    outputs:
+      versao: ${{ steps.versao.outputs.versao }}
+      publicar: ${{ steps.decidir.outputs.publicar }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Ler a versao do gradle.properties
+        id: versao
+        run: |
+          v=$(sed -n 's/^androidVersion=//p' mobile-native/gradle.properties | tr -d '[:space:]')
+          if [ -z "$v" ]; then echo "nao achei androidVersion"; exit 1; fi
+          echo "versao=$v" >> "$GITHUB_OUTPUT"
+          echo "versao $v"
+
+      - name: Publicar ou nao
+        id: decidir
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAVE_PRESENTE: ${{ secrets.ANDROID_CHAVE != '' }}
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          set -o pipefail
+          publicadas=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/android-v" --jq '.[].ref | sub("^refs/tags/android-v"; "")')
+          if printf '%s\n' "$publicadas" | grep -qxF "$VERSAO"; then
+            echo "android-v$VERSAO ja existe — nada a fazer"
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$CHAVE_PRESENTE" != "true" ]; then
+            if [ -n "$publicadas" ]; then
+              echo "::error::o celular ja foi publicado, mas o segredo ANDROID_CHAVE sumiu"
+              exit 1
+            fi
+            echo "sem ANDROID_CHAVE — o celular ainda nao foi lancado, nada a fazer"
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          maior=$(printf '%s\n' "$publicadas" | sort -V | tail -n 1)
+          if [ -n "$maior" ] && [ "$(printf '%s\n%s\n' "$maior" "$VERSAO" | sort -V | tail -n 1)" != "$VERSAO" ]; then
+            echo "::error::androidVersion $VERSAO nao e maior que a ultima publicada ($maior)"
+            exit 1
+          fi
+          echo "android-v$VERSAO ainda nao existe — vamos publicar"
+          echo "publicar=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup JDK 21
+        if: steps.decidir.outputs.publicar == 'true'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Arquivo do Firebase
+        if: steps.decidir.outputs.publicar == 'true'
+        env:
+          ANDROID_FIREBASE: ${{ secrets.ANDROID_FIREBASE }}
+        run: |
+          if [ -z "$ANDROID_FIREBASE" ]; then
+            echo "::error::segredo ANDROID_FIREBASE ausente — o pacote sairia sem notificacao"
+            exit 1
+          fi
+          printf '%s' "$ANDROID_FIREBASE" | base64 -d > mobile-native/app/google-services.json
+
+      - name: Compilar
+        if: steps.decidir.outputs.publicar == 'true'
+        working-directory: mobile-native
+        run: ./gradlew :app:assembleRelease --no-daemon -Pastra.android=1
+
+      - name: Entregar os pacotes ao trabalho que assina
+        if: steps.decidir.outputs.publicar == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pacotes
+          path: |
+            mobile-native/app/build/outputs/apk/release/Astra-${{ steps.versao.outputs.versao }}-android.apk
+            mobile-native/app/build/outputs/apk/release/Astra-${{ steps.versao.outputs.versao }}-android-32bits.apk
+            mobile-native/app/build/outputs/apk/release/Astra-${{ steps.versao.outputs.versao }}-android-universal.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  publicar:
+    needs: compilar
+    if: needs.compilar.outputs.publicar == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSAO: ${{ needs.compilar.outputs.versao }}
+      IMPRESSAO_ESPERADA: 4bc8773b60696d40609e3ce8c8ae6025ce742fb540923ac3a3ef25d77ee9f572
+
+    steps:
+      - name: Receber os pacotes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: pacotes
+          path: pacotes
+
+      - name: Assinar e conferir a chave
+        env:
+          ANDROID_CHAVE: ${{ secrets.ANDROID_CHAVE }}
+          ANDROID_CHAVE_SENHA: ${{ secrets.ANDROID_CHAVE_SENHA }}
+        run: |
+          set -o pipefail
+          ferramentas="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          chave="$RUNNER_TEMP/chave-android"
+          trap 'rm -f "$chave"' EXIT
+          printf '%s' "$ANDROID_CHAVE" | base64 -d > "$chave"
+          mkdir -p assinados
+          for nome in android android-32bits android-universal; do
+            arquivo="Astra-$VERSAO-$nome.apk"
+            "$ferramentas/apksigner" sign --ks "$chave" --ks-key-alias astra \
+              --ks-pass env:ANDROID_CHAVE_SENHA --key-pass env:ANDROID_CHAVE_SENHA \
+              --v4-signing-enabled false --out "assinados/$arquivo" "pacotes/$arquivo"
+            "$ferramentas/zipalign" -c -P 16 4 "assinados/$arquivo"
+            impressao=$("$ferramentas/apksigner" verify --print-certs "assinados/$arquivo" \
+              | grep -o 'certificate SHA-256 digest: [0-9a-f]*' | sed 's/.*: //' | sort -u || true)
+            if [ "$impressao" != "$IMPRESSAO_ESPERADA" ]; then
+              echo "::error::$arquivo saiu com a chave $impressao, e a do app e $IMPRESSAO_ESPERADA — o celular de todo mundo recusaria esta versao"
+              exit 1
+            fi
+            echo "$arquivo assinado com a chave certa"
+          done
+
+      - name: Comprimir os pacotes do atualizador
+        run: |
+          for nome in android android-32bits; do
+            gzip -9 -n -k "assinados/Astra-$VERSAO-$nome.apk"
+            gzip -t "assinados/Astra-$VERSAO-$nome.apk.gz"
+          done
+          cp "assinados/Astra-$VERSAO-android-universal.apk" assinados/Astra-android.apk
+          ls -l assinados
+
+      - name: Atualizar o link fixo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view android --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload android assinados/Astra-android.apk --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create android assinados/Astra-android.apk \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Astra para Android" \
+              --notes "Sempre a versão mais nova do Astra para Android. Depois de instalado, ele se atualiza sozinho."
+          fi
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/android/Astra-android.apk"
+          esperado=$(stat -c %s assinados/Astra-android.apk)
+          for tentativa in 1 2 3 4 5 6; do
+            tamanho=$(curl -sSL -A 'Astra-Release-CI' -r 0-0 -o /dev/null -D - "$url" \
+              | tr -d '\r' | sed -n 's|^content-range: bytes 0-0/||Ip' | tail -n 1)
+            echo "link fixo: $tamanho bytes (esperado $esperado)"
+            if [ "$tamanho" = "$esperado" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::o link fixo nao entrega o pacote novo"
+          exit 1
+
+      - name: Publicar a versao
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "android-v$VERSAO" \
+            "assinados/Astra-$VERSAO-android-universal.apk" \
+            "assinados/Astra-$VERSAO-android.apk.gz" \
+            "assinados/Astra-$VERSAO-android-32bits.apk.gz" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Astra para Android $VERSAO" \
+            --notes "O Astra se atualiza sozinho. Para instalar à mão, baixe o arquivo que termina em universal.apk."
+
+      - name: Conferir pelo caminho que o app usa
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          achou=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/android-v$VERSAO" --jq 'map(select(.ref == "refs/tags/android-v'"$VERSAO"'")) | length')
+          if [ "$achou" != "1" ]; then
+            echo "::error::a busca do app nao enxerga android-v$VERSAO"
+            exit 1
+          fi
+          for arquivo in "Astra-$VERSAO-android-universal.apk" "Astra-$VERSAO-android.apk.gz" "Astra-$VERSAO-android-32bits.apk.gz"; do
+            codigo=$(curl -sSL -A 'Astra-Release-CI' -r 0-0 -o /dev/null -w '%{http_code}' \
+              "https://github.com/$GITHUB_REPOSITORY/releases/download/android-v$VERSAO/$arquivo")
+            echo "$arquivo: $codigo"
+            if [ "$codigo" != "206" ] && [ "$codigo" != "200" ]; then
+              echo "::error::$arquivo nao baixa"
+              exit 1
+            fi
+          done
+          ultima=$(curl -sSI -A 'Astra-Release-CI' "https://github.com/$GITHUB_REPOSITORY/releases/latest" \
+            | tr -d '\r' | sed -n 's|^location: .*/releases/tag/||Ip')
+          echo "a mais recente do GitHub continua sendo: $ultima"
+          case "$ultima" in
+            desktop-v*) ;;
+            *) echo "::error::a mais recente do GitHub deixou de ser o desktop"; exit 1 ;;
+          esac
+
+      - name: Desfazer publicacao que falhou
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "android-v$VERSAO" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "nada a desfazer — android-v$VERSAO nao chegou a ser criada"
+            exit 0
+          fi
+          gh release delete "android-v$VERSAO" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          echo "android-v$VERSAO apagada — nenhum celular recebe a versao quebrada"

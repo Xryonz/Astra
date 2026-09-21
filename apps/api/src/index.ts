@@ -77,6 +77,7 @@ import { logger }                        from './lib/logger'
 import { ensureCategorySchema }          from './db/ensureSchema'
 import { alinharMigrations }             from './db/alinharMigrations'
 import { garantirBotEmTodas }            from './lib/botMembership'
+import { consertarImagensMortas }        from './lib/consertarImagens'
 
 const app        = express()
 
@@ -258,6 +259,7 @@ httpServer.listen(env.PORT, async () => {
   await initBot()
   void garantirBotEmTodas()
   void corrigirAutoriaAntigaDaBot()
+  void consertarImagensMortas()
   agendarTrocaDeTurno()
   logger.info('Bot', IA_LIGADA ? `Pronto — IA: ${IA_PROVEDOR} (${MODELO_CONVERSA}).` : 'Pronto — IA DESLIGADA: nenhuma chave no ambiente (GROQ_API_KEY?). So os comandos funcionam.')
   startRetentionWorker()

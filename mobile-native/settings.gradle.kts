@@ -15,5 +15,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AstraMobile"
+if (providers.gradleProperty("astra.android").orNull == "1") {
+    include(":app")
+    include(":baselineprofile")
+}
 include(":desktopApp")
 include(":shared")

@@ -181,6 +181,7 @@ fun AstraApp() {
                         aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
                         aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
                         aoAbrirPerfil = { nav.navigate(Routes.SETTINGS) },
+                        aoEditarPerfil = { nav.navigate(Routes.PERSONALIZATION) },
                         aoAbrirDescobrir = { nav.navigate(Routes.DISCOVER) },
                         aoAbrirConvite = { nav.navigate(Routes.join()) },
                         aoAbrirOnboarding = { nav.navigate(Routes.ONBOARDING) },

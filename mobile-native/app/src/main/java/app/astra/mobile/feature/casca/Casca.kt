@@ -44,6 +44,7 @@ fun Casca(
     aoAbrirAmigos: () -> Unit,
     aoAbrirAvisos: () -> Unit,
     aoAbrirPerfil: () -> Unit,
+    aoEditarPerfil: () -> Unit,
     aoAbrirDescobrir: () -> Unit,
     aoAbrirConvite: () -> Unit,
     aoAbrirOnboarding: () -> Unit,
@@ -56,6 +57,7 @@ fun Casca(
     var forjando by remember { mutableStateOf(false) }
     var forjaDeGrupo by remember { mutableStateOf(false) }
     var novoSussurro by remember { mutableStateOf(false) }
+    var folhaDoPerfil by remember { mutableStateOf(false) }
     var ultimaOrbita by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(estado.selectedServerId) {
         estado.selectedServerId?.let { ultimaOrbita = it }
@@ -188,7 +190,7 @@ fun Casca(
                 status = estado.myStatus,
                 recado = estado.myCustomStatus,
                 avisos = estado.unreadNotifs,
-                aoTocar = aoAbrirPerfil,
+                aoTocar = { folhaDoPerfil = true },
                 aoSegurar = { menuDeStatus = true },
                 aoAbrirAvisos = aoAbrirAvisos,
                 aoDeslizar = {
@@ -229,6 +231,25 @@ fun Casca(
         aoConfirmar = { usuario -> viewModel.openConversation(usuario) },
         aoFechar = { novoSussurro = false; viewModel.clearOpenError() },
     )
+
+    if (folhaDoPerfil) {
+        FolhaDoPerfil(
+            nome = estado.myName.ifBlank { estado.myUsername },
+            usuario = estado.myUsername,
+            avatar = estado.myAvatar,
+            banner = estado.myBanner,
+            corDoBanner = estado.myBannerColor,
+            status = estado.myStatus,
+            recado = estado.myCustomStatus,
+            pronomes = estado.myPronouns,
+            bio = estado.myBio,
+            emblemas = estado.myBadges,
+            aoEditar = { folhaDoPerfil = false; aoEditarPerfil() },
+            aoTrocarStatus = { menuDeStatus = true },
+            aoAbrirAjustes = { folhaDoPerfil = false; aoAbrirPerfil() },
+            aoFechar = { folhaDoPerfil = false },
+        )
+    }
 
     if (estado.needsPassword) {
         PortaoDeSenha(

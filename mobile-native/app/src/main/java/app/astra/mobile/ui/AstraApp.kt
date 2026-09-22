@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,8 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,6 +78,7 @@ import app.astra.mobile.feature.profile.presentation.FolhaDePerfil
 import app.astra.mobile.feature.profile.presentation.MeuPerfilScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.TelaSobre
+import app.astra.mobile.feature.profile.presentation.VozScreen
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.compose.dialog
 import app.astra.mobile.feature.sessions.presentation.SessionsScreen
@@ -96,8 +94,9 @@ import app.astra.mobile.feature.server.presentation.ServerRolesScreen
 import app.astra.mobile.feature.server.presentation.ServerSettingsScreen
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.feature.voice.presentation.CallScreen
-import app.astra.mobile.feature.voice.presentation.IncomingCallViewModel
-import app.astra.mobile.ui.components.AstraDialog
+import app.astra.mobile.feature.voice.presentation.ChamadaScreen
+import app.astra.mobile.feature.voice.presentation.LigacaoViewModel
+import app.astra.mobile.feature.voice.presentation.PreviaDaSala
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 import kotlinx.coroutines.delay
@@ -161,14 +160,16 @@ private object Routes {
     fun serverChannelsManage(id: String) = "server/$id/channels-manage"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}&serverId={serverId}"
-    const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
+    const val CALL = "call"
+    const val SALA = "sala/{channelId}?name={name}&serverId={serverId}"
+    const val VOZ = "settings/voice"
 
     fun dmChat(id: String, name: String, chamar: Boolean = false) = "dm/$id?name=${Uri.encode(name)}&chamar=$chamar"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
     fun channelChat(id: String, name: String, serverId: String = "") =
         "channel/$id?name=${Uri.encode(name)}&serverId=${Uri.encode(serverId)}"
-    fun call(id: String, name: String, serverId: String, kind: String = "channel") =
-        "call/$id?name=${Uri.encode(name)}&serverId=$serverId&kind=$kind"
+    fun sala(id: String, name: String, serverId: String) =
+        "sala/$id?name=${Uri.encode(name)}&serverId=$serverId"
     fun join(code: String? = null) =
         if (code.isNullOrBlank()) "join" else "join?code=${Uri.encode(code)}"
 }
@@ -227,8 +228,9 @@ fun AstraApp() {
                         aoAbrirSussurro = { id, nome -> nav.navigate(Routes.dmChat(id, nome)) },
                         aoAbrirAjustesDaOrbita = { id -> nav.navigate(Routes.serverEdit(id)) },
                         aoEntrarNaVoz = { canalId, nome, orbitaId ->
-                            nav.navigate(Routes.call(canalId, nome, orbitaId))
+                            nav.navigate(Routes.sala(canalId, nome, orbitaId))
                         },
+                        aoAbrirCall = { nav.navigate(Routes.CALL) },
                         aoAbrirBusca = { nav.navigate(Routes.SEARCH) },
                         aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
                         aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
@@ -308,6 +310,7 @@ fun AstraApp() {
                         onOpenNameColors = { nav.navigate(Routes.CORES_DO_NOME) },
                         onOpenAppearance = { nav.navigate(Routes.APARENCIA) },
                         onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
+                        onOpenVoz = { nav.navigate(Routes.VOZ) },
                         onOpenNotifications = { nav.navigate(Routes.NOTIFICATIONS) },
                         onOpenSessions = { nav.navigate(Routes.SESSIONS) },
                         onOpenData = { nav.navigate(Routes.DATA) },
@@ -335,6 +338,9 @@ fun AstraApp() {
                 }
                 tela(Routes.APARENCIA) {
                     AparenciaScreen(onBack = { nav.popBackStack() })
+                }
+                tela(Routes.VOZ) {
+                    VozScreen(onBack = { nav.popBackStack() })
                 }
                 tela(Routes.CORES_DO_NOME) {
                     CoresDoNomeScreen(onBack = { nav.popBackStack() })
@@ -384,7 +390,7 @@ fun AstraApp() {
                     ChannelListScreen(
                         onBack = { nav.popBackStack() },
                         onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
-                        onOpenVoice = { sid, id, name -> nav.navigate(Routes.call(id, name, sid)) },
+                        onOpenVoice = { sid, id, name -> nav.navigate(Routes.sala(id, name, sid)) },
                         onOpenEdit = { nav.navigate(Routes.serverEdit(serverId)) },
                     )
                 }
@@ -466,16 +472,28 @@ fun AstraApp() {
                         )
                     }
                 }
-                tela(
+                dialog(
                     route = Routes.CALL,
+                    dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+                ) {
+                    CallScreen(aoEncolher = { nav.popBackStack() })
+                }
+                dialog(
+                    route = Routes.SALA,
                     arguments = listOf(
                         navArgument("channelId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                         navArgument("serverId") { type = NavType.StringType; defaultValue = "" },
-                        navArgument("kind") { type = NavType.StringType; defaultValue = "channel" },
                     ),
+                    dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
                 ) {
-                    CallScreen(onLeave = { nav.popBackStack() })
+                    PreviaDaSala(
+                        aoFechar = { nav.popBackStack() },
+                        aoEntrar = {
+                            nav.popBackStack()
+                            nav.navigate(Routes.CALL)
+                        },
+                    )
                 }
                 tela(Routes.DMS) {
                     DmListScreen(
@@ -495,7 +513,6 @@ fun AstraApp() {
                     CompositionLocalProvider(LocalPalco provides this) {
                         DmChatScreen(
                             onBack = { nav.popBackStack() },
-                            onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
                             onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
                             pedirChamada = pedirChamada,
                             aoAtenderPedido = { entrada.savedStateHandle["chamar"] = false },
@@ -538,33 +555,32 @@ fun AstraApp() {
                 }
             }
 
-            val incomingVm: IncomingCallViewModel = hiltViewModel()
-            val incoming by incomingVm.incoming.collectAsState()
-            val hapticsOn = LocalAppPrefs.current.haptics
-            val haptic = LocalHapticFeedback.current
-            incoming?.let { inv ->
-                AstraDialog(
-                    open = true,
-                    onDismiss = {
-                        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Reject)
-                        incomingVm.reject()
+            val ligacaoVm: LigacaoViewModel = hiltViewModel()
+            val ligacao by ligacaoVm.ligacao.collectAsState()
+            LaunchedEffect(Unit) {
+                ligacaoVm.entrouNaCall.collect { nav.navigate(Routes.CALL) }
+            }
+            val abrirCall by DeepLinkBus.abrirCall.collectAsState()
+            LaunchedEffect(abrirCall, loggedIn) {
+                if (!abrirCall) return@LaunchedEffect
+                DeepLinkBus.abrirCall.value = false
+                if (loggedIn == true) nav.navigate(Routes.CALL)
+            }
+            val atenderPedido by DeepLinkBus.atenderLigacao.collectAsState()
+            LaunchedEffect(ligacao) { if (ligacao == null) DeepLinkBus.atenderLigacao.value = null }
+            ligacao?.let { chamada ->
+                ChamadaScreen(
+                    ligacao = chamada,
+                    atenderJa = atenderPedido == chamada.conversationId,
+                    aoAtender = {
+                        DeepLinkBus.atenderLigacao.value = null
+                        ligacaoVm.atender()
                     },
-                    title = "Ligação de ${inv.fromDisplayName}",
-                    confirmText = "Atender",
-                    onConfirm = {
-                        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                        incomingVm.accept()?.let {
-                            nav.navigate(Routes.call(it.conversationId, it.fromDisplayName, "", kind = "dm"))
-                        }
+                    aoRecusar = {
+                        DeepLinkBus.atenderLigacao.value = null
+                        ligacaoVm.recusar()
                     },
-                    dismissText = "Recusar",
-                ) {
-                    Text(
-                        "Sussurro chamando você pra uma conversa de voz.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = astraColors.text2,
-                    )
-                }
+                )
             }
         }
 

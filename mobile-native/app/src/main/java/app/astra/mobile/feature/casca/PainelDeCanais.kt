@@ -1,6 +1,7 @@
 package app.astra.mobile.feature.casca
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -60,11 +61,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import app.astra.mobile.feature.home.ActiveVoiceRoom
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.LocalAppPrefs
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.Viagem
 import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.DmSerif
@@ -81,6 +81,7 @@ import com.composables.icons.lucide.Volume2
 
 private const val AVULSOS = ""
 private const val PREFIXO_DA_CATEGORIA = "cat-"
+private const val PREFIXO_DA_VOZ = "voz-"
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.03f
@@ -138,12 +139,14 @@ private fun velocidadeDaBorda(y: Float, altura: Float, zona: Float, teto: Float)
     }
 }
 
+data class PessoaNaVoz(val id: String, val nome: String, val foto: String?, val souEu: Boolean)
+
 @Composable
 fun PainelDeCanais(
     orbita: Server,
     canalAberto: String?,
     naoLidos: Set<String>,
-    vozAtiva: List<ActiveVoiceRoom>,
+    naVoz: Map<String, List<PessoaNaVoz>>,
     recolhidas: Set<String>,
     podeArrumar: Boolean,
     aoAbrirCanal: (Channel) -> Unit,
@@ -315,13 +318,13 @@ fun PainelDeCanais(
                 recolhida -> secao.canais.filter { it.id == canalAberto || it.id in naoLidos || it.id == arrasto.id }
                 else -> secao.canais
             }
-            items(visiveis, key = { it.id }) { canal ->
+            visiveis.forEach { canal ->
+            item(key = canal.id) {
                 val naMao = arrasto.tipo == OQueEstaNaMao.CANAL && arrasto.id == canal.id
                 LinhaDeCanal(
                     canal = canal,
                     aberto = canal.id == canalAberto,
                     naoLido = canal.id in naoLidos,
-                    naVoz = vozAtiva.firstOrNull { it.channelId == canal.id }?.count ?: 0,
                     naMao = naMao,
                     aoTocar = { if (canal.isVoice) aoEntrarNaVoz(canal) else aoAbrirCanal(canal) },
                     modifier = Modifier
@@ -338,6 +341,16 @@ fun PainelDeCanais(
                             scaleY = ESCALA_NA_MAO
                         },
                 )
+            }
+            if (canal.isVoice && arrasto.id != canal.id) {
+                items(naVoz[canal.id].orEmpty(), key = { PREFIXO_DA_VOZ + canal.id + ":" + it.id }) { pessoa ->
+                    LinhaDeQuemEstaNaVoz(
+                        pessoa,
+                        modifier = if (semMovimento) Modifier
+                        else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = tween(160), placementSpec = tween(180)),
+                    )
+                }
+            }
             }
         }
 
@@ -471,7 +484,6 @@ private fun LinhaDeCanal(
     canal: Channel,
     aberto: Boolean,
     naoLido: Boolean,
-    naVoz: Int,
     naMao: Boolean,
     aoTocar: () -> Unit,
     modifier: Modifier = Modifier,
@@ -513,11 +525,39 @@ private fun LinhaDeCanal(
                 modifier = if (canal.isVoice) Modifier else Modifier.viajante(Viagem.nomeDoCanal(canal.id), ehTexto = true),
             )
         }
-        if (naVoz > 0) MarginaliaLabel("$naVoz")
         if (naoLido && !aberto) {
             Spacer(Modifier.width(8.dp))
             Box(Modifier.size(7.dp).clip(CircleShape).background(astraColors.accent))
         }
+    }
+}
+
+@Composable
+private fun LinhaDeQuemEstaNaVoz(pessoa: PessoaNaVoz, modifier: Modifier = Modifier) {
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val chegada = remember { Animatable(if (semMovimento) 1f else 0f) }
+    LaunchedEffect(Unit) { if (chegada.value < 1f) chegada.animateTo(1f, tween(300, easing = EaseOutSoft)) }
+    val recuo = with(LocalDensity.current) { 10.dp.toPx() }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = chegada.value
+                translationX = (1f - chegada.value) * -recuo
+            }
+            .padding(start = 50.dp, end = 12.dp, top = 2.dp, bottom = 4.dp)
+            .semantics(mergeDescendants = true) { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AstraAvatar(pessoa.foto, pessoa.nome, size = 22)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            pessoa.nome,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (pessoa.souEu) astraColors.text2 else astraColors.text3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

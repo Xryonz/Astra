@@ -7,7 +7,8 @@ import app.astra.mobile.ui.components.StatusDot
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,17 +32,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Phone
-import com.composables.icons.lucide.PhoneOff
 import android.net.Uri
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.model.Attachment
@@ -73,17 +73,24 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DmChatScreen(
     onBack: () -> Unit,
-    onJoinCall: (conversationId: String, name: String) -> Unit = { _, _ -> },
     onOpenProfile: (String, String) -> Unit = { _, _ -> },
     pedirChamada: Boolean = false,
     aoAtenderPedido: () -> Unit = {},
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val pedirMicrofone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { liberado ->
+        if (liberado) viewModel.ligar()
+    }
+    val ligar = {
+        val tem = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (tem) viewModel.ligar() else pedirMicrofone.launch(Manifest.permission.RECORD_AUDIO)
+    }
     LaunchedEffect(pedirChamada) {
         if (pedirChamada) {
             aoAtenderPedido()
-            viewModel.chamarQuandoPuder()
+            ligar()
         }
     }
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
@@ -91,11 +98,6 @@ fun DmChatScreen(
     var emojiOpen by remember { mutableStateOf(false) }
     var emojiPendente by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.joinCall.collect { onJoinCall(viewModel.conversationId, viewModel.otherName) }
-    }
-
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val hapticsOn = LocalAppPrefs.current.haptics
     val haptic = LocalHapticFeedback.current
@@ -129,7 +131,6 @@ fun DmChatScreen(
         Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
             EditorialTopBar(
                 title = viewModel.otherName,
-                marginalia = if (state.ringing) "chamando..." else null,
                 onBack = onBack,
                 modificadorDoTitulo = Modifier.viajante(Viagem.nomeDoSussurro(viewModel.conversationId), ehTexto = true),
                 leading = {
@@ -170,20 +171,15 @@ fun DmChatScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(if (state.ringing) astraColors.accentDim else Color.Transparent)
                             .clickable {
-                                if (hapticsOn) {
-                                    haptic.performHapticFeedback(
-                                        if (state.ringing) HapticFeedbackType.Reject else HapticFeedbackType.Confirm,
-                                    )
-                                }
-                                if (state.ringing) viewModel.cancelCall() else viewModel.startCall()
+                                if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                ligar()
                             },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            if (state.ringing) Lucide.PhoneOff else Lucide.Phone,
-                            contentDescription = if (state.ringing) "Cancelar ligação" else "Ligar",
+                            Lucide.Phone,
+                            contentDescription = "Ligar",
                             tint = astraColors.accent,
                             modifier = Modifier.size(18.dp),
                         )

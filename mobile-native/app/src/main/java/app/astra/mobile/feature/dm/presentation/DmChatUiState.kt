@@ -22,8 +22,6 @@ data class DmChatUiState(
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),
 
-    val ringing: Boolean = false,
-
     val muted: Boolean = false,
 
     val outroAvatar: String? = null,

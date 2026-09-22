@@ -11,6 +11,7 @@ import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.push.PushRegistrar
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
+import app.astra.mobile.core.voice.SalasDeVoz
 import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
@@ -41,6 +42,7 @@ class HomeViewModel @Inject constructor(
     private val friendsApi: FriendsApi,
     private val pushRegistrar: PushRegistrar,
     private val arranjo: ArranjoLocal,
+    private val salasDeVoz: SalasDeVoz,
 ) : ViewModel() {
 
     fun registerPush() = pushRegistrar.register()
@@ -67,6 +69,9 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             arranjo.categoriasRecolhidas.collect { ids -> _state.update { it.copy(categoriasRecolhidas = ids) } }
+        }
+        viewModelScope.launch {
+            salasDeVoz.quem.collect { quem -> _state.update { it.copy(naVoz = quem) } }
         }
     }
 
@@ -108,18 +113,6 @@ class HomeViewModel @Inject constructor(
                 .filter { ch -> ch.lastMessageAt?.let { last -> chReads[ch.id]?.let { last > it } ?: true } ?: false }
                 .map { it.id }.toSet() - mutedChannels
 
-            val voiceChannels = servers.flatMap { s -> s.channels.filter { it.isVoice }.map { s to it } }
-            val activeVoice = if (voiceChannels.isEmpty()) {
-                emptyList()
-            } else {
-                val presence = serverRepository.voicePresence(voiceChannels.map { it.second.id })
-                    .getOrDefault(emptyMap())
-                voiceChannels.mapNotNull { (s, ch) ->
-                    val n = presence[ch.id]?.size ?: 0
-                    if (n == 0) null else ActiveVoiceRoom(ch.id, ch.name, s.id, s.name, n)
-                }
-            }
-
             _state.update {
                 it.copy(
                     loading = false,
@@ -130,7 +123,6 @@ class HomeViewModel @Inject constructor(
                     mutedServers = mutedServers,
                     mutedChannels = mutedChannels,
                     mutedConvs = mutedConvs,
-                    activeVoice = activeVoice,
                     myId = myId,
                     myName = me?.displayName ?: "",
                     myUsername = me?.username ?: "",
@@ -142,6 +134,7 @@ class HomeViewModel @Inject constructor(
                     needsPassword = me != null && !me.hasPassword,
                 )
             }
+            _state.value.selectedServerId?.let(::lerQuemEstaNaVoz)
         }
     }
 
@@ -185,12 +178,26 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectServer(id: String?) {
-        _state.update { it.copy(selectedServerId = id, podeArrumar = false) }
+        val trocou = _state.value.selectedServerId != id
+        _state.update {
+            it.copy(
+                selectedServerId = id,
+                podeArrumar = false,
+                membrosDaOrbita = if (trocou) emptyMap() else it.membrosDaOrbita,
+            )
+        }
         if (id == null) return
-        refreshVoicePresence()
+        lerQuemEstaNaVoz(id)
         viewModelScope.launch {
             val pode = serverRepository.podeArrumarOrbitas(id)
             _state.update { if (it.selectedServerId == id) it.copy(podeArrumar = pode) else it }
+        }
+        viewModelScope.launch {
+            serverRepository.members(id).onSuccess { lista ->
+                _state.update {
+                    if (it.selectedServerId == id) it.copy(membrosDaOrbita = lista.associateBy { m -> m.userId }) else it
+                }
+            }
         }
     }
 
@@ -255,18 +262,10 @@ class HomeViewModel @Inject constructor(
         _state.update { st -> st.copy(servers = st.servers.map { if (it.id == serverId) mudanca(it) else it }) }
     }
 
-    private fun refreshVoicePresence() {
-        viewModelScope.launch {
-            val voiceChannels = _state.value.servers.flatMap { s -> s.channels.filter { it.isVoice }.map { s to it } }
-            if (voiceChannels.isEmpty()) return@launch
-            val presence = serverRepository.voicePresence(voiceChannels.map { it.second.id })
-                .getOrNull() ?: return@launch
-            val activeVoice = voiceChannels.mapNotNull { (s, ch) ->
-                val n = presence[ch.id]?.size ?: 0
-                if (n == 0) null else ActiveVoiceRoom(ch.id, ch.name, s.id, s.name, n)
-            }
-            _state.update { it.copy(activeVoice = activeVoice) }
-        }
+    private fun lerQuemEstaNaVoz(orbitaId: String) {
+        val salas = _state.value.servers.firstOrNull { it.id == orbitaId }?.channels?.filter { it.isVoice }?.map { it.id }
+        if (salas.isNullOrEmpty()) return
+        viewModelScope.launch { salasDeVoz.carregar(salas) }
     }
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
@@ -332,6 +331,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             serverRepository.servers().onSuccess { servers ->
                 _state.update { it.copy(servers = servers) }
+                _state.value.selectedServerId?.let(::lerQuemEstaNaVoz)
             }
         }
     }

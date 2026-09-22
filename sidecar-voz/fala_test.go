@@ -83,3 +83,34 @@ func TestNivelDeQuadroVazioEZero(t *testing.T) {
 		t.Fatalf("quadro vazio deu nível %v", n)
 	}
 }
+
+func TestNivelParaOSfuSegueARfc6464(t *testing.T) {
+	quadroCom := func(amplitude int16) []int16 {
+		q := make([]int16, 960)
+		for i := range q {
+			if i%2 == 0 {
+				q[i] = amplitude
+			} else {
+				q[i] = -amplitude
+			}
+		}
+		return q
+	}
+	casos := []struct {
+		nome   string
+		pcm    []int16
+		espera uint8
+	}{
+		{"silêncio", make([]int16, 960), 127},
+		{"vazio", nil, 127},
+		{"teto", quadroCom(32767), 0},
+		{"metade do teto", quadroCom(16384), 6},
+		{"no limiar de fala", quadroCom(492), 36},
+		{"um degrau acima do zero", quadroCom(1), 90},
+	}
+	for _, c := range casos {
+		if n := nivelParaOSfu(c.pcm); n != c.espera {
+			t.Errorf("%s: nível %d, esperado %d", c.nome, n, c.espera)
+		}
+	}
+}

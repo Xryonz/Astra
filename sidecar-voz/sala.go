@@ -248,18 +248,20 @@ func (s *Sala) Sair() {
 
 type vozDaSala struct{ s *Sala }
 
-func (v vozDaSala) WriteSample(amostra media.Sample) error { return v.s.escreverVoz(amostra) }
+func (v vozDaSala) EscreverVoz(amostra media.Sample, nivelParaOSfu uint8) error {
+	return v.s.escreverVoz(amostra, nivelParaOSfu)
+}
 
 func (s *Sala) FaixaDeVoz() FaixaDeVoz { return vozDaSala{s} }
 
-func (s *Sala) escreverVoz(amostra media.Sample) error {
+func (s *Sala) escreverVoz(amostra media.Sample, nivelParaOSfu uint8) error {
 	s.mu.Lock()
 	faixa := s.mic
 	s.mu.Unlock()
 	if faixa == nil {
 		return nil
 	}
-	return faixa.WriteSample(amostra, nil)
+	return faixa.WriteSample(amostra, &lksdk.SampleWriteOptions{AudioLevel: &nivelParaOSfu})
 }
 
 func (s *Sala) Escrever(amostra media.Sample) (int, error) {

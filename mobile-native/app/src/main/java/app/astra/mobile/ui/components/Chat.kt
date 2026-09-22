@@ -13,8 +13,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,6 +34,8 @@ import com.composables.icons.lucide.ChartColumn
 import com.composables.icons.lucide.Film
 import com.composables.icons.lucide.Image
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Pin
+import com.composables.icons.lucide.Reply
 import com.composables.icons.lucide.Smile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,8 +51,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -74,7 +75,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -99,6 +99,8 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
 
@@ -151,27 +153,42 @@ private fun inlineAnnotated(text: String, accent: Color, codeBg: Color) = buildA
 }
 
 @Composable
-fun MessageContent(content: String, fontSizeSp: Float, modifier: Modifier = Modifier) {
+private fun ConteudoDaMensagem(content: String, editada: Boolean, corpoSp: Float) {
     val accent = astraColors.accent
     val codeBg = astraColors.raised
+    val nota = astraColors.text3
     val segments = remember(content) { splitCodeSegments(content) }
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        segments.forEachIndexed { i, seg ->
-            if (i > 0) Spacer(Modifier.height(6.dp))
+    val estilo = MaterialTheme.typography.bodyLarge.copy(
+        fontSize = corpoSp.sp,
+        lineHeight = (corpoSp * 1.4f).sp,
+        color = astraColors.text2,
+    )
+    val soTexto = segments.singleOrNull() as? MsgSeg.Plain
+    if (soTexto != null || segments.isEmpty()) {
+        val texto = soTexto?.value.orEmpty()
+        Text(
+            text = remember(texto, editada, accent, codeBg, nota) {
+                buildAnnotatedString {
+                    append(inlineAnnotated(texto, accent, codeBg))
+                    if (editada) withStyle(SpanStyle(color = nota, fontSize = 11.sp)) { append("  (editado)") }
+                }
+            },
+            style = estilo,
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        segments.forEach { seg ->
             when (seg) {
                 is MsgSeg.Plain -> if (seg.value.isNotBlank()) Text(
                     text = remember(seg.value, accent, codeBg) { inlineAnnotated(seg.value, accent, codeBg) },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontSize = fontSizeSp.sp,
-                    color = astraColors.text1,
-                    textAlign = TextAlign.Center,
+                    style = estilo,
                 )
                 is MsgSeg.Code -> Text(
                     text = seg.value,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = (fontSizeSp * 0.82f).sp,
+                    fontSize = (corpoSp * 0.82f).sp,
                     color = astraColors.text1,
-                    textAlign = TextAlign.Start,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
@@ -181,22 +198,27 @@ fun MessageContent(content: String, fontSizeSp: Float, modifier: Modifier = Modi
                 )
             }
         }
+        if (editada) Text("(editado)", fontSize = 11.sp, color = nota)
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+private val LADO_DA_FOTO = 38.dp
+private val RECUO_DO_TEXTO = 12.dp
+private val MARGEM_LATERAL = 14.dp
+private const val ENTRADA_MS = 240
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(
-    mine: Boolean,
+fun MensagemDoChat(
     authorName: String,
     authorAvatar: String?,
+    content: String,
+    entrar: Boolean,
     authorColor: String? = null,
     authorFont: String? = null,
-    content: String,
-    animateIn: Boolean,
-    sweep: Boolean,
-    grouped: Boolean = false,
+    agrupada: Boolean = false,
     hora: String? = null,
+    mencionaVoce: Boolean = false,
     edited: Boolean = false,
     pinned: Boolean = false,
     reactions: List<ReactionChip> = emptyList(),
@@ -219,19 +241,18 @@ fun MessageBubble(
     onAuthorClick: (() -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
-    val shape = RoundedCornerShape(14.dp)
-    val enter = remember { Animatable(if (animateIn && !prefs.reduceMotion) 0f else 1f) }
-    val sweepA = remember { Animatable(0f) }
+    val animar = entrar && !prefs.reduceMotion
+    val entrada = remember { Animatable(if (animar) 0f else 1f) }
+    val brilho = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        if (animateIn && !prefs.reduceMotion) enter.animateTo(1f, tween(360, easing = EaseSnappy))
-    }
-    LaunchedEffect(sweep) {
-        if (sweep && !prefs.reduceMotion) {
-            sweepA.snapTo(0f)
-            sweepA.animateTo(1f, tween(900, delayMillis = 120, easing = EaseOutSoft))
+        if (animar) {
+            launch { entrada.animateTo(1f, tween(ENTRADA_MS, easing = EaseSnappy)) }
+            brilho.animateTo(1f, tween(900, delayMillis = 120, easing = EaseOutSoft))
         }
     }
     val glow = astraColors.accentGlow
+    val accent = astraColors.accent
+    val fundoDaMencao = astraColors.accentDim
 
     val hasMenu = onEdit != null || onDelete != null || onReply != null ||
         onTogglePin != null || onToggleReaction != null || onTranslate != null
@@ -242,75 +263,70 @@ fun MessageBubble(
     val density = LocalDensity.current
     val maxDragPx = with(density) { 56.dp.toPx() }
     val thresholdPx = with(density) { 40.dp.toPx() }
+    val subida = with(density) { 10.dp.toPx() }
     val swipeX = remember { Animatable(0f) }
-    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.86f).dp
+    val larguraDoConteudo = (LocalConfiguration.current.screenWidthDp.dp -
+        MARGEM_LATERAL * 2 - LADO_DA_FOTO - RECUO_DO_TEXTO).coerceAtLeast(120.dp)
+    val corpoSp = 16f * prefs.fontSize.scale
 
-    Row(
-        modifier = Modifier
+    Box(
+        Modifier
             .fillMaxWidth()
-            .padding(
-                start = 10.dp,
-                end = 10.dp,
-                top = if (grouped) prefs.density.groupedTopDp.dp else prefs.density.topDp.dp,
-                bottom = 1.dp,
+            .graphicsLayer {
+                alpha = entrada.value
+                translationY = (1f - entrada.value) * subida
+            }
+            .then(
+                if (mencionaVoce) {
+                    Modifier.drawBehind {
+                        drawRect(fundoDaMencao.copy(alpha = fundoDaMencao.alpha * 0.5f))
+                        drawRect(accent, size = Size(2.dp.toPx(), size.height))
+                    }
+                } else {
+                    Modifier
+                },
             ),
-        verticalAlignment = Alignment.Top,
     ) {
-        Box(Modifier.width(46.dp)) {
-            if (!grouped) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = MARGEM_LATERAL,
+                    end = MARGEM_LATERAL,
+                    top = if (agrupada) prefs.density.groupedTopDp.dp else prefs.density.topDp.dp,
+                    bottom = 2.dp,
+                ),
+            verticalAlignment = Alignment.Top,
+        ) {
+            if (agrupada) {
+                Spacer(Modifier.width(LADO_DA_FOTO))
+            } else {
                 val avatarMod = if (onAuthorClick != null) {
                     Modifier.clip(CircleShape).clickable(onClick = onAuthorClick)
                 } else Modifier
-                Box(avatarMod) { AstraAvatar(authorAvatar, authorName, size = 42) }
+                Box(avatarMod) { AstraAvatar(authorAvatar, authorName, size = LADO_DA_FOTO.value.toInt()) }
             }
-        }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            if (!grouped) {
-                val nameColor = remember(authorColor) { parseNameColor(authorColor) }
-                val baseStyle = MaterialTheme.typography.labelLarge
-                val nameMod = Modifier.padding(start = 4.dp, bottom = 3.dp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = authorName,
-                        style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
-                        fontFamily = displayFontFamily(authorFont),
-                        color = when (nameColor) {
-                            is NameColor.Solid -> nameColor.color
-                            is NameColor.Gradient -> Color.Unspecified
-                            null -> astraColors.accent
-                        },
-                        modifier = if (onAuthorClick != null) nameMod.clickable(onClick = onAuthorClick) else nameMod,
-                    )
-                    if (hora != null) {
-                        Spacer(Modifier.width(8.dp))
-                        MarginaliaLabel(hora, Modifier.padding(bottom = 3.dp))
-                    }
-                }
-            }
-            Box(contentAlignment = Alignment.CenterStart) {
+            Spacer(Modifier.width(RECUO_DO_TEXTO))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (onReply != null) {
-                    Text(
-                        text = "↩",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = astraColors.accent,
+                    Icon(
+                        Lucide.Reply,
+                        contentDescription = null,
+                        tint = accent,
                         modifier = Modifier
+                            .size(18.dp)
                             .graphicsLayer {
                                 val p = (abs(swipeX.value) / thresholdPx).coerceIn(0f, 1f)
                                 alpha = p
                                 scaleX = 0.5f + 0.5f * p
                                 scaleY = 0.5f + 0.5f * p
-                            }
-                            .padding(horizontal = 10.dp),
+                            },
                     )
                 }
                 Column(
                     modifier = Modifier
-                        .graphicsLayer {
-                            alpha = enter.value
-                            translationX = (1f - enter.value) * (-22f).dp.toPx() + swipeX.value
-                        }
-                        .widthIn(max = bubbleMaxDp)
+                        .fillMaxWidth()
+                        .graphicsLayer { translationX = swipeX.value }
                         .then(
                             if (onReply != null) {
                                 Modifier.pointerInput(Unit) {
@@ -348,115 +364,56 @@ fun MessageBubble(
                             } else {
                                 Modifier
                             },
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        )
+                        .drawWithContent {
+                            drawContent()
+                            val p = brilho.value
+                            if (p > 0f && p < 1f) {
+                                val x = (p * 2f - 1f) * size.width
+                                drawRect(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color.Transparent, glow, Color.Transparent),
+                                        start = Offset(x - size.width * 0.5f, 0f),
+                                        end = Offset(x + size.width * 0.5f, size.height),
+                                    ),
+                                    blendMode = BlendMode.Screen,
+                                )
+                            }
+                        },
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    if (attachments.isNotEmpty()) {
-                        MessageAttachments(
-                            attachments = attachments,
-                            maxWidth = bubbleMaxDp,
-                            onOpenImage = { imgs, idx -> onOpenImage?.invoke(imgs, idx) },
+                    if (!agrupada) {
+                        if (replyContent != null) ReferenciaDaResposta(replyAuthor, replyContent)
+                        CabecalhoDaMensagem(
+                            nome = authorName,
+                            cor = authorColor,
+                            fonte = authorFont,
+                            hora = hora,
+                            fixada = pinned,
+                            aoTocarNoNome = onAuthorClick,
                         )
                     }
                     if (poll != null) {
                         PollCard(
                             poll = poll,
-                            maxWidth = bubbleMaxDp,
+                            maxWidth = larguraDoConteudo,
                             canClose = canClosePoll,
                             onVote = { optionId -> onVotePoll?.invoke(optionId) },
                             onClose = { onClosePoll?.invoke() },
                         )
+                    } else if (content.isNotBlank() || edited) {
+                        ConteudoDaMensagem(content, edited, corpoSp)
                     }
-                    val showBubble = poll == null &&
-                        (content.isNotBlank() || replyContent != null || pinned || reactions.isNotEmpty())
-                    if (showBubble) {
-                        Column(
-                            modifier = Modifier
-                                .clip(shape)
-                                .background(astraColors.raised)
-                                .border(1.dp, astraColors.borderMid, shape)
-                                .drawWithContent {
-                                    drawContent()
-                                    val p = sweepA.value
-                                    if (p > 0f && p < 1f) {
-                                        val x = (p * 2f - 1f) * size.width
-                                        drawRect(
-                                            brush = Brush.linearGradient(
-                                                colors = listOf(Color.Transparent, glow, Color.Transparent),
-                                                start = Offset(x - size.width * 0.5f, 0f),
-                                                end = Offset(x + size.width * 0.5f, size.height),
-                                            ),
-                                            blendMode = BlendMode.Screen,
-                                        )
-                                    }
-                                }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            if (pinned) {
-                                Text(
-                                    text = "📌 fixado",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = astraColors.accent,
-                                )
-                                Spacer(Modifier.height(2.dp))
-                            }
-                            if (replyContent != null) {
-                                Column(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(astraColors.base)
-                                        .widthIn(max = 260.dp)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                ) {
-                                    Text(
-                                        text = "↩ ${replyAuthor ?: "mensagem"}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = astraColors.accent,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text = replyContent,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = astraColors.text1.copy(alpha = 0.6f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Spacer(Modifier.height(4.dp))
-                            }
-                            if (content.isNotBlank()) {
-                                MessageContent(content, fontSizeSp = 17f * prefs.fontSize.scale)
-                            }
-                            if (translation != null) {
-                                Spacer(Modifier.height(6.dp))
-                                HairlineRule(Modifier.width(80.dp))
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    text = "tradução",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = astraColors.accent,
-                                )
-                                Text(
-                                    text = translation,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontSize = (15 * prefs.fontSize.scale).sp,
-                                    color = astraColors.text1.copy(alpha = 0.85f),
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                            if (edited) {
-                                Text(
-                                    text = "editado",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontStyle = FontStyle.Italic,
-                                    color = astraColors.text1.copy(alpha = 0.55f),
-                                )
-                            }
-                            MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
-                        }
+                    if (attachments.isNotEmpty()) {
+                        MessageAttachments(
+                            attachments = attachments,
+                            maxWidth = larguraDoConteudo,
+                            onOpenImage = { imgs, idx -> onOpenImage?.invoke(imgs, idx) },
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
                     }
+                    if (translation != null) Traducao(translation, corpoSp)
+                    ReacoesDaMensagem(reactions, onToggleReaction, Modifier.padding(top = 3.dp))
                 }
                 if (hasMenu) {
                     MessageActionsMenu(
@@ -477,37 +434,131 @@ fun MessageBubble(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MessageReactions(
+private fun CabecalhoDaMensagem(
+    nome: String,
+    cor: String?,
+    fonte: String?,
+    hora: String?,
+    fixada: Boolean,
+    aoTocarNoNome: (() -> Unit)?,
+) {
+    val corDoNome = remember(cor) { parseNameColor(cor) }
+    val base = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = nome,
+            style = if (corDoNome is NameColor.Gradient) base.copy(brush = corDoNome.brush) else base,
+            fontFamily = fonte?.let(::displayFontFamily),
+            color = when (corDoNome) {
+                is NameColor.Solid -> corDoNome.color
+                is NameColor.Gradient -> Color.Unspecified
+                null -> astraColors.text1
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .then(if (aoTocarNoNome != null) Modifier.clickable(onClick = aoTocarNoNome) else Modifier),
+        )
+        if (hora != null) {
+            Spacer(Modifier.width(8.dp))
+            Text(hora, style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
+        }
+        if (fixada) {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                Lucide.Pin,
+                contentDescription = "Fixada",
+                tint = astraColors.text3,
+                modifier = Modifier.size(11.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReferenciaDaResposta(autor: String?, conteudo: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Lucide.Reply, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = autor ?: "mensagem",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = astraColors.accent,
+            maxLines = 1,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = conteudo,
+            style = MaterialTheme.typography.bodySmall,
+            color = astraColors.text3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun Traducao(texto: String, corpoSp: Float) {
+    Column(Modifier.padding(top = 2.dp)) {
+        Text(
+            text = "tradução",
+            style = MaterialTheme.typography.labelSmall,
+            color = astraColors.accent,
+        )
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            fontSize = (corpoSp * 0.94f).sp,
+            color = astraColors.text2,
+        )
+    }
+}
+
+@Composable
+private fun ReacoesDaMensagem(
     reactions: List<ReactionChip>,
     onToggleReaction: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     if (reactions.isEmpty()) return
     FlowRowCompat(modifier = modifier, horizontalSpacing = 4.dp, verticalSpacing = 4.dp) {
-        reactions.forEach { r ->
-            val chipShape = RoundedCornerShape(10.dp)
-            Row(
-                modifier = Modifier
-                    .clip(chipShape)
-                    .background(astraColors.base)
-                    .border(1.dp, if (r.mine) astraColors.accent else astraColors.border, chipShape)
-                    .then(
-                        if (onToggleReaction != null) Modifier.clickable { onToggleReaction(r.emoji) } else Modifier,
-                    )
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(r.emoji, fontSize = 13.sp)
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "${r.count}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (r.mine) astraColors.accent else astraColors.text2,
-                )
-            }
+        reactions.forEach { r -> PilulaDeReacao(r, onToggleReaction) }
+    }
+}
+
+@Composable
+private fun PilulaDeReacao(r: ReactionChip, onToggleReaction: ((String) -> Unit)?) {
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val escala = remember { Animatable(1f) }
+    var contagemAnterior by remember { mutableStateOf(r.count) }
+    LaunchedEffect(r.count) {
+        if (r.count != contagemAnterior && !semMovimento) {
+            escala.snapTo(0.75f)
+            escala.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
         }
+        contagemAnterior = r.count
+    }
+    val forma = RoundedCornerShape(999.dp)
+    Row(
+        modifier = Modifier
+            .graphicsLayer { scaleX = escala.value; scaleY = escala.value }
+            .clip(forma)
+            .background(if (r.mine) astraColors.active else astraColors.raised)
+            .border(1.dp, if (r.mine) astraColors.borderMid else astraColors.border, forma)
+            .then(if (onToggleReaction != null) Modifier.clickable { onToggleReaction(r.emoji) } else Modifier)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(r.emoji, fontSize = 14.sp)
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = "${r.count}",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (r.mine) astraColors.accent else astraColors.text3,
+        )
     }
 }
 
@@ -606,27 +657,102 @@ data class ChatRow(
     val poll: PollUi? = null,
     val kind: String? = null,
     val criadaEm: String? = null,
+    val mencionaVoce: Boolean = false,
 )
 
 private const val PAUSA_QUE_QUEBRA_O_BLOCO_MIN = 7L
+private const val MAIS_QUE_ISSO_E_HISTORICO = 2
+
+private val PORTUGUES = Locale.forLanguageTag("pt-BR")
+private val DIA_DO_MES = DateTimeFormatter.ofPattern("d 'de' MMMM", PORTUGUES)
+private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", PORTUGUES)
 
 private fun instanteDe(texto: String?): OffsetDateTime? =
     texto?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
 
-private fun horaCurta(instante: OffsetDateTime): String {
-    val local = instante.atZoneSameInstant(ZoneId.systemDefault())
-    val hoje = LocalDate.now(ZoneId.systemDefault())
-    val relogio = "%02d:%02d".format(local.hour, local.minute)
-    return when (local.toLocalDate()) {
-        hoje -> relogio
-        hoje.minusDays(1) -> "ontem $relogio"
-        else -> "%02d/%02d $relogio".format(local.dayOfMonth, local.monthValue)
+private fun rotuloDoDia(dia: LocalDate, hoje: LocalDate): String = when (dia) {
+    hoje -> "hoje"
+    hoje.minusDays(1) -> "ontem"
+    else -> (if (dia.year == hoje.year) DIA_DO_MES else DIA_COM_ANO).format(dia)
+}
+
+private sealed interface ItemDaConversa {
+    val chave: String
+
+    data class Dia(override val chave: String, val rotulo: String) : ItemDaConversa
+    data class Passagem(val row: ChatRow) : ItemDaConversa {
+        override val chave: String get() = row.id
     }
+    data class Fala(val row: ChatRow, val agrupada: Boolean, val hora: String?) : ItemDaConversa {
+        override val chave: String get() = row.id
+    }
+}
+
+private fun montarItens(rows: List<ChatRow>): List<ItemDaConversa> {
+    if (rows.isEmpty()) return emptyList()
+    val zona = ZoneId.systemDefault()
+    val hoje = LocalDate.now(zona)
+    val itens = ArrayList<ItemDaConversa>(rows.size + 4)
+    var diaAnterior: LocalDate? = null
+    var anterior: ChatRow? = null
+    var instanteAnterior: OffsetDateTime? = null
+    for (row in rows) {
+        val instante = instanteDe(row.criadaEm)
+        val local = instante?.atZoneSameInstant(zona)
+        val dia = local?.toLocalDate()
+        if (dia != null && dia != diaAnterior) {
+            itens += ItemDaConversa.Dia("dia-$dia", rotuloDoDia(dia, hoje))
+            diaAnterior = dia
+            anterior = null
+            instanteAnterior = null
+        }
+        if (row.kind != null) {
+            itens += ItemDaConversa.Passagem(row)
+            anterior = null
+            instanteAnterior = null
+            continue
+        }
+        val mesmaPessoa = anterior != null &&
+            anterior.mine == row.mine &&
+            anterior.authorId == row.authorId &&
+            anterior.authorName == row.authorName &&
+            anterior.authorAvatar == row.authorAvatar
+        val semPausa = instante != null && instanteAnterior != null &&
+            Duration.between(instanteAnterior, instante).toMinutes() < PAUSA_QUE_QUEBRA_O_BLOCO_MIN
+        val agrupada = mesmaPessoa && semPausa && row.replyContent == null
+        val hora = local?.let { "%02d:%02d".format(it.hour, it.minute) }
+        itens += ItemDaConversa.Fala(row, agrupada, hora)
+        anterior = row
+        if (instante != null) instanteAnterior = instante
+    }
+    return itens
+}
+
+private class ChegadaDeMensagens {
+    private var ultima: String? = null
+    private var aoVivo = false
+    private val aAnimar = HashSet<String>()
+
+    fun observar(rows: List<ChatRow>, vivo: Boolean) {
+        val novaUltima = rows.lastOrNull()?.id
+        if (aoVivo && ultima != null && novaUltima != ultima) {
+            val onde = rows.indexOfLast { it.id == ultima }
+            val novas = if (onde >= 0) rows.size - 1 - onde else 0
+            if (novas in 1..MAIS_QUE_ISSO_E_HISTORICO) {
+                for (j in onde + 1 until rows.size) aAnimar += rows[j].id
+            }
+        }
+        ultima = novaUltima
+        if (vivo) aoVivo = true
+    }
+
+    fun consumir(id: String): Boolean = aAnimar.remove(id)
 }
 
 @Composable
 fun ChatMessageList(
     rows: List<ChatRow>,
+    vivo: Boolean,
     modifier: Modifier = Modifier,
     canEdit: Boolean = true,
     canReact: Boolean = false,
@@ -642,10 +768,8 @@ fun ChatMessageList(
     onClosePoll: (ChatRow) -> Unit = {},
     onOpenProfile: ((String, String) -> Unit)? = null,
 ) {
-    val animated = remember { mutableSetOf<String>() }
-    LaunchedEffect(rows) { animated.retainAll(rows.mapTo(HashSet(rows.size)) { it.id }) }
-    var shownOnce by remember { mutableStateOf(false) }
-    LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
+    val chegada = remember { ChegadaDeMensagens() }
+    remember(rows, vivo) { chegada.observar(rows, vivo) }
 
     val listState = rememberLazyListState()
     val newest = rows.lastOrNull()
@@ -655,25 +779,7 @@ fun ChatMessageList(
         }
     }
 
-    val instantes = remember(rows) { rows.map { instanteDe(it.criadaEm) } }
-    val groupedIds = remember(rows) {
-        buildSet {
-            for (i in 1 until rows.size) {
-                val anterior = rows[i - 1]
-                val atual = rows[i]
-                val mesmaPessoa = anterior.mine == atual.mine &&
-                    anterior.authorId == atual.authorId &&
-                    anterior.authorName == atual.authorName &&
-                    anterior.authorAvatar == atual.authorAvatar
-                val deAnterior = instantes[i - 1]
-                val deAtual = instantes[i]
-                val semPausa = deAnterior == null || deAtual == null ||
-                    Duration.between(deAnterior, deAtual).toMinutes() < PAUSA_QUE_QUEBRA_O_BLOCO_MIN
-                if (mesmaPessoa && semPausa && anterior.kind == null && atual.kind == null) add(atual.id)
-            }
-        }
-    }
-    val horas = remember(rows) { rows.indices.associate { i -> rows[i].id to instantes[i]?.let(::horaCurta) } }
+    val itens = remember(rows) { montarItens(rows).asReversed() }
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
 
@@ -684,57 +790,83 @@ fun ChatMessageList(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = 10.dp),
         ) {
-            items(rows.asReversed(), key = { it.id }, contentType = { it.kind ?: "mensagem" }) { row ->
-                if (row.kind != null) {
-                    LinhaDePassagem(row.content)
-                    return@items
+            items(
+                itens,
+                key = { it.chave },
+                contentType = {
+                    when (it) {
+                        is ItemDaConversa.Dia -> "dia"
+                        is ItemDaConversa.Passagem -> "passagem"
+                        is ItemDaConversa.Fala -> "mensagem"
+                    }
+                },
+            ) { item ->
+                when (item) {
+                    is ItemDaConversa.Dia -> SeparadorDoDia(item.rotulo)
+                    is ItemDaConversa.Passagem -> LinhaDePassagem(item.row.content)
+                    is ItemDaConversa.Fala -> {
+                        val row = item.row
+                        val entrar = remember(row.id) { chegada.consumir(row.id) }
+                        MensagemDoChat(
+                            authorName = row.authorName,
+                            authorAvatar = row.authorAvatar,
+                            content = row.content,
+                            entrar = entrar,
+                            authorColor = row.authorColor,
+                            authorFont = row.authorFont,
+                            agrupada = item.agrupada,
+                            hora = item.hora,
+                            mencionaVoce = row.mencionaVoce,
+                            edited = row.edited,
+                            pinned = row.pinned,
+                            reactions = row.reactions,
+                            replyAuthor = row.replyAuthor,
+                            replyContent = row.replyContent,
+                            attachments = row.attachments,
+                            translation = row.translation,
+                            poll = row.poll,
+                            canClosePoll = row.poll != null && row.mine,
+                            onEdit = if (row.mine && canEdit && row.poll == null) ({ onEdit(row) }) else null,
+                            onDelete = if (row.mine) ({ onDelete(row) }) else null,
+                            onReply = { onReply(row) },
+                            onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
+                            onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
+                            onMoreReactions = if (canReact && onMoreReactions != null) ({ onMoreReactions(row) }) else null,
+                            onTranslate = if (row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
+                            onOpenImage = { imgs, idx -> lightbox = imgs to idx },
+                            onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
+                            onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
+                            onAuthorClick = row.authorId?.let { aid ->
+                                onOpenProfile?.let { open -> ({ open(aid, row.authorName) }) }
+                            },
+                        )
+                    }
                 }
-                val isNew = remember(row.id) {
-                    val n = row.id !in animated
-                    animated.add(row.id)
-                    n
-                }
-
-                MessageBubble(
-                    mine = row.mine,
-                    authorName = row.authorName,
-                    authorAvatar = row.authorAvatar,
-                    authorColor = row.authorColor,
-                    authorFont = row.authorFont,
-                    content = row.content,
-                    animateIn = isNew,
-                    sweep = isNew && shownOnce,
-                    grouped = row.id in groupedIds,
-                    hora = horas[row.id],
-                    edited = row.edited,
-                    pinned = row.pinned,
-                    reactions = row.reactions,
-                    replyAuthor = row.replyAuthor,
-                    replyContent = row.replyContent,
-                    attachments = row.attachments,
-                    translation = row.translation,
-                    poll = row.poll,
-                    canClosePoll = row.poll != null && row.mine,
-                    onEdit = if (row.mine && canEdit && row.poll == null) ({ onEdit(row) }) else null,
-                    onDelete = if (row.mine) ({ onDelete(row) }) else null,
-                    onReply = { onReply(row) },
-                    onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
-                    onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
-                    onMoreReactions = if (canReact && onMoreReactions != null) ({ onMoreReactions(row) }) else null,
-                    onTranslate = if (row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
-                    onOpenImage = { imgs, idx -> lightbox = imgs to idx },
-                    onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
-                    onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
-                    onAuthorClick = row.authorId?.let { aid ->
-                        onOpenProfile?.let { open -> ({ open(aid, row.authorName) }) }
-                    },
-                )
             }
         }
 
         lightbox?.let { (imgs, idx) ->
             Lightbox(images = imgs, startIndex = idx, onDismiss = { lightbox = null })
         }
+    }
+}
+
+@Composable
+private fun SeparadorDoDia(rotulo: String) {
+    val traco = astraColors.border
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Box(Modifier.width(28.dp).height(1.dp).background(traco))
+        Text(
+            text = rotulo,
+            style = MaterialTheme.typography.labelSmall,
+            color = astraColors.text3,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        Box(Modifier.width(28.dp).height(1.dp).background(traco))
     }
 }
 

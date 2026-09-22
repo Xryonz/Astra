@@ -71,7 +71,8 @@ import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
-import app.astra.mobile.ui.components.MessageListSkeleton
+import app.astra.mobile.ui.components.EsperaDaConversa
+import app.astra.mobile.ui.components.LinhaDeEspera
 import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.PinnedMessagesDialog
 import app.astra.mobile.ui.components.PollComposer
@@ -142,10 +143,10 @@ fun ChannelChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.loading && state.messages.isEmpty() -> MessageListSkeleton()
+                    state.loading && state.messages.isEmpty() -> EsperaDaConversa(carregando = true)
                     state.messages.isEmpty() -> EmptyState(
-                        line = "Silencio nesta orbita",
-                        hint = "solte a primeira transmissao",
+                        line = "Silêncio nesta órbita",
+                        hint = "solte a primeira transmissão",
                     )
                     else -> {
 
@@ -169,6 +170,7 @@ fun ChannelChatScreen(
                                     translation = state.translations[m.id],
                                     kind = m.kind,
                                     criadaEm = m.createdAt,
+                                    mencionaVoce = m.mencionaVoce,
                                     poll = m.poll?.let { p ->
                                         PollUi(
                                             question = p.question,
@@ -183,6 +185,7 @@ fun ChannelChatScreen(
                         }
                         ChatMessageList(
                             rows = rows,
+                            vivo = !state.loading,
                             modifier = Modifier.fillMaxSize(),
                             canReact = true,
                             canPin = true,
@@ -199,6 +202,7 @@ fun ChannelChatScreen(
                         )
                     }
                 }
+                LinhaDeEspera(state.loading, Modifier.align(Alignment.TopCenter))
             }
 
             if (state.error != null) {

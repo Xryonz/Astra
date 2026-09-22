@@ -56,7 +56,8 @@ import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MessageListSkeleton
+import app.astra.mobile.ui.components.EsperaDaConversa
+import app.astra.mobile.ui.components.LinhaDeEspera
 import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
@@ -185,9 +186,9 @@ fun DmChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.loading && state.messages.isEmpty() -> MessageListSkeleton()
+                    state.loading && state.messages.isEmpty() -> EsperaDaConversa(carregando = true)
                     state.messages.isEmpty() -> EmptyState(
-                        line = "Silencio cosmico",
+                        line = "Silêncio cósmico",
                         hint = "diga oi 👋",
                     )
                     else -> {
@@ -213,6 +214,7 @@ fun DmChatScreen(
 
                         ChatMessageList(
                             rows = rows,
+                            vivo = !state.loading,
                             modifier = Modifier.fillMaxSize(),
                             canEdit = false,
                             onDelete = { deleteTarget = it },
@@ -222,6 +224,7 @@ fun DmChatScreen(
                         )
                     }
                 }
+                LinhaDeEspera(state.loading, Modifier.align(Alignment.TopCenter))
             }
 
             if (state.error != null) {

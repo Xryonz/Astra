@@ -105,7 +105,10 @@ class UpdateService(private val http: OkHttpClient) {
                 val ocupado = agora is UpdateState.Downloading ||
                     agora is UpdateState.Ready ||
                     agora is UpdateState.Available
-                if (!ocupado) check(mostrarFalha = false)
+                if (!ocupado) {
+                    check(mostrarFalha = false)
+                    (_state.value as? UpdateState.Available)?.let { downloadAndStage(it) }
+                }
             }
         }
     }

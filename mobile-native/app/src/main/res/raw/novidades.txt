@@ -1,0 +1,7 @@
+versao 2.0.9
+Mensagens no formato do desktop, com separador de dia e menção em destaque.
+A conversa abre na hora, sem esqueleto piscando; só a mensagem nova entra animada.
+A constelação aberta ganha a marca que desliza, e dá para arrastar para reordenar.
+Canais como no Discord: categorias que recolhem, busca larga e convite.
+Telas em camadas e abas que seguem o dedo.
+Seu perfil em tela cheia, o perfil dos outros numa folha e Configurações novas.

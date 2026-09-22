@@ -1,0 +1,5 @@
+versao 1.0.49
+Quando uma versão nova fica pronta com o Astra minimizado ou na bandeja, o Windows avisa.
+Com o Astra aberto, a versão nova baixa sozinha; o ponto na barra de título oferece reiniciar.
+Clicar num aviso do Astra no Windows abre o app.
+A cada versão, este cartão mostra o que mudou na primeira abertura.

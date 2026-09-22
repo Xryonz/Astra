@@ -43,8 +43,16 @@ import app.astra.mobile.feature.home.HomeViewModel
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.presentation.shareInviteLink
 import app.astra.mobile.ui.LocalAppPrefs
+import app.astra.mobile.core.update.Novidades
+import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.theme.EaseOutSoft
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.ItemDeMenu
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
@@ -300,6 +308,34 @@ fun Casca(
         aoConfirmar = { usuario -> viewModel.openConversation(usuario) },
         aoFechar = { novoSussurro = false; viewModel.clearOpenError() },
     )
+
+    var novidades by remember { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(Unit) { novidades = withContext(Dispatchers.IO) { Novidades.paraMostrar(contexto) } }
+    val itensNovos = novidades
+    if (itensNovos != null && !estado.needsPassword) {
+        val fechar = {
+            Novidades.marcarVistas(contexto)
+            novidades = null
+        }
+        AstraDialog(
+            open = true,
+            onDismiss = fechar,
+            title = "O que mudou na ${BuildConfig.VERSION_NAME}",
+            confirmText = "Entendi",
+            onConfirm = fechar,
+            dismissText = null,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                itensNovos.forEach { item ->
+                    Row {
+                        Text("·", color = astraColors.accent, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(8.dp))
+                        Text(item, color = astraColors.text2, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+    }
 
     if (estado.needsPassword) {
         PortaoDeSenha(

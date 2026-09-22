@@ -99,6 +99,10 @@ fun BandejaComMenu(
             )
         }.getOrNull() ?: return@DisposableEffect onDispose { }
         val icone = TrayIcon(imagem, dica).apply { isImageAutoSize = true }
+        icone.addActionListener {
+            menuEm = null
+            aoAtivar()
+        }
         icone.addMouseListener(object : MouseAdapter() {
             override fun mouseReleased(e: MouseEvent) {
                 if (!e.isPopupTrigger && e.button != MouseEvent.BUTTON3) return

@@ -49,6 +49,9 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.TentativasDeInstalar
 import app.astra.desktop.update.Trocador
 import app.astra.desktop.update.UpdateService
+import app.astra.desktop.update.UpdateState
+import app.astra.desktop.ui.CartaoDeNovidades
+import app.astra.desktop.ui.NovidadesDaVersao
 import app.astra.desktop.voice.QuemFala
 import app.astra.desktop.voice.Transmitindo
 import app.astra.desktop.xp.MissoesStore
@@ -601,6 +604,17 @@ fun main(args: Array<String>) {
 
         AvisosDeMensagem()
 
+        val estadoDaAtualizacao by updater.state.collectAsState()
+        var versaoAvisada by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(estadoDaAtualizacao) {
+            val pronta = estadoDaAtualizacao as? UpdateState.Ready ?: return@LaunchedEffect
+            val longeDaTela = !windowVisible || state.isMinimized
+            val calado = topPrefState.silencioAte > System.currentTimeMillis() || ModoTransmissao.ativo.value
+            if (!longeDaTela || calado || versaoAvisada == pronta.version) return@LaunchedEffect
+            versaoAvisada = pronta.version
+            bandeja.avisar("Astra ${pronta.version} está pronta", "Clique para abrir o Astra e reiniciar.")
+        }
+
         if (portaoNaTela) {
             val gateState = rememberWindowState(
                 width = 380.dp,
@@ -863,6 +877,18 @@ fun main(args: Array<String>) {
                     }
                     if (!aquecido) {
                         TelaDeCarregamento(prefState.reduceMotionEff) { aquecido = true }
+                    } else {
+                        var novidades by remember {
+                            mutableStateOf(
+                                NovidadesDaVersao.paraMostrar(store, updater.currentVersion, voltandoDeAtualizacao),
+                            )
+                        }
+                        novidades?.let { itens ->
+                            CartaoDeNovidades(updater.currentVersion, itens) {
+                                NovidadesDaVersao.marcarVistas(store, updater.currentVersion)
+                                novidades = null
+                            }
+                        }
                     }
                     }
                     }

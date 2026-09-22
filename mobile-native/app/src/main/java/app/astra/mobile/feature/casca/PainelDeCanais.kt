@@ -1,6 +1,7 @@
 package app.astra.mobile.feature.casca
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,6 +11,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,23 +24,42 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import app.astra.mobile.feature.home.ActiveVoiceRoom
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
@@ -49,11 +71,72 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
-import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Volume2
+
+private const val AVULSOS = ""
+private const val PREFIXO_DA_CATEGORIA = "cat-"
+private val ZONA_DE_ROLAGEM = 56.dp
+private val PASSO_DA_ROLAGEM = 9.dp
+private const val ESCALA_NA_MAO = 1.03f
+
+private class Secao(val categoriaId: String, val nome: String?, val canais: List<Channel>)
+
+private fun secoesDe(orbita: Server): List<Secao> {
+    val idsDeCategoria = orbita.categories.mapTo(HashSet()) { it.id }
+    val avulsos = orbita.channels.filter { it.categoryId !in idsDeCategoria }.sortedBy { it.position }
+    return buildList {
+        if (avulsos.isNotEmpty()) add(Secao(AVULSOS, null, avulsos))
+        orbita.categories.sortedBy { it.position }.forEach { categoria ->
+            add(Secao(categoria.id, categoria.name, orbita.channels.filter { it.categoryId == categoria.id }.sortedBy { it.position }))
+        }
+    }
+}
+
+private enum class OQueEstaNaMao { CANAL, CATEGORIA }
+
+private class ArrastoNoPainel {
+    var tipo by mutableStateOf<OQueEstaNaMao?>(null)
+    var id by mutableStateOf<String?>(null)
+    var secao by mutableStateOf(AVULSOS)
+    var pontoY by mutableFloatStateOf(0f)
+    var mexeu by mutableStateOf(false)
+    var categoriaSob by mutableStateOf<String?>(null)
+    var ordem by mutableStateOf<List<String>>(emptyList())
+    val arrastando: Boolean get() = id != null
+
+    fun soltar() {
+        tipo = null
+        id = null
+        mexeu = false
+        categoriaSob = null
+        ordem = emptyList()
+    }
+}
+
+private fun chaveSob(info: LazyListLayoutInfo, y: Float): String? =
+    info.visibleItemsInfo.firstOrNull {
+        val topo = it.offset - info.viewportStartOffset
+        y >= topo && y < topo + it.size
+    }?.key as? String
+
+private fun centroNaLista(info: LazyListLayoutInfo, chave: String): Float? =
+    info.visibleItemsInfo.firstOrNull { it.key == chave }
+        ?.let { it.offset + it.size / 2f - info.viewportStartOffset }
+
+private fun velocidadeDaBorda(y: Float, altura: Float, zona: Float, teto: Float): Float {
+    if (altura <= 0f || zona <= 0f) return 0f
+    return when {
+        y < zona -> -teto * ((zona - y) / zona).coerceIn(0f, 1f)
+        y > altura - zona -> teto * ((y - (altura - zona)) / zona).coerceIn(0f, 1f)
+        else -> 0f
+    }
+}
 
 @Composable
 fun PainelDeCanais(
@@ -61,40 +144,199 @@ fun PainelDeCanais(
     canalAberto: String?,
     naoLidos: Set<String>,
     vozAtiva: List<ActiveVoiceRoom>,
+    recolhidas: Set<String>,
+    podeArrumar: Boolean,
     aoAbrirCanal: (Channel) -> Unit,
     aoEntrarNaVoz: (Channel) -> Unit,
     aoBuscar: () -> Unit,
+    aoConvidar: (() -> Unit)?,
     aoAbrirAjustes: () -> Unit,
+    aoAlternarCategoria: (String) -> Unit,
+    aoReordenarCanais: (List<String>) -> Unit,
+    aoMoverParaCategoria: (canalId: String, categoriaId: String) -> Unit,
+    aoReordenarCategorias: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val porCategoria = remember(orbita) {
-        val avulsos = orbita.channels.filter { canal -> orbita.categories.none { it.id == canal.categoryId } }
-        val grupos = orbita.categories.sortedBy { it.position }
-            .map { categoria -> categoria.name to orbita.channels.filter { it.categoryId == categoria.id } }
-        buildList {
-            if (avulsos.isNotEmpty()) add(null to avulsos)
-            addAll(grupos.filter { it.second.isNotEmpty() })
+    val haptico = LocalHapticFeedback.current
+    val comVibracao = LocalAppPrefs.current.haptics
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val estado = rememberLazyListState()
+    val arrasto = remember { ArrastoNoPainel() }
+    val secoesReais = remember(orbita) { secoesDe(orbita) }
+
+    val secoes = when (arrasto.tipo) {
+        OQueEstaNaMao.CATEGORIA -> {
+            val porId = secoesReais.associateBy { it.categoriaId }
+            secoesReais.filter { it.categoriaId == AVULSOS } + arrasto.ordem.mapNotNull { porId[it] }
+        }
+        OQueEstaNaMao.CANAL -> secoesReais.map { secao ->
+            if (secao.categoriaId != arrasto.secao) secao
+            else {
+                val porId = secao.canais.associateBy { it.id }
+                Secao(secao.categoriaId, secao.nome, arrasto.ordem.mapNotNull { porId[it] })
+            }
+        }
+        null -> secoesReais
+    }
+    val secoesAgora by rememberUpdatedState(secoesReais)
+    val podeAgora by rememberUpdatedState(podeArrumar)
+
+    val acompanhar = {
+        val sob = chaveSob(estado.layoutInfo, arrasto.pontoY)
+        val id = arrasto.id
+        when (arrasto.tipo) {
+            OQueEstaNaMao.CANAL -> {
+                val secao = secoesAgora.firstOrNull { it.categoriaId == arrasto.secao }
+                when {
+                    sob == null || id == null || secao == null -> Unit
+                    sob.startsWith(PREFIXO_DA_CATEGORIA) -> {
+                        val alvo = sob.removePrefix(PREFIXO_DA_CATEGORIA)
+                        arrasto.categoriaSob = alvo.takeIf { it != arrasto.secao }
+                    }
+                    sob != id && sob in arrasto.ordem -> {
+                        arrasto.categoriaSob = null
+                        val nova = arrasto.ordem.toMutableList()
+                        nova.add(arrasto.ordem.indexOf(sob), nova.removeAt(arrasto.ordem.indexOf(id)))
+                        arrasto.ordem = nova
+                        arrasto.mexeu = true
+                    }
+                    else -> arrasto.categoriaSob = null
+                }
+            }
+            OQueEstaNaMao.CATEGORIA -> {
+                val alvo = sob?.takeIf { it.startsWith(PREFIXO_DA_CATEGORIA) }?.removePrefix(PREFIXO_DA_CATEGORIA)
+                if (id != null && alvo != null && alvo != id && alvo in arrasto.ordem) {
+                    val nova = arrasto.ordem.toMutableList()
+                    nova.add(arrasto.ordem.indexOf(alvo), nova.removeAt(arrasto.ordem.indexOf(id)))
+                    arrasto.ordem = nova
+                    arrasto.mexeu = true
+                }
+            }
+            null -> Unit
         }
     }
 
-    LazyColumn(modifier.fillMaxSize()) {
+    val zona = with(LocalDensity.current) { ZONA_DE_ROLAGEM.toPx() }
+    val teto = with(LocalDensity.current) { PASSO_DA_ROLAGEM.toPx() }
+    LaunchedEffect(arrasto.arrastando) {
+        if (!arrasto.arrastando) return@LaunchedEffect
+        while (true) {
+            withFrameNanos { }
+            val altura = estado.layoutInfo.viewportSize.height.toFloat()
+            val velocidade = velocidadeDaBorda(arrasto.pontoY, altura, zona, teto)
+            if (velocidade != 0f) {
+                estado.scrollBy(velocidade)
+                acompanhar()
+            }
+        }
+    }
+
+    LazyColumn(
+        state = estado,
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { ponto ->
+                        if (!podeAgora) return@detectDragGesturesAfterLongPress
+                        val sob = chaveSob(estado.layoutInfo, ponto.y) ?: return@detectDragGesturesAfterLongPress
+                        if (sob.startsWith(PREFIXO_DA_CATEGORIA)) {
+                            val id = sob.removePrefix(PREFIXO_DA_CATEGORIA)
+                            arrasto.tipo = OQueEstaNaMao.CATEGORIA
+                            arrasto.id = id
+                            arrasto.ordem = secoesAgora.map { it.categoriaId }.filter { it != AVULSOS }
+                        } else {
+                            val secao = secoesAgora.firstOrNull { s -> s.canais.any { it.id == sob } }
+                                ?: return@detectDragGesturesAfterLongPress
+                            arrasto.tipo = OQueEstaNaMao.CANAL
+                            arrasto.id = sob
+                            arrasto.secao = secao.categoriaId
+                            arrasto.ordem = secao.canais.map { it.id }
+                        }
+                        arrasto.pontoY = ponto.y
+                        arrasto.mexeu = false
+                        if (comVibracao) haptico.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                    onDrag = { mudanca, _ ->
+                        if (arrasto.arrastando) {
+                            mudanca.consume()
+                            arrasto.pontoY = mudanca.position.y
+                            acompanhar()
+                        }
+                    },
+                    onDragEnd = {
+                        val id = arrasto.id
+                        val tipo = arrasto.tipo
+                        val ordem = arrasto.ordem
+                        val destino = arrasto.categoriaSob
+                        val mexeu = arrasto.mexeu
+                        arrasto.soltar()
+                        when {
+                            id == null -> Unit
+                            tipo == OQueEstaNaMao.CANAL && destino != null -> aoMoverParaCategoria(id, destino)
+                            tipo == OQueEstaNaMao.CANAL && mexeu -> aoReordenarCanais(ordem)
+                            tipo == OQueEstaNaMao.CATEGORIA && mexeu -> aoReordenarCategorias(ordem)
+                        }
+                    },
+                    onDragCancel = { arrasto.soltar() },
+                )
+            },
+    ) {
         item(key = "capa") {
-            Capa(orbita = orbita, aoBuscar = aoBuscar, aoAbrirAjustes = aoAbrirAjustes)
+            Capa(orbita = orbita, aoBuscar = aoBuscar, aoConvidar = aoConvidar, aoAbrirAjustes = aoAbrirAjustes)
         }
 
-        porCategoria.forEach { (categoria, canais) ->
-            if (categoria != null) {
-                item(key = "cat-$categoria") {
-                    MarginaliaLabel(categoria, Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp))
+        secoes.forEach { secao ->
+            val nome = secao.nome
+            val recolhida = secao.categoriaId in recolhidas
+            if (nome != null) {
+                val chave = PREFIXO_DA_CATEGORIA + secao.categoriaId
+                item(key = chave) {
+                    val naMao = arrasto.tipo == OQueEstaNaMao.CATEGORIA && arrasto.id == secao.categoriaId
+                    TituloDaCategoria(
+                        nome = nome,
+                        recolhida = secao.categoriaId in recolhidas,
+                        acesa = arrasto.categoriaSob == secao.categoriaId,
+                        aoTocar = { aoAlternarCategoria(secao.categoriaId) },
+                        modifier = Modifier
+                            .zIndex(if (naMao) 1f else 0f)
+                            .graphicsLayer {
+                                if (!naMao) return@graphicsLayer
+                                val centro = centroNaLista(estado.layoutInfo, chave) ?: return@graphicsLayer
+                                translationY = arrasto.pontoY - centro
+                                scaleX = ESCALA_NA_MAO
+                                scaleY = ESCALA_NA_MAO
+                            },
+                    )
                 }
             }
-            items(canais, key = { it.id }) { canal ->
+            val visiveis = when {
+                arrasto.tipo == OQueEstaNaMao.CATEGORIA -> emptyList()
+                recolhida -> secao.canais.filter { it.id == canalAberto || it.id in naoLidos || it.id == arrasto.id }
+                else -> secao.canais
+            }
+            items(visiveis, key = { it.id }) { canal ->
+                val naMao = arrasto.tipo == OQueEstaNaMao.CANAL && arrasto.id == canal.id
                 LinhaDeCanal(
                     canal = canal,
                     aberto = canal.id == canalAberto,
                     naoLido = canal.id in naoLidos,
                     naVoz = vozAtiva.firstOrNull { it.channelId == canal.id }?.count ?: 0,
+                    naMao = naMao,
                     aoTocar = { if (canal.isVoice) aoEntrarNaVoz(canal) else aoAbrirCanal(canal) },
+                    modifier = Modifier
+                        .zIndex(if (naMao) 1f else 0f)
+                        .then(
+                            if (naMao || semMovimento) Modifier
+                            else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
+                        )
+                        .graphicsLayer {
+                            if (!naMao) return@graphicsLayer
+                            val centro = centroNaLista(estado.layoutInfo, canal.id) ?: return@graphicsLayer
+                            translationY = arrasto.pontoY - centro
+                            scaleX = ESCALA_NA_MAO
+                            scaleY = ESCALA_NA_MAO
+                        },
                 )
             }
         }
@@ -104,7 +346,7 @@ fun PainelDeCanais(
 }
 
 @Composable
-private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoAbrirAjustes: () -> Unit) {
+private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?, aoAbrirAjustes: () -> Unit) {
     Column {
         if (orbita.bannerUrl != null) {
             AsyncImage(
@@ -118,7 +360,12 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoAbrirAjustes: () -> Uni
             )
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp, top = 12.dp),
+            modifier = Modifier
+                .padding(start = 10.dp, end = 12.dp, top = 12.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = aoAbrirAjustes)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .semantics { contentDescription = "${orbita.name}, abrir ajustes da órbita" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -128,19 +375,155 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoAbrirAjustes: () -> Uni
                 color = astraColors.text1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f, fill = false),
             )
-            BotaoRedondo(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar)
-            Spacer(Modifier.width(8.dp))
-            BotaoRedondo(icone = Lucide.Settings, rotulo = "Ajustes da órbita", aoTocar = aoAbrirAjustes)
+            Spacer(Modifier.width(6.dp))
+            Icon(Lucide.ChevronRight, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val forma = RoundedCornerShape(10.dp)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(forma)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.border, forma)
+                    .clickable(onClick = aoBuscar),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Lucide.Search, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Buscar", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+            }
+            if (aoConvidar != null) {
+                Spacer(Modifier.width(8.dp))
+                BotaoQuadrado(icone = Lucide.UserPlus, rotulo = "Convidar pessoas", aoTocar = aoConvidar)
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun BotaoQuadrado(icone: ImageVector, rotulo: String, aoTocar: () -> Unit) {
+    val forma = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(forma)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, forma)
+            .clickable(onClick = aoTocar)
+            .semantics { contentDescription = rotulo },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun TituloDaCategoria(
+    nome: String,
+    recolhida: Boolean,
+    acesa: Boolean,
+    aoTocar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val giro by animateFloatAsState(if (recolhida) -90f else 0f, tween(160), label = "giro")
+    val forma = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 14.dp, bottom = 2.dp)
+            .clip(forma)
+            .background(if (acesa) astraColors.accentDim else Color.Transparent)
+            .clickable(onClick = aoTocar)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .semantics { stateDescription = if (recolhida) "recolhida" else "aberta" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = nome,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            color = if (acesa) astraColors.accent else astraColors.text2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(Modifier.width(4.dp))
+        Icon(
+            Lucide.ChevronDown,
+            contentDescription = null,
+            tint = astraColors.text3,
+            modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = giro },
+        )
+    }
+}
+
+@Composable
+private fun LinhaDeCanal(
+    canal: Channel,
+    aberto: Boolean,
+    naoLido: Boolean,
+    naVoz: Int,
+    naMao: Boolean,
+    aoTocar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val forma = RoundedCornerShape(8.dp)
+    val destaque = naoLido || aberto
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 1.dp)
+            .clip(forma)
+            .background(
+                when {
+                    naMao -> astraColors.overlay
+                    aberto -> astraColors.raised
+                    else -> Color.Transparent
+                },
+            )
+            .clickable(onClick = aoTocar)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (canal.isVoice) Lucide.Volume2 else Lucide.Hash,
+            contentDescription = null,
+            tint = if (destaque) astraColors.text1 else astraColors.text3,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Box(Modifier.weight(1f)) {
+            Text(
+                text = canal.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                fontWeight = if (naoLido) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (destaque) astraColors.text1 else astraColors.text2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (canal.isVoice) Modifier else Modifier.viajante(Viagem.nomeDoCanal(canal.id), ehTexto = true),
+            )
+        }
+        if (naVoz > 0) MarginaliaLabel("$naVoz")
+        if (naoLido && !aberto) {
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.size(7.dp).clip(CircleShape).background(astraColors.accent))
+        }
     }
 }
 
 @Composable
 internal fun BotaoRedondo(
-    icone: androidx.compose.ui.graphics.vector.ImageVector,
+    icone: ImageVector,
     rotulo: String,
     aoTocar: () -> Unit,
     marca: Int = 0,
@@ -188,49 +571,5 @@ internal fun ContadorQueMuda(texto: String) {
         label = "contador",
     ) { valor ->
         Text(valor, style = MaterialTheme.typography.labelSmall, color = astraColors.textInv)
-    }
-}
-
-@Composable
-private fun LinhaDeCanal(
-    canal: Channel,
-    aberto: Boolean,
-    naoLido: Boolean,
-    naVoz: Int,
-    aoTocar: () -> Unit,
-) {
-    val forma = RoundedCornerShape(8.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 1.dp)
-            .clip(forma)
-            .background(if (aberto) astraColors.raised else Color.Transparent)
-            .clickable(onClick = aoTocar)
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            if (canal.isVoice) Lucide.Volume2 else Lucide.Hash,
-            contentDescription = null,
-            tint = if (naoLido || aberto) astraColors.text1 else astraColors.text3,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f)) {
-            Text(
-                text = canal.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (naoLido || aberto) astraColors.text1 else astraColors.text2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = if (canal.isVoice) Modifier else Modifier.viajante(Viagem.nomeDoCanal(canal.id), ehTexto = true),
-            )
-        }
-        if (naVoz > 0) MarginaliaLabel("$naVoz")
-        if (naoLido && !aberto) {
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(7.dp).clip(CircleShape).background(astraColors.accent))
-        }
     }
 }

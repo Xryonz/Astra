@@ -2,6 +2,7 @@ package app.astra.mobile.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.astra.mobile.core.data.ArranjoLocal
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.BadgesApi
 import app.astra.mobile.core.network.FriendsApi
@@ -42,6 +43,7 @@ class HomeViewModel @Inject constructor(
     private val badgesApi: BadgesApi,
     private val friendsApi: FriendsApi,
     private val pushRegistrar: PushRegistrar,
+    private val arranjo: ArranjoLocal,
 ) : ViewModel() {
 
     fun registerPush() = pushRegistrar.register()
@@ -63,6 +65,12 @@ class HomeViewModel @Inject constructor(
         load()
         refreshNotifications()
         observeIncoming()
+        viewModelScope.launch {
+            arranjo.ordemDasConstelacoes.collect { ordem -> _state.update { it.copy(ordemDasOrbitas = ordem) } }
+        }
+        viewModelScope.launch {
+            arranjo.categoriasRecolhidas.collect { ids -> _state.update { it.copy(categoriasRecolhidas = ids) } }
+        }
     }
 
     fun load() {
@@ -194,8 +202,74 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectServer(id: String?) {
-        _state.update { it.copy(selectedServerId = id) }
-        if (id != null) refreshVoicePresence()
+        _state.update { it.copy(selectedServerId = id, podeArrumar = false) }
+        if (id == null) return
+        refreshVoicePresence()
+        viewModelScope.launch {
+            val pode = serverRepository.podeArrumarOrbitas(id)
+            _state.update { if (it.selectedServerId == id) it.copy(podeArrumar = pode) else it }
+        }
+    }
+
+    fun guardarOrdemDasOrbitas(ids: List<String>) {
+        _state.update { it.copy(ordemDasOrbitas = ids) }
+        viewModelScope.launch { arranjo.guardarOrdem(ids) }
+    }
+
+    fun alternarCategoria(categoriaId: String) {
+        viewModelScope.launch { arranjo.alternarCategoria(categoriaId) }
+    }
+
+    fun reordenarCanais(serverId: String, idsNaOrdem: List<String>) {
+        val orbita = _state.value.servers.firstOrNull { it.id == serverId } ?: return
+        val novas = idsNaOrdem.withIndex().associate { (i, id) -> id to i }
+        val antigas = orbita.channels.associate { it.id to it.position }
+        mudarOrbita(serverId) { o ->
+            o.copy(channels = o.channels.map { c -> novas[c.id]?.let { c.copy(position = it) } ?: c })
+        }
+        viewModelScope.launch {
+            val falhas = idsNaOrdem.filter { antigas[it] != novas[it] }.mapNotNull { id ->
+                serverRepository.moverCanal(serverId, id, novas.getValue(id)).exceptionOrNull()
+            }
+            falhas.firstOrNull()?.let { e -> _state.update { it.copy(manageError = e.message) } }
+            reloadServers()
+        }
+    }
+
+    fun moverCanalParaCategoria(serverId: String, channelId: String, categoriaId: String) {
+        val orbita = _state.value.servers.firstOrNull { it.id == serverId } ?: return
+        if (orbita.channels.firstOrNull { it.id == channelId }?.categoryId == categoriaId) return
+        val posicao = (orbita.channels.filter { it.categoryId == categoriaId }.maxOfOrNull { it.position } ?: -1) + 1
+        mudarOrbita(serverId) { o ->
+            o.copy(channels = o.channels.map { c ->
+                if (c.id == channelId) c.copy(categoryId = categoriaId, position = posicao) else c
+            })
+        }
+        viewModelScope.launch {
+            serverRepository.moverCanal(serverId, channelId, posicao, categoriaId)
+                .onFailure { e -> _state.update { it.copy(manageError = e.message) } }
+            reloadServers()
+        }
+    }
+
+    fun reordenarCategorias(serverId: String, idsNaOrdem: List<String>) {
+        val orbita = _state.value.servers.firstOrNull { it.id == serverId } ?: return
+        val novas = idsNaOrdem.withIndex().associate { (i, id) -> id to i }
+        val antigas = orbita.categories.associate { it.id to it.position }
+        mudarOrbita(serverId) { o ->
+            o.copy(categories = o.categories.map { c -> novas[c.id]?.let { c.copy(position = it) } ?: c })
+        }
+        viewModelScope.launch {
+            val falhas = idsNaOrdem.filter { antigas[it] != novas[it] }.mapNotNull { id ->
+                serverRepository.moverCategoria(serverId, id, novas.getValue(id)).exceptionOrNull()
+            }
+            falhas.firstOrNull()?.let { e -> _state.update { it.copy(manageError = e.message) } }
+            reloadServers()
+        }
+    }
+
+    private fun mudarOrbita(serverId: String, mudanca: (Server) -> Server) {
+        _state.update { st -> st.copy(servers = st.servers.map { if (it.id == serverId) mudanca(it) else it }) }
     }
 
     private fun refreshVoicePresence() {

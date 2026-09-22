@@ -339,10 +339,10 @@ private fun InviteAction(text: String, danger: Boolean = false, onClick: () -> U
     )
 }
 
-private fun shareInviteLink(context: Context, link: String) {
+internal fun shareInviteLink(context: Context, link: String) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "Entra na minha constelacao no Astra: $link")
+        putExtra(Intent.EXTRA_TEXT, "Entre na minha constelação no Astra: $link")
     }
     context.startActivity(Intent.createChooser(send, "Compartilhar convite"))
 }

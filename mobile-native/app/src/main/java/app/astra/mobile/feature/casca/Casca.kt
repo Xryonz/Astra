@@ -1,5 +1,14 @@
 package app.astra.mobile.feature.casca
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -28,11 +37,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
+import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.home.HomeViewModel
 import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.feature.server.presentation.shareInviteLink
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.ItemDeMenu
+import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
+
+private const val CHAVE_DOS_SUSSURROS = "sussurros"
+private const val TROCA_DE_PAINEL_MS = 280
 
 @Composable
 fun Casca(
@@ -104,6 +122,19 @@ fun Casca(
 
     val orbitaAberta = estado.servers.firstOrNull { it.id == estado.selectedServerId }
     val emSussurros = orbitaAberta == null
+    val orbitasNaOrdem = remember(estado.servers, estado.ordemDasOrbitas) {
+        naOrdemEscolhida(estado.servers, estado.ordemDasOrbitas)
+    }
+    val posicoes = remember(orbitasNaOrdem) { orbitasNaOrdem.withIndex().associate { (i, o) -> o.id to i } }
+    var ultimoCanal by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val contexto = LocalContext.current
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val aviso = LocalToastHostState.current
+    LaunchedEffect(estado.manageError) {
+        val erro = estado.manageError ?: return@LaunchedEffect
+        viewModel.clearManageError()
+        aviso.show(erro)
+    }
 
     Column(
         Modifier
@@ -115,14 +146,18 @@ fun Casca(
         Row(Modifier.fillMaxWidth().weight(1f)) {
             Box {
             ColunaDeOrbitas(
-                orbitas = estado.servers,
+                orbitas = orbitasNaOrdem,
                 orbitaAberta = estado.selectedServerId,
                 emSussurros = emSussurros,
-                naoLidas = estado.channelUnread,
+                sussurroNaoLido = estado.unread.isNotEmpty(),
+                naoLidas = remember(estado.servers, estado.channelUnread) {
+                    estado.servers.filter { o -> o.channels.any { it.id in estado.channelUnread } }.mapTo(HashSet()) { it.id }
+                },
                 silenciadas = estado.mutedServers,
                 aoAbrirSussurros = { viewModel.selectServer(null) },
                 aoAbrirOrbita = { viewModel.selectServer(it) },
                 aoSegurarOrbita = aoAbrirAjustesDaOrbita,
+                aoReordenar = viewModel::guardarOrdemDasOrbitas,
                 aoAdicionar = { menuDeAdicionar = true },
             )
             DropdownMenu(
@@ -145,19 +180,47 @@ fun Casca(
                     .background(astraColors.base)
                     .border(1.dp, astraColors.border, RoundedCornerShape(topStart = 16.dp)),
             ) {
-                if (orbitaAberta != null) {
+                AnimatedContent(
+                    targetState = orbitaAberta?.id ?: CHAVE_DOS_SUSSURROS,
+                    transitionSpec = {
+                        if (semMovimento) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            val sentido = if ((posicoes[targetState] ?: -1) >= (posicoes[initialState] ?: -1)) 1 else -1
+                            (slideInVertically(tween(TROCA_DE_PAINEL_MS, easing = EaseOutSoft)) { -sentido * it / 12 } +
+                                fadeIn(tween(220, delayMillis = 40))) togetherWith
+                                (slideOutVertically(tween(TROCA_DE_PAINEL_MS, easing = EaseOutSoft)) { sentido * it / 12 } +
+                                    fadeOut(tween(160)))
+                        }
+                    },
+                    label = "painel",
+                ) { chave ->
+                val orbita = estado.servers.firstOrNull { it.id == chave }
+                if (orbita != null) {
                     PainelDeCanais(
-                        orbita = orbitaAberta,
-                        canalAberto = null,
+                        orbita = orbita,
+                        canalAberto = ultimoCanal[orbita.id],
                         naoLidos = estado.channelUnread,
                         vozAtiva = estado.activeVoice,
+                        recolhidas = estado.categoriasRecolhidas,
+                        podeArrumar = estado.podeArrumar,
                         aoAbrirCanal = { canal ->
+                            ultimoCanal = ultimoCanal + (orbita.id to canal.id)
                             viewModel.markChannelSeen(canal.id)
-                            aoAbrirCanal(canal.id, canal.name, orbitaAberta.id)
+                            aoAbrirCanal(canal.id, canal.name, orbita.id)
                         },
-                        aoEntrarNaVoz = { canal -> aoEntrarNaVoz(canal.id, canal.name, orbitaAberta.id) },
+                        aoEntrarNaVoz = { canal -> aoEntrarNaVoz(canal.id, canal.name, orbita.id) },
                         aoBuscar = aoAbrirBusca,
-                        aoAbrirAjustes = { aoAbrirAjustesDaOrbita(orbitaAberta.id) },
+                        aoConvidar = orbita.inviteCode?.let { codigo ->
+                            { shareInviteLink(contexto, BuildConfig.BASE_URL.trimEnd('/') + "/i/" + codigo) }
+                        },
+                        aoAbrirAjustes = { aoAbrirAjustesDaOrbita(orbita.id) },
+                        aoAlternarCategoria = viewModel::alternarCategoria,
+                        aoReordenarCanais = { ids -> viewModel.reordenarCanais(orbita.id, ids) },
+                        aoMoverParaCategoria = { canalId, categoriaId ->
+                            viewModel.moverCanalParaCategoria(orbita.id, canalId, categoriaId)
+                        },
+                        aoReordenarCategorias = { ids -> viewModel.reordenarCategorias(orbita.id, ids) },
                     )
                 } else if (estado.loading && estado.dms.isEmpty() && estado.servers.isEmpty()) {
                     EmptyState(line = "Abrindo o céu", hint = "um instante")
@@ -179,6 +242,7 @@ fun Casca(
                         aoFechar = { conversa -> viewModel.fecharConversa(conversa.id) },
                         pedidos = estado.pedidosDeAmizade,
                     )
+                }
                 }
             }
         }

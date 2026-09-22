@@ -27,6 +27,9 @@ data class HomeUiState(
     val mutedConvs: Set<String> = emptySet(),
 
     val selectedServerId: String? = null,
+    val ordemDasOrbitas: List<String> = emptyList(),
+    val categoriasRecolhidas: Set<String> = emptySet(),
+    val podeArrumar: Boolean = false,
 
     val myId: String? = null,
     val myName: String = "",

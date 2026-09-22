@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.ArranjoLocal
 import app.astra.mobile.core.data.TokenStore
-import app.astra.mobile.core.network.BadgesApi
 import app.astra.mobile.core.network.FriendsApi
 import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.dto.CustomStatusRequest
@@ -19,7 +18,6 @@ import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
 import app.astra.mobile.feature.server.domain.model.Server
-import app.astra.mobile.ui.components.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -40,7 +38,6 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
     private val notificationsApi: NotificationsApi,
-    private val badgesApi: BadgesApi,
     private val friendsApi: FriendsApi,
     private val pushRegistrar: PushRegistrar,
     private val arranjo: ArranjoLocal,
@@ -138,26 +135,12 @@ class HomeViewModel @Inject constructor(
                     myName = me?.displayName ?: "",
                     myUsername = me?.username ?: "",
                     myAvatar = me?.avatarUrl,
-                    myBanner = me?.bannerUrl,
-                    myBannerColor = me?.bannerColor,
-                    myFont = me?.displayFont ?: "serif",
-                    myBio = me?.bio,
-                    myPronouns = me?.pronouns,
-                    myCreatedAt = me?.createdAt,
                     myStatus = me?.status?.takeUnless { it == UserStatus.OFFLINE } ?: UserStatus.ONLINE,
                     myCustomStatus = me?.customStatus,
                     needsOnboarding = me != null && me.onboardedAt == null,
                     needsEmailVerify = me != null && me.emailVerifiedAt == null,
                     needsPassword = me != null && !me.hasPassword,
                 )
-            }
-
-            if (myId != null) {
-                launch {
-                    runCatching { badgesApi.userBadges(myId).data?.toUi() }.getOrNull()?.let { b ->
-                        _state.update { it.copy(myBadges = b) }
-                    }
-                }
             }
         }
     }
@@ -337,12 +320,6 @@ class HomeViewModel @Inject constructor(
                         myName = me.displayName,
                         myUsername = me.username,
                         myAvatar = me.avatarUrl,
-                        myBanner = me.bannerUrl,
-                        myBannerColor = me.bannerColor,
-                        myFont = me.displayFont,
-                        myBio = me.bio,
-                        myPronouns = me.pronouns,
-                        myCreatedAt = me.createdAt,
                         myStatus = me.status.takeUnless { it == UserStatus.OFFLINE } ?: UserStatus.ONLINE,
                         myCustomStatus = me.customStatus,
                     )

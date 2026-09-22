@@ -49,6 +49,7 @@ class DmChatViewModel @Inject constructor(
 
     private var otherUserId: String? = null
     private var ringTimeout: Job? = null
+    private var chamadaPendente = false
 
     init {
         repository.joinConversation(conversationId)
@@ -61,6 +62,10 @@ class DmChatViewModel @Inject constructor(
             repository.conversations().onSuccess { list ->
                 val conv = list.find { it.id == conversationId }
                 otherUserId = conv?.otherUserId
+                if (chamadaPendente && otherUserId != null) {
+                    chamadaPendente = false
+                    startCall()
+                }
                 _state.update { it.copy(muted = conv?.muted == true, outroAvatar = conv?.otherAvatarUrl) }
                 conv?.let {
                     launch(Dispatchers.IO) {
@@ -79,6 +84,10 @@ class DmChatViewModel @Inject constructor(
             repository.setMuted(conversationId, target)
                 .onFailure { _state.update { it.copy(muted = !target) } }
         }
+    }
+
+    fun chamarQuandoPuder() {
+        if (otherUserId != null) startCall() else chamadaPendente = true
     }
 
     fun startCall() {

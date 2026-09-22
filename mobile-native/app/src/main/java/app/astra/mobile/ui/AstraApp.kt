@@ -74,10 +74,15 @@ import app.astra.mobile.feature.notifications.presentation.NotificationsSettings
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
 import app.astra.mobile.feature.profile.presentation.DataScreen
-import app.astra.mobile.feature.profile.presentation.PersonalizationScreen
+import app.astra.mobile.feature.profile.presentation.AparenciaScreen
+import app.astra.mobile.feature.profile.presentation.CoresDoNomeScreen
+import app.astra.mobile.feature.profile.presentation.EditarPerfilScreen
+import app.astra.mobile.feature.profile.presentation.FolhaDePerfil
+import app.astra.mobile.feature.profile.presentation.MeuPerfilScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.TelaSobre
-import app.astra.mobile.feature.profile.presentation.UserProfileScreen
+import androidx.compose.ui.window.DialogProperties
+import androidx.navigation.compose.dialog
 import app.astra.mobile.feature.sessions.presentation.SessionsScreen
 import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
@@ -97,6 +102,7 @@ import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 import kotlinx.coroutines.delay
 
+private const val ORBITA_PEDIDA = "orbitaPedida"
 private const val TELA_MS = 320
 private const val RECUO_DA_ANTERIOR = 4
 private const val ESCURO_DA_ANTERIOR = 0.55f
@@ -116,7 +122,10 @@ private object Routes {
     const val HOME = "home"
     const val SETTINGS = "settings"
     const val ACCOUNT = "settings/account"
-    const val PERSONALIZATION = "settings/personalization"
+    const val APARENCIA = "settings/appearance"
+    const val CORES_DO_NOME = "settings/name-colors"
+    const val EDITAR_PERFIL = "settings/profile"
+    const val MEU_PERFIL = "me"
     const val ACCESSIBILITY = "settings/accessibility"
     const val NOTIFICATIONS = "settings/notifications"
     const val NOTIF_FEED = "notifications"
@@ -129,7 +138,7 @@ private object Routes {
     const val USER_PROFILE = "user/{userId}?name={name}"
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
     const val DMS = "dms"
-    const val DM_CHAT = "dm/{conversationId}?name={name}"
+    const val DM_CHAT = "dm/{conversationId}?name={name}&chamar={chamar}"
     const val JOIN = "join?code={code}"
     const val VERIFY_EMAIL = "verify-email"
     const val DISCOVER = "discover"
@@ -154,7 +163,7 @@ private object Routes {
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}&serverId={serverId}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
 
-    fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
+    fun dmChat(id: String, name: String, chamar: Boolean = false) = "dm/$id?name=${Uri.encode(name)}&chamar=$chamar"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
     fun channelChat(id: String, name: String, serverId: String = "") =
         "channel/$id?name=${Uri.encode(name)}&serverId=${Uri.encode(serverId)}"
@@ -208,9 +217,12 @@ fun AstraApp() {
                 tela(Routes.REGISTER) {
                     RegisterScreen(onGoToLogin = { nav.popBackStack() })
                 }
-                tela(Routes.HOME) {
+                tela(Routes.HOME) { entrada ->
+                    val orbitaPedida by entrada.savedStateHandle.getStateFlow<String?>(ORBITA_PEDIDA, null).collectAsState()
                     CompositionLocalProvider(LocalPalco provides this) {
                     Casca(
+                        orbitaPedida = orbitaPedida,
+                        aoAtenderPedido = { entrada.savedStateHandle[ORBITA_PEDIDA] = null },
                         aoAbrirCanal = { id, nome, orbitaId -> nav.navigate(Routes.channelChat(id, nome, orbitaId)) },
                         aoAbrirSussurro = { id, nome -> nav.navigate(Routes.dmChat(id, nome)) },
                         aoAbrirAjustesDaOrbita = { id -> nav.navigate(Routes.serverEdit(id)) },
@@ -220,8 +232,7 @@ fun AstraApp() {
                         aoAbrirBusca = { nav.navigate(Routes.SEARCH) },
                         aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
                         aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
-                        aoAbrirPerfil = { nav.navigate(Routes.SETTINGS) },
-                        aoEditarPerfil = { nav.navigate(Routes.PERSONALIZATION) },
+                        aoAbrirPerfil = { nav.navigate(Routes.MEU_PERFIL) },
                         aoAbrirDescobrir = { nav.navigate(Routes.DISCOVER) },
                         aoAbrirConvite = { nav.navigate(Routes.join()) },
                         aoAbrirOnboarding = { nav.navigate(Routes.ONBOARDING) },
@@ -248,20 +259,54 @@ fun AstraApp() {
                         onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
                     )
                 }
-                tela(
+                dialog(
                     route = Routes.USER_PROFILE,
                     arguments = listOf(
                         navArgument("userId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
+                    dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
                 ) {
-                    UserProfileScreen(onBack = { nav.popBackStack() })
+                    FolhaDePerfil(
+                        aoFechar = { nav.popBackStack() },
+                        aoEditarPerfil = {
+                            nav.popBackStack()
+                            nav.navigate(Routes.EDITAR_PERFIL)
+                        },
+                        aoAbrirConversa = { c ->
+                            nav.popBackStack()
+                            val atual = nav.currentBackStackEntry
+                            val jaEstaNela = atual?.destination?.route == Routes.DM_CHAT &&
+                                atual.arguments?.getString("conversationId") == c.id
+                            when {
+                                !jaEstaNela -> nav.navigate(Routes.dmChat(c.id, c.nome, c.chamar))
+                                c.chamar -> atual.savedStateHandle["chamar"] = true
+                            }
+                        },
+                        aoAbrirOrbita = { id ->
+                            runCatching { nav.getBackStackEntry(Routes.HOME).savedStateHandle[ORBITA_PEDIDA] = id }
+                            nav.popBackStack(Routes.HOME, inclusive = false)
+                        },
+                    )
+                }
+                tela(Routes.MEU_PERFIL) {
+                    MeuPerfilScreen(
+                        aoFechar = { nav.popBackStack() },
+                        aoEditar = { nav.navigate(Routes.EDITAR_PERFIL) },
+                        aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
+                        aoAbrirConfiguracoes = { nav.navigate(Routes.SETTINGS) },
+                    )
+                }
+                tela(Routes.EDITAR_PERFIL) {
+                    EditarPerfilScreen(onBack = { nav.popBackStack() })
                 }
                 tela(Routes.SETTINGS) {
                     SettingsScreen(
                         onBack = { nav.popBackStack() },
+                        onOpenProfile = { nav.navigate(Routes.EDITAR_PERFIL) },
                         onOpenAccount = { nav.navigate(Routes.ACCOUNT) },
-                        onOpenPersonalization = { nav.navigate(Routes.PERSONALIZATION) },
+                        onOpenNameColors = { nav.navigate(Routes.CORES_DO_NOME) },
+                        onOpenAppearance = { nav.navigate(Routes.APARENCIA) },
                         onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
                         onOpenNotifications = { nav.navigate(Routes.NOTIFICATIONS) },
                         onOpenSessions = { nav.navigate(Routes.SESSIONS) },
@@ -288,8 +333,11 @@ fun AstraApp() {
                 tela(Routes.SOBRE) {
                     TelaSobre(onBack = { nav.popBackStack() })
                 }
-                tela(Routes.PERSONALIZATION) {
-                    PersonalizationScreen(onBack = { nav.popBackStack() })
+                tela(Routes.APARENCIA) {
+                    AparenciaScreen(onBack = { nav.popBackStack() })
+                }
+                tela(Routes.CORES_DO_NOME) {
+                    CoresDoNomeScreen(onBack = { nav.popBackStack() })
                 }
                 tela(Routes.ACCESSIBILITY) {
                     AccessibilityScreen(onBack = { nav.popBackStack() })
@@ -440,13 +488,17 @@ fun AstraApp() {
                     arguments = listOf(
                         navArgument("conversationId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("chamar") { type = NavType.BoolType; defaultValue = false },
                     ),
-                ) {
+                ) { entrada ->
+                    val pedirChamada by entrada.savedStateHandle.getStateFlow("chamar", false).collectAsState()
                     CompositionLocalProvider(LocalPalco provides this) {
                         DmChatScreen(
                             onBack = { nav.popBackStack() },
                             onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
                             onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                            pedirChamada = pedirChamada,
+                            aoAtenderPedido = { entrada.savedStateHandle["chamar"] = false },
                         )
                     }
                 }

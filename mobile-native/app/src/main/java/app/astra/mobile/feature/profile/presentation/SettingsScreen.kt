@@ -3,54 +3,78 @@ package app.astra.mobile.feature.profile.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.AstraCopy
-import app.astra.mobile.ui.components.AstraAvatar
-import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
-import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
+import com.composables.icons.lucide.Accessibility
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MonitorSmartphone
+import com.composables.icons.lucide.Paintbrush
+import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.Shield
+import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.User
+import com.composables.icons.lucide.X
+import java.text.Normalizer
 
-@Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        fontFamily = DmSerif,
-        fontSize = 19.sp,
-        color = astraColors.text1,
-        modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 10.dp),
-    )
-}
+private class LinhaDeAjuste(
+    val titulo: String,
+    val icone: ImageVector,
+    val palavras: String,
+    val aoTocar: () -> Unit,
+)
+
+private class GrupoDeAjustes(val titulo: String, val linhas: List<LinhaDeAjuste>)
+
+private fun semAcento(texto: String): String =
+    Normalizer.normalize(texto, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenProfile: () -> Unit,
     onOpenAccount: () -> Unit,
-    onOpenPersonalization: () -> Unit,
+    onOpenNameColors: () -> Unit,
+    onOpenAppearance: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSessions: () -> Unit,
@@ -59,101 +83,187 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val profile by viewModel.profile.collectAsState()
+    var busca by rememberSaveable { mutableStateOf("") }
+    val grupos = remember {
+        listOf(
+            GrupoDeAjustes(
+                "Sua conta",
+                listOf(
+                    LinhaDeAjuste("Perfil", Lucide.Pencil, "foto banner recado bio pronomes fonte tema editar", onOpenProfile),
+                    LinhaDeAjuste("Conta", Lucide.User, "nome usuario email senha", onOpenAccount),
+                    LinhaDeAjuste("Cores do nome", Lucide.Palette, "cor constelacao cargo", onOpenNameColors),
+                    LinhaDeAjuste("Sessões", Lucide.MonitorSmartphone, "dispositivos aparelhos conectados sair", onOpenSessions),
+                    LinhaDeAjuste("Dados e privacidade", Lucide.Shield, "exportar apagar excluir conta", onOpenData),
+                ),
+            ),
+            GrupoDeAjustes(
+                "Aplicativo",
+                listOf(
+                    LinhaDeAjuste("Aparência", Lucide.Paintbrush, "tema cor destaque fundo fonte tamanho densidade", onOpenAppearance),
+                    LinhaDeAjuste("Notificações", Lucide.Bell, "avisos mencoes sussurros horario silencioso", onOpenNotifications),
+                    LinhaDeAjuste("Acessibilidade", Lucide.Accessibility, "movimento vibracao animacao aurora estrelas", onOpenAccessibility),
+                ),
+            ),
+            GrupoDeAjustes(
+                "Comunidade",
+                listOf(LinhaDeAjuste("Estrela Cadente", Lucide.Sparkles, "ideias sugestoes pedidos", onOpenWishing)),
+            ),
+            GrupoDeAjustes(
+                "Astra",
+                listOf(LinhaDeAjuste("Sobre", Lucide.Info, "versao atualizacao atualizar", onOpenAbout)),
+            ),
+        )
+    }
+    val termo = semAcento(busca.trim())
+    val visiveis = if (termo.isEmpty()) {
+        grupos
+    } else {
+        grupos.mapNotNull { g ->
+            val achadas = g.linhas.filter { semAcento(it.titulo + " " + it.palavras).contains(termo) }
+            if (achadas.isEmpty()) null else GrupoDeAjustes(g.titulo, achadas)
+        }
+    }
 
-    CosmicBackground {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Configuracoes", marginalia = "conta e preferencias", onBack = onBack)
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .imePadding(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onBack)
+                    .semantics { contentDescription = "Fechar" },
+                contentAlignment = Alignment.Center,
             ) {
-                AstraAvatar(profile?.avatarUrl, profile?.displayName ?: "?", size = 56)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = profile?.displayName ?: "—",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = astraColors.text1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    MarginaliaLabel("@${profile?.username ?: "..."}")
+                Icon(Lucide.X, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("Configurações", style = MaterialTheme.typography.titleLarge, color = astraColors.text1)
+        }
+
+        CampoDeBusca(busca, { busca = it }, Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        ) {
+            visiveis.forEach { grupo ->
+                Text(
+                    grupo.titulo,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 8.dp),
+                )
+                CartaoDoGrupo(grupo.linhas)
+            }
+            if (visiveis.isEmpty()) {
+                Text(
+                    "Nada encontrado para “${busca.trim()}”.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(start = 4.dp, top = 24.dp),
+                )
+            }
+            if (termo.isEmpty()) {
+                Spacer(Modifier.height(24.dp))
+                val forma = RoundedCornerShape(12.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(forma)
+                        .background(astraColors.raised)
+                        .border(1.dp, astraColors.danger.copy(alpha = 0.4f), forma)
+                        .clickable(onClick = viewModel::logout)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Lucide.LogOut, contentDescription = null, tint = astraColors.danger, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Text(AstraCopy.Action.logout, style = MaterialTheme.typography.titleMedium, color = astraColors.danger)
                 }
             }
-
-            Spacer(Modifier.height(8.dp))
-            SectionHeader("pessoal")
-            SettingsRow("Conta", "nome, username, senha", onOpenAccount)
-            SettingsRow("Personalização", "perfil, cor do nome, tema e banner", onOpenPersonalization)
-
-            Spacer(Modifier.height(20.dp))
-            SectionHeader("app")
-            SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
-            SettingsRow("Notificações", "menções, sussurros e horário silencioso", onOpenNotifications)
-
-            Spacer(Modifier.height(20.dp))
-            SectionHeader("conta e seguranca")
-            SettingsRow("Sessoes", "dispositivos conectados", onOpenSessions)
-            SettingsRow("Dados e privacidade", "exportar ou apagar conta", onOpenData)
-
-            Spacer(Modifier.height(20.dp))
-            SectionHeader("comunidade")
-            SettingsRow("Estrela Cadente", "sugira ideias pro Astra", onOpenWishing)
-
-            Spacer(Modifier.height(20.dp))
-            SectionHeader("astra")
-            SettingsRow("Sobre", "versão e atualizações", onOpenAbout)
-
-            Spacer(Modifier.height(20.dp))
-            val logoutShape = RoundedCornerShape(14.dp)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp)
-                    .clip(logoutShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.danger.copy(alpha = 0.4f), logoutShape)
-                    .clickable(onClick = viewModel::logout)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(AstraCopy.Action.logout, style = MaterialTheme.typography.titleMedium, color = astraColors.danger)
-            }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable
-private fun SettingsRow(title: String, sub: String, onClick: (() -> Unit)?) {
-    val enabled = onClick != null
-    val shape = RoundedCornerShape(14.dp)
+private fun CampoDeBusca(valor: String, aoMudar: (String) -> Unit, modifier: Modifier = Modifier) {
+    val forma = RoundedCornerShape(12.dp)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 4.dp)
-            .clip(shape)
+            .height(46.dp)
+            .clip(forma)
             .background(astraColors.raised)
-            .border(1.dp, astraColors.border, shape)
-            .then(if (enabled) Modifier.clickable(onClick = onClick!!) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .border(1.dp, astraColors.border, forma)
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (enabled) astraColors.text1 else astraColors.text3,
+        Icon(Lucide.Search, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f)) {
+            if (valor.isEmpty()) {
+                Text("Buscar", style = MaterialTheme.typography.bodyLarge, color = astraColors.text3)
+            }
+            BasicTextField(
+                value = valor,
+                onValueChange = aoMudar,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = astraColors.text1),
+                cursorBrush = SolidColor(astraColors.accent),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Buscar nas configurações" },
             )
-            MarginaliaLabel(sub)
         }
-        Text(
-            text = if (enabled) "›" else "·",
-            fontFamily = DmSerif,
-            style = MaterialTheme.typography.titleLarge,
-            color = astraColors.text3,
-        )
+    }
+}
+
+@Composable
+private fun CartaoDoGrupo(linhas: List<LinhaDeAjuste>) {
+    val forma = RoundedCornerShape(12.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(forma)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, forma),
+    ) {
+        linhas.forEachIndexed { i, linha ->
+            if (i > 0) {
+                Box(
+                    Modifier
+                        .padding(start = 54.dp)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(astraColors.border),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = linha.aoTocar)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(linha.icone, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    linha.titulo,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = astraColors.text1,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(Lucide.ChevronRight, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }

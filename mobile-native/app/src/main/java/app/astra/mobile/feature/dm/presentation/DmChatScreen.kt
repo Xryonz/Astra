@@ -75,9 +75,17 @@ fun DmChatScreen(
     onBack: () -> Unit,
     onJoinCall: (conversationId: String, name: String) -> Unit = { _, _ -> },
     onOpenProfile: (String, String) -> Unit = { _, _ -> },
+    pedirChamada: Boolean = false,
+    aoAtenderPedido: () -> Unit = {},
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(pedirChamada) {
+        if (pedirChamada) {
+            aoAtenderPedido()
+            viewModel.chamarQuandoPuder()
+        }
+    }
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var gifOpen by remember { mutableStateOf(false) }
     var emojiOpen by remember { mutableStateOf(false) }

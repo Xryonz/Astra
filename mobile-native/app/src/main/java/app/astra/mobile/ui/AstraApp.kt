@@ -97,6 +97,8 @@ import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.feature.voice.presentation.ChamadaScreen
 import app.astra.mobile.feature.voice.presentation.LigacaoViewModel
 import app.astra.mobile.feature.voice.presentation.PreviaDaSala
+import app.astra.mobile.feature.xp.presentation.FaixaDeMissao
+import app.astra.mobile.feature.xp.presentation.JornadaScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 import kotlinx.coroutines.delay
@@ -163,6 +165,7 @@ private object Routes {
     const val CALL = "call"
     const val SALA = "sala/{channelId}?name={name}&serverId={serverId}"
     const val VOZ = "settings/voice"
+    const val JORNADA = "jornada"
 
     fun dmChat(id: String, name: String, chamar: Boolean = false) = "dm/$id?name=${Uri.encode(name)}&chamar=$chamar"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
@@ -231,6 +234,7 @@ fun AstraApp() {
                             nav.navigate(Routes.sala(canalId, nome, orbitaId))
                         },
                         aoAbrirCall = { nav.navigate(Routes.CALL) },
+                        aoAbrirJornada = { nav.navigate(Routes.JORNADA) },
                         aoAbrirBusca = { nav.navigate(Routes.SEARCH) },
                         aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
                         aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
@@ -341,6 +345,9 @@ fun AstraApp() {
                 }
                 tela(Routes.VOZ) {
                     VozScreen(onBack = { nav.popBackStack() })
+                }
+                tela(Routes.JORNADA) {
+                    JornadaScreen(onBack = { nav.popBackStack() })
                 }
                 tela(Routes.CORES_DO_NOME) {
                     CoresDoNomeScreen(onBack = { nav.popBackStack() })
@@ -568,6 +575,7 @@ fun AstraApp() {
             }
             val atenderPedido by DeepLinkBus.atenderLigacao.collectAsState()
             LaunchedEffect(ligacao) { if (ligacao == null) DeepLinkBus.atenderLigacao.value = null }
+            if (loggedIn == true) FaixaDeMissao()
             ligacao?.let { chamada ->
                 ChamadaScreen(
                     ligacao = chamada,

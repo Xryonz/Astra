@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,10 @@ import androidx.compose.ui.platform.LocalContext
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.home.HomeViewModel
 import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.feature.xp.presentation.EstrelasViewModel
+import app.astra.mobile.feature.xp.presentation.MoedasDeBrilho
+import app.astra.mobile.feature.xp.presentation.anelDeEstrelas
+import app.astra.mobile.feature.xp.presentation.lembrarVisualDasEstrelas
 import app.astra.mobile.feature.server.presentation.shareInviteLink
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.core.update.Novidades
@@ -67,6 +72,7 @@ fun Casca(
     aoAbrirAjustesDaOrbita: (serverId: String) -> Unit,
     aoEntrarNaVoz: (canalId: String, nome: String, orbitaId: String) -> Unit,
     aoAbrirCall: () -> Unit,
+    aoAbrirJornada: () -> Unit,
     aoAbrirBusca: () -> Unit,
     aoAbrirAmigos: () -> Unit,
     aoAbrirAvisos: () -> Unit,
@@ -78,7 +84,12 @@ fun Casca(
     orbitaPedida: String? = null,
     aoAtenderPedido: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    estrelasViewModel: EstrelasViewModel = hiltViewModel(),
 ) {
+    val progressoDasEstrelas = estrelasViewModel.progresso.collectAsState()
+    val progresso = progressoDasEstrelas.value
+    val missoesProntas by estrelasViewModel.prontas.collectAsState()
+    val visualDasEstrelas = lembrarVisualDasEstrelas(progressoDasEstrelas, estrelasViewModel.estrelas)
     LaunchedEffect(orbitaPedida) {
         val id = orbitaPedida ?: return@LaunchedEffect
         aoAtenderPedido()
@@ -128,6 +139,7 @@ fun Casca(
                 viewModel.refreshProfile()
                 viewModel.refreshServers()
                 viewModel.refreshNotifications()
+                estrelasViewModel.recarregar()
             }
         }
         dono.lifecycle.addObserver(observador)
@@ -280,15 +292,23 @@ fun Casca(
         FaixaDaCall(aoAbrir = aoAbrirCall)
 
         Box {
+            MoedasDeBrilho(
+                estrelas = estrelasViewModel.estrelas,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
             BarraPessoal(
                 nome = estado.myName.ifBlank { estado.myUsername },
                 avatar = estado.myAvatar,
                 status = estado.myStatus,
                 recado = estado.myCustomStatus,
                 avisos = estado.unreadNotifs,
+                nivel = progresso.nivel,
+                missoesProntas = missoesProntas,
+                anel = Modifier.anelDeEstrelas(visualDasEstrelas, astraColors.accent, astraColors.border),
                 aoTocar = aoAbrirPerfil,
                 aoSegurar = { menuDeStatus = true },
                 aoAbrirAvisos = aoAbrirAvisos,
+                aoAbrirJornada = aoAbrirJornada,
                 aoDeslizar = {
                     if (emSussurros) {
                         val volta = ultimaOrbita?.takeIf { alvo -> estado.servers.any { it.id == alvo } }

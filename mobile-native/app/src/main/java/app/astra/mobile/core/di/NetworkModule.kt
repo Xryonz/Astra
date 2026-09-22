@@ -4,7 +4,12 @@ import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
 import app.astra.mobile.core.network.BadgesApi
+import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.ChannelApi
+import app.astra.mobile.core.network.MissionApi
+import app.astra.mobile.core.network.SoundApi
+import app.astra.mobile.core.network.StickerApi
+import app.astra.mobile.core.network.XpApi
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.EmojisApi
 import app.astra.mobile.core.network.FriendsApi
@@ -143,6 +148,26 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideSearchApi(retrofit: Retrofit): SearchApi = retrofit.create(SearchApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideXpApi(retrofit: Retrofit): XpApi = retrofit.create(XpApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideMissionApi(retrofit: Retrofit): MissionApi = retrofit.create(MissionApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSoundApi(retrofit: Retrofit): SoundApi = retrofit.create(SoundApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideStickerApi(retrofit: Retrofit): StickerApi = retrofit.create(StickerApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideBotApi(retrofit: Retrofit): BotApi = retrofit.create(BotApi::class.java)
 
     @Provides
     @Singleton

@@ -45,9 +45,13 @@ fun BarraPessoal(
     status: UserStatus,
     recado: String?,
     avisos: Int,
+    nivel: Int,
+    missoesProntas: Int,
+    anel: Modifier,
     aoTocar: () -> Unit,
     aoSegurar: () -> Unit,
     aoAbrirAvisos: () -> Unit,
+    aoAbrirJornada: () -> Unit,
     aoDeslizar: (paraDireita: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -76,8 +80,19 @@ fun BarraPessoal(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
-            AstraAvatar(avatar, nome, size = 40)
+        Box(
+            Modifier
+                .clip(CircleShape)
+                .clickable(onClick = aoAbrirJornada)
+                .semantics {
+                    contentDescription = if (missoesProntas > 0) {
+                        "Sua jornada: nível $nivel, $missoesProntas para resgatar"
+                    } else {
+                        "Sua jornada: nível $nivel"
+                    }
+                },
+        ) {
+            AstraAvatar(avatar, nome, modifier = anel, size = 40)
             StatusDot(
                 status = status,
                 bordered = true,
@@ -85,8 +100,17 @@ fun BarraPessoal(
                 cutoutColor = astraColors.raised,
                 modifier = Modifier.align(Alignment.BottomEnd),
             )
+            if (missoesProntas > 0) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .size(9.dp)
+                        .clip(CircleShape)
+                        .background(astraColors.accent),
+                )
+            }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = nome,
@@ -95,7 +119,11 @@ fun BarraPessoal(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            recado?.takeIf { it.isNotBlank() }?.let { MarginaliaLabel(it) }
+            val apoio = listOfNotNull(
+                "nível $nivel".takeIf { nivel > 0 },
+                recado?.takeIf { it.isNotBlank() },
+            ).joinToString(" · ")
+            if (apoio.isNotBlank()) MarginaliaLabel(apoio)
         }
         Box(
             modifier = Modifier

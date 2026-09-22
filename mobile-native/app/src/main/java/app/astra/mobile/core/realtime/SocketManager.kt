@@ -95,6 +95,12 @@ class SocketManager @Inject constructor(
     private val _voicePresence = MutableSharedFlow<MudancaNaVoz>(extraBufferCapacity = 64)
     val voicePresence: SharedFlow<MudancaNaVoz> = _voicePresence.asSharedFlow()
 
+    private val _xpGain = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val xpGain: SharedFlow<String> = _xpGain.asSharedFlow()
+
+    private val _missaoConcluida = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val missaoConcluida: SharedFlow<String> = _missaoConcluida.asSharedFlow()
+
     @Volatile private var salaDeVoz: String? = null
 
     fun connect() {
@@ -203,6 +209,12 @@ class SocketManager @Inject constructor(
         }
         s.on("dm_call_ended") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _dmCallEnded.tryEmit(it.optString("conversationId")) }
+        }
+        s.on("xp_gain") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _xpGain.tryEmit(it.toString()) }
+        }
+        s.on("mission_done") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _missaoConcluida.tryEmit(it.toString()) }
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let {

@@ -91,6 +91,14 @@
             android:name=".core.update.ResultadoDaInstalacao"
             android:exported="false" />
 
+        <receiver
+            android:name=".core.update.DepoisDeAtualizar"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".core.update.TrabalhoDeInstalar"
             android:exported="false"

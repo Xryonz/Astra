@@ -1,13 +1,10 @@
 package app.astra.mobile.feature.profile.presentation
 
-import app.astra.mobile.feature.profile.domain.model.UserStatus
-
 data class ProfileEditUiState(
     val loading: Boolean = true,
     val displayName: String = "",
     val username: String = "",
 
-    val status: UserStatus = UserStatus.ONLINE,
     val avatarUrl: String = "",
     val bannerUrl: String = "",
     val bio: String = "",

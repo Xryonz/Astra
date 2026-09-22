@@ -8,4 +8,9 @@ data class UserProfileUiState(
     val view: ProfileView? = null,
     val badges: List<BadgeUi> = emptyList(),
     val error: String? = null,
+    val souEu: Boolean = false,
+    val abrindoConversa: Boolean = false,
+    val erroDaConversa: String? = null,
 )
+
+data class ConversaAberta(val id: String, val nome: String, val chamar: Boolean)

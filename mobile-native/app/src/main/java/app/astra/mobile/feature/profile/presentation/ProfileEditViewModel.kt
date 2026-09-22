@@ -7,7 +7,6 @@ import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
-import app.astra.mobile.feature.profile.domain.model.UserStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +36,6 @@ class ProfileEditViewModel @Inject constructor(
         loading = false,
         displayName = p.displayName,
         username = p.username,
-        status = p.status,
         avatarUrl = p.avatarUrl.orEmpty(), origAvatarUrl = p.avatarUrl.orEmpty(),
         bannerUrl = p.bannerUrl.orEmpty(), origBannerUrl = p.bannerUrl.orEmpty(),
         bio = p.bio.orEmpty(), origBio = p.bio.orEmpty(),
@@ -49,12 +47,6 @@ class ProfileEditViewModel @Inject constructor(
         displayFont = p.displayFont, origDisplayFont = p.displayFont,
         customStatus = p.customStatus.orEmpty(), origCustomStatus = p.customStatus.orEmpty(),
     )
-
-    fun onStatus(v: UserStatus) {
-        if (v == _state.value.status) return
-        _state.update { it.copy(status = v) }
-        viewModelScope.launch { userRepository.setStatus(v) }
-    }
 
     fun onBio(v: String) = _state.update { it.copy(bio = v, saved = false, error = null) }
     fun onCustomStatus(v: String) = _state.update { it.copy(customStatus = v.take(128), saved = false, error = null) }

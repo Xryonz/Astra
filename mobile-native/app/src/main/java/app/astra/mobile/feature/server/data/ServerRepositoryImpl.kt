@@ -6,7 +6,9 @@ import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
+import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.ServerDto
+import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.realtime.SocketManager
@@ -147,6 +149,33 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(apiError(e, "Nao foi possivel sair da constelacao"))
     }
 
+    override suspend fun podeArrumarOrbitas(serverId: String): Boolean = try {
+        val poderes = serverApi.myPerms(serverId).data
+        poderes != null && (poderes.isOwner || poderes.isAdmin || "MANAGE_CHANNELS" in poderes.permissions)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        false
+    }
+
+    override suspend fun moverCanal(serverId: String, channelId: String, posicao: Int, categoriaId: String?): Result<Unit> = try {
+        serverApi.moveChannel(serverId, channelId, MoveChannelRequest(posicao, categoriaId))
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(apiError(e, "Não foi possível mover a órbita"))
+    }
+
+    override suspend fun moverCategoria(serverId: String, categoryId: String, posicao: Int): Result<Unit> = try {
+        serverApi.updateCategory(serverId, categoryId, UpdateCategoryRequest(position = posicao))
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(apiError(e, "Não foi possível mover a categoria"))
+    }
+
     private fun apiError(e: Exception, fallback: String): ApiException = when (e) {
         is HttpException -> {
             val msg = e.response()?.errorBody()?.string()?.let {
@@ -173,7 +202,7 @@ private fun ServerDto.toDomain() = Server(
     description = description,
     messageRetentionDays = messageRetentionDays,
     channels = channels.map {
-        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId, isPrivate = it.isPrivate)
+        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId, isPrivate = it.isPrivate, position = it.position)
     },
     categories = categories.map { Category(it.id, it.name, it.position) },
 )

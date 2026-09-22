@@ -27,5 +27,11 @@ interface ServerRepository {
 
     suspend fun leaveServer(serverId: String): Result<Unit>
 
+    suspend fun podeArrumarOrbitas(serverId: String): Boolean
+
+    suspend fun moverCanal(serverId: String, channelId: String, posicao: Int, categoriaId: String? = null): Result<Unit>
+
+    suspend fun moverCategoria(serverId: String, categoryId: String, posicao: Int): Result<Unit>
+
     fun channelActivity(): Flow<String>
 }

@@ -51,26 +51,3 @@ fun ListSkeleton(rows: Int = 8, avatar: Boolean = true, modifier: Modifier = Mod
         }
     }
 }
-
-@Composable
-fun MessageListSkeleton(modifier: Modifier = Modifier) {
-    val widths = listOf(180, 120, 240, 90, 160, 210, 130)
-    Column(
-        modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        widths.forEachIndexed { i, w ->
-            val mine = i % 3 == 0
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
-            ) {
-                Skeleton(
-                    Modifier.width(w.dp).height((30 + (w % 40)).dp),
-                    Shimmer,
-                    RoundedCornerShape(16.dp),
-                )
-            }
-        }
-    }
-}

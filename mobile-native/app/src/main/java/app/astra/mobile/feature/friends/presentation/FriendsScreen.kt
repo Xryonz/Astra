@@ -50,6 +50,15 @@ import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.BotaoDeTexto
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import app.astra.mobile.ui.LocalAppPrefs
+import app.astra.mobile.ui.theme.EaseOutSoft
+import kotlinx.coroutines.launch
+
+private const val TROCA_DE_ABA_MS = 320
 
 @Composable
 fun FriendsScreen(
@@ -77,11 +86,21 @@ fun FriendsScreen(
                 state.friends.filter { it.presence != Presence.OFFLINE }
             }
 
+            val paginas = rememberPagerState(initialPage = state.tab.ordinal) { FriendsTab.entries.size }
+            LaunchedEffect(paginas.settledPage) { viewModel.selectTab(FriendsTab.entries[paginas.settledPage]) }
+            val escopo = rememberCoroutineScope()
+            val semMovimento = LocalAppPrefs.current.reduceMotion
+
             AstraTabs(
                 tabs = listOf("Em órbita", "Estrelas", "Pedidos"),
                 counts = listOf(emOrbita.size, state.friends.size, state.incoming.size + state.outgoing.size),
-                selectedIndex = state.tab.ordinal,
-                onSelect = { viewModel.selectTab(FriendsTab.entries[it]) },
+                posicao = paginas.currentPage + paginas.currentPageOffsetFraction,
+                onSelect = { i ->
+                    escopo.launch {
+                        if (semMovimento) paginas.scrollToPage(i)
+                        else paginas.animateScrollToPage(i, animationSpec = tween(TROCA_DE_ABA_MS, easing = EaseOutSoft))
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             )
 
@@ -93,7 +112,12 @@ fun FriendsScreen(
                         BotaoDeTexto(onClick = viewModel::load) { Text("Tentar de novo", color = astraColors.accent) }
                     }
                 }
-                else -> when (state.tab) {
+                else -> HorizontalPager(
+                    state = paginas,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 1,
+                    key = { FriendsTab.entries[it] },
+                ) { pagina -> when (FriendsTab.entries[pagina]) {
                     FriendsTab.EM_ORBITA ->
                         if (emOrbita.isEmpty()) {
                             EmptyState("Ninguém em órbita", "quem estiver online aparece aqui")
@@ -160,7 +184,7 @@ fun FriendsScreen(
                                 }
                             }
                         }
-                }
+                } }
             }
         }
     }

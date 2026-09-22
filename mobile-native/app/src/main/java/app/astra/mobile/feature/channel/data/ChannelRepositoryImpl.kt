@@ -299,6 +299,7 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     attachments = attachments.map { it.toModel() },
     poll = poll?.toDomain(currentUserId),
     kind = kind,
+    mencionaVoce = currentUserId != null && currentUserId in mentions,
 )
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
@@ -322,6 +323,7 @@ private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageE
     attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
     pollJson = poll?.let { json.encodeToString(it) },
     kind = kind,
+    mencionados = mentions.joinToString(",").ifEmpty { null },
 )
 
 private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
@@ -352,5 +354,6 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
         attachments = attachments,
         poll = poll,
         kind = kind,
+        mencionaVoce = uid != null && mencionados?.split(',')?.contains(uid) == true,
     )
 }

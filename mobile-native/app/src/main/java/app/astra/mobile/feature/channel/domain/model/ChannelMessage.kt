@@ -20,6 +20,7 @@ data class ChannelMessage(
     val attachments: List<Attachment> = emptyList(),
     val poll: Poll? = null,
     val kind: String? = null,
+    val mencionaVoce: Boolean = false,
 )
 
 data class Poll(

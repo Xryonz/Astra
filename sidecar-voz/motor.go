@@ -21,7 +21,7 @@ var CapacidadeOpus = webrtc.RTPCodecCapability{
 }
 
 type FaixaDeVoz interface {
-	WriteSample(media.Sample) error
+	EscreverVoz(amostra media.Sample, nivelParaOSfu uint8) error
 }
 
 type Motor struct {
@@ -309,7 +309,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 					Duration: MilissegundosPorQuadro * time.Millisecond,
 				}
 
-				if err := m.faixa.WriteSample(amostra); err != nil {
+				if err := m.faixa.EscreverVoz(amostra, nivelParaOSfu(quadro)); err != nil {
 					m.reclamar("enviar voz", err)
 					return false
 				}

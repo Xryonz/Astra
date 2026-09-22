@@ -3,14 +3,7 @@ package app.astra.mobile.feature.home
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Server
-
-data class ActiveVoiceRoom(
-    val channelId: String,
-    val channelName: String,
-    val serverId: String,
-    val serverName: String,
-    val count: Int,
-)
+import app.astra.mobile.feature.server.domain.model.ServerMember
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -19,7 +12,8 @@ data class HomeUiState(
     val unread: Set<String> = emptySet(),
 
     val channelUnread: Set<String> = emptySet(),
-    val activeVoice: List<ActiveVoiceRoom> = emptyList(),
+    val naVoz: Map<String, List<String>> = emptyMap(),
+    val membrosDaOrbita: Map<String, ServerMember> = emptyMap(),
 
     val mutedServers: Set<String> = emptySet(),
     val mutedChannels: Set<String> = emptySet(),

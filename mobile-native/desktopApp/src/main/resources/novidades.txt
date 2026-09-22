@@ -1,5 +1,3 @@
-versao 1.0.49
-Quando uma versão nova fica pronta com o Astra minimizado ou na bandeja, o Windows avisa.
-Com o Astra aberto, a versão nova baixa sozinha; o ponto na barra de título oferece reiniciar.
-Clicar num aviso do Astra no Windows abre o app.
-A cada versão, este cartão mostra o que mudou na primeira abertura.
+versao 1.0.50
+O Astra passa a dizer à chamada quando você está falando, e não só a quem usa o desktop.
+Com isso, quem está no celular vê o seu nome acender enquanto você fala.

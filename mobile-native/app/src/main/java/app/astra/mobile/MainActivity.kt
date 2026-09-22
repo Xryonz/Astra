@@ -28,6 +28,9 @@ import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.deeplink.PendingShare
 import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.update.CuidadorDeAtualizacao
+import app.astra.mobile.core.voice.AvisoDeLigacao
+import app.astra.mobile.core.voice.CallService
+import app.astra.mobile.core.voice.LigacaoDeSussurro
 import app.astra.mobile.core.crash.CrashReporter
 import app.astra.mobile.core.crash.CrashScreen
 import app.astra.mobile.core.data.AppPrefs
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var preferencesStore: PreferencesStore
+    @Inject lateinit var ligacaoDeSussurro: LigacaoDeSussurro
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -109,6 +113,17 @@ class MainActivity : ComponentActivity() {
 
     private fun handleDeepLink(intent: Intent?) {
         intent ?: return
+
+        if (intent.getBooleanExtra(CallService.EXTRA_ABRIR_CALL, false)) {
+            intent.removeExtra(CallService.EXTRA_ABRIR_CALL)
+            DeepLinkBus.abrirCall.value = true
+            return
+        }
+        intent.getStringExtra(AvisoDeLigacao.EXTRA_ATENDER)?.let { conversa ->
+            intent.removeExtra(AvisoDeLigacao.EXTRA_ATENDER)
+            DeepLinkBus.atenderLigacao.value = conversa
+            return
+        }
 
         if (intent.action == Intent.ACTION_SEND) {
             val convId = DmShortcuts.conversationIdFrom(intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID))

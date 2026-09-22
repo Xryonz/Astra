@@ -45,6 +45,7 @@ import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MonitorSmartphone
 import com.composables.icons.lucide.Paintbrush
 import com.composables.icons.lucide.Palette
@@ -76,6 +77,7 @@ fun SettingsScreen(
     onOpenNameColors: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    onOpenVoz: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenData: () -> Unit,
@@ -100,6 +102,7 @@ fun SettingsScreen(
                 "Aplicativo",
                 listOf(
                     LinhaDeAjuste("Aparência", Lucide.Paintbrush, "tema cor destaque fundo fonte tamanho densidade", onOpenAppearance),
+                    LinhaDeAjuste("Voz", Lucide.Mic, "call chamada transmissao tela qualidade microfone", onOpenVoz),
                     LinhaDeAjuste("Notificações", Lucide.Bell, "avisos mencoes sussurros horario silencioso", onOpenNotifications),
                     LinhaDeAjuste("Acessibilidade", Lucide.Accessibility, "movimento vibracao animacao aurora estrelas", onOpenAccessibility),
                 ),

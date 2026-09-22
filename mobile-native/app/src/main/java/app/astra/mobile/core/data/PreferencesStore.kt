@@ -31,6 +31,34 @@ enum class DensityPref(val id: String, val label: String, val topDp: Int, val gr
     }
 }
 
+enum class QualidadeAoAssistir(val id: String, val rotulo: String, val explicacao: String) {
+    AUTOMATICA("auto", "Automática", "Leve no palco, completa em tela cheia."),
+    COMPLETA("completa", "Completa", "Sempre a imagem mais nítida. Gasta mais dados."),
+    LEVE("leve", "Leve", "Sempre a versão leve. Poupa dados no 4G.");
+
+    companion object {
+        fun from(id: String?): QualidadeAoAssistir = entries.firstOrNull { it.id == id } ?: AUTOMATICA
+    }
+}
+
+enum class QualidadeAoTransmitir(
+    val id: String,
+    val rotulo: String,
+    val ladoMaior: Int,
+    val ladoMenor: Int,
+    val quadros: Int,
+    val kbps: Int,
+) {
+    NITIDA("s108060", "1080p a 60 quadros, nítida", 1920, 1080, 60, 8_000),
+    FLUIDA("s72060", "720p a 60 quadros, fluida", 1280, 720, 60, 4_000),
+    LEVE("l72030", "720p a 60 quadros, leve", 1280, 720, 60, 2_500),
+    ECONOMICA("t54030", "540p a 60 quadros, econômica", 960, 540, 60, 1_200);
+
+    companion object {
+        fun from(id: String?): QualidadeAoTransmitir = entries.firstOrNull { it.id == id } ?: FLUIDA
+    }
+}
+
 data class AppPrefs(
     val reduceMotion: Boolean = false,
     val haptics: Boolean = true,
@@ -42,6 +70,8 @@ data class AppPrefs(
     val animStars: Boolean = true,
     val animTransitions: Boolean = true,
     val animSkyTouch: Boolean = true,
+    val aoAssistir: QualidadeAoAssistir = QualidadeAoAssistir.AUTOMATICA,
+    val aoTransmitir: QualidadeAoTransmitir = QualidadeAoTransmitir.FLUIDA,
 ) {
     val auroraOn: Boolean get() = !reduceMotion && animAurora
     val starsOn: Boolean get() = !reduceMotion && animStars
@@ -63,6 +93,8 @@ class PreferencesStore @Inject constructor(
     private val animStarsKey = booleanPreferencesKey("anim_stars")
     private val animTransitionsKey = booleanPreferencesKey("anim_transitions")
     private val animSkyTouchKey = booleanPreferencesKey("anim_sky_touch")
+    private val aoAssistirKey = stringPreferencesKey("qualidade_ao_assistir")
+    private val aoTransmitirKey = stringPreferencesKey("qualidade_ao_transmitir")
 
     val prefs: Flow<AppPrefs> = dataStore.data.map { p ->
         AppPrefs(
@@ -76,6 +108,8 @@ class PreferencesStore @Inject constructor(
             animStars = p[animStarsKey] ?: true,
             animTransitions = p[animTransitionsKey] ?: true,
             animSkyTouch = p[animSkyTouchKey] ?: true,
+            aoAssistir = QualidadeAoAssistir.from(p[aoAssistirKey]),
+            aoTransmitir = QualidadeAoTransmitir.from(p[aoTransmitirKey]),
         )
     }
 
@@ -89,6 +123,8 @@ class PreferencesStore @Inject constructor(
     suspend fun setDensity(v: DensityPref) = dataStore.edit { it[densityKey] = v.id }
     suspend fun setAccent(id: String) = dataStore.edit { it[accentKey] = id }
     suspend fun setBg(id: String) = dataStore.edit { it[bgKey] = id }
+    suspend fun setAoAssistir(v: QualidadeAoAssistir) = dataStore.edit { it[aoAssistirKey] = v.id }
+    suspend fun setAoTransmitir(v: QualidadeAoTransmitir) = dataStore.edit { it[aoTransmitirKey] = v.id }
     suspend fun setTheme(accentId: String, bgId: String) = dataStore.edit {
         it[accentKey] = accentId
         it[bgKey] = bgId

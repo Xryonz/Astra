@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.DensityPref
 import app.astra.mobile.core.data.FontSizePref
 import app.astra.mobile.core.data.PreferencesStore
+import app.astra.mobile.core.data.QualidadeAoAssistir
+import app.astra.mobile.core.data.QualidadeAoTransmitir
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,4 +26,6 @@ class PreferencesViewModel @Inject constructor(
     fun setAccent(id: String) { viewModelScope.launch { store.setAccent(id) } }
     fun setBg(id: String) { viewModelScope.launch { store.setBg(id) } }
     fun setTheme(accentId: String, bgId: String) { viewModelScope.launch { store.setTheme(accentId, bgId) } }
+    fun setAoAssistir(v: QualidadeAoAssistir) { viewModelScope.launch { store.setAoAssistir(v) } }
+    fun setAoTransmitir(v: QualidadeAoTransmitir) { viewModelScope.launch { store.setAoTransmitir(v) } }
 }

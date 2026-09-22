@@ -12,4 +12,6 @@ data class PendingShare(
 object DeepLinkBus {
     val pendingInviteCode = MutableStateFlow<String?>(null)
     val pendingShare = MutableStateFlow<PendingShare?>(null)
+    val abrirCall = MutableStateFlow(false)
+    val atenderLigacao = MutableStateFlow<String?>(null)
 }

@@ -66,6 +66,7 @@ fun Casca(
     aoAbrirSussurro: (id: String, nome: String) -> Unit,
     aoAbrirAjustesDaOrbita: (serverId: String) -> Unit,
     aoEntrarNaVoz: (canalId: String, nome: String, orbitaId: String) -> Unit,
+    aoAbrirCall: () -> Unit,
     aoAbrirBusca: () -> Unit,
     aoAbrirAmigos: () -> Unit,
     aoAbrirAvisos: () -> Unit,
@@ -214,7 +215,23 @@ fun Casca(
                         orbita = orbita,
                         canalAberto = ultimoCanal[orbita.id],
                         naoLidos = estado.channelUnread,
-                        vozAtiva = estado.activeVoice,
+                        naVoz = remember(estado.naVoz, estado.membrosDaOrbita, estado.myId, estado.myName, estado.myAvatar) {
+                            estado.naVoz.mapValues { (_, ids) ->
+                                ids.map { id ->
+                                    val membro = estado.membrosDaOrbita[id]
+                                    val souEu = id == estado.myId
+                                    PessoaNaVoz(
+                                        id = id,
+                                        nome = when {
+                                            souEu -> estado.myName.ifBlank { estado.myUsername }
+                                            else -> membro?.name ?: "Alguém"
+                                        },
+                                        foto = if (souEu) estado.myAvatar else membro?.avatarUrl,
+                                        souEu = souEu,
+                                    )
+                                }
+                            }
+                        },
                         recolhidas = estado.categoriasRecolhidas,
                         podeArrumar = estado.podeArrumar,
                         aoAbrirCanal = { canal ->
@@ -259,6 +276,8 @@ fun Casca(
                 }
             }
         }
+
+        FaixaDaCall(aoAbrir = aoAbrirCall)
 
         Box {
             BarraPessoal(

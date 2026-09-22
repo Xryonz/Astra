@@ -89,6 +89,14 @@ class SocketManager @Inject constructor(
     private val _dmCallReject = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val dmCallReject: SharedFlow<String> = _dmCallReject.asSharedFlow()
 
+    private val _dmCallEnded = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val dmCallEnded: SharedFlow<String> = _dmCallEnded.asSharedFlow()
+
+    private val _voicePresence = MutableSharedFlow<MudancaNaVoz>(extraBufferCapacity = 64)
+    val voicePresence: SharedFlow<MudancaNaVoz> = _voicePresence.asSharedFlow()
+
+    @Volatile private var salaDeVoz: String? = null
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -116,6 +124,7 @@ class SocketManager @Inject constructor(
 
             activeRooms.forEach { s.emit("join_dm", it) }
             activeChannels.forEach { s.emit("join_channel", it) }
+            salaDeVoz?.let { s.emit("voice_join", it) }
         }
         s.on(Socket.EVENT_DISCONNECT) { args ->
             Log.d(TAG, "desconectado: ${args.firstOrNull()}")
@@ -180,6 +189,8 @@ class SocketManager @Inject constructor(
                         fromDisplayName = it.optString("fromDisplayName")
                             .ifBlank { it.optString("fromUsername") }
                             .ifBlank { "Alguém" },
+                        fromAvatarUrl = it.optString("fromAvatarUrl").takeIf { url -> url.isNotBlank() && url != "null" },
+                        msRestantes = it.optLong("msRestantes", TOQUE_PADRAO_MS),
                     ),
                 )
             }
@@ -189,6 +200,16 @@ class SocketManager @Inject constructor(
         }
         s.on("dm_call_reject") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _dmCallReject.tryEmit(it.optString("conversationId")) }
+        }
+        s.on("dm_call_ended") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _dmCallEnded.tryEmit(it.optString("conversationId")) }
+        }
+        s.on("voice_presence") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _voicePresence.tryEmit(
+                    MudancaNaVoz(it.optString("channelId"), it.optString("userId"), it.optBoolean("joined")),
+                )
+            }
         }
         s.on("user_typing") { args ->
             (args.firstOrNull() as? JSONObject)?.let {
@@ -251,19 +272,30 @@ class SocketManager @Inject constructor(
     fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
     fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
 
-    private fun callPayload(conversationId: String, toUserId: String) =
-        JSONObject().put("conversationId", conversationId).put("toUserId", toUserId)
-
-    fun sendDmCallInvite(conversationId: String, toUserId: String) {
-        socket?.emit("dm_call_invite", callPayload(conversationId, toUserId))
+    fun ligar(conversationId: String) {
+        socket?.emit("dm_call_invite", JSONObject().put("conversationId", conversationId))
     }
 
-    fun sendDmCallAccept(conversationId: String, toUserId: String) {
-        socket?.emit("dm_call_accept", callPayload(conversationId, toUserId))
+    fun atender(conversationId: String) {
+        socket?.emit("dm_call_accept", JSONObject().put("conversationId", conversationId))
     }
 
-    fun sendDmCallReject(conversationId: String, toUserId: String) {
-        socket?.emit("dm_call_reject", callPayload(conversationId, toUserId))
+    fun desligar(conversationId: String) {
+        socket?.emit("dm_call_end", JSONObject().put("conversationId", conversationId))
+    }
+
+    fun entrarNaVoz(salaId: String) {
+        salaDeVoz = salaId
+        socket?.emit("voice_join", salaId)
+    }
+
+    fun sairDaVoz(salaId: String) {
+        if (salaDeVoz == salaId) salaDeVoz = null
+        socket?.emit("voice_leave", salaId)
+    }
+
+    fun manterNaVoz(salaId: String) {
+        socket?.emit("voice_keepalive", salaId)
     }
     fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }
     fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
@@ -282,6 +314,7 @@ class SocketManager @Inject constructor(
         stopHeartbeat()
         activeRooms.clear()
         activeChannels.clear()
+        salaDeVoz = null
         socket?.apply { off(); disconnect() }
         socket = null
         options = null
@@ -306,8 +339,15 @@ class SocketManager @Inject constructor(
     private companion object {
         const val TAG = "SocketManager"
         const val REFRESH_COOLDOWN_MS = 10_000L
+        const val TOQUE_PADRAO_MS = 45_000L
     }
 }
+
+data class MudancaNaVoz(
+    val salaId: String,
+    val userId: String,
+    val entrou: Boolean,
+)
 
 data class TypingEvent(
     val userId: String,
@@ -320,4 +360,6 @@ data class DmCallInvite(
     val conversationId: String,
     val fromUserId: String,
     val fromDisplayName: String,
+    val fromAvatarUrl: String?,
+    val msRestantes: Long,
 )

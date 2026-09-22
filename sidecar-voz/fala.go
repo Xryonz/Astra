@@ -52,6 +52,17 @@ func nivelDe(pcm []int16) float64 {
 	return math.Sqrt(soma/float64(len(pcm))) / 32768
 }
 
+const silencioParaOSfu = 127
+
+func nivelParaOSfu(pcm []int16) uint8 {
+	rms := nivelDe(pcm)
+	if rms <= 0 {
+		return silencioParaOSfu
+	}
+	abaixoDoTeto := -20 * math.Log10(rms)
+	return uint8(min(max(math.Round(abaixoDoTeto), 0), silencioParaOSfu))
+}
+
 func umOuZero(ligado bool) string {
 	if ligado {
 		return "1"

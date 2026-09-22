@@ -1,115 +1,105 @@
 package app.astra.mobile.feature.voice.presentation
 
+import android.content.Intent
 import androidx.compose.runtime.Immutable
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.voice.CallStatus
+import app.astra.mobile.core.voice.Rosto
+import app.astra.mobile.core.voice.RostosDaCall
+import app.astra.mobile.core.voice.SaidaDeSom
+import app.astra.mobile.core.voice.SalaDaCall
 import app.astra.mobile.core.voice.VoiceManager
-import app.astra.mobile.feature.server.domain.ServerRepository
-import app.astra.mobile.feature.server.domain.model.ServerMember
+import app.astra.mobile.core.voice.VoiceState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.VideoTrack
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @Immutable
-data class CallParticipantUi(
+data class PessoaNaTela(
     val identity: String,
-    val name: String,
-    val avatarUrl: String?,
-    val isLocal: Boolean,
-    val isSpeaking: Boolean,
-    val micEnabled: Boolean,
-    val cameraEnabled: Boolean,
-    val videoTrack: VideoTrack?,
-    val screenTrack: VideoTrack?,
+    val nome: String,
+    val foto: String?,
+    val souEu: Boolean,
+    val falando: Boolean,
+    val mudo: Boolean,
+    val surdo: Boolean,
+    val transmitindo: Boolean,
+    val tela: VideoTrack?,
 )
 
+@Immutable
 data class CallUiState(
     val status: CallStatus = CallStatus.Idle,
-    val channelName: String = "",
-    val micEnabled: Boolean = false,
-    val cameraOn: Boolean = false,
-    val screenSharing: Boolean = false,
-    val deafened: Boolean = false,
-    val participants: List<CallParticipantUi> = emptyList(),
-    val error: String? = null,
+    val sala: SalaDaCall? = null,
+    val mudo: Boolean = false,
+    val surdo: Boolean = false,
+    val transmitindo: Boolean = false,
+    val pessoas: List<PessoaNaTela> = emptyList(),
+    val inicio: Long? = null,
+    val saidas: List<SaidaDeSom> = emptyList(),
+    val saidaAtual: SaidaDeSom? = null,
+    val erro: String? = null,
 )
 
 @HiltViewModel
 class CallViewModel @Inject constructor(
     private val voiceManager: VoiceManager,
-    private val serverRepository: ServerRepository,
-    savedStateHandle: SavedStateHandle,
+    rostosDaCall: RostosDaCall,
 ) : ViewModel() {
 
-    private val channelId: String = savedStateHandle["channelId"] ?: ""
-    private val serverId: String = savedStateHandle["serverId"] ?: ""
-    private val kind: String = savedStateHandle["kind"] ?: "channel"
-    val channelName: String = savedStateHandle["name"] ?: "Canal de voz"
-
-    private val members = MutableStateFlow<Map<String, ServerMember>>(emptyMap())
-
     val state: StateFlow<CallUiState> =
-        combine(voiceManager.state, members) { vs, mem ->
-            CallUiState(
-                status = vs.status,
-                channelName = vs.channelName.ifBlank { channelName },
-                micEnabled = vs.micEnabled,
-                cameraOn = vs.cameraOn,
-                screenSharing = vs.screenSharing,
-                deafened = vs.deafened,
-                error = vs.error,
-                participants = vs.participants.map { p ->
-                    val m = mem[p.identity]
-                    CallParticipantUi(
-                        identity = p.identity,
-                        name = m?.name ?: when {
-                            p.isLocal -> "Voce"
-                            kind == "dm" -> channelName
-                            else -> "Participante"
-                        },
-                        avatarUrl = m?.avatarUrl,
-                        isLocal = p.isLocal,
-                        isSpeaking = p.isSpeaking,
-                        micEnabled = p.micEnabled,
-                        cameraEnabled = p.cameraEnabled,
-                        videoTrack = p.videoTrack,
-                        screenTrack = p.screenTrack,
-                    )
-                },
+        combine(voiceManager.state, rostosDaCall.rostos, ::montar)
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                montar(voiceManager.state.value, rostosDaCall.rostos.value),
             )
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            CallUiState(channelName = channelName),
-        )
-
-    init { if (serverId.isNotBlank()) loadMembers() }
-
-    private fun loadMembers() {
-        viewModelScope.launch {
-            serverRepository.members(serverId).onSuccess { list ->
-                members.value = list.associateBy { it.userId }
-            }
-        }
-    }
 
     val room: Room? get() = voiceManager.activeRoom
 
-    fun join() = voiceManager.join(kind, channelId, channelName)
-    fun toggleMic() = voiceManager.toggleMic()
-    fun toggleCamera() = voiceManager.toggleCamera()
-    fun toggleDeafen() = voiceManager.toggleDeafen()
-    fun startScreenShare(resultData: android.content.Intent) = voiceManager.startScreenShare(resultData)
-    fun stopScreenShare() = voiceManager.stopScreenShare()
-    fun leave() = voiceManager.leave()
-    fun permissionDenied() = voiceManager.setError("Permissao de microfone negada")
+    fun alternarMudo() = voiceManager.alternarMudo()
+    fun alternarSurdo() = voiceManager.alternarSurdo()
+    fun sair() = voiceManager.sair()
+    fun escolherSaida(chave: String) = voiceManager.escolherSaida(chave)
+    fun comecarATransmitir(permissao: Intent) = voiceManager.comecarATransmitir(permissao)
+    fun pararDeTransmitir() = voiceManager.pararDeTransmitir()
+    fun assistir(quem: String?, emTelaCheia: Boolean) = voiceManager.assistir(quem, emTelaCheia)
+    fun esquecerErro() = voiceManager.esquecerErro()
+
+    fun tentarDeNovo() {
+        val sala = voiceManager.state.value.sala ?: return
+        voiceManager.entrar(sala.tipo, sala.id, sala.nome, sala.orbitaId, sala.fotoDoSussurro)
+    }
+
+    private fun montar(v: VoiceState, rostos: Map<String, Rosto>) = CallUiState(
+        status = v.status,
+        sala = v.sala,
+        mudo = v.mudo,
+        surdo = v.surdo,
+        transmitindo = v.transmitindo,
+        pessoas = v.pessoas.map { p ->
+            val rosto = rostos[p.identity] ?: RostosDaCall.rostoPadrao(v.sala.takeUnless { p.souEu })
+            PessoaNaTela(
+                identity = p.identity,
+                nome = if (p.souEu) "você" else rosto.nome,
+                foto = rosto.foto,
+                souEu = p.souEu,
+                falando = p.falando,
+                mudo = p.mudo,
+                surdo = p.surdo,
+                transmitindo = p.transmitindo,
+                tela = p.tela,
+            )
+        },
+        inicio = v.inicio,
+        saidas = v.saidas,
+        saidaAtual = v.saidaAtual,
+        erro = v.erro,
+    )
 }

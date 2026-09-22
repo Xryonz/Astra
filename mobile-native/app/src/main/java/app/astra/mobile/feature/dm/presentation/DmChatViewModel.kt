@@ -8,8 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.toModel
-import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.core.share.DmShortcuts
+import app.astra.mobile.core.voice.LigacaoDeSussurro
 import app.astra.mobile.core.translate.Translator
 import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.UploadFile
@@ -19,9 +19,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -32,7 +30,7 @@ class DmChatViewModel @Inject constructor(
     private val repository: DmRepository,
     private val imageUploader: ImageUploader,
     private val translator: Translator,
-    private val socketManager: SocketManager,
+    private val ligacaoDeSussurro: LigacaoDeSussurro,
     private val friendsApi: FriendsApi,
     @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
@@ -44,12 +42,7 @@ class DmChatViewModel @Inject constructor(
     private val _state = MutableStateFlow(DmChatUiState())
     val state = _state.asStateFlow()
 
-    private val _joinCall = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val joinCall = _joinCall.asSharedFlow()
-
     private var otherUserId: String? = null
-    private var ringTimeout: Job? = null
-    private var chamadaPendente = false
 
     init {
         repository.joinConversation(conversationId)
@@ -57,15 +50,10 @@ class DmChatViewModel @Inject constructor(
         observeMessages()
         loadHistory()
         observeTyping()
-        observeCallSignals()
         viewModelScope.launch {
             repository.conversations().onSuccess { list ->
                 val conv = list.find { it.id == conversationId }
                 otherUserId = conv?.otherUserId
-                if (chamadaPendente && otherUserId != null) {
-                    chamadaPendente = false
-                    startCall()
-                }
                 _state.update { it.copy(muted = conv?.muted == true, outroAvatar = conv?.otherAvatarUrl) }
                 conv?.let {
                     launch(Dispatchers.IO) {
@@ -86,48 +74,7 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
-    fun chamarQuandoPuder() {
-        if (otherUserId != null) startCall() else chamadaPendente = true
-    }
-
-    fun startCall() {
-        val other = otherUserId ?: return
-        if (_state.value.ringing) return
-        socketManager.sendDmCallInvite(conversationId, other)
-        _state.update { it.copy(ringing = true) }
-        ringTimeout?.cancel()
-        ringTimeout = viewModelScope.launch {
-            delay(30_000)
-            _state.update { it.copy(ringing = false) }
-        }
-    }
-
-    fun cancelCall() {
-        val other = otherUserId ?: return
-        ringTimeout?.cancel()
-        socketManager.sendDmCallReject(conversationId, other)
-        _state.update { it.copy(ringing = false) }
-    }
-
-    private fun observeCallSignals() {
-        viewModelScope.launch {
-            socketManager.dmCallAccept.collect { convId ->
-                if (convId == conversationId && _state.value.ringing) {
-                    ringTimeout?.cancel()
-                    _state.update { it.copy(ringing = false) }
-                    _joinCall.tryEmit(Unit)
-                }
-            }
-        }
-        viewModelScope.launch {
-            socketManager.dmCallReject.collect { convId ->
-                if (convId == conversationId && _state.value.ringing) {
-                    ringTimeout?.cancel()
-                    _state.update { it.copy(ringing = false) }
-                }
-            }
-        }
-    }
+    fun ligar() = ligacaoDeSussurro.ligar(conversationId, otherName, _state.value.outroAvatar)
 
     private fun observeMessages() {
         viewModelScope.launch {

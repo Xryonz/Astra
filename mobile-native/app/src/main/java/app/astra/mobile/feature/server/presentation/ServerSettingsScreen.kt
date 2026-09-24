@@ -60,6 +60,7 @@ fun ServerSettingsScreen(
     onOpenRoles: () -> Unit,
     onOpenBans: () -> Unit,
     onOpenEmojis: () -> Unit,
+    onOpenSons: () -> Unit,
     onOpenChannels: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
@@ -147,6 +148,7 @@ fun ServerSettingsScreen(
                 if (state.canManageChannels) {
                     add { SettingsRow("Orbitas", subtitle = "renomear, privar e apagar canais", onClick = onOpenChannels) }
                     add { SettingsRow("Emojis", subtitle = "emojis custom da constelacao", onClick = onOpenEmojis) }
+                    add { SettingsRow("Sons", subtitle = "o que toca durante a call", onClick = onOpenSons) }
                 }
             }
             if (geralRows.isNotEmpty()) {

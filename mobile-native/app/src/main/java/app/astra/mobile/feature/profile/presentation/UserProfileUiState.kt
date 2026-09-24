@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.profile.presentation
 
+import app.astra.mobile.core.network.dto.ProgressoDto
 import app.astra.mobile.feature.profile.domain.model.ProfileView
 import app.astra.mobile.ui.components.BadgeUi
 
@@ -7,6 +8,7 @@ data class UserProfileUiState(
     val loading: Boolean = true,
     val view: ProfileView? = null,
     val badges: List<BadgeUi> = emptyList(),
+    val progresso: ProgressoDto? = null,
     val error: String? = null,
     val souEu: Boolean = false,
     val abrindoConversa: Boolean = false,

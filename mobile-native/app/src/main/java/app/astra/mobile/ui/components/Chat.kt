@@ -774,6 +774,7 @@ fun ChatMessageList(
     onVotePoll: (ChatRow, String) -> Unit = { _, _ -> },
     onClosePoll: (ChatRow) -> Unit = {},
     onOpenProfile: ((String, String) -> Unit)? = null,
+    aoAbrirMeuPerfil: (() -> Unit)? = null,
 ) {
     val chegada = remember { ChegadaDeMensagens() }
     remember(rows, vivo) { chegada.observar(rows, vivo) }
@@ -843,7 +844,7 @@ fun ChatMessageList(
                             onOpenImage = { imgs, idx -> lightbox = imgs to idx },
                             onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
                             onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
-                            onAuthorClick = row.authorId?.let { aid ->
+                            onAuthorClick = if (row.mine) aoAbrirMeuPerfil else row.authorId?.let { aid ->
                                 onOpenProfile?.let { open -> ({ open(aid, row.authorName) }) }
                             },
                         )

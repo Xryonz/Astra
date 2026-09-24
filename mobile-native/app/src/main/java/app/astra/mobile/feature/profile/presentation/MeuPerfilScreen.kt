@@ -38,8 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,7 +52,6 @@ import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.X
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -172,21 +169,6 @@ fun MeuPerfilScreen(
             aoAbrirConfiguracoes = aoAbrirConfiguracoes,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp),
         )
-    }
-}
-
-@Composable
-private fun BotaoFechar(aoFechar: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(astraColors.void.copy(alpha = 0.6f))
-            .clickable(onClick = aoFechar)
-            .semantics { contentDescription = "Fechar" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Lucide.X, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(20.dp))
     }
 }
 

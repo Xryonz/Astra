@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.BadgesApi
+import app.astra.mobile.core.network.XpApi
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.ui.components.toUi
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class UserProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val badgesApi: BadgesApi,
+    private val xpApi: XpApi,
     private val dmRepository: DmRepository,
     private val tokenStore: TokenStore,
     savedStateHandle: SavedStateHandle,
@@ -53,6 +55,14 @@ class UserProfileViewModel @Inject constructor(
             userRepository.profile(userId)
                 .onSuccess { v -> _state.update { it.copy(loading = false, view = v, badges = badgesD.await()) } }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
+        }
+    }
+
+    fun carregarProgresso() {
+        if (_state.value.progresso != null) return
+        viewModelScope.launch {
+            val p = runCatching { xpApi.de(userId).data }.getOrNull() ?: return@launch
+            _state.update { it.copy(progresso = p) }
         }
     }
 

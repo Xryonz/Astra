@@ -65,9 +65,7 @@ import com.composables.icons.lucide.Plus
 
 private val LADO = 46.dp
 private val LARGURA_DA_COLUNA = 68.dp
-private val CANTO = CircleShape
-private val LARGURA_DA_MARCA = 3.dp
-private val ALTURA_DA_MARCA = 26.dp
+private val CANTO = RoundedCornerShape(8.dp)
 private const val CHAVE_SUSSURROS = "sussurros"
 private const val CHAVE_DIVISORIA = "divisoria"
 private const val CHAVE_NOVA = "nova"

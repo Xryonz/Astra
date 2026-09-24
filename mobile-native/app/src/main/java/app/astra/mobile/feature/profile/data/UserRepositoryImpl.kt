@@ -10,8 +10,10 @@ import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
+import app.astra.mobile.core.network.dto.UserDto
 import app.astra.mobile.feature.friends.domain.model.Presence
 import app.astra.mobile.feature.profile.domain.UserRepository
+import app.astra.mobile.feature.profile.domain.model.AmigoEmComum
 import app.astra.mobile.feature.profile.domain.model.MutualServer
 import app.astra.mobile.feature.profile.domain.model.Profile
 import app.astra.mobile.feature.profile.domain.model.ProfileView
@@ -58,6 +60,8 @@ class UserRepositoryImpl @Inject constructor(
                     profile = data.user.toDomain(),
                     presence = parsePresence(data.user.effectiveStatus),
                     mutual = data.mutualServers.map { it.toDomain() },
+                    amigosEmComum = data.mutualFriends,
+                    rostosEmComum = data.mutualFriendsList.map { it.toDomain() },
                 ),
             )
         } catch (e: CancellationException) {
@@ -185,6 +189,8 @@ private fun ProfileUserDto.toDomain() = Profile(
 )
 
 private fun MutualServerDto.toDomain() = MutualServer(id, name, iconUrl, isGroup, role)
+
+private fun UserDto.toDomain() = AmigoEmComum(id, displayName ?: username, avatarUrl)
 
 private fun parsePresence(s: String?): Presence = when (s?.uppercase()) {
     "ONLINE" -> Presence.ONLINE

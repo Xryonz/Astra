@@ -18,22 +18,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.feature.profile.domain.model.MutualServer
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.BadgeChips
@@ -43,6 +51,12 @@ import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 data class PerfilVisivel(
     val nome: String,
@@ -88,6 +102,7 @@ fun BannerDoPerfil(p: PerfilVisivel, altura: Dp, modifier: Modifier = Modifier) 
         modifier
             .fillMaxWidth()
             .height(altura)
+            .clipToBounds()
             .background(p.corDoBanner.comoCor() ?: astraColors.overlay),
     ) {
         if (!p.banner.isNullOrBlank()) {
@@ -259,6 +274,62 @@ fun FaixaDoPerfil(p: PerfilVisivel, modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+fun BotaoFechar(aoFechar: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(astraColors.void.copy(alpha = 0.6f))
+            .clickable(onClick = aoFechar)
+            .semantics { contentDescription = "Fechar" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Lucide.X, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+fun IconeDaOrbita(orbita: MutualServer, aoTocar: () -> Unit) {
+    val forma = RoundedCornerShape(10.dp)
+    var semImagem by remember(orbita.iconUrl) { mutableStateOf(orbita.iconUrl == null) }
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(forma)
+            .background(astraColors.overlay)
+            .border(1.dp, astraColors.border, forma)
+            .clickable(onClick = aoTocar)
+            .semantics { contentDescription = "Abrir ${orbita.name}" },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!semImagem) {
+            AsyncImage(
+                model = orbita.iconUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                onError = { semImagem = true },
+                modifier = Modifier.size(40.dp),
+            )
+        } else {
+            Text(
+                orbita.name.take(2).uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = astraColors.text2,
+            )
+        }
+    }
+}
+
+fun mesPorExtenso(iso: String?): String? {
+    if (iso.isNullOrBlank()) return null
+    return runCatching {
+        OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(MES_POR_EXTENSO)
+    }.getOrNull()
+}
+
+private val MES_POR_EXTENSO = DateTimeFormatter.ofPattern("MMMM 'de' yyyy", Locale.forLanguageTag("pt-BR"))
 
 @Composable
 fun CartaoDeSecao(

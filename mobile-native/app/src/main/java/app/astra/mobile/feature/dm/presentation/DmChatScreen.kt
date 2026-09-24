@@ -74,6 +74,7 @@ import kotlinx.coroutines.withContext
 fun DmChatScreen(
     onBack: () -> Unit,
     onOpenProfile: (String, String) -> Unit = { _, _ -> },
+    aoAbrirMeuPerfil: () -> Unit = {},
     pedirChamada: Boolean = false,
     aoAtenderPedido: () -> Unit = {},
     viewModel: DmChatViewModel = hiltViewModel(),
@@ -224,6 +225,7 @@ fun DmChatScreen(
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                             onTranslate = { viewModel.translate(it.id, it.content) },
                             onOpenProfile = onOpenProfile,
+                            aoAbrirMeuPerfil = aoAbrirMeuPerfil,
                         )
                     }
                 }

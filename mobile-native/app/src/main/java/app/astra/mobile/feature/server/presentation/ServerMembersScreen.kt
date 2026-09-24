@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +52,7 @@ import app.astra.mobile.ui.components.ItemDeMenu
 fun ServerMembersScreen(
     onBack: () -> Unit,
     onOpenProfile: (userId: String, name: String) -> Unit,
+    aoAbrirMeuPerfil: () -> Unit = {},
     viewModel: ServerMembersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -99,7 +102,15 @@ fun ServerMembersScreen(
                                 .padding(horizontal = 20.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            AstraAvatar(m.avatarUrl, m.name, size = 42)
+                            Box(
+                                Modifier
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        if (isSelf) aoAbrirMeuPerfil() else onOpenProfile(m.userId, m.name)
+                                    },
+                            ) {
+                                AstraAvatar(m.avatarUrl, m.name, size = 42)
+                            }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(

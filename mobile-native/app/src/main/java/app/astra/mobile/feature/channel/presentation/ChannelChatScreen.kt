@@ -95,6 +95,7 @@ import kotlinx.coroutines.withContext
 fun ChannelChatScreen(
     onBack: () -> Unit,
     onOpenProfile: (String, String) -> Unit = { _, _ -> },
+    aoAbrirMeuPerfil: () -> Unit = {},
     temOrbita: Boolean = false,
     viewModel: ChannelChatViewModel = hiltViewModel(),
 ) {
@@ -200,6 +201,7 @@ fun ChannelChatScreen(
                             onVotePoll = { row, optionId -> viewModel.votePoll(row.id, optionId) },
                             onClosePoll = { viewModel.closePoll(it.id) },
                             onOpenProfile = onOpenProfile,
+                            aoAbrirMeuPerfil = aoAbrirMeuPerfil,
                         )
                     }
                 }
@@ -322,6 +324,7 @@ fun ChannelChatScreen(
                 ServerMembersScreen(
                     onBack = { membrosAbertos = false },
                     onOpenProfile = onOpenProfile,
+                    aoAbrirMeuPerfil = aoAbrirMeuPerfil,
                 )
             }
         }

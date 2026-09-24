@@ -1,5 +1,5 @@
-versao 2.0.12
-A casca ficou como o desktop: cartão dentro de cartão, com cada categoria no seu.
-Nada mais tem cara de caixa — cantos maiores, busca em cápsula e botões redondos.
-As constelações da coluna viraram círculos, e a borda acende na que você abriu.
-O seu cartão descolou da borda e o estado virou um botão, ao lado do sino.
+versao 2.0.13
+Toque na foto de alguém: abre um cartão curto, com ver perfil completo embaixo.
+O perfil completo ganhou tela própria, com amigos em comum, constelações e nível.
+O banner parou de escorrer por cima do nome quando estava com zoom.
+A coluna das constelações ficou igual à do desktop, e nenhum menu saiu quadrado.

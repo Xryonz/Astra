@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.notifications.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -219,7 +220,13 @@ private fun HourPicker(label: String, value: Int?, onPick: (Int?) -> Unit) {
                     .clickable { open = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = astraColors.overlay,
+                border = BorderStroke(1.dp, astraColors.border),
+            ) {
                 ItemDeMenu(text = { Text("—") }, onClick = { open = false; onPick(null) })
                 (0..23).forEach { h ->
                     ItemDeMenu(

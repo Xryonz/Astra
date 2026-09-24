@@ -10,8 +10,16 @@ data class MutualServer(
     val role: String,
 )
 
+data class AmigoEmComum(
+    val id: String,
+    val nome: String,
+    val avatarUrl: String?,
+)
+
 data class ProfileView(
     val profile: Profile,
     val presence: Presence,
     val mutual: List<MutualServer>,
+    val amigosEmComum: Int = 0,
+    val rostosEmComum: List<AmigoEmComum> = emptyList(),
 )

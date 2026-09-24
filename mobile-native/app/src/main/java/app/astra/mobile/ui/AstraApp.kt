@@ -75,6 +75,7 @@ import app.astra.mobile.feature.profile.presentation.AparenciaScreen
 import app.astra.mobile.feature.profile.presentation.CoresDoNomeScreen
 import app.astra.mobile.feature.profile.presentation.EditarPerfilScreen
 import app.astra.mobile.feature.profile.presentation.FolhaDePerfil
+import app.astra.mobile.feature.profile.presentation.PerfilCompletoScreen
 import app.astra.mobile.feature.profile.presentation.MeuPerfilScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.TelaSobre
@@ -141,6 +142,8 @@ private object Routes {
     const val FRIENDS = "friends"
     const val USER_PROFILE = "user/{userId}?name={name}"
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
+    const val PERFIL_COMPLETO = "perfil/{userId}?name={name}"
+    fun perfilCompleto(id: String, name: String) = "perfil/$id?name=${Uri.encode(name)}"
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}&chamar={chamar}"
     const val JOIN = "join?code={code}"
@@ -281,7 +284,7 @@ fun AstraApp() {
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
                     dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-                ) {
+                ) { entrada ->
                     FolhaDePerfil(
                         aoFechar = { nav.popBackStack() },
                         aoEditarPerfil = {
@@ -297,6 +300,28 @@ fun AstraApp() {
                                 !jaEstaNela -> nav.navigate(Routes.dmChat(c.id, c.nome, c.chamar))
                                 c.chamar -> atual.savedStateHandle["chamar"] = true
                             }
+                        },
+                        aoVerCompleto = {
+                            val id = entrada.arguments?.getString("userId").orEmpty()
+                            val nome = entrada.arguments?.getString("name").orEmpty()
+                            nav.popBackStack()
+                            if (id.isNotBlank()) nav.navigate(Routes.perfilCompleto(id, nome))
+                        },
+                    )
+                }
+                tela(
+                    Routes.PERFIL_COMPLETO,
+                    arguments = listOf(
+                        navArgument("userId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    PerfilCompletoScreen(
+                        aoFechar = { nav.popBackStack() },
+                        aoEditarPerfil = { nav.navigate(Routes.EDITAR_PERFIL) },
+                        aoAbrirConversa = { c ->
+                            nav.popBackStack()
+                            nav.navigate(Routes.dmChat(c.id, c.nome, c.chamar))
                         },
                         aoAbrirOrbita = { id ->
                             runCatching { nav.getBackStackEntry(Routes.HOME).savedStateHandle[ORBITA_PEDIDA] = id }
@@ -443,6 +468,7 @@ fun AstraApp() {
                     ServerMembersScreen(
                         onBack = { nav.popBackStack() },
                         onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                        aoAbrirMeuPerfil = { nav.navigate(Routes.MEU_PERFIL) },
                     )
                 }
                 tela(
@@ -505,6 +531,7 @@ fun AstraApp() {
                         ChannelChatScreen(
                             onBack = { nav.popBackStack() },
                             onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                            aoAbrirMeuPerfil = { nav.navigate(Routes.MEU_PERFIL) },
                             temOrbita = !entrada.arguments?.getString("serverId").isNullOrBlank(),
                         )
                     }
@@ -551,6 +578,7 @@ fun AstraApp() {
                         DmChatScreen(
                             onBack = { nav.popBackStack() },
                             onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                            aoAbrirMeuPerfil = { nav.navigate(Routes.MEU_PERFIL) },
                             pedirChamada = pedirChamada,
                             aoAtenderPedido = { entrada.savedStateHandle["chamar"] = false },
                         )

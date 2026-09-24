@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.profile.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,8 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -53,7 +52,6 @@ import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.X
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -129,7 +127,9 @@ fun MeuPerfilScreen(
                     expanded = menuDeStatus,
                     onDismissRequest = { menuDeStatus = false },
                     offset = DpOffset(16.dp, 0.dp),
-                    modifier = Modifier.background(astraColors.overlay),
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = astraColors.overlay,
+                    border = BorderStroke(1.dp, astraColors.border),
                 ) {
                     OPCOES_DE_STATUS.forEach { (rotulo, status) ->
                         ItemDeMenu(
@@ -169,21 +169,6 @@ fun MeuPerfilScreen(
             aoAbrirConfiguracoes = aoAbrirConfiguracoes,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp),
         )
-    }
-}
-
-@Composable
-private fun BotaoFechar(aoFechar: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(astraColors.void.copy(alpha = 0.6f))
-            .clickable(onClick = aoFechar)
-            .semantics { contentDescription = "Fechar" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Lucide.X, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(20.dp))
     }
 }
 

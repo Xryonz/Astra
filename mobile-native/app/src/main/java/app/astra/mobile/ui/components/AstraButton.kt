@@ -32,7 +32,7 @@ fun AstraButton(
     loading: Boolean = false,
     variant: AstraButtonVariant = AstraButtonVariant.Primary,
 ) {
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(23.dp)
     val active = enabled && !loading
     val primary = variant == AstraButtonVariant.Primary
     val bg = when {

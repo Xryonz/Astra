@@ -298,7 +298,7 @@ private fun descricaoDaMissao(m: ItemMissaoDto): String = buildString {
 }
 
 @Composable
-private fun BarraDeProgresso(fracao: () -> Float, concluida: Boolean, altura: Dp = 3.dp) {
+fun BarraDeProgresso(fracao: () -> Float, concluida: Boolean, altura: Dp = 3.dp) {
     val trilho = astraColors.border
     val cheio = if (concluida) astraColors.accent.copy(alpha = 0.45f) else astraColors.accent
     Box(

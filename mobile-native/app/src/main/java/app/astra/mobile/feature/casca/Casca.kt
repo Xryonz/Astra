@@ -153,6 +153,8 @@ fun Casca(
     }
     val posicoes = remember(orbitasNaOrdem) { orbitasNaOrdem.withIndex().associate { (i, o) -> o.id to i } }
     var ultimoCanal by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var canalNoMenuId by remember { mutableStateOf<String?>(null) }
+    val canalNoMenu = canalNoMenuId?.let { id -> orbitaAberta?.channels?.firstOrNull { it.id == id } }
     val contexto = LocalContext.current
     val semMovimento = LocalAppPrefs.current.reduceMotion
     val aviso = LocalToastHostState.current
@@ -252,6 +254,7 @@ fun Casca(
                             aoAbrirCanal(canal.id, canal.name, orbita.id)
                         },
                         aoEntrarNaVoz = { canal -> aoEntrarNaVoz(canal.id, canal.name, orbita.id) },
+                        aoSegurarCanal = { canal -> canalNoMenuId = canal.id },
                         aoBuscar = aoAbrirBusca,
                         aoConvidar = orbita.inviteCode?.let { codigo ->
                             { shareInviteLink(contexto, BuildConfig.BASE_URL.trimEnd('/') + "/i/" + codigo) }
@@ -329,6 +332,21 @@ fun Casca(
                 ItemDeStatus("Invisível", UserStatus.INVISIBLE, viewModel) { menuDeStatus = false }
             }
         }
+    }
+
+    canalNoMenu?.let { canal ->
+        val orbitaDoMenu = orbitaAberta?.id
+        MenuDoCanal(
+            canal = canal,
+            silenciado = canal.id in estado.mutedChannels,
+            naoLido = canal.id in estado.channelUnread,
+            podeMexerNaBot = estado.podeArrumar,
+            aoFechar = { canalNoMenuId = null },
+            aoSilenciar = { silenciar -> viewModel.silenciarCanal(canal.id, silenciar) },
+            aoMarcarComoLido = { viewModel.marcarCanalComoLido(canal.id) },
+            aoMudarBot = { atende -> orbitaDoMenu?.let { viewModel.botAtendeNoCanal(it, canal.id, atende) } },
+            aoMudarRespostas = { guardar -> orbitaDoMenu?.let { viewModel.guardarRespostasDaBot(it, canal.id, guardar) } },
+        )
     }
 
     DialogoDeForjar(

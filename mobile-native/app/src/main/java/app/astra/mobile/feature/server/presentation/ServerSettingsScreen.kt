@@ -62,6 +62,7 @@ fun ServerSettingsScreen(
     onOpenEmojis: () -> Unit,
     onOpenSons: () -> Unit,
     onOpenFigurinhas: () -> Unit,
+    onOpenBot: () -> Unit,
     onOpenChannels: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
@@ -161,7 +162,10 @@ fun ServerSettingsScreen(
             val comunidadeRows = buildList<@Composable () -> Unit> {
                 add { SettingsRow("Membros", subtitle = "estrelas desta constelacao", onClick = onOpenMembers) }
                 if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "papeis e permissoes", onClick = onOpenRoles) }
-                if (state.canManageServer) add { SettingsRow("Insignias", subtitle = "crie e conceda", onClick = onOpenBadges) }
+                if (state.canManageServer) {
+                    add { SettingsRow("Insignias", subtitle = "crie e conceda", onClick = onOpenBadges) }
+                    add { SettingsRow("Bot", subtitle = "quais comandos ficam de fora", onClick = onOpenBot) }
+                }
                 if (state.canBan) add { SettingsRow("Banimentos", subtitle = "quem nao pode voltar", onClick = onOpenBans) }
             }
             SettingsGroup(

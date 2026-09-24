@@ -13,11 +13,13 @@ import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.core.voice.SalasDeVoz
 import app.astra.mobile.feature.auth.domain.AuthRepository
+import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
+import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -34,6 +36,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     socketManager: SocketManager,
     private val serverRepository: ServerRepository,
+    private val channelRepository: ChannelRepository,
     private val dmRepository: DmRepository,
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
@@ -269,6 +272,58 @@ class HomeViewModel @Inject constructor(
     }
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
+
+    fun marcarCanalComoLido(channelId: String) {
+        markChannelSeen(channelId)
+        viewModelScope.launch { channelRepository.markRead(channelId) }
+    }
+
+    fun silenciarCanal(channelId: String, silenciar: Boolean) {
+        val antes = _state.value.mutedChannels
+        channelPrefModes = if (silenciar) channelPrefModes + (channelId to "mute") else channelPrefModes - channelId
+        _state.update {
+            it.copy(
+                mutedChannels = if (silenciar) it.mutedChannels + channelId else it.mutedChannels - channelId,
+                channelUnread = if (silenciar) it.channelUnread - channelId else it.channelUnread,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                if (silenciar) notificationsApi.setChannelNotifPref(channelId, NotifModeRequest("mute"))
+                else notificationsApi.clearChannelNotifPref(channelId)
+            } catch (_: Exception) {
+                _state.update { it.copy(mutedChannels = antes) }
+            }
+        }
+    }
+
+    fun botAtendeNoCanal(serverId: String, channelId: String, atende: Boolean) {
+        mudarCanal(serverId, channelId) { it.copy(botAtende = atende) }
+        viewModelScope.launch {
+            serverRepository.botAtendeNoCanal(serverId, channelId, atende)
+                .onFailure { e ->
+                    mudarCanal(serverId, channelId) { it.copy(botAtende = !atende) }
+                    _state.update { st -> st.copy(manageError = e.message) }
+                }
+        }
+    }
+
+    fun guardarRespostasDaBot(serverId: String, channelId: String, guardar: Boolean) {
+        mudarCanal(serverId, channelId) { it.copy(guardaAsRespostas = guardar) }
+        viewModelScope.launch {
+            serverRepository.guardarRespostasDaBot(serverId, channelId, guardar)
+                .onFailure { e ->
+                    mudarCanal(serverId, channelId) { it.copy(guardaAsRespostas = !guardar) }
+                    _state.update { st -> st.copy(manageError = e.message) }
+                }
+        }
+    }
+
+    private fun mudarCanal(serverId: String, channelId: String, mudanca: (Channel) -> Channel) {
+        mudarOrbita(serverId) { orbita ->
+            orbita.copy(channels = orbita.channels.map { if (it.id == channelId) mudanca(it) else it })
+        }
+    }
 
     fun setStatus(status: UserStatus) {
         _state.update { it.copy(myStatus = status) }

@@ -109,6 +109,7 @@ private class ArrastoNoPainel {
     var mexeu by mutableStateOf(false)
     var categoriaSob by mutableStateOf<String?>(null)
     var ordem by mutableStateOf<List<String>>(emptyList())
+    var seguradoId by mutableStateOf<String?>(null)
     val arrastando: Boolean get() = id != null
 
     fun soltar() {
@@ -117,6 +118,7 @@ private class ArrastoNoPainel {
         mexeu = false
         categoriaSob = null
         ordem = emptyList()
+        seguradoId = null
     }
 }
 
@@ -151,6 +153,7 @@ fun PainelDeCanais(
     podeArrumar: Boolean,
     aoAbrirCanal: (Channel) -> Unit,
     aoEntrarNaVoz: (Channel) -> Unit,
+    aoSegurarCanal: (Channel) -> Unit,
     aoBuscar: () -> Unit,
     aoConvidar: (() -> Unit)?,
     aoAbrirAjustes: () -> Unit,
@@ -183,6 +186,12 @@ fun PainelDeCanais(
     }
     val secoesAgora by rememberUpdatedState(secoesReais)
     val podeAgora by rememberUpdatedState(podeArrumar)
+    val canaisAgora by rememberUpdatedState(orbita.channels)
+    val segurarAgora by rememberUpdatedState(aoSegurarCanal)
+
+    fun abrirOMenuDoCanal(canalId: String) {
+        canaisAgora.firstOrNull { it.id == canalId }?.let(segurarAgora)
+    }
 
     val acompanhar = {
         val sob = chaveSob(estado.layoutInfo, arrasto.pontoY)
@@ -241,8 +250,12 @@ fun PainelDeCanais(
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { ponto ->
-                        if (!podeAgora) return@detectDragGesturesAfterLongPress
                         val sob = chaveSob(estado.layoutInfo, ponto.y) ?: return@detectDragGesturesAfterLongPress
+                        if (!sob.startsWith(PREFIXO_DA_CATEGORIA)) {
+                            arrasto.seguradoId = sob
+                            if (comVibracao) haptico.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        if (!podeAgora) return@detectDragGesturesAfterLongPress
                         if (sob.startsWith(PREFIXO_DA_CATEGORIA)) {
                             val id = sob.removePrefix(PREFIXO_DA_CATEGORIA)
                             arrasto.tipo = OQueEstaNaMao.CATEGORIA
@@ -258,7 +271,9 @@ fun PainelDeCanais(
                         }
                         arrasto.pontoY = ponto.y
                         arrasto.mexeu = false
-                        if (comVibracao) haptico.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (comVibracao && sob.startsWith(PREFIXO_DA_CATEGORIA)) {
+                            haptico.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                     },
                     onDrag = { mudanca, _ ->
                         if (arrasto.arrastando) {
@@ -273,15 +288,21 @@ fun PainelDeCanais(
                         val ordem = arrasto.ordem
                         val destino = arrasto.categoriaSob
                         val mexeu = arrasto.mexeu
+                        val segurado = arrasto.seguradoId
                         arrasto.soltar()
                         when {
+                            !mexeu && segurado != null -> abrirOMenuDoCanal(segurado)
                             id == null -> Unit
                             tipo == OQueEstaNaMao.CANAL && destino != null -> aoMoverParaCategoria(id, destino)
                             tipo == OQueEstaNaMao.CANAL && mexeu -> aoReordenarCanais(ordem)
                             tipo == OQueEstaNaMao.CATEGORIA && mexeu -> aoReordenarCategorias(ordem)
                         }
                     },
-                    onDragCancel = { arrasto.soltar() },
+                    onDragCancel = {
+                        val segurado = arrasto.seguradoId.takeIf { !arrasto.mexeu }
+                        arrasto.soltar()
+                        segurado?.let { abrirOMenuDoCanal(it) }
+                    },
                 )
             },
     ) {

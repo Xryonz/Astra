@@ -9,6 +9,8 @@ import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
+import app.astra.mobile.core.network.dto.UpdateChannelBotRequest
+import app.astra.mobile.core.network.dto.UpdateChannelKeepRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.realtime.SocketManager
@@ -167,6 +169,24 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(apiError(e, "Não foi possível mover a órbita"))
     }
 
+    override suspend fun botAtendeNoCanal(serverId: String, channelId: String, atende: Boolean): Result<Unit> = try {
+        serverApi.setChannelBot(serverId, channelId, UpdateChannelBotRequest(atende))
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(apiError(e, "Não foi possível avisar a bot"))
+    }
+
+    override suspend fun guardarRespostasDaBot(serverId: String, channelId: String, guardar: Boolean): Result<Unit> = try {
+        serverApi.setChannelKeepBot(serverId, channelId, UpdateChannelKeepRequest(guardar))
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(apiError(e, "Não foi possível mudar as respostas da bot"))
+    }
+
     override suspend fun moverCategoria(serverId: String, categoryId: String, posicao: Int): Result<Unit> = try {
         serverApi.updateCategory(serverId, categoryId, UpdateCategoryRequest(position = posicao))
         Result.success(Unit)
@@ -202,7 +222,17 @@ private fun ServerDto.toDomain() = Server(
     description = description,
     messageRetentionDays = messageRetentionDays,
     channels = channels.map {
-        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId, isPrivate = it.isPrivate, position = it.position)
+        Channel(
+            id = it.id,
+            name = it.name,
+            isVoice = it.type == "VOICE",
+            lastMessageAt = it.lastMessageAt,
+            categoryId = it.categoryId,
+            isPrivate = it.isPrivate,
+            position = it.position,
+            botAtende = it.botEnabled,
+            guardaAsRespostas = it.botKeepReplies,
+        )
     },
     categories = categories.map { Category(it.id, it.name, it.position) },
 )

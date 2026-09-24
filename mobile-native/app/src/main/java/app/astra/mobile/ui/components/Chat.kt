@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -575,7 +576,13 @@ private fun MessageActionsMenu(
     onMoreReactions: (() -> Unit)? = null,
     onTranslate: (() -> Unit)? = null,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(16.dp),
+        containerColor = astraColors.overlay,
+        border = BorderStroke(1.dp, astraColors.border),
+    ) {
         if (onToggleReaction != null) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -1075,7 +1082,13 @@ fun ChatInputBar(
                         color = if (menuOpen) astraColors.accent else astraColors.text2,
                     )
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = astraColors.overlay,
+                    border = BorderStroke(1.dp, astraColors.border),
+                ) {
                     if (onAttach != null) {
                         ComposerOption(Lucide.Image, "Fotos", enabled = !uploading) { menuOpen = false; onAttach() }
                     }

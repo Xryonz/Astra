@@ -85,6 +85,9 @@ private const val PREFIXO_DA_VOZ = "voz-"
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.03f
+private val CANTO_DO_CARTAO = 16.dp
+private val MARGEM_DO_CARTAO = 10.dp
+private val CANTO_DA_LINHA = RoundedCornerShape(12.dp)
 
 private class Secao(val categoriaId: String, val nome: String?, val canais: List<Channel>)
 
@@ -100,6 +103,46 @@ private fun secoesDe(orbita: Server): List<Secao> {
 }
 
 private enum class OQueEstaNaMao { CANAL, CATEGORIA }
+
+private enum class LugarNoCartao { SOZINHA, PRIMEIRA, MEIO, ULTIMA }
+
+private sealed interface EntradaDoCartao {
+    data class Canal(val canal: Channel) : EntradaDoCartao
+    data class Voz(val canalId: String, val pessoa: PessoaNaVoz) : EntradaDoCartao
+}
+
+private fun lugarNoCartao(indice: Int, quantas: Int): LugarNoCartao = when {
+    quantas <= 1 -> LugarNoCartao.SOZINHA
+    indice == 0 -> LugarNoCartao.PRIMEIRA
+    indice == quantas - 1 -> LugarNoCartao.ULTIMA
+    else -> LugarNoCartao.MEIO
+}
+
+@Composable
+private fun CartaoDaSecao(
+    lugar: LugarNoCartao,
+    modifier: Modifier = Modifier,
+    conteudo: @Composable () -> Unit,
+) {
+    val topo = lugar == LugarNoCartao.PRIMEIRA || lugar == LugarNoCartao.SOZINHA
+    val base = lugar == LugarNoCartao.ULTIMA || lugar == LugarNoCartao.SOZINHA
+    val forma = RoundedCornerShape(
+        topStart = if (topo) CANTO_DO_CARTAO else 0.dp,
+        topEnd = if (topo) CANTO_DO_CARTAO else 0.dp,
+        bottomStart = if (base) CANTO_DO_CARTAO else 0.dp,
+        bottomEnd = if (base) CANTO_DO_CARTAO else 0.dp,
+    )
+    Box(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = MARGEM_DO_CARTAO)
+            .clip(forma)
+            .background(astraColors.raised)
+            .padding(top = if (topo) 6.dp else 0.dp, bottom = if (base) 6.dp else 0.dp),
+    ) {
+        conteudo()
+    }
+}
 
 private class ArrastoNoPainel {
     var tipo by mutableStateOf<OQueEstaNaMao?>(null)
@@ -339,39 +382,59 @@ fun PainelDeCanais(
                 recolhida -> secao.canais.filter { it.id == canalAberto || it.id in naoLidos || it.id == arrasto.id }
                 else -> secao.canais
             }
-            visiveis.forEach { canal ->
-            item(key = canal.id) {
-                val naMao = arrasto.tipo == OQueEstaNaMao.CANAL && arrasto.id == canal.id
-                LinhaDeCanal(
-                    canal = canal,
-                    aberto = canal.id == canalAberto,
-                    naoLido = canal.id in naoLidos,
-                    naMao = naMao,
-                    aoTocar = { if (canal.isVoice) aoEntrarNaVoz(canal) else aoAbrirCanal(canal) },
-                    modifier = Modifier
-                        .zIndex(if (naMao) 1f else 0f)
-                        .then(
-                            if (naMao || semMovimento) Modifier
-                            else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
-                        )
-                        .graphicsLayer {
-                            if (!naMao) return@graphicsLayer
-                            val centro = centroNaLista(estado.layoutInfo, canal.id) ?: return@graphicsLayer
-                            translationY = arrasto.pontoY - centro
-                            scaleX = ESCALA_NA_MAO
-                            scaleY = ESCALA_NA_MAO
-                        },
-                )
-            }
-            if (canal.isVoice && arrasto.id != canal.id) {
-                items(naVoz[canal.id].orEmpty(), key = { PREFIXO_DA_VOZ + canal.id + ":" + it.id }) { pessoa ->
-                    LinhaDeQuemEstaNaVoz(
-                        pessoa,
-                        modifier = if (semMovimento) Modifier
-                        else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = tween(160), placementSpec = tween(180)),
-                    )
+            val entradas = buildList {
+                visiveis.forEach { canal ->
+                    add(EntradaDoCartao.Canal(canal))
+                    if (canal.isVoice && arrasto.id != canal.id) {
+                        naVoz[canal.id].orEmpty().forEach { add(EntradaDoCartao.Voz(canal.id, it)) }
+                    }
                 }
             }
+            entradas.forEachIndexed { posicaoNaLista, entrada ->
+                val lugar = lugarNoCartao(posicaoNaLista, entradas.size)
+                when (entrada) {
+                    is EntradaDoCartao.Canal -> {
+                        val canal = entrada.canal
+                        item(key = canal.id) {
+                            val naMao = arrasto.tipo == OQueEstaNaMao.CANAL && arrasto.id == canal.id
+                            CartaoDaSecao(
+                                lugar = if (naMao) LugarNoCartao.SOZINHA else lugar,
+                                modifier = Modifier
+                                    .zIndex(if (naMao) 1f else 0f)
+                                    .then(
+                                        if (naMao || semMovimento) Modifier
+                                        else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
+                                    )
+                                    .graphicsLayer {
+                                        if (!naMao) return@graphicsLayer
+                                        val centro = centroNaLista(estado.layoutInfo, canal.id) ?: return@graphicsLayer
+                                        translationY = arrasto.pontoY - centro
+                                        scaleX = ESCALA_NA_MAO
+                                        scaleY = ESCALA_NA_MAO
+                                    },
+                            ) {
+                                LinhaDeCanal(
+                                    canal = canal,
+                                    aberto = canal.id == canalAberto,
+                                    naoLido = canal.id in naoLidos,
+                                    naMao = naMao,
+                                    aoTocar = { if (canal.isVoice) aoEntrarNaVoz(canal) else aoAbrirCanal(canal) },
+                                )
+                            }
+                        }
+                    }
+                    is EntradaDoCartao.Voz -> {
+                        item(key = PREFIXO_DA_VOZ + entrada.canalId + ":" + entrada.pessoa.id) {
+                            CartaoDaSecao(
+                                lugar = lugar,
+                                modifier = if (semMovimento) Modifier
+                                else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = tween(160), placementSpec = tween(180)),
+                            ) {
+                                LinhaDeQuemEstaNaVoz(entrada.pessoa)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -418,7 +481,7 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?
             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val forma = RoundedCornerShape(10.dp)
+            val forma = RoundedCornerShape(20.dp)
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -436,27 +499,10 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?
             }
             if (aoConvidar != null) {
                 Spacer(Modifier.width(8.dp))
-                BotaoQuadrado(icone = Lucide.UserPlus, rotulo = "Convidar pessoas", aoTocar = aoConvidar)
+                BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Convidar pessoas", aoTocar = aoConvidar)
             }
         }
         Spacer(Modifier.height(4.dp))
-    }
-}
-
-@Composable
-private fun BotaoQuadrado(icone: ImageVector, rotulo: String, aoTocar: () -> Unit) {
-    val forma = RoundedCornerShape(10.dp)
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(forma)
-            .background(astraColors.raised)
-            .border(1.dp, astraColors.border, forma)
-            .clickable(onClick = aoTocar)
-            .semantics { contentDescription = rotulo },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icone, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -469,11 +515,11 @@ private fun TituloDaCategoria(
     modifier: Modifier = Modifier,
 ) {
     val giro by animateFloatAsState(if (recolhida) -90f else 0f, tween(160), label = "giro")
-    val forma = RoundedCornerShape(8.dp)
+    val forma = RoundedCornerShape(12.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 8.dp, end = 8.dp, top = 14.dp, bottom = 2.dp)
+            .padding(start = MARGEM_DO_CARTAO, end = MARGEM_DO_CARTAO, top = 16.dp, bottom = 6.dp)
             .clip(forma)
             .background(if (acesa) astraColors.accentDim else Color.Transparent)
             .clickable(onClick = aoTocar)
@@ -509,17 +555,16 @@ private fun LinhaDeCanal(
     aoTocar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val forma = RoundedCornerShape(8.dp)
     val destaque = naoLido || aberto
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 1.dp)
-            .clip(forma)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .clip(CANTO_DA_LINHA)
             .background(
                 when {
-                    naMao -> astraColors.overlay
-                    aberto -> astraColors.raised
+                    naMao -> astraColors.hover
+                    aberto -> astraColors.overlay
                     else -> Color.Transparent
                 },
             )
@@ -566,7 +611,7 @@ private fun LinhaDeQuemEstaNaVoz(pessoa: PessoaNaVoz, modifier: Modifier = Modif
                 alpha = chegada.value
                 translationX = (1f - chegada.value) * -recuo
             }
-            .padding(start = 50.dp, end = 12.dp, top = 2.dp, bottom = 4.dp)
+            .padding(start = 52.dp, end = 16.dp, top = 2.dp, bottom = 6.dp)
             .semantics(mergeDescendants = true) { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
         verticalAlignment = Alignment.CenterVertically,
     ) {

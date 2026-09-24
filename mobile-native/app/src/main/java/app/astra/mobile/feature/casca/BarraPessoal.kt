@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -52,16 +53,18 @@ fun BarraPessoal(
     aoSegurar: () -> Unit,
     aoAbrirAvisos: () -> Unit,
     aoAbrirJornada: () -> Unit,
+    aoAbrirStatus: () -> Unit,
     aoDeslizar: (paraDireita: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val forma = RoundedCornerShape(8.dp)
+    val forma = RoundedCornerShape(18.dp)
     val limite = with(LocalDensity.current) { 56.dp.toPx() }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 10.dp)
+            .shadow(10.dp, forma, clip = false)
             .clip(forma)
             .background(astraColors.raised)
             .border(1.dp, astraColors.border, forma)
@@ -125,6 +128,18 @@ fun BarraPessoal(
             ).joinToString(" · ")
             if (apoio.isNotBlank()) MarginaliaLabel(apoio)
         }
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(astraColors.overlay)
+                .clickable(onClick = aoAbrirStatus)
+                .semantics { contentDescription = "Seu estado: ${rotuloDoStatus(status)}" },
+            contentAlignment = Alignment.Center,
+        ) {
+            StatusDot(status = status, size = 12.dp, cutoutColor = astraColors.overlay)
+        }
+        Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
                 .size(38.dp)

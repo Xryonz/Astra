@@ -91,6 +91,7 @@ import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.server.presentation.ServerEmojisScreen
 import app.astra.mobile.feature.server.presentation.ServerMembersScreen
 import app.astra.mobile.feature.server.presentation.ServerRolesScreen
+import app.astra.mobile.feature.server.presentation.FigurinhasDaOrbitaScreen
 import app.astra.mobile.feature.server.presentation.ServerSettingsScreen
 import app.astra.mobile.feature.server.presentation.SonsDaOrbitaScreen
 import app.astra.mobile.core.deeplink.DeepLinkBus
@@ -161,6 +162,8 @@ private object Routes {
     fun serverEmojis(id: String) = "server/$id/emojis"
     const val SERVER_SONS = "server/{serverId}/sons"
     fun serverSons(id: String) = "server/$id/sons"
+    const val SERVER_FIGURINHAS = "server/{serverId}/figurinhas"
+    fun serverFigurinhas(id: String) = "server/$id/figurinhas"
     const val SERVER_CHANNELS_MGMT = "server/{serverId}/channels-manage"
     fun serverChannelsManage(id: String) = "server/$id/channels-manage"
     const val CHANNELS = "channels/{serverId}?name={name}"
@@ -419,6 +422,7 @@ fun AstraApp() {
                         onOpenBans = { nav.navigate(Routes.serverBans(serverId)) },
                         onOpenEmojis = { nav.navigate(Routes.serverEmojis(serverId)) },
                         onOpenSons = { nav.navigate(Routes.serverSons(serverId)) },
+                        onOpenFigurinhas = { nav.navigate(Routes.serverFigurinhas(serverId)) },
                         onOpenChannels = { nav.navigate(Routes.serverChannelsManage(serverId)) },
                     )
                 }
@@ -466,6 +470,12 @@ fun AstraApp() {
                     arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
                 ) {
                     SonsDaOrbitaScreen(onBack = { nav.popBackStack() })
+                }
+                tela(
+                    route = Routes.SERVER_FIGURINHAS,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    FigurinhasDaOrbitaScreen(onBack = { nav.popBackStack() })
                 }
                 tela(
                     route = Routes.SERVER_CHANNELS_MGMT,

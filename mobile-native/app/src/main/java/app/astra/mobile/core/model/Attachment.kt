@@ -1,6 +1,7 @@
 package app.astra.mobile.core.model
 
 import app.astra.mobile.core.network.dto.AttachmentDto
+import app.astra.mobile.core.network.dto.ServerStickerDto
 
 data class Attachment(
     val url: String,
@@ -11,6 +12,7 @@ data class Attachment(
     val height: Int? = null,
     val blurhash: String? = null,
     val duration: Int? = null,
+    val figurinha: Boolean = false,
 )
 
 private val IMAGE_EXT = setOf("png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "heic", "heif", "svg")
@@ -31,6 +33,7 @@ fun AttachmentDto.toModel() = Attachment(
     height = height,
     blurhash = blurhash,
     duration = duration,
+    figurinha = sticker == true,
 )
 
 fun Attachment.toDto() = AttachmentDto(
@@ -42,4 +45,17 @@ fun Attachment.toDto() = AttachmentDto(
     height = height,
     blurhash = blurhash,
     duration = duration,
+    sticker = figurinha.takeIf { it },
 )
+
+fun ServerStickerDto.comoAnexo(): Attachment {
+    val extensao = url.substringAfterLast('.', "png").substringBefore('?').lowercase()
+    return Attachment(
+        url = url,
+        type = "image/" + if (extensao.length in 2..4) extensao else "png",
+        name = name,
+        width = width.takeIf { it > 0 },
+        height = height.takeIf { it > 0 },
+        figurinha = true,
+    )
+}

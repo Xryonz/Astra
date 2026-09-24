@@ -357,7 +357,7 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
         ) {
             Icon(
                 if (mode == "mute") Lucide.BellOff else Lucide.Bell,
-                contentDescription = "Notificacoes do canal",
+                contentDescription = "Notificações do canal",
                 tint = if (mode == "mute") astraColors.text3 else astraColors.accent,
                 modifier = Modifier.size(18.dp),
             )
@@ -368,9 +368,9 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
             modifier = Modifier.background(astraColors.overlay),
         ) {
             NotifModeRow("Tudo", selected = mode == "all") { open = false; onSelect("all") }
-            NotifModeRow("So mencoes", selected = mode == "mentions") { open = false; onSelect("mentions") }
+            NotifModeRow("Só menções", selected = mode == "mentions") { open = false; onSelect("mentions") }
             NotifModeRow("Silenciado", selected = mode == "mute") { open = false; onSelect("mute") }
-            NotifModeRow("Padrao do servidor", selected = mode == null) { open = false; onSelect(null) }
+            NotifModeRow("Padrão do servidor", selected = mode == null) { open = false; onSelect(null) }
         }
     }
 }

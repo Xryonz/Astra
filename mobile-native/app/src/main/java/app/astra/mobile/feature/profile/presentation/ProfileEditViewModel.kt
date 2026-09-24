@@ -89,7 +89,7 @@ class ProfileEditViewModel @Inject constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    _state.update { it.copy(saving = false, error = "Nao foi possivel salvar o recado") }
+                    _state.update { it.copy(saving = false, error = "Não foi possível salvar o recado") }
                     return@launch
                 }
             }

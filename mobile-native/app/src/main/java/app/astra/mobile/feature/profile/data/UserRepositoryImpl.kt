@@ -144,7 +144,7 @@ class UserRepositoryImpl @Inject constructor(
 
     private fun mapError(e: Exception): ApiException = when (e) {
         is ApiException -> e
-        is IOException -> ApiException("Sem conexao com o servidor")
+        is IOException -> ApiException("Sem conexão com o servidor")
         is HttpException -> ApiException(parseError(e.response()?.errorBody()?.string(), e.code()))
         else -> ApiException("Erro inesperado")
     }
@@ -155,8 +155,8 @@ class UserRepositoryImpl @Inject constructor(
         }
         return fromBody ?: when (code) {
             401 -> "Senha atual incorreta"
-            409 -> "Username ja esta em uso"
-            else -> "Nao foi possivel salvar"
+            409 -> "Username já está em uso"
+            else -> "Não foi possível salvar"
         }
     }
 }

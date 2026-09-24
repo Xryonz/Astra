@@ -162,10 +162,10 @@ class HomeViewModel @Inject constructor(
     fun setPassword(pw: String, confirm: String) {
         if (_state.value.pwSaving) return
         val error = when {
-            pw.length < 8 -> "Minimo 8 caracteres"
-            !pw.any { it.isUpperCase() } -> "Precisa de ao menos uma letra maiuscula"
-            !pw.any { it.isDigit() } -> "Precisa de ao menos um numero"
-            pw != confirm -> "As senhas nao coincidem"
+            pw.length < 8 -> "Mínimo 8 caracteres"
+            !pw.any { it.isUpperCase() } -> "Precisa de ao menos uma letra maiúscula"
+            !pw.any { it.isDigit() } -> "Precisa de ao menos um número"
+            pw != confirm -> "As senhas não coincidem"
             else -> null
         }
         if (error != null) {
@@ -176,7 +176,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.setPassword(pw)
                 .onSuccess { _state.update { it.copy(pwSaving = false, needsPassword = false) } }
-                .onFailure { e -> _state.update { it.copy(pwSaving = false, pwError = e.message ?: "Nao foi possivel salvar") } }
+                .onFailure { e -> _state.update { it.copy(pwSaving = false, pwError = e.message ?: "Não foi possível salvar") } }
         }
     }
 
@@ -398,7 +398,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             block()
                 .onSuccess { reloadServers() }
-                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Acao falhou") } }
+                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Ação falhou") } }
         }
     }
     fun createChannel(serverId: String, name: String, isVoice: Boolean) =
@@ -414,7 +414,7 @@ class HomeViewModel @Inject constructor(
                     }
                     reloadServers()
                 }
-                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Nao foi possivel sair") } }
+                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Não foi possível sair") } }
         }
     }
 

@@ -130,7 +130,7 @@ private fun RegisterContent(
 
             Reveal(delayMillis = 180) {
                 Text(
-                    text = "Junte-se a constelacao.",
+                    text = "Junte-se à constelação.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = astraColors.text2,
                 )
@@ -187,7 +187,7 @@ private fun RegisterContent(
                     value = state.password,
                     onValue = onPassword,
                     label = "senha",
-                    placeholder = "8+ com maiuscula e numero",
+                    placeholder = "8+ com maiúscula e número",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -240,7 +240,7 @@ private fun RegisterContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MarginaliaLabel("ja tem conta?")
+                    MarginaliaLabel("já tem conta?")
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Entrar",

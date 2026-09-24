@@ -88,7 +88,7 @@ fun ServerEditScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Visao geral", marginalia = "identidade e convite", onBack = onBack)
+            EditorialTopBar(title = "Visão geral", marginalia = "identidade e convite", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -139,7 +139,7 @@ fun ServerEditScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "Trocar icone",
+                    text = "Trocar ícone",
                     style = MaterialTheme.typography.titleSmall,
                     color = astraColors.accent,
                     modifier = Modifier
@@ -152,14 +152,14 @@ fun ServerEditScreen(
                 Spacer(Modifier.height(24.dp))
                 EditorialField(
                     value = state.name, onValue = viewModel::onName,
-                    label = "nome da constelacao", placeholder = "minha constelacao",
+                    label = "nome da constelação", placeholder = "minha constelação",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
                 )
 
                 Spacer(Modifier.height(16.dp))
                 EditorialField(
                     value = state.description, onValue = viewModel::onDescription,
-                    label = "descricao (aparece no Descobrir)", placeholder = "sobre o que e essa constelacao",
+                    label = "descrição (aparece no Descobrir)", placeholder = "sobre o que é essa constelação",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
                 )
 
@@ -199,7 +199,7 @@ fun ServerEditScreen(
                             contentScale = ContentScale.Crop,
                         )
                     } else {
-                        MarginaliaLabel("toque pra escolher · 8MB · GIF anima")
+                        MarginaliaLabel("toque para escolher · 8MB · GIF anima")
                     }
                     if (state.uploadingBanner) {
                         Box(
@@ -214,7 +214,7 @@ fun ServerEditScreen(
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Constelacao publica", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
+                        Text("Constelação pública", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
                         MarginaliaLabel("aparece no Descobrir; qualquer um entra sem convite")
                     }
                     Spacer(Modifier.width(12.dp))

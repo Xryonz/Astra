@@ -145,7 +145,7 @@ private fun LoginContent(
 
             Reveal(delayMillis = 180) {
                 Text(
-                    text = "Entre pra continuar de onde parou.",
+                    text = "Entre para continuar de onde parou.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = astraColors.text2,
                 )
@@ -272,7 +272,7 @@ private fun LoginContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MarginaliaLabel("nao tem conta?")
+                    MarginaliaLabel("não tem conta?")
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Criar conta",

@@ -220,7 +220,7 @@ private fun BarraDeVarredura() {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart),
-        label = "posicao",
+        label = "posição",
     )
     Canvas(Modifier.fillMaxWidth().height(2.dp)) {
         drawRect(color = trilho, size = size)

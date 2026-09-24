@@ -39,7 +39,7 @@ class ServerRepositoryImpl @Inject constructor(
         val env = serverApi.servers()
         Result.success(env.data.orEmpty().map { it.toDomain() })
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -58,7 +58,7 @@ class ServerRepositoryImpl @Inject constructor(
             },
         )
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -68,7 +68,7 @@ class ServerRepositoryImpl @Inject constructor(
     override suspend fun channelReads(): Result<Map<String, String>> = try {
         Result.success(serverApi.channelReads().data.orEmpty())
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -82,26 +82,26 @@ class ServerRepositoryImpl @Inject constructor(
         throw e
     } catch (e: Exception) {
 
-        Result.failure(ApiException("Falha ao carregar presenca de voz"))
+        Result.failure(ApiException("Falha ao carregar presença de voz"))
     }
 
     override fun channelActivity(): Flow<String> = socketManager.channelActivity
 
     override suspend fun createServer(name: String, isGroup: Boolean): Result<Server> = try {
         val dto = serverApi.create(CreateServerRequest(name.trim(), isGroup)).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         Result.success(dto.toDomain())
     } catch (e: HttpException) {
         val msg = e.response()?.errorBody()?.string()?.let {
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
         }
-        Result.failure(ApiException(msg ?: "Nao foi possivel criar o servidor"))
+        Result.failure(ApiException(msg ?: "Não foi possível criar o servidor"))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(ApiException("Nao foi possivel criar o servidor"))
+        Result.failure(ApiException("Não foi possível criar o servidor"))
     }
 
     override suspend fun updateServer(
@@ -117,19 +117,19 @@ class ServerRepositoryImpl @Inject constructor(
             name = name, iconUrl = iconUrl, isPublic = isPublic,
             bannerUrl = bannerUrl, description = description, messageRetentionDays = messageRetentionDays,
         )).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         Result.success(dto.toDomain())
     } catch (e: HttpException) {
         val msg = e.response()?.errorBody()?.string()?.let {
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
         }
-        Result.failure(ApiException(msg ?: "Nao foi possivel salvar a constelacao"))
+        Result.failure(ApiException(msg ?: "Não foi possível salvar a constelação"))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(ApiException("Nao foi possivel salvar a constelacao"))
+        Result.failure(ApiException("Não foi possível salvar a constelação"))
     }
 
     override suspend fun createChannel(serverId: String, name: String, isVoice: Boolean): Result<Unit> = try {
@@ -139,7 +139,7 @@ class ServerRepositoryImpl @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel criar o canal"))
+        Result.failure(apiError(e, "Não foi possível criar o canal"))
     }
 
     override suspend fun leaveServer(serverId: String): Result<Unit> = try {
@@ -148,7 +148,7 @@ class ServerRepositoryImpl @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel sair da constelacao"))
+        Result.failure(apiError(e, "Não foi possível sair da constelação"))
     }
 
     override suspend fun podeArrumarOrbitas(serverId: String): Boolean = try {
@@ -203,7 +203,7 @@ class ServerRepositoryImpl @Inject constructor(
             }
             ApiException(msg ?: fallback)
         }
-        is IOException -> ApiException("Sem conexao com o servidor")
+        is IOException -> ApiException("Sem conexão com o servidor")
         else -> ApiException(fallback)
     }
 }

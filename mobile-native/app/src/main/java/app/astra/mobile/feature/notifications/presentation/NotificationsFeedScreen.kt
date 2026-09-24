@@ -76,7 +76,7 @@ fun NotificationsFeedScreen(
                 }
                 state.items.isEmpty() -> EmptyState(
                     line = "Céu quieto por enquanto",
-                    hint = "mencoes e novidades pousam aqui",
+                    hint = "menções e novidades pousam aqui",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.items, key = { it.id }) { n ->

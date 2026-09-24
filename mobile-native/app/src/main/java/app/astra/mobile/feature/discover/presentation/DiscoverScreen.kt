@@ -54,14 +54,14 @@ fun DiscoverScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().edgeSwipeBack(onBack)) {
-            EditorialTopBar(title = "Descobrir", marginalia = "constelacoes publicas", onBack = onBack)
+            EditorialTopBar(title = "Descobrir", marginalia = "constelações públicas", onBack = onBack)
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
                 Input(
                     value = s.query,
                     onValueChange = viewModel::onQuery,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = "Buscar constelacao",
+                    placeholder = "Buscar constelação",
                     singleLine = true,
                     animation = InputAnimation.Glow,
                 )
@@ -72,7 +72,7 @@ fun DiscoverScreen(
                     s.loading && s.servers.isEmpty() -> Center("Varrendo o ceu…")
                     s.error != null -> Center(s.error!!)
                     s.servers.isEmpty() -> EmptyState(
-                        line = "Nenhuma constelacao publica",
+                        line = "Nenhuma constelação pública",
                         hint = "seja o primeiro a fundar uma",
                     )
                     else -> LazyColumn(
@@ -150,7 +150,7 @@ private fun DiscoverCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "voce ja esta",
+                    text = "você já está",
                     style = MaterialTheme.typography.labelMedium,
                     color = astraColors.accent,
                 )

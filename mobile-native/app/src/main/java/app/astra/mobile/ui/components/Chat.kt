@@ -951,9 +951,9 @@ fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
 fun TypingIndicator(names: List<String>) {
     if (names.isEmpty()) return
     val text = when (names.size) {
-        1 -> "${names[0]} esta digitando…"
-        2 -> "${names[0]} e ${names[1]} estao digitando…"
-        else -> "varias pessoas estao digitando…"
+        1 -> "${names[0]} está digitando…"
+        2 -> "${names[0]} e ${names[1]} estão digitando…"
+        else -> "várias pessoas estão digitando…"
     }
     Text(
         text = text,
@@ -975,7 +975,7 @@ fun PinnedMessagesDialog(open: Boolean, items: List<Pair<String, String>>, onDis
         dismissText = null,
     ) {
         if (items.isEmpty()) {
-            Text("Nada fixado nesta orbita.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+            Text("Nada fixado nesta órbita.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { (author, content) ->
@@ -1005,7 +1005,7 @@ fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> U
     ) {
         AlertDialogHeader(
             title = "Apagar mensagem?",
-            description = "Isso remove a mensagem pra todo mundo.",
+            description = "Isso remove a mensagem para todo mundo.",
         )
         AlertDialogFooter {
             AlertDialogCancel(onClick = onDismiss, text = "Cancelar")

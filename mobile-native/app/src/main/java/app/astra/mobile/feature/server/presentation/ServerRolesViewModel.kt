@@ -28,10 +28,10 @@ data class ServerRolesUiState(
 )
 
 val PERM_OPTIONS: List<Triple<String, String, String>> = listOf(
-    Triple("MANAGE_SERVER", "Gerenciar constelacao", "editar nome, icone, retencao"),
+    Triple("MANAGE_SERVER", "Gerenciar constelação", "editar nome, ícone, retenção"),
     Triple("MANAGE_ROLES", "Gerenciar cargos", "criar/editar cargos (sempre pertence ao dono)"),
-    Triple("MANAGE_CHANNELS", "Gerenciar orbitas", "criar, editar, apagar orbitas e emojis"),
-    Triple("KICK_MEMBERS", "Expulsar", "remover estrelas da constelacao"),
+    Triple("MANAGE_CHANNELS", "Gerenciar órbitas", "criar, editar, apagar órbitas e emojis"),
+    Triple("KICK_MEMBERS", "Expulsar", "remover estrelas da constelação"),
     Triple("BAN_MEMBERS", "Banir", "bloqueio permanente"),
     Triple("MANAGE_MESSAGES", "Gerenciar mensagens", "apagar mensagens de outros, fixar"),
     Triple("MENTION_EVERYONE", "Mencionar @everyone", "notifica todo mundo"),
@@ -60,7 +60,7 @@ class ServerRolesViewModel @Inject constructor(
                 }
                 _state.update { it.copy(loading = false, roles = roles) }
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, error = "Sem conexao com o servidor") }
+                _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
             }
         }
     }
@@ -77,7 +77,7 @@ class ServerRolesViewModel @Inject constructor(
                     it.copy(roles = it.roles + RoleUi(r.id, r.name, r.color, r.hoist, r.permissions))
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(actionError = "Nao foi possivel criar o cargo") }
+                _state.update { it.copy(actionError = "Não foi possível criar o cargo") }
             }
         }
     }
@@ -97,7 +97,7 @@ class ServerRolesViewModel @Inject constructor(
                     RoleRequest(name = name.trim(), color = color, permissions = permissions, hoist = hoist),
                 )
             } catch (e: Exception) {
-                _state.update { it.copy(roles = prev, actionError = "Nao foi possivel salvar o cargo") }
+                _state.update { it.copy(roles = prev, actionError = "Não foi possível salvar o cargo") }
             }
         }
     }
@@ -109,7 +109,7 @@ class ServerRolesViewModel @Inject constructor(
             try {
                 serverApi.deleteRole(serverId, id)
             } catch (e: Exception) {
-                _state.update { it.copy(roles = prev, actionError = "Nao foi possivel apagar o cargo") }
+                _state.update { it.copy(roles = prev, actionError = "Não foi possível apagar o cargo") }
             }
         }
     }

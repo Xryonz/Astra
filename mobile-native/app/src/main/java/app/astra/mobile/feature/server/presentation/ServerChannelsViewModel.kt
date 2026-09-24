@@ -61,7 +61,7 @@ class ServerChannelsViewModel @Inject constructor(
             val rolesD = async { runCatching { serverApi.roles(serverId).data.orEmpty() } }
             val server = serversD.await().getOrNull()?.find { it.id == serverId }
             if (server == null) {
-                _state.update { it.copy(loading = false, error = "Constelacao nao encontrada") }
+                _state.update { it.copy(loading = false, error = "Constelação não encontrada") }
                 return@launch
             }
             val roles = rolesD.await().getOrNull().orEmpty().map { RoleMini(it.id, it.name, it.color) }
@@ -92,7 +92,7 @@ class ServerChannelsViewModel @Inject constructor(
             } catch (e: Exception) {
                 _state.update {
                     val ed = it.editing ?: return@update it
-                    it.copy(editing = ed.copy(loadingVisibility = false), actionError = "Nao foi possivel carregar a visibilidade")
+                    it.copy(editing = ed.copy(loadingVisibility = false), actionError = "Não foi possível carregar a visibilidade")
                 }
             }
         }
@@ -124,7 +124,7 @@ class ServerChannelsViewModel @Inject constructor(
                     )
                 }
             } catch (ex: Exception) {
-                _state.update { it.copy(actionError = "Nao foi possivel salvar a visibilidade") }
+                _state.update { it.copy(actionError = "Não foi possível salvar a visibilidade") }
             }
         }
     }
@@ -140,7 +140,7 @@ class ServerChannelsViewModel @Inject constructor(
             try {
                 serverApi.renameChannel(serverId, channelId, UpdateChannelNameRequest(clean))
             } catch (e: Exception) {
-                _state.update { it.copy(channels = prev, actionError = "Nao foi possivel renomear") }
+                _state.update { it.copy(channels = prev, actionError = "Não foi possível renomear") }
             }
         }
     }
@@ -152,7 +152,7 @@ class ServerChannelsViewModel @Inject constructor(
             try {
                 serverApi.deleteChannel(serverId, channelId)
             } catch (e: Exception) {
-                _state.update { it.copy(channels = prev, actionError = "Nao foi possivel apagar") }
+                _state.update { it.copy(channels = prev, actionError = "Não foi possível apagar") }
             }
         }
     }

@@ -38,13 +38,13 @@ fun DataScreen(onBack: () -> Unit) {
                 Modifier.padding(horizontal = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                DataRow("Exportar meus dados", "baixe tudo que o Astra guarda sobre voce", danger = false)
+                DataRow("Exportar meus dados", "baixe tudo que o Astra guarda sobre você", danger = false)
                 DataRow("Apagar minha conta", "remove permanentemente sua conta e dados", danger = true)
             }
 
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Em breve. Essas acoes ainda estao sendo construidas com cuidado.",
+                text = "Em breve. Essas ações ainda estão sendo construídas com cuidado.",
                 style = MaterialTheme.typography.bodySmall,
                 color = astraColors.text3,
                 modifier = Modifier.padding(horizontal = 22.dp),

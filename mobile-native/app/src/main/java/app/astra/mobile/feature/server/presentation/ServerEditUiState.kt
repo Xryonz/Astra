@@ -16,7 +16,7 @@ data class BadgeMemberUi(
 )
 
 val RETENTION_PRESETS: List<Pair<Int, String>> = listOf(
-    0 to "Pra sempre",
+    0 to "Para sempre",
     1 to "24 horas",
     7 to "7 dias",
     30 to "30 dias",

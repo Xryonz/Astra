@@ -46,7 +46,7 @@ class WishingViewModel @Inject constructor(
                 .onSuccess { page ->
                     _state.update { it.copy(loading = false, items = page?.items.orEmpty(), nextCursor = page?.nextCursor) }
                 }
-                .onFailure { _state.update { it.copy(loading = false, error = "Falha ao ler o ceu") } }
+                .onFailure { _state.update { it.copy(loading = false, error = "Falha ao ler o céu") } }
         }
     }
 
@@ -84,7 +84,7 @@ class WishingViewModel @Inject constructor(
                 .onFailure { e ->
                     val msg = (e as? HttpException)?.response()?.errorBody()?.string()?.let {
                         runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
-                    } ?: "Nao foi possivel pendurar o desejo"
+                    } ?: "Não foi possível pendurar o desejo"
                     _state.update { it.copy(posting = false, error = msg) }
                 }
         }

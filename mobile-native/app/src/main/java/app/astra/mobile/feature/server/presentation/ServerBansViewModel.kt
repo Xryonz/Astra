@@ -49,7 +49,7 @@ class ServerBansViewModel @Inject constructor(
                 }
                 _state.update { it.copy(loading = false, bans = bans) }
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, error = "Sem conexao com o servidor") }
+                _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
             }
         }
     }
@@ -61,7 +61,7 @@ class ServerBansViewModel @Inject constructor(
             try {
                 serverApi.unban(serverId, userId)
             } catch (e: Exception) {
-                _state.update { it.copy(bans = prev, actionError = "Nao foi possivel desbanir") }
+                _state.update { it.copy(bans = prev, actionError = "Não foi possível desbanir") }
             }
         }
     }

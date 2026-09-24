@@ -120,7 +120,7 @@ class SocketManager @Inject constructor(
         val s = try {
             IO.socket(BuildConfig.BASE_URL, opts)
         } catch (e: Exception) {
-            Log.e(TAG, "URI invalida: ${e.message}")
+            Log.e(TAG, "URI inválida: ${e.message}")
             _state.value = ConnectionState.Disconnected
             return
         }

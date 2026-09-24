@@ -92,8 +92,8 @@ fun SettingsScreen(
                 "Sua conta",
                 listOf(
                     LinhaDeAjuste("Perfil", Lucide.Pencil, "foto banner recado bio pronomes fonte tema editar", onOpenProfile),
-                    LinhaDeAjuste("Conta", Lucide.User, "nome usuario email senha", onOpenAccount),
-                    LinhaDeAjuste("Cores do nome", Lucide.Palette, "cor constelacao cargo", onOpenNameColors),
+                    LinhaDeAjuste("Conta", Lucide.User, "nome usuário email senha", onOpenAccount),
+                    LinhaDeAjuste("Cores do nome", Lucide.Palette, "cor constelação cargo", onOpenNameColors),
                     LinhaDeAjuste("Sessões", Lucide.MonitorSmartphone, "dispositivos aparelhos conectados sair", onOpenSessions),
                     LinhaDeAjuste("Dados e privacidade", Lucide.Shield, "exportar apagar excluir conta", onOpenData),
                 ),
@@ -102,18 +102,18 @@ fun SettingsScreen(
                 "Aplicativo",
                 listOf(
                     LinhaDeAjuste("Aparência", Lucide.Paintbrush, "tema cor destaque fundo fonte tamanho densidade", onOpenAppearance),
-                    LinhaDeAjuste("Voz", Lucide.Mic, "call chamada transmissao tela qualidade microfone", onOpenVoz),
-                    LinhaDeAjuste("Notificações", Lucide.Bell, "avisos mencoes sussurros horario silencioso", onOpenNotifications),
-                    LinhaDeAjuste("Acessibilidade", Lucide.Accessibility, "movimento vibracao animacao aurora estrelas", onOpenAccessibility),
+                    LinhaDeAjuste("Voz", Lucide.Mic, "call chamada transmissão tela qualidade microfone", onOpenVoz),
+                    LinhaDeAjuste("Notificações", Lucide.Bell, "avisos menções sussurros horário silencioso", onOpenNotifications),
+                    LinhaDeAjuste("Acessibilidade", Lucide.Accessibility, "movimento vibração animação aurora estrelas", onOpenAccessibility),
                 ),
             ),
             GrupoDeAjustes(
                 "Comunidade",
-                listOf(LinhaDeAjuste("Estrela Cadente", Lucide.Sparkles, "ideias sugestoes pedidos", onOpenWishing)),
+                listOf(LinhaDeAjuste("Estrela Cadente", Lucide.Sparkles, "ideias sugestões pedidos", onOpenWishing)),
             ),
             GrupoDeAjustes(
                 "Astra",
-                listOf(LinhaDeAjuste("Sobre", Lucide.Info, "versao atualizacao atualizar", onOpenAbout)),
+                listOf(LinhaDeAjuste("Sobre", Lucide.Info, "versão atualização atualizar", onOpenAbout)),
             ),
         )
     }

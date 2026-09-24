@@ -56,7 +56,7 @@ class ChannelRepositoryImpl @Inject constructor(
     override suspend fun messages(channelId: String, cursor: String?): Result<ChannelMessagesPage> = try {
         val uid = tokenStore.currentUserId()
         val page = channelApi.messages(channelId, cursor, PAGE_SIZE).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
 
         messageDao.upsert(page.items.map { it.toEntity(channelId, json) })
         Result.success(
@@ -67,7 +67,7 @@ class ChannelRepositoryImpl @Inject constructor(
             ),
         )
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -77,11 +77,11 @@ class ChannelRepositoryImpl @Inject constructor(
     override suspend fun send(channelId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<ChannelMessage> = try {
         val uid = tokenStore.currentUserId()
         val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId, attachments.map { it.toDto() })).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         messageDao.upsert(dto.toEntity(channelId, json))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -94,7 +94,7 @@ class ChannelRepositoryImpl @Inject constructor(
         messageDao.applyEdit(messageId, content)
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -106,7 +106,7 @@ class ChannelRepositoryImpl @Inject constructor(
         messageDao.deleteById(messageId)
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -123,7 +123,7 @@ class ChannelRepositoryImpl @Inject constructor(
         }
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -200,11 +200,11 @@ class ChannelRepositoryImpl @Inject constructor(
         messageDao.applyPinned(messageId, pinned)
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(ApiException("Sem permissao pra fixar"))
+        Result.failure(ApiException("Sem permissão para fixar"))
     }
 
     override suspend fun pinnedMessages(channelId: String): Result<List<ChannelMessage>> = try {
@@ -212,7 +212,7 @@ class ChannelRepositoryImpl @Inject constructor(
         val list = channelApi.pinned(channelId).data.orEmpty().map { it.toDomain(uid) }
         Result.success(list)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -230,11 +230,11 @@ class ChannelRepositoryImpl @Inject constructor(
 
     override suspend fun createPoll(channelId: String, question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?): Result<Unit> = try {
         val dto = channelApi.createPoll(channelId, CreatePollRequest(question, options, allowMultiple, durationHours)).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         messageDao.upsert(dto.toEntity(channelId, json))
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -246,7 +246,7 @@ class ChannelRepositoryImpl @Inject constructor(
         if (result != null) messageDao.applyPoll(messageId, json.encodeToString(result.poll))
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -258,7 +258,7 @@ class ChannelRepositoryImpl @Inject constructor(
         if (result != null) messageDao.applyPoll(messageId, json.encodeToString(result.poll))
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

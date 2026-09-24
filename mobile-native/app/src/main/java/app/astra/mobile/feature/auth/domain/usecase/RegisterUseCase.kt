@@ -16,9 +16,9 @@ class RegisterUseCase @Inject constructor(
         email: String,
         password: String,
     ): Result<AuthUser> {
-        if (displayName.isBlank()) return fail("Informe um nome de exibicao")
+        if (displayName.isBlank()) return fail("Informe um nome de exibição")
         if (username.length < 3) return fail("Username precisa de 3+ caracteres")
-        if (!username.matches(usernameRegex)) return fail("Username: so minusculas, numeros e _")
+        if (!username.matches(usernameRegex)) return fail("Username: só minúsculas, números e _")
         if (email.isBlank()) return fail("Informe seu e-mail")
         if (password.length < 8) return fail("Senha precisa de 8+ caracteres")
         return repository.register(displayName, username, email, password)

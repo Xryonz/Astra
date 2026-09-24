@@ -186,7 +186,7 @@ private fun BanDialog(
         confirmText = "Banir",
         onConfirm = { target?.let { onConfirm(it.userId, reason) } },
     ) {
-        MarginaliaLabel("nao entra mais nem com convite; da pra revogar depois")
+        MarginaliaLabel("não entra mais nem com convite; dá para revogar depois")
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = reason, onValue = { reason = it.take(500) },

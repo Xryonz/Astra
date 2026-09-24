@@ -49,15 +49,15 @@ fun SessionsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Sessoes", marginalia = "dispositivos conectados", onBack = onBack)
+            EditorialTopBar(title = "Sessões", marginalia = "dispositivos conectados", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("sessoes ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
+            MarginaliaLabel("sessões ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
             when {
                 state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
                 state.sessions.isEmpty() -> Text(
-                    "Nenhuma sessao ativa.",
+                    "Nenhuma sessão ativa.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = astraColors.text3,
                     modifier = Modifier.padding(horizontal = 22.dp),
@@ -101,7 +101,7 @@ fun SessionsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = if (state.revokingOthers) "Encerrando…" else "Encerrar outras sessoes ($others)",
+                        text = if (state.revokingOthers) "Encerrando…" else "Encerrar outras sessões ($others)",
                         style = MaterialTheme.typography.titleMedium,
                         color = astraColors.danger,
                     )
@@ -114,13 +114,13 @@ fun SessionsScreen(
     AstraDialog(
         open = confirmOthers,
         onDismiss = { confirmOthers = false },
-        title = "Encerrar outras sessoes?",
+        title = "Encerrar outras sessões?",
         confirmText = "Encerrar",
         onConfirm = { confirmOthers = false; viewModel.revokeOthers() },
         dismissText = "Cancelar",
     ) {
         Text(
-            "Todos os outros dispositivos serao desconectados. Este aqui continua logado.",
+            "Todos os outros dispositivos serão desconectados. Este aqui continua logado.",
             style = MaterialTheme.typography.bodyMedium,
             color = astraColors.text2,
         )
@@ -205,7 +205,7 @@ private fun relTime(iso: String?): String {
             sec < 3600 -> "${sec / 60}m"
             sec < 86400 -> "${sec / 3600}h"
             sec < 2592000 -> "${sec / 86400}d"
-            else -> "${sec / 2592000}mes"
+            else -> (sec / 2592000).let { if (it == 1L) "1 mês" else "$it meses" }
         }
     }.getOrDefault("")
 }

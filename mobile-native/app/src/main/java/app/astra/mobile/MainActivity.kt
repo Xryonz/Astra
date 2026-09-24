@@ -177,8 +177,8 @@ class MainActivity : ComponentActivity() {
                 val error = data.getQueryParameter("error") ?: return
                 val msg = when (error) {
                     "google_email_unregistered" ->
-                        "Esse Google ainda nao tem conta no Astra. Crie uma conta primeiro."
-                    else -> "Nao foi possivel entrar com o Google."
+                        "Esse Google ainda não tem conta no Astra. Crie uma conta primeiro."
+                    else -> "Não foi possível entrar com o Google."
                 }
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             }

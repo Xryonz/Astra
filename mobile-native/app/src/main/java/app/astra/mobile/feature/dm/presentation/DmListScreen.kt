@@ -80,7 +80,7 @@ fun DmListScreen(
                 }
                 state.conversations.isEmpty() -> EmptyState(
                     line = AstraCopy.Empties.noDMs.title,
-                    hint = "toque em + pra iniciar um sussurro",
+                    hint = "toque em + para iniciar um sussurro",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.conversations, key = { it.id }) { conv ->

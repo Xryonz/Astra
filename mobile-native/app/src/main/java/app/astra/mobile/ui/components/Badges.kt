@@ -116,7 +116,7 @@ private fun BadgePopover(b: BadgeUi) {
         if (!b.description.isNullOrBlank()) {
             Text(b.description, style = MaterialTheme.typography.bodySmall, color = astraColors.text2)
         }
-        MarginaliaLabel(if (b.origin != null) "concedida em ${b.origin}" else "insignia da Astra")
+        MarginaliaLabel(if (b.origin != null) "concedida em ${b.origin}" else "insígnia da Astra")
     }
 }
 

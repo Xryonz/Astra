@@ -54,7 +54,7 @@ class ServerMembersViewModel @Inject constructor(
             val myId = tokenStore.currentUserId()
             val members = membersD.await().getOrNull()
             if (members == null) {
-                _state.update { it.copy(loading = false, error = "Sem conexao com o servidor") }
+                _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
                 return@launch
             }
             val perms = permsD.await().getOrNull()
@@ -92,7 +92,7 @@ class ServerMembersViewModel @Inject constructor(
             try {
                 serverApi.setMemberRole(serverId, memberId, MemberRoleRequest(role))
             } catch (e: Exception) {
-                _state.update { it.copy(members = prev, actionError = "Nao foi possivel mudar o papel") }
+                _state.update { it.copy(members = prev, actionError = "Não foi possível mudar o papel") }
             }
         }
     }
@@ -104,7 +104,7 @@ class ServerMembersViewModel @Inject constructor(
             try {
                 serverApi.kickMember(serverId, memberId)
             } catch (e: Exception) {
-                _state.update { it.copy(members = prev, actionError = "Nao foi possivel expulsar") }
+                _state.update { it.copy(members = prev, actionError = "Não foi possível expulsar") }
             }
         }
     }
@@ -116,7 +116,7 @@ class ServerMembersViewModel @Inject constructor(
             try {
                 serverApi.banMember(serverId, BanRequest(userId, reason?.trim()?.ifBlank { null }))
             } catch (e: Exception) {
-                _state.update { it.copy(members = prev, actionError = "Nao foi possivel banir") }
+                _state.update { it.copy(members = prev, actionError = "Não foi possível banir") }
             }
         }
     }

@@ -79,7 +79,7 @@ fun SearchScreen(
                     .padding(horizontal = 18.dp, vertical = 8.dp)
                     .focusRequester(focus),
                 singleLine = true,
-                placeholder = { Text("mensagens, orbitas, estrelas, constelacoes", color = astraColors.text3) },
+                placeholder = { Text("mensagens, órbitas, estrelas, constelações", color = astraColors.text3) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = astraColors.raised,
@@ -96,7 +96,7 @@ fun SearchScreen(
                 state.loading && state.empty -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
                 state.query.trim().length < 2 -> EmptyState(
                     line = "Busca em toda a Astra",
-                    hint = "digite 2+ letras pra achar mensagens, orbitas, estrelas e constelacoes",
+                    hint = "digite 2+ letras para achar mensagens, órbitas, estrelas e constelações",
                 )
                 state.empty -> EmptyState(
                     line = "Nada encontrado",
@@ -108,7 +108,7 @@ fun SearchScreen(
                 ) {
                     val r = state.results
                     if (r.servers.isNotEmpty()) {
-                        item { SectionHeader("Constelacoes") }
+                        item { SectionHeader("Constelações") }
                         r.servers.forEach { s ->
                             item(key = "srv-${s.id}") {
                                 ServerResult(s) {
@@ -118,7 +118,7 @@ fun SearchScreen(
                         }
                     }
                     if (r.channels.isNotEmpty()) {
-                        item { SectionHeader("Orbitas") }
+                        item { SectionHeader("Órbitas") }
                         r.channels.forEach { c ->
                             item(key = "ch-${c.id}") {
                                 ChannelResult(c) {
@@ -195,7 +195,7 @@ private fun ServerResult(s: SearchServerDto, onClick: () -> Unit) = RowCard(onCl
         s.name, style = MaterialTheme.typography.titleMedium, color = astraColors.text1,
         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
     )
-    MarginaliaLabel(if (s.isGroup) "grupo" else "constelacao")
+    MarginaliaLabel(if (s.isGroup) "grupo" else "constelação")
 }
 
 @Composable

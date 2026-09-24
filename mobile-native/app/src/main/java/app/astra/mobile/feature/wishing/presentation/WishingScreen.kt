@@ -50,7 +50,7 @@ fun WishingScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Estrela Cadente", marginalia = "pendure um pedido no ceu", onBack = onBack)
+            EditorialTopBar(title = "Estrela Cadente", marginalia = "pendure um pedido no céu", onBack = onBack)
 
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(8.dp))
@@ -60,14 +60,14 @@ fun WishingScreen(
                         value = state.input,
                         onValueChange = viewModel::onInput,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = "O que voce sonha pro Astra?",
+                        placeholder = "O que você sonha para o Astra?",
                         singleLine = false,
                         animation = InputAnimation.Glow,
                     )
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "minimo $WISH_MIN, maximo $WISH_MAX",
+                            text = "mínimo $WISH_MIN, máximo $WISH_MAX",
                             style = MaterialTheme.typography.labelSmall,
                             fontStyle = FontStyle.Italic,
                             color = astraColors.text3,
@@ -92,7 +92,7 @@ fun WishingScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = if (state.posting) "Pendurando…" else "Pendurar no ceu",
+                            text = if (state.posting) "Pendurando…" else "Pendurar no céu",
                             style = MaterialTheme.typography.labelLarge,
                             color = if (canPost) astraColors.textInv else astraColors.text3,
                         )
@@ -104,12 +104,12 @@ fun WishingScreen(
                 }
 
                 Spacer(Modifier.height(24.dp))
-                MarginaliaLabel("— o ceu agora · global", Modifier.padding(start = 22.dp, bottom = 10.dp))
+                MarginaliaLabel("— o céu agora · global", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
                 when {
                     state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
                     state.items.isEmpty() -> EmptyState(
-                        line = "O ceu esta vazio",
+                        line = "O céu está vazio",
                         hint = "seja o primeiro a sonhar",
                     )
                     else -> Column(
@@ -193,7 +193,7 @@ private fun relTime(iso: String?): String {
             sec < 3600 -> "${sec / 60}m"
             sec < 86400 -> "${sec / 3600}h"
             sec < 2592000 -> "${sec / 86400}d"
-            else -> "${sec / 2592000}mes"
+            else -> (sec / 2592000).let { if (it == 1L) "1 mês" else "$it meses" }
         }
     }.getOrDefault("")
 }

@@ -53,7 +53,7 @@ class DmRepositoryImpl @Inject constructor(
         val env = dmApi.conversations()
         Result.success(env.data.orEmpty().mapNotNull { it.toDomain(uid) })
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -106,7 +106,7 @@ class DmRepositoryImpl @Inject constructor(
     override suspend fun messages(conversationId: String, cursor: String?): Result<MessagesPage> = try {
         val uid = tokenStore.currentUserId()
         val page = dmApi.messages(conversationId, cursor, PAGE_SIZE).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
 
         messageDao.upsert(page.items.map { it.toEntity(conversationId, json) })
         Result.success(
@@ -117,7 +117,7 @@ class DmRepositoryImpl @Inject constructor(
             ),
         )
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -127,11 +127,11 @@ class DmRepositoryImpl @Inject constructor(
     override suspend fun send(conversationId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<DmMessage> = try {
         val uid = tokenStore.currentUserId()
         val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId, attachments.map { it.toDto() })).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         messageDao.upsert(dto.toEntity(conversationId, json))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -143,7 +143,7 @@ class DmRepositoryImpl @Inject constructor(
         messageDao.deleteById(messageId)
         Result.success(Unit)
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -152,7 +152,7 @@ class DmRepositoryImpl @Inject constructor(
 
     override suspend fun open(username: String): Result<OpenedConversation> = try {
         val dto = dmApi.open(OpenDmRequest(username.trim().removePrefix("@"))).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         Result.success(
             OpenedConversation(
                 conversationId = dto.conversationId,
@@ -165,13 +165,13 @@ class DmRepositoryImpl @Inject constructor(
         val msg = e.response()?.errorBody()?.string()?.let {
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
         }
-        Result.failure(ApiException(msg ?: "Nao foi possivel abrir a conversa"))
+        Result.failure(ApiException(msg ?: "Não foi possível abrir a conversa"))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(ApiException("Nao foi possivel abrir a conversa"))
+        Result.failure(ApiException("Não foi possível abrir a conversa"))
     }
 
     override fun joinConversation(conversationId: String) = socketManager.joinDm(conversationId)

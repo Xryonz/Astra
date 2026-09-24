@@ -86,7 +86,7 @@ fun ServerSettingsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Configurar constelacao", marginalia = "gestao", onBack = onBack)
+            EditorialTopBar(title = "Configurar constelação", marginalia = "gestão", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 80.dp), contentAlignment = Alignment.Center) {
@@ -133,7 +133,7 @@ fun ServerSettingsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    MarginaliaLabel(if (state.isGroup) "grupo" else "constelacao")
+                    MarginaliaLabel(if (state.isGroup) "grupo" else "constelação")
                 }
             }
 
@@ -145,11 +145,11 @@ fun ServerSettingsScreen(
 
             val geralRows = buildList<@Composable () -> Unit> {
                 if (state.canManageServer) {
-                    add { SettingsRow("Visao geral", subtitle = "icone, nome, banner e convite", onClick = onOpenOverview) }
+                    add { SettingsRow("Visão geral", subtitle = "ícone, nome, banner e convite", onClick = onOpenOverview) }
                 }
                 if (state.canManageChannels) {
-                    add { SettingsRow("Orbitas", subtitle = "renomear, privar e apagar canais", onClick = onOpenChannels) }
-                    add { SettingsRow("Emojis", subtitle = "emojis custom da constelacao", onClick = onOpenEmojis) }
+                    add { SettingsRow("Órbitas", subtitle = "renomear, privar e apagar canais", onClick = onOpenChannels) }
+                    add { SettingsRow("Emojis", subtitle = "emojis custom da constelação", onClick = onOpenEmojis) }
                     add { SettingsRow("Sons", subtitle = "o que toca durante a call", onClick = onOpenSons) }
                     add { SettingsRow("Figurinhas", subtitle = "as imagens que viram recado", onClick = onOpenFigurinhas) }
                 }
@@ -160,13 +160,13 @@ fun ServerSettingsScreen(
             }
 
             val comunidadeRows = buildList<@Composable () -> Unit> {
-                add { SettingsRow("Membros", subtitle = "estrelas desta constelacao", onClick = onOpenMembers) }
-                if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "papeis e permissoes", onClick = onOpenRoles) }
+                add { SettingsRow("Membros", subtitle = "estrelas desta constelação", onClick = onOpenMembers) }
+                if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "papéis e permissões", onClick = onOpenRoles) }
                 if (state.canManageServer) {
-                    add { SettingsRow("Insignias", subtitle = "crie e conceda", onClick = onOpenBadges) }
+                    add { SettingsRow("Insígnias", subtitle = "crie e conceda", onClick = onOpenBadges) }
                     add { SettingsRow("Bot", subtitle = "quais comandos ficam de fora", onClick = onOpenBot) }
                 }
-                if (state.canBan) add { SettingsRow("Banimentos", subtitle = "quem nao pode voltar", onClick = onOpenBans) }
+                if (state.canBan) add { SettingsRow("Banimentos", subtitle = "quem não pode voltar", onClick = onOpenBans) }
             }
             SettingsGroup(
                 label = "comunidade",
@@ -179,7 +179,7 @@ fun ServerSettingsScreen(
                 delayStartMs = (geralRows.size + comunidadeRows.size) * SETTINGS_ROW_STAGGER_MS,
                 rows = listOf {
                     SettingsRow(
-                        title = if (state.isOwner) "Excluir constelacao" else "Desorbitar",
+                        title = if (state.isOwner) "Excluir constelação" else "Desorbitar",
                         danger = true,
                         enabled = !state.working,
                         onClick = { if (state.isOwner) deleteOpen = true else leaveOpen = true },
@@ -198,16 +198,16 @@ fun ServerSettingsScreen(
         confirmText = "Sair",
         onConfirm = { leaveOpen = false; viewModel.leave() },
     ) {
-        MarginaliaLabel("voce sai de ${state.name}; pode voltar com um convite")
+        MarginaliaLabel("você sai de ${state.name}; pode voltar com um convite")
     }
 
     AstraDialog(
         open = deleteOpen,
         onDismiss = { deleteOpen = false },
-        title = "Excluir constelacao?",
+        title = "Excluir constelação?",
         confirmText = "Excluir",
         onConfirm = { deleteOpen = false; viewModel.deleteServer() },
     ) {
-        MarginaliaLabel("apaga ${state.name} pra todo mundo — orbitas, mensagens, tudo. Sem volta.")
+        MarginaliaLabel("apaga ${state.name} para todo mundo — órbitas, mensagens, tudo. Sem volta.")
     }
 }

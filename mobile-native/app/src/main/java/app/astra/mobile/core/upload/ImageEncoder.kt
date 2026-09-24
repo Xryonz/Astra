@@ -29,7 +29,7 @@ object ImageEncoder {
         }
         try {
             val src = decodeOriented(bytes)
-                ?: return@withContext Result.failure(ApiException("Imagem invalida."))
+                ?: return@withContext Result.failure(ApiException("Imagem inválida."))
             val scaled = scaleDown(src, maxDimension)
             var quality = 85
             var out = compress(scaled, quality)
@@ -39,7 +39,7 @@ object ImageEncoder {
             }
             Result.success("data:image/webp;base64," + Base64.encodeToString(out, Base64.NO_WRAP))
         } catch (e: Exception) {
-            Result.failure(ApiException("Nao foi possivel processar a imagem."))
+            Result.failure(ApiException("Não foi possível processar a imagem."))
         }
     }
 
@@ -57,7 +57,7 @@ object ImageEncoder {
         }
         try {
             val src = decodeOriented(bytes)
-                ?: return@withContext Result.failure(ApiException("Imagem invalida."))
+                ?: return@withContext Result.failure(ApiException("Imagem inválida."))
             val scaled = scaleDown(src, maxDimension)
             var quality = 85
             var out = compress(scaled, quality)
@@ -67,7 +67,7 @@ object ImageEncoder {
             }
             Result.success(out to "image/webp")
         } catch (e: Exception) {
-            Result.failure(ApiException("Nao foi possivel processar a imagem."))
+            Result.failure(ApiException("Não foi possível processar a imagem."))
         }
     }
 

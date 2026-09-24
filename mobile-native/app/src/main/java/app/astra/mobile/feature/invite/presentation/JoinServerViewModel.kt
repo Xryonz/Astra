@@ -44,7 +44,7 @@ class JoinServerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.preview(code)
                 .onSuccess { p -> _state.update { it.copy(loadingPreview = false, preview = p) } }
-                .onFailure { e -> _state.update { it.copy(loadingPreview = false, previewError = e.message ?: "Convite invalido") } }
+                .onFailure { e -> _state.update { it.copy(loadingPreview = false, previewError = e.message ?: "Convite inválido") } }
         }
     }
 
@@ -58,7 +58,7 @@ class JoinServerViewModel @Inject constructor(
                     _state.update { it.copy(joining = false) }
                     _joined.tryEmit(server.id to server.name)
                 }
-                .onFailure { e -> _state.update { it.copy(joining = false, joinError = e.message ?: "Nao foi possivel entrar") } }
+                .onFailure { e -> _state.update { it.copy(joining = false, joinError = e.message ?: "Não foi possível entrar") } }
         }
     }
 

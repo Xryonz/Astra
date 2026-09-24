@@ -58,12 +58,12 @@ fun ChannelListScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = viewModel.serverName,
-                marginalia = "orbitas",
+                marginalia = "órbitas",
                 onBack = onBack,
                 trailing = {
                     Icon(
                         Lucide.Settings,
-                        contentDescription = "Configurar constelacao",
+                        contentDescription = "Configurar constelação",
                         tint = astraColors.accent,
                         modifier = Modifier
                             .clip(CircleShape)
@@ -96,8 +96,8 @@ fun ChannelListScreen(
                     }
                 }
                 state.channels.isEmpty() -> EmptyState(
-                    line = "Nenhuma orbita visivel",
-                    hint = "esta constelacao nao tem orbitas pra voce",
+                    line = "Nenhuma órbita visível",
+                    hint = "esta constelação não tem órbitas para você",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.channels, key = { it.id }) { channel ->
@@ -163,7 +163,7 @@ private fun shareInvite(context: Context, code: String) {
     val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "Entra na minha constelacao no Astra: $link")
+        putExtra(Intent.EXTRA_TEXT, "Entra na minha constelação no Astra: $link")
     }
     context.startActivity(Intent.createChooser(send, "Compartilhar convite"))
 }

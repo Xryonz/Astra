@@ -52,7 +52,7 @@ class ServerEmojisViewModel @Inject constructor(
                 val list = emojisApi.emojis(serverId).data.orEmpty().map { EmojiUi(it.id, it.name, it.url) }
                 _state.update { it.copy(loading = false, emojis = list) }
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, error = "Sem conexao com o servidor") }
+                _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
             }
         }
     }
@@ -76,19 +76,19 @@ class ServerEmojisViewModel @Inject constructor(
                         }
                     } catch (e: HttpException) {
                         val msg = when (e.code()) {
-                            409 -> "Ja existe um emoji com esse nome"
+                            409 -> "Já existe um emoji com esse nome"
                             413 -> "Imagem maior que 512KB"
-                            422 -> "Nome invalido (2-32, letras/numeros/_)"
+                            422 -> "Nome inválido: de 2 a 32, letras, números e _"
                             429 -> "Limite de 50 emojis atingido"
-                            else -> "Nao foi possivel adicionar"
+                            else -> "Não foi possível adicionar"
                         }
                         _state.update { it.copy(uploading = false, actionError = msg) }
                     } catch (e: Exception) {
-                        _state.update { it.copy(uploading = false, actionError = "Nao foi possivel adicionar") }
+                        _state.update { it.copy(uploading = false, actionError = "Não foi possível adicionar") }
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(uploading = false, actionError = e.message ?: "Imagem invalida") }
+                    _state.update { it.copy(uploading = false, actionError = e.message ?: "Imagem inválida") }
                 }
         }
     }
@@ -102,7 +102,7 @@ class ServerEmojisViewModel @Inject constructor(
             try {
                 emojisApi.renameEmoji(serverId, id, RenameEmojiRequest(clean))
             } catch (e: Exception) {
-                _state.update { it.copy(emojis = prev, actionError = "Nao foi possivel renomear") }
+                _state.update { it.copy(emojis = prev, actionError = "Não foi possível renomear") }
             }
         }
     }
@@ -114,7 +114,7 @@ class ServerEmojisViewModel @Inject constructor(
             try {
                 emojisApi.deleteEmoji(serverId, id)
             } catch (e: Exception) {
-                _state.update { it.copy(emojis = prev, actionError = "Nao foi possivel apagar") }
+                _state.update { it.copy(emojis = prev, actionError = "Não foi possível apagar") }
             }
         }
     }

@@ -75,12 +75,12 @@ class DiscoverViewModel @Inject constructor(
                 if (e.code() == 409) {
                     _state.update { it.copy(joiningId = null, joined = server.id to server.name, joinedIds = it.joinedIds + server.id) }
                 } else {
-                    _state.update { it.copy(joiningId = null, error = "Nao foi possivel entrar") }
+                    _state.update { it.copy(joiningId = null, error = "Não foi possível entrar") }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(joiningId = null, error = "Sem conexao com o servidor") }
+                _state.update { it.copy(joiningId = null, error = "Sem conexão com o servidor") }
             }
         }
     }

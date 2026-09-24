@@ -57,13 +57,13 @@ fun VerifyEmailScreen(
             )
             Spacer(Modifier.height(6.dp))
             MarginaliaLabel(
-                if (state.email.isBlank()) "mandamos um codigo de 6 digitos pro seu email"
-                else "mandamos um codigo de 6 digitos pra ${state.email}",
+                if (state.email.isBlank()) "mandamos um código de 6 dígitos para o seu e-mail"
+                else "mandamos um código de 6 dígitos para ${state.email}",
             )
             Spacer(Modifier.height(20.dp))
             EditorialField(
                 value = state.code, onValue = viewModel::onCode,
-                label = "codigo", placeholder = "000000",
+                label = "código", placeholder = "000000",
                 enabled = !state.checking, keyboardType = KeyboardType.Number, imeAction = ImeAction.Done,
                 onIme = viewModel::verify,
             )
@@ -92,7 +92,7 @@ fun VerifyEmailScreen(
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "reenviar codigo",
+                    text = "reenviar código",
                     style = MaterialTheme.typography.labelLarge,
                     color = astraColors.accent,
                     modifier = Modifier

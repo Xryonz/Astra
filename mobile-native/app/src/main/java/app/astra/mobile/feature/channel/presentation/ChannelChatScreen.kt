@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
-import app.astra.mobile.feature.gif.presentation.GifPicker
+import app.astra.mobile.ui.components.AbaDeExpressao
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
@@ -99,9 +99,8 @@ fun ChannelChatScreen(
     val state by viewModel.state.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var pinnedOpen by remember { mutableStateOf(false) }
-    var gifOpen by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
-    var emojiOpen by remember { mutableStateOf(false) }
+    var folhaAberta by remember { mutableStateOf<AbaDeExpressao?>(null) }
     var reactionTarget by remember { mutableStateOf<ChatRow?>(null) }
     var emojiPendente by remember { mutableStateOf<String?>(null) }
 
@@ -238,9 +237,9 @@ fun ChannelChatScreen(
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                onGif = { gifOpen = true },
+                onGif = { folhaAberta = AbaDeExpressao.GIFS },
                 onPoll = { pollOpen = true },
-                onEmoji = { emojiOpen = true },
+                onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
             )
@@ -255,13 +254,28 @@ fun ChannelChatScreen(
             )
         }
 
-        if (emojiOpen) {
+        folhaAberta?.let { aba ->
             EmojiPickerSheet(
                 onPick = { emoji ->
                     emojiPendente = emoji
-                    emojiOpen = false
+                    folhaAberta = null
                 },
-                onClose = { emojiOpen = false },
+                onClose = { folhaAberta = null },
+                orbitaId = viewModel.orbitaId,
+                abaInicial = aba,
+                aoFigurinha = viewModel::enviarFigurinha,
+                aoGif = { g ->
+                    viewModel.addAttachment(
+                        Attachment(
+                            url = g.full,
+                            type = "image/gif",
+                            name = (g.title.ifBlank { "gif" }) + ".gif",
+                            size = g.size,
+                            width = g.width,
+                            height = g.height,
+                        ),
+                    )
+                },
             )
         }
 
@@ -314,23 +328,6 @@ fun ChannelChatScreen(
             BackHandler { membrosAbertos = false }
         }
 
-        if (gifOpen) {
-            GifPicker(
-                onPick = { g ->
-                    viewModel.addAttachment(
-                        Attachment(
-                            url = g.full,
-                            type = "image/gif",
-                            name = (g.title.ifBlank { "gif" }) + ".gif",
-                            size = g.size,
-                            width = g.width,
-                            height = g.height,
-                        ),
-                    )
-                },
-                onClose = { gifOpen = false },
-            )
-        }
     }
 
     DeleteMessageDialog(
@@ -360,7 +357,7 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
         ) {
             Icon(
                 if (mode == "mute") Lucide.BellOff else Lucide.Bell,
-                contentDescription = "Notificacoes do canal",
+                contentDescription = "Notificações do canal",
                 tint = if (mode == "mute") astraColors.text3 else astraColors.accent,
                 modifier = Modifier.size(18.dp),
             )
@@ -371,9 +368,9 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
             modifier = Modifier.background(astraColors.overlay),
         ) {
             NotifModeRow("Tudo", selected = mode == "all") { open = false; onSelect("all") }
-            NotifModeRow("So mencoes", selected = mode == "mentions") { open = false; onSelect("mentions") }
+            NotifModeRow("Só menções", selected = mode == "mentions") { open = false; onSelect("mentions") }
             NotifModeRow("Silenciado", selected = mode == "mute") { open = false; onSelect("mute") }
-            NotifModeRow("Padrao do servidor", selected = mode == null) { open = false; onSelect(null) }
+            NotifModeRow("Padrão do servidor", selected = mode == null) { open = false; onSelect(null) }
         }
     }
 }

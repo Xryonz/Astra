@@ -70,7 +70,7 @@ private val SLIDES = listOf(
     OnboardSlide(Lucide.Orbit, "Órbitas", "Cada constelação tem órbitas: canais de conversa e salas de voz."),
     OnboardSlide(Lucide.Star, "Estrelas", "Seus amigos. Adicione pelo @username e acompanhem o brilho um do outro."),
     OnboardSlide(Lucide.MessageCircle, "Sussurros", "Conversas diretas, só entre vocês. Texto, voz e chamada."),
-    OnboardSlide(Lucide.Rocket, "Você é o cometa", "Pronto pra riscar o céu. Boa viagem."),
+    OnboardSlide(Lucide.Rocket, "Você é o cometa", "Pronto para riscar o céu. Boa viagem."),
 )
 
 @Composable

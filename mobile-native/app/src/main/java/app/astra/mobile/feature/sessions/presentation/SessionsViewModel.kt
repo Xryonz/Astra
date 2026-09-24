@@ -57,7 +57,7 @@ class SessionsViewModel @Inject constructor(
                     }
                     _state.update { it.copy(loading = false, sessions = rows) }
                 }
-                .onFailure { _state.update { it.copy(loading = false, error = "Falha ao carregar sessoes") } }
+                .onFailure { _state.update { it.copy(loading = false, error = "Falha ao carregar sessões") } }
         }
     }
 
@@ -67,7 +67,7 @@ class SessionsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.revoke(id) }
                 .onSuccess { _state.update { it.copy(revokingId = null) }; load() }
-                .onFailure { _state.update { it.copy(revokingId = null, error = "Nao foi possivel encerrar") } }
+                .onFailure { _state.update { it.copy(revokingId = null, error = "Não foi possível encerrar") } }
         }
     }
 
@@ -77,12 +77,12 @@ class SessionsViewModel @Inject constructor(
         viewModelScope.launch {
             val refresh = tokenStore.currentRefresh()
             if (refresh.isNullOrBlank()) {
-                _state.update { it.copy(revokingOthers = false, error = "Sessao atual nao encontrada") }
+                _state.update { it.copy(revokingOthers = false, error = "Sessão atual não encontrada") }
                 return@launch
             }
             runCatching { api.revokeOthers(RevokeOthersRequest(refresh)) }
                 .onSuccess { _state.update { it.copy(revokingOthers = false) }; load() }
-                .onFailure { _state.update { it.copy(revokingOthers = false, error = "Nao foi possivel encerrar as outras") } }
+                .onFailure { _state.update { it.copy(revokingOthers = false, error = "Não foi possível encerrar as outras") } }
         }
     }
 }

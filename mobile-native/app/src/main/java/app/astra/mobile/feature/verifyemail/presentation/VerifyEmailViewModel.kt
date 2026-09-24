@@ -81,10 +81,10 @@ class VerifyEmailViewModel @Inject constructor(
     fun logout() = viewModelScope.launch { authRepository.logout() }
 
     private fun apiMessage(e: Exception): String = when (e) {
-        is IOException -> "Sem conexao com o servidor"
+        is IOException -> "Sem conexão com o servidor"
         is HttpException -> e.response()?.errorBody()?.string()
             ?.let { runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull() }
-            ?: "Nao foi possivel verificar"
+            ?: "Não foi possível verificar"
         else -> "Erro inesperado"
     }
 }

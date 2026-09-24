@@ -211,7 +211,7 @@ fun ServerEmojisScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.delete(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("some das mensagens que ja usaram")
+        MarginaliaLabel("some das mensagens que já usaram")
     }
 }
 
@@ -231,7 +231,7 @@ private fun NameEmojiDialog(
         confirmEnabled = name.trim().length in 2..32,
         onConfirm = { onConfirm(name) },
     ) {
-        MarginaliaLabel("2-32 chars · letras, numeros e _")
+        MarginaliaLabel("2-32 chars · letras, números e _")
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = name, onValue = { name = it.take(32) },

@@ -71,7 +71,7 @@ fun AccountScreen(
                 EditorialField(
                     value = state.displayName,
                     onValue = viewModel::onDisplayName,
-                    label = "nome de exibicao",
+                    label = "nome de exibição",
                     placeholder = "Como te chamam",
                     enabled = !state.saving,
                     keyboardType = KeyboardType.Text,
@@ -131,7 +131,7 @@ fun AccountScreen(
                 Spacer(Modifier.height(8.dp))
                 when {
                     !state.hasPassword -> Text(
-                        "Sua conta usa login Google e nao tem senha.",
+                        "Sua conta usa login Google e não tem senha.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = astraColors.text3,
                     )

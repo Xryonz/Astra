@@ -83,7 +83,7 @@ class NameColorsViewModel @Inject constructor(
         }
         val color = paraFormatoDoServidor(escolhida)
         if (color == null) {
-            _state.update { it.copy(error = "Cor invalida — confira o hex") }
+            _state.update { it.copy(error = "Cor inválida — confira o hex") }
             return
         }
         save(serverId, color)
@@ -102,7 +102,7 @@ class NameColorsViewModel @Inject constructor(
                         it.copy(savingId = null, applied = applied, expandedId = null, chosen = "", customHex = "")
                     }
                 }
-                .onFailure { _state.update { it.copy(savingId = null, error = "Nao foi possivel salvar a cor") } }
+                .onFailure { _state.update { it.copy(savingId = null, error = "Não foi possível salvar a cor") } }
         }
     }
 }

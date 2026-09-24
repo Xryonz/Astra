@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,13 +47,34 @@ fun MessageAttachments(
     modifier: Modifier = Modifier,
 ) {
     if (attachments.isEmpty()) return
-    val images = remember(attachments) { attachments.filter { it.isImage } }
-    val files = remember(attachments) { attachments.filter { !it.isImage && !it.isAudio } }
+    val figurinhas = remember(attachments) { attachments.filter { it.figurinha } }
+    val images = remember(attachments) { attachments.filter { it.isImage && !it.figurinha } }
+    val files = remember(attachments) { attachments.filter { !it.isImage && !it.isAudio && !it.figurinha } }
 
     Column(modifier.width(maxWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        figurinhas.forEach { Figurinha(it) }
         if (images.isNotEmpty()) ImageGrid(images, onOpen = { idx -> onOpenImage(images, idx) })
         files.forEach { FileChip(it) }
     }
+}
+
+private val LADO_DA_FIGURINHA = 150.dp
+
+@Composable
+private fun Figurinha(att: Attachment) {
+    val proporcao = if (att.width != null && att.height != null && att.height > 0) {
+        att.width.toFloat() / att.height
+    } else null
+    AsyncImage(
+        model = att.url,
+        contentDescription = att.name,
+        contentScale = ContentScale.Fit,
+        modifier = if (proporcao != null) {
+            Modifier.sizeIn(maxWidth = LADO_DA_FIGURINHA, maxHeight = LADO_DA_FIGURINHA).aspectRatio(proporcao)
+        } else {
+            Modifier.size(LADO_DA_FIGURINHA)
+        },
+    )
 }
 
 private val tileShape = RoundedCornerShape(14.dp)

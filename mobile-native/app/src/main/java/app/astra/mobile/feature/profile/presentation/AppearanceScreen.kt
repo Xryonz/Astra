@@ -62,7 +62,7 @@ fun AppearanceSection(
             PreviewBubbles(prefs.fontSize, prefs.density)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("tema rapido", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("tema rápido", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PresetGrid(
                 selectedAccent = prefs.accentId,
                 selectedBg = prefs.bgId,
@@ -101,7 +101,7 @@ fun AppearanceSection(
 @Composable
 private fun PreviewBubbles(fontSize: FontSizePref, density: DensityPref) {
     val shape = RoundedCornerShape(14.dp)
-    val samples = listOf("Bora marcar a call?", "fechou, 21h entao")
+    val samples = listOf("Bora marcar a call?", "fechou, 21h então")
     Column(Modifier.padding(horizontal = 18.dp)) {
         samples.forEachIndexed { i, text ->
             if (i > 0) Spacer(Modifier.height(density.groupedTopDp.dp + 2.dp))

@@ -35,7 +35,7 @@ class ServerEditViewModel @Inject constructor(
                 .onSuccess { list ->
                     val s = list.find { it.id == serverId }
                     if (s == null) {
-                        _state.update { it.copy(loading = false, error = "Constelacao nao encontrada") }
+                        _state.update { it.copy(loading = false, error = "Constelação não encontrada") }
                     } else {
                         _state.update {
                             it.copy(
@@ -118,7 +118,7 @@ class ServerEditViewModel @Inject constructor(
                 val code = serverApi.regenerateInvite(serverId).data?.inviteCode
                 _state.update { it.copy(regenerating = false, inviteCode = code ?: it.inviteCode) }
             } catch (e: Exception) {
-                _state.update { it.copy(regenerating = false, error = "Nao foi possivel regenerar o convite") }
+                _state.update { it.copy(regenerating = false, error = "Não foi possível regenerar o convite") }
             }
         }
     }

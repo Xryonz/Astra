@@ -243,6 +243,7 @@ class VoiceManager @Inject constructor(
 
             meuId = tokenStore.currentUserId()
             socketManager.entrarNaVoz(id)
+            if (tipo == TIPO_CANAL) socketManager.joinChannel(id)
             salasDeVoz.entrou(id, meuId)
             presenca = escopo.launch { manterPresenca(id) }
 

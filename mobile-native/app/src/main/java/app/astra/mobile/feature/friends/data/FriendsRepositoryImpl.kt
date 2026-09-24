@@ -52,7 +52,7 @@ class FriendsRepositoryImpl @Inject constructor(
 
     private fun mapError(e: Exception): ApiException = when (e) {
         is ApiException -> e
-        is IOException -> ApiException("Sem conexao com o servidor")
+        is IOException -> ApiException("Sem conexão com o servidor")
         is HttpException -> ApiException(parseError(e.response()?.errorBody()?.string(), e.code()))
         else -> ApiException("Erro inesperado")
     }
@@ -62,8 +62,8 @@ class FriendsRepositoryImpl @Inject constructor(
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
         }
         return fromBody ?: when (code) {
-            404 -> "Usuario nao encontrado"
-            else -> "Nao foi possivel concluir"
+            404 -> "Usuário não encontrado"
+            else -> "Não foi possível concluir"
         }
     }
 }

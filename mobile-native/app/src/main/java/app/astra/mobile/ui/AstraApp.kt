@@ -91,12 +91,17 @@ import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.server.presentation.ServerEmojisScreen
 import app.astra.mobile.feature.server.presentation.ServerMembersScreen
 import app.astra.mobile.feature.server.presentation.ServerRolesScreen
+import app.astra.mobile.feature.server.presentation.BotDaOrbitaScreen
+import app.astra.mobile.feature.server.presentation.FigurinhasDaOrbitaScreen
 import app.astra.mobile.feature.server.presentation.ServerSettingsScreen
+import app.astra.mobile.feature.server.presentation.SonsDaOrbitaScreen
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.feature.voice.presentation.ChamadaScreen
 import app.astra.mobile.feature.voice.presentation.LigacaoViewModel
 import app.astra.mobile.feature.voice.presentation.PreviaDaSala
+import app.astra.mobile.feature.xp.presentation.FaixaDeMissao
+import app.astra.mobile.feature.xp.presentation.JornadaScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 import kotlinx.coroutines.delay
@@ -156,6 +161,12 @@ private object Routes {
     fun serverBans(id: String) = "server/$id/bans"
     const val SERVER_EMOJIS = "server/{serverId}/emojis"
     fun serverEmojis(id: String) = "server/$id/emojis"
+    const val SERVER_SONS = "server/{serverId}/sons"
+    fun serverSons(id: String) = "server/$id/sons"
+    const val SERVER_FIGURINHAS = "server/{serverId}/figurinhas"
+    fun serverFigurinhas(id: String) = "server/$id/figurinhas"
+    const val SERVER_BOT = "server/{serverId}/bot"
+    fun serverBot(id: String) = "server/$id/bot"
     const val SERVER_CHANNELS_MGMT = "server/{serverId}/channels-manage"
     fun serverChannelsManage(id: String) = "server/$id/channels-manage"
     const val CHANNELS = "channels/{serverId}?name={name}"
@@ -163,6 +174,7 @@ private object Routes {
     const val CALL = "call"
     const val SALA = "sala/{channelId}?name={name}&serverId={serverId}"
     const val VOZ = "settings/voice"
+    const val JORNADA = "jornada"
 
     fun dmChat(id: String, name: String, chamar: Boolean = false) = "dm/$id?name=${Uri.encode(name)}&chamar=$chamar"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
@@ -231,6 +243,7 @@ fun AstraApp() {
                             nav.navigate(Routes.sala(canalId, nome, orbitaId))
                         },
                         aoAbrirCall = { nav.navigate(Routes.CALL) },
+                        aoAbrirJornada = { nav.navigate(Routes.JORNADA) },
                         aoAbrirBusca = { nav.navigate(Routes.SEARCH) },
                         aoAbrirAmigos = { nav.navigate(Routes.FRIENDS) },
                         aoAbrirAvisos = { nav.navigate(Routes.NOTIF_FEED) },
@@ -342,6 +355,9 @@ fun AstraApp() {
                 tela(Routes.VOZ) {
                     VozScreen(onBack = { nav.popBackStack() })
                 }
+                tela(Routes.JORNADA) {
+                    JornadaScreen(onBack = { nav.popBackStack() })
+                }
                 tela(Routes.CORES_DO_NOME) {
                     CoresDoNomeScreen(onBack = { nav.popBackStack() })
                 }
@@ -408,6 +424,9 @@ fun AstraApp() {
                         onOpenRoles = { nav.navigate(Routes.serverRoles(serverId)) },
                         onOpenBans = { nav.navigate(Routes.serverBans(serverId)) },
                         onOpenEmojis = { nav.navigate(Routes.serverEmojis(serverId)) },
+                        onOpenSons = { nav.navigate(Routes.serverSons(serverId)) },
+                        onOpenFigurinhas = { nav.navigate(Routes.serverFigurinhas(serverId)) },
+                        onOpenBot = { nav.navigate(Routes.serverBot(serverId)) },
                         onOpenChannels = { nav.navigate(Routes.serverChannelsManage(serverId)) },
                     )
                 }
@@ -449,6 +468,24 @@ fun AstraApp() {
                     arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
                 ) {
                     ServerEmojisScreen(onBack = { nav.popBackStack() })
+                }
+                tela(
+                    route = Routes.SERVER_SONS,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    SonsDaOrbitaScreen(onBack = { nav.popBackStack() })
+                }
+                tela(
+                    route = Routes.SERVER_FIGURINHAS,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    FigurinhasDaOrbitaScreen(onBack = { nav.popBackStack() })
+                }
+                tela(
+                    route = Routes.SERVER_BOT,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    BotDaOrbitaScreen(onBack = { nav.popBackStack() })
                 }
                 tela(
                     route = Routes.SERVER_CHANNELS_MGMT,
@@ -568,6 +605,7 @@ fun AstraApp() {
             }
             val atenderPedido by DeepLinkBus.atenderLigacao.collectAsState()
             LaunchedEffect(ligacao) { if (ligacao == null) DeepLinkBus.atenderLigacao.value = null }
+            if (loggedIn == true) FaixaDeMissao()
             ligacao?.let { chamada ->
                 ChamadaScreen(
                     ligacao = chamada,

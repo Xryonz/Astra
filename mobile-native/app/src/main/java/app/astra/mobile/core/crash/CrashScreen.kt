@@ -38,7 +38,7 @@ fun CrashScreen(trace: String, onDismiss: () -> Unit) {
     ) {
         Text("O app travou aqui", color = Color(0xFFE8C98A), fontSize = 22.sp)
         Text(
-            "Copia esse erro e me manda — e o que eu preciso pra corrigir de vez.",
+            "Copia esse erro e me manda — e o que eu preciso para corrigir de vez.",
             color = Color(0xFFAAB0C0),
             fontSize = 13.sp,
         )

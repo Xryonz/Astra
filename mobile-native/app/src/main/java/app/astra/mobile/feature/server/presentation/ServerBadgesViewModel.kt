@@ -60,7 +60,7 @@ class ServerBadgesViewModel @Inject constructor(
                     it.copy(badges = it.badges + ServerBadgeUi(b.id, b.name, b.icon, b.color, b.description, emptySet()), badgeError = null)
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(badgeError = "Nao foi possivel criar a insignia") }
+                _state.update { it.copy(badgeError = "Não foi possível criar a insígnia") }
             }
         }
     }
@@ -72,7 +72,7 @@ class ServerBadgesViewModel @Inject constructor(
             try {
                 badgesApi.deleteBadge(serverId, badgeId)
             } catch (e: Exception) {
-                _state.update { it.copy(badges = prev, badgeError = "Nao foi possivel apagar") }
+                _state.update { it.copy(badges = prev, badgeError = "Não foi possível apagar") }
             }
         }
     }
@@ -90,7 +90,7 @@ class ServerBadgesViewModel @Inject constructor(
                 if (grant) badgesApi.grantBadge(serverId, badgeId, GrantBadgeRequest(userId))
                 else badgesApi.revokeBadge(serverId, badgeId, userId)
             } catch (e: Exception) {
-                _state.update { it.copy(badges = prev, badgeError = "Nao foi possivel atualizar") }
+                _state.update { it.copy(badges = prev, badgeError = "Não foi possível atualizar") }
             }
         }
     }

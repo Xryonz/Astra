@@ -28,6 +28,8 @@ data class Channel(
     val categoryId: String? = null,
     val isPrivate: Boolean = false,
     val position: Int = 0,
+    val botAtende: Boolean? = null,
+    val guardaAsRespostas: Boolean = true,
 )
 
 data class Category(

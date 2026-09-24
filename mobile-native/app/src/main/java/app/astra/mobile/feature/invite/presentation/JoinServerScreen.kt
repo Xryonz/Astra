@@ -112,7 +112,7 @@ fun JoinServerScreen(
                         Spacer(Modifier.height(6.dp))
                         if (preview.isGroup) {
                             Text(
-                                text = "Este é um aglomerado privado. Peça pra um admin te adicionar.",
+                                text = "Este é um aglomerado privado. Peça para um admin te adicionar.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = astraColors.text3,
                                 textAlign = TextAlign.Center,

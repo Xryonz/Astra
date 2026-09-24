@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.model.comoAnexo
 import app.astra.mobile.core.model.toModel
+import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.translate.Translator
@@ -59,6 +61,7 @@ class ChannelChatViewModel @Inject constructor(
 
     val channelId: String = savedStateHandle["channelId"] ?: ""
     val channelName: String = savedStateHandle["name"] ?: "canal"
+    val orbitaId: String = savedStateHandle["serverId"] ?: ""
 
     private val _state = MutableStateFlow(ChannelChatUiState())
     val state = _state.asStateFlow()
@@ -243,6 +246,19 @@ class ChannelChatViewModel @Inject constructor(
 
             repository.delete(channelId, messageId)
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun enviarFigurinha(figurinha: ServerStickerDto) {
+        if (_state.value.sending) return
+        val replyId = _state.value.replyToId
+        _state.update {
+            it.copy(sending = true, error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
+        }
+        viewModelScope.launch {
+            repository.send(channelId, "", replyId, listOf(figurinha.comoAnexo()))
+                .onSuccess { _state.update { it.copy(sending = false) } }
+                .onFailure { e -> _state.update { it.copy(sending = false, error = e.message) } }
         }
     }
 

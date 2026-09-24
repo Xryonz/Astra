@@ -77,7 +77,7 @@ fun FriendsScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Estrelas",
-                marginalia = "sua constelacao de amigos",
+                marginalia = "sua constelação de amigos",
                 onBack = onBack,
                 trailing = { TopBarAction("+", onClick = { showAdd = true }) },
             )
@@ -134,7 +134,7 @@ fun FriendsScreen(
                         }
 
                     FriendsTab.AMIGOS ->
-                        if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "toque em + pra alinhar uma estrela")
+                        if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "toque em + para alinhar uma estrela")
                         else LazyColumn(Modifier.fillMaxSize()) {
                             items(state.friends, key = { it.friendshipId }) { f ->
                                 FriendRow(

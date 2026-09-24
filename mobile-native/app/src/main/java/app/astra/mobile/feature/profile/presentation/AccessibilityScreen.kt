@@ -40,12 +40,12 @@ fun AccessibilityScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Acessibilidade", marginalia = "movimento e vibracao", onBack = onBack)
+            EditorialTopBar(title = "Acessibilidade", marginalia = "movimento e vibração", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
             MarginaliaLabel("movimento", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
-                title = "Reduzir animacoes",
+                title = "Reduzir animações",
                 sub = "Desliga TODAS de uma vez (mestre)",
                 checked = prefs.reduceMotion,
                 onCheckedChange = viewModel::setReduceMotion,
@@ -56,7 +56,7 @@ fun AccessibilityScreen(
                 MarginaliaLabel("efeitos especificos", Modifier.padding(start = 22.dp, bottom = 8.dp))
                 ToggleRow(
                     title = "Aurora do fundo",
-                    sub = "Brilho GPU atras do app (o mais pesado)",
+                    sub = "Brilho GPU atrás do app (o mais pesado)",
                     checked = prefs.animAurora,
                     onCheckedChange = viewModel::setAnimAurora,
                 )
@@ -68,14 +68,14 @@ fun AccessibilityScreen(
                 )
                 if (prefs.animAurora) {
                     ToggleRow(
-                        title = "Toque no ceu",
+                        title = "Toque no céu",
                         sub = "Brilho + anel ao tocar no fundo vazio",
                         checked = prefs.animSkyTouch,
                         onCheckedChange = viewModel::setAnimSkyTouch,
                     )
                 }
                 ToggleRow(
-                    title = "Transicoes entre telas",
+                    title = "Transições entre telas",
                     sub = "Deslizar ao navegar; off vira fade curto",
                     checked = prefs.animTransitions,
                     onCheckedChange = viewModel::setAnimTransitions,
@@ -85,8 +85,8 @@ fun AccessibilityScreen(
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("toque", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
-                title = "Vibracao",
-                sub = "Resposta tatil em gestos e acoes",
+                title = "Vibração",
+                sub = "Resposta tátil em gestos e ações",
                 checked = prefs.haptics,
                 onCheckedChange = {
                     if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress)

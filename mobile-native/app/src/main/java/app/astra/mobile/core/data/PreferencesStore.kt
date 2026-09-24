@@ -12,7 +12,7 @@ import javax.inject.Singleton
 
 enum class FontSizePref(val id: String, val label: String, val scale: Float) {
     SM("sm", "Pequena", 0.9f),
-    MD("md", "Padrao", 1.0f),
+    MD("md", "Padrão", 1.0f),
     LG("lg", "Grande", 1.12f),
     XL("xl", "Maior", 1.25f);
 
@@ -23,7 +23,7 @@ enum class FontSizePref(val id: String, val label: String, val scale: Float) {
 
 enum class DensityPref(val id: String, val label: String, val topDp: Int, val groupedTopDp: Int) {
     COMPACT("compact", "Compacta", 5, 1),
-    COMFORTABLE("comfortable", "Confortavel", 10, 2),
+    COMFORTABLE("comfortable", "Confortável", 10, 2),
     SPACIOUS("spacious", "Espacosa", 16, 4);
 
     companion object {

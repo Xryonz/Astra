@@ -33,5 +33,9 @@ interface ServerRepository {
 
     suspend fun moverCategoria(serverId: String, categoryId: String, posicao: Int): Result<Unit>
 
+    suspend fun botAtendeNoCanal(serverId: String, channelId: String, atende: Boolean): Result<Unit>
+
+    suspend fun guardarRespostasDaBot(serverId: String, channelId: String, guardar: Boolean): Result<Unit>
+
     fun channelActivity(): Flow<String>
 }

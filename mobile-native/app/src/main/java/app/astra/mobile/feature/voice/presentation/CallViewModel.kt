@@ -4,6 +4,10 @@ import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+
+import app.astra.mobile.core.network.SoundApi
+import app.astra.mobile.core.network.dto.ServerSoundDto
+import app.astra.mobile.core.network.dto.TocarSomRequest
 import app.astra.mobile.core.voice.CallStatus
 import app.astra.mobile.core.voice.Rosto
 import app.astra.mobile.core.voice.RostosDaCall
@@ -14,10 +18,15 @@ import app.astra.mobile.core.voice.VoiceState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.VideoTrack
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @Immutable
@@ -50,8 +59,29 @@ data class CallUiState(
 @HiltViewModel
 class CallViewModel @Inject constructor(
     private val voiceManager: VoiceManager,
+    private val soundApi: SoundApi,
     rostosDaCall: RostosDaCall,
 ) : ViewModel() {
+
+    private val _sons = MutableStateFlow<List<ServerSoundDto>>(emptyList())
+    val sons: StateFlow<List<ServerSoundDto>> = _sons.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            voiceManager.state.map { it.sala?.orbitaId }.distinctUntilChanged().collect { orbita ->
+                _sons.value = if (orbita.isNullOrBlank()) emptyList()
+                else runCatching { soundApi.listar(orbita).sounds }.getOrDefault(emptyList())
+            }
+        }
+    }
+
+    fun tocarSom(somId: String) {
+        val sala = voiceManager.state.value.sala ?: return
+        val orbita = sala.orbitaId ?: return
+        viewModelScope.launch {
+            runCatching { soundApi.tocar(orbita, somId, TocarSomRequest(sala.id)) }
+        }
+    }
 
     val state: StateFlow<CallUiState> =
         combine(voiceManager.state, rostosDaCall.rostos, ::montar)

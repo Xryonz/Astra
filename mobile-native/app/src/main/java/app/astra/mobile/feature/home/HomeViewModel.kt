@@ -13,11 +13,13 @@ import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.core.voice.SalasDeVoz
 import app.astra.mobile.feature.auth.domain.AuthRepository
+import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
+import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -34,6 +36,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     socketManager: SocketManager,
     private val serverRepository: ServerRepository,
+    private val channelRepository: ChannelRepository,
     private val dmRepository: DmRepository,
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
@@ -159,10 +162,10 @@ class HomeViewModel @Inject constructor(
     fun setPassword(pw: String, confirm: String) {
         if (_state.value.pwSaving) return
         val error = when {
-            pw.length < 8 -> "Minimo 8 caracteres"
-            !pw.any { it.isUpperCase() } -> "Precisa de ao menos uma letra maiuscula"
-            !pw.any { it.isDigit() } -> "Precisa de ao menos um numero"
-            pw != confirm -> "As senhas nao coincidem"
+            pw.length < 8 -> "Mínimo 8 caracteres"
+            !pw.any { it.isUpperCase() } -> "Precisa de ao menos uma letra maiúscula"
+            !pw.any { it.isDigit() } -> "Precisa de ao menos um número"
+            pw != confirm -> "As senhas não coincidem"
             else -> null
         }
         if (error != null) {
@@ -173,7 +176,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.setPassword(pw)
                 .onSuccess { _state.update { it.copy(pwSaving = false, needsPassword = false) } }
-                .onFailure { e -> _state.update { it.copy(pwSaving = false, pwError = e.message ?: "Nao foi possivel salvar") } }
+                .onFailure { e -> _state.update { it.copy(pwSaving = false, pwError = e.message ?: "Não foi possível salvar") } }
         }
     }
 
@@ -270,6 +273,58 @@ class HomeViewModel @Inject constructor(
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
 
+    fun marcarCanalComoLido(channelId: String) {
+        markChannelSeen(channelId)
+        viewModelScope.launch { channelRepository.markRead(channelId) }
+    }
+
+    fun silenciarCanal(channelId: String, silenciar: Boolean) {
+        val antes = _state.value.mutedChannels
+        channelPrefModes = if (silenciar) channelPrefModes + (channelId to "mute") else channelPrefModes - channelId
+        _state.update {
+            it.copy(
+                mutedChannels = if (silenciar) it.mutedChannels + channelId else it.mutedChannels - channelId,
+                channelUnread = if (silenciar) it.channelUnread - channelId else it.channelUnread,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                if (silenciar) notificationsApi.setChannelNotifPref(channelId, NotifModeRequest("mute"))
+                else notificationsApi.clearChannelNotifPref(channelId)
+            } catch (_: Exception) {
+                _state.update { it.copy(mutedChannels = antes) }
+            }
+        }
+    }
+
+    fun botAtendeNoCanal(serverId: String, channelId: String, atende: Boolean) {
+        mudarCanal(serverId, channelId) { it.copy(botAtende = atende) }
+        viewModelScope.launch {
+            serverRepository.botAtendeNoCanal(serverId, channelId, atende)
+                .onFailure { e ->
+                    mudarCanal(serverId, channelId) { it.copy(botAtende = !atende) }
+                    _state.update { st -> st.copy(manageError = e.message) }
+                }
+        }
+    }
+
+    fun guardarRespostasDaBot(serverId: String, channelId: String, guardar: Boolean) {
+        mudarCanal(serverId, channelId) { it.copy(guardaAsRespostas = guardar) }
+        viewModelScope.launch {
+            serverRepository.guardarRespostasDaBot(serverId, channelId, guardar)
+                .onFailure { e ->
+                    mudarCanal(serverId, channelId) { it.copy(guardaAsRespostas = !guardar) }
+                    _state.update { st -> st.copy(manageError = e.message) }
+                }
+        }
+    }
+
+    private fun mudarCanal(serverId: String, channelId: String, mudanca: (Channel) -> Channel) {
+        mudarOrbita(serverId) { orbita ->
+            orbita.copy(channels = orbita.channels.map { if (it.id == channelId) mudanca(it) else it })
+        }
+    }
+
     fun setStatus(status: UserStatus) {
         _state.update { it.copy(myStatus = status) }
         viewModelScope.launch { userRepository.setStatus(status) }
@@ -343,7 +398,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             block()
                 .onSuccess { reloadServers() }
-                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Acao falhou") } }
+                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Ação falhou") } }
         }
     }
     fun createChannel(serverId: String, name: String, isVoice: Boolean) =
@@ -359,7 +414,7 @@ class HomeViewModel @Inject constructor(
                     }
                     reloadServers()
                 }
-                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Nao foi possivel sair") } }
+                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Não foi possível sair") } }
         }
     }
 

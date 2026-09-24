@@ -40,7 +40,7 @@ class AuthRepositoryImpl @Inject constructor(
             val resp = authApi.login(LoginRequest(email.trim(), password))
             if (resp.isSuccessful) {
                 val data = resp.body()?.data
-                    ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+                    ?: return Result.failure(ApiException("Resposta inválida do servidor"))
                 userRepository.clearCache()
                 tokenStore.save(data.accessToken, data.refreshToken)
                 tokenStore.setUserId(data.user.id)
@@ -49,7 +49,7 @@ class AuthRepositoryImpl @Inject constructor(
                 Result.failure(ApiException(parseError(resp.errorBody()?.string(), resp.code())))
             }
         } catch (e: IOException) {
-            Result.failure(ApiException("Sem conexao com o servidor"))
+            Result.failure(ApiException("Sem conexão com o servidor"))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -74,7 +74,7 @@ class AuthRepositoryImpl @Inject constructor(
             )
             if (resp.isSuccessful) {
                 val data = resp.body()?.data
-                    ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+                    ?: return Result.failure(ApiException("Resposta inválida do servidor"))
                 userRepository.clearCache()
                 tokenStore.save(data.accessToken, data.refreshToken)
                 tokenStore.setUserId(data.user.id)
@@ -84,7 +84,7 @@ class AuthRepositoryImpl @Inject constructor(
                 Result.failure(ApiException(parseError(resp.errorBody()?.string(), resp.code())))
             }
         } catch (e: IOException) {
-            Result.failure(ApiException("Sem conexao com o servidor"))
+            Result.failure(ApiException("Sem conexão com o servidor"))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -96,18 +96,18 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
 
             val data = refreshApi.refresh("Bearer $refreshToken").data
-                ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+                ?: return Result.failure(ApiException("Resposta inválida do servidor"))
             userRepository.clearCache()
             tokenStore.save(data.accessToken, data.refreshToken)
 
             userIdFromJwt(data.accessToken)?.let { tokenStore.setUserId(it) }
             Result.success(Unit)
         } catch (e: IOException) {
-            Result.failure(ApiException("Sem conexao com o servidor"))
+            Result.failure(ApiException("Sem conexão com o servidor"))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Result.failure(ApiException("Nao foi possivel entrar com o Google"))
+            Result.failure(ApiException("Não foi possível entrar com o Google"))
         }
     }
 
@@ -132,9 +132,9 @@ class AuthRepositoryImpl @Inject constructor(
         }
         return fromBody ?: when (code) {
             401 -> "E-mail ou senha incorretos"
-            409 -> "E-mail ou username ja esta em uso"
+            409 -> "E-mail ou username já está em uso"
             429 -> "Muitas tentativas. Tente em instantes."
-            else -> "Nao foi possivel concluir"
+            else -> "Não foi possível concluir"
         }
     }
 }

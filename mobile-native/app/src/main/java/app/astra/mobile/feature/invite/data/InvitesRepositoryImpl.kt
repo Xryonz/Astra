@@ -24,7 +24,7 @@ class InvitesRepositoryImpl @Inject constructor(
 
     override suspend fun preview(code: String): Result<InvitePreview> = try {
         val dto = api.preview(code).data
-            ?: return Result.failure(ApiException("Convite invalido ou expirado"))
+            ?: return Result.failure(ApiException("Convite inválido ou expirado"))
         Result.success(
             InvitePreview(
                 id = dto.id,
@@ -35,9 +35,9 @@ class InvitesRepositoryImpl @Inject constructor(
             ),
         )
     } catch (e: HttpException) {
-        Result.failure(ApiException(errorMsg(e) ?: "Convite invalido ou expirado"))
+        Result.failure(ApiException(errorMsg(e) ?: "Convite inválido ou expirado"))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -46,17 +46,17 @@ class InvitesRepositoryImpl @Inject constructor(
 
     override suspend fun join(code: String): Result<Server> = try {
         val dto = api.join(code).data
-            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         Result.success(dto.toServer())
     } catch (e: HttpException) {
 
-        Result.failure(ApiException(errorMsg(e) ?: "Nao foi possivel entrar no servidor"))
+        Result.failure(ApiException(errorMsg(e) ?: "Não foi possível entrar no servidor"))
     } catch (e: IOException) {
-        Result.failure(ApiException("Sem conexao com o servidor"))
+        Result.failure(ApiException("Sem conexão com o servidor"))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(ApiException("Nao foi possivel entrar no servidor"))
+        Result.failure(ApiException("Não foi possível entrar no servidor"))
     }
 
     private fun errorMsg(e: HttpException): String? =

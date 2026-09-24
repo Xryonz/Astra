@@ -46,7 +46,7 @@ import android.net.Uri
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
-import app.astra.mobile.feature.gif.presentation.GifPicker
+import app.astra.mobile.ui.components.AbaDeExpressao
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
@@ -94,8 +94,7 @@ fun DmChatScreen(
         }
     }
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
-    var gifOpen by remember { mutableStateOf(false) }
-    var emojiOpen by remember { mutableStateOf(false) }
+    var folhaAberta by remember { mutableStateOf<AbaDeExpressao?>(null) }
     var emojiPendente by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
@@ -263,26 +262,22 @@ fun DmChatScreen(
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                onGif = { gifOpen = true },
-                onEmoji = { emojiOpen = true },
+                onGif = { folhaAberta = AbaDeExpressao.GIFS },
+                onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
             )
         }
 
-        if (emojiOpen) {
+        folhaAberta?.let { aba ->
             EmojiPickerSheet(
                 onPick = { emoji ->
                     emojiPendente = emoji
-                    emojiOpen = false
+                    folhaAberta = null
                 },
-                onClose = { emojiOpen = false },
-            )
-        }
-
-        if (gifOpen) {
-            GifPicker(
-                onPick = { g ->
+                onClose = { folhaAberta = null },
+                abaInicial = aba,
+                aoGif = { g ->
                     viewModel.addAttachment(
                         Attachment(
                             url = g.full,
@@ -294,7 +289,6 @@ fun DmChatScreen(
                         ),
                     )
                 },
-                onClose = { gifOpen = false },
             )
         }
     }

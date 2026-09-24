@@ -77,7 +77,7 @@ fun ServerRolesScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Cargos", marginalia = "papeis e permissoes", onBack = onBack)
+            EditorialTopBar(title = "Cargos", marginalia = "papéis e permissões", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -95,7 +95,7 @@ fun ServerRolesScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("cargos da constelacao")
+                    MarginaliaLabel("cargos da constelação")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ novo",
@@ -187,7 +187,7 @@ fun ServerRolesScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.deleteRole(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("quem tinha ${deleteTarget?.name ?: "esse cargo"} perde as permissoes dele")
+        MarginaliaLabel("quem tinha ${deleteTarget?.name ?: "esse cargo"} perde as permissões dele")
     }
 }
 
@@ -255,14 +255,14 @@ private fun RoleEditorDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Separar na lista", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
-                    MarginaliaLabel("mostra este cargo como grupo proprio (hoist)")
+                    MarginaliaLabel("mostra este cargo como grupo próprio (hoist)")
                 }
                 Spacer(Modifier.width(12.dp))
                 AstraSwitch(checked = hoist, onCheckedChange = { hoist = it })
             }
 
             Spacer(Modifier.height(18.dp))
-            MarginaliaLabel("permissoes")
+            MarginaliaLabel("permissões")
             Spacer(Modifier.height(8.dp))
             PERM_OPTIONS.forEach { (key, label, desc) ->
                 val active = key in perms

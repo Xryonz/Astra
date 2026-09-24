@@ -35,7 +35,7 @@ class ImageUploader @Inject constructor(
                 }
                 Result.failure(ApiException(msg ?: "Falha no upload"))
             } catch (e: IOException) {
-                Result.failure(ApiException("Sem conexao com o servidor"))
+                Result.failure(ApiException("Sem conexão com o servidor"))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -59,7 +59,7 @@ class ImageUploader @Inject constructor(
                 }
                 Result.failure(ApiException(msg ?: "Falha no upload"))
             } catch (e: IOException) {
-                Result.failure(ApiException("Sem conexao com o servidor"))
+                Result.failure(ApiException("Sem conexão com o servidor"))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

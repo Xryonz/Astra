@@ -51,7 +51,7 @@ class ServerSettingsViewModel @Inject constructor(
             val server = serversD.await().getOrNull()?.find { it.id == serverId }
             val perms = permsD.await().getOrNull()
             if (server == null) {
-                _state.update { it.copy(loading = false, error = "Constelacao nao encontrada") }
+                _state.update { it.copy(loading = false, error = "Constelação não encontrada") }
                 return@launch
             }
             _state.update {
@@ -84,7 +84,7 @@ class ServerSettingsViewModel @Inject constructor(
                 serverApi.leaveServer(serverId)
                 _state.update { it.copy(working = false, closed = true) }
             } catch (e: Exception) {
-                _state.update { it.copy(working = false, error = "Nao foi possivel sair") }
+                _state.update { it.copy(working = false, error = "Não foi possível sair") }
             }
         }
     }
@@ -97,7 +97,7 @@ class ServerSettingsViewModel @Inject constructor(
                 serverApi.deleteServer(serverId)
                 _state.update { it.copy(working = false, closed = true) }
             } catch (e: Exception) {
-                _state.update { it.copy(working = false, error = "Nao foi possivel excluir") }
+                _state.update { it.copy(working = false, error = "Não foi possível excluir") }
             }
         }
     }

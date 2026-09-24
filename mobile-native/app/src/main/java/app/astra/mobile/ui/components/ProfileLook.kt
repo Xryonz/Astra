@@ -5,10 +5,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 
 val ProfileGradients: List<Pair<String, String>> = listOf(
-    "Galaxia" to "linear-gradient(135deg,#0f0c29,#302b63,#24243e)",
+    "Galáxia" to "linear-gradient(135deg,#0f0c29,#302b63,#24243e)",
     "Obsidiana" to "linear-gradient(135deg,#000000,#1a4d2e)",
     "Tinta" to "linear-gradient(135deg,#000000,#0f3460)",
-    "Crepusculo" to "linear-gradient(135deg,#3a1c71,#4a00e0)",
+    "Crepúsculo" to "linear-gradient(135deg,#3a1c71,#4a00e0)",
     "Veludo" to "linear-gradient(135deg,#41295a,#2f0743)",
     "Aurora" to "linear-gradient(135deg,#3a1c71,#d76d77,#ffaf7b)",
     "Oceano" to "linear-gradient(135deg,#2193b0,#6dd5ed)",

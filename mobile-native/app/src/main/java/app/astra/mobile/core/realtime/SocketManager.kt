@@ -95,6 +95,15 @@ class SocketManager @Inject constructor(
     private val _voicePresence = MutableSharedFlow<MudancaNaVoz>(extraBufferCapacity = 64)
     val voicePresence: SharedFlow<MudancaNaVoz> = _voicePresence.asSharedFlow()
 
+    private val _xpGain = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val xpGain: SharedFlow<String> = _xpGain.asSharedFlow()
+
+    private val _missaoConcluida = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val missaoConcluida: SharedFlow<String> = _missaoConcluida.asSharedFlow()
+
+    private val _soundboardPlay = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val soundboardPlay: SharedFlow<String> = _soundboardPlay.asSharedFlow()
+
     @Volatile private var salaDeVoz: String? = null
 
     fun connect() {
@@ -111,7 +120,7 @@ class SocketManager @Inject constructor(
         val s = try {
             IO.socket(BuildConfig.BASE_URL, opts)
         } catch (e: Exception) {
-            Log.e(TAG, "URI invalida: ${e.message}")
+            Log.e(TAG, "URI inválida: ${e.message}")
             _state.value = ConnectionState.Disconnected
             return
         }
@@ -203,6 +212,16 @@ class SocketManager @Inject constructor(
         }
         s.on("dm_call_ended") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _dmCallEnded.tryEmit(it.optString("conversationId")) }
+        }
+        s.on("soundboard_play") { args ->
+            (args.firstOrNull() as? JSONObject)?.optString("url")?.takeIf { it.isNotBlank() }
+                ?.let { _soundboardPlay.tryEmit(it) }
+        }
+        s.on("xp_gain") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _xpGain.tryEmit(it.toString()) }
+        }
+        s.on("mission_done") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _missaoConcluida.tryEmit(it.toString()) }
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let {

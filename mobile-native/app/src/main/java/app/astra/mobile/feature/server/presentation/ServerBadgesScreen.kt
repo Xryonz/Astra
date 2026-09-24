@@ -58,7 +58,7 @@ fun ServerBadgesScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Insignias", marginalia = "crie e conceda", onBack = onBack)
+            EditorialTopBar(title = "Insígnias", marginalia = "crie e conceda", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -72,7 +72,7 @@ fun ServerBadgesScreen(
                     .padding(horizontal = 26.dp, vertical = 18.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("insignias da constelacao")
+                    MarginaliaLabel("insígnias da constelação")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ nova",
@@ -87,7 +87,7 @@ fun ServerBadgesScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 if (state.badges.isEmpty()) {
-                    MarginaliaLabel("nenhuma insignia ainda — crie a primeira")
+                    MarginaliaLabel("nenhuma insígnia ainda — crie a primeira")
                 } else {
                     state.badges.forEach { b ->
                         Row(
@@ -112,7 +112,7 @@ fun ServerBadgesScreen(
                             )
                         }
                     }
-                    MarginaliaLabel("toque numa insignia pra conceder a membros")
+                    MarginaliaLabel("toque numa insígnia para conceder a membros")
                 }
                 if (state.badgeError != null) {
                     Spacer(Modifier.height(10.dp))
@@ -167,7 +167,7 @@ fun ServerBadgesScreen(
     AstraDialog(
         open = deleteTargetId != null,
         onDismiss = { deleteTargetId = null },
-        title = "Apagar insignia?",
+        title = "Apagar insígnia?",
         confirmText = "Apagar",
         onConfirm = { deleteTargetId?.let(viewModel::deleteBadge); deleteTargetId = null },
     ) {
@@ -188,7 +188,7 @@ private fun CreateBadgeDialog(
     AstraDialog(
         open = open,
         onDismiss = onDismiss,
-        title = "Nova insignia",
+        title = "Nova insígnia",
         confirmText = "Criar",
         confirmEnabled = icon.isNotBlank() && name.isNotBlank(),
         onConfirm = { onCreate(name, icon, color, desc); onDismiss() },
@@ -207,7 +207,7 @@ private fun CreateBadgeDialog(
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = desc, onValue = { desc = it.take(120) },
-            label = "descricao (opcional)", placeholder = "por que essa insignia existe",
+            label = "descrição (opcional)", placeholder = "por que essa insígnia existe",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
         )
         Spacer(Modifier.height(14.dp))

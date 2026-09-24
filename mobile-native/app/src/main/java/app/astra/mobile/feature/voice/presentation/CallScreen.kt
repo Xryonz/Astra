@@ -78,6 +78,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.core.network.dto.ServerSoundDto
 import app.astra.mobile.core.voice.CallStatus
 import app.astra.mobile.core.voice.SaidaDeSom
 import app.astra.mobile.core.voice.TipoDeSaida
@@ -101,6 +102,7 @@ import com.composables.icons.lucide.Headphones
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
+import com.composables.icons.lucide.Music
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.ScreenShareOff
@@ -187,11 +189,14 @@ fun CallScreen(
                 }
             }
             AvisoPassageiro(estado.erro.takeIf { estado.status != CallStatus.Error }, viewModel::esquecerErro)
+            val sons by viewModel.sons.collectAsState()
             BarraDaCall(
                 estado = estado,
+                sons = sons,
                 aoMicrofone = viewModel::alternarMudo,
                 aoSurdo = viewModel::alternarSurdo,
                 aoEscolherSaida = viewModel::escolherSaida,
+                aoTocarSom = viewModel::tocarSom,
                 aoTela = aoTela,
                 aoSair = viewModel::sair,
             )
@@ -606,16 +611,19 @@ private enum class Tom { NORMAL, ATIVO, PERIGO, SAIR }
 @Composable
 private fun BarraDaCall(
     estado: CallUiState,
+    sons: List<ServerSoundDto>,
     aoMicrofone: () -> Unit,
     aoSurdo: () -> Unit,
     aoEscolherSaida: (String) -> Unit,
+    aoTocarSom: (String) -> Unit,
     aoTela: () -> Unit,
     aoSair: () -> Unit,
 ) {
     val noAr = estado.status == CallStatus.Connected
     var saidasAbertas by remember { mutableStateOf(false) }
+    var sonsAbertos by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -662,6 +670,36 @@ private fun BarraDaCall(
                         onClick = {
                             saidasAbertas = false
                             aoEscolherSaida(saida.chave)
+                        },
+                    )
+                }
+            }
+        }
+        Box {
+            BotaoDaCall(
+                icone = Lucide.Music,
+                tom = if (sonsAbertos) Tom.ATIVO else Tom.NORMAL,
+                rotulo = "Sons da constelação",
+                habilitado = noAr && sons.isNotEmpty(),
+                aoTocar = { sonsAbertos = true },
+            )
+            DropdownMenu(
+                expanded = sonsAbertos,
+                onDismissRequest = { sonsAbertos = false },
+                modifier = Modifier.background(astraColors.overlay),
+            ) {
+                sons.forEach { som ->
+                    ItemDeMenu(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Lucide.Volume2, contentDescription = null, tint = astraColors.text3, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(som.name, color = astraColors.text1)
+                            }
+                        },
+                        onClick = {
+                            sonsAbertos = false
+                            aoTocarSom(som.id)
                         },
                     )
                 }

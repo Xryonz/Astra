@@ -1,7 +1,7 @@
-versao 2.0.10
-Entrar em canal de voz, com quem está na sala à vista antes de entrar.
-A call ocupa a tela e encolhe numa faixa quando você volta, sem desligar.
-Assistir à tela de alguém, em tela cheia, com pinça para aproximar.
-Transmitir a sua tela, com a mesma qualidade do desktop.
-Ligações de sussurro com tela de chamada, toque e aviso fora do app.
-Saída de som à escolha: alto-falante, fone ou bluetooth.
+versao 2.0.11
+Um anel em volta da sua foto mostra o brilho que você junta conversando.
+Toque nele para abrir Sua jornada: missões de hoje, da semana e conquistas.
+Sons da constelação na barra da call — quem está na sala ouve junto.
+Figurinhas e GIFs na mesma folha do emoji, e tocar já envia.
+Segure uma órbita para silenciar, marcar como lida e mandar na bot.
+Sons, figurinhas e a bot agora se ajustam pelo celular.

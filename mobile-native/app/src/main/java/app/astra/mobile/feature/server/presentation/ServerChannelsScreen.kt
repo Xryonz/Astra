@@ -71,7 +71,7 @@ fun ServerChannelsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Orbitas", marginalia = "renomear, privar e apagar", onBack = onBack)
+            EditorialTopBar(title = "Órbitas", marginalia = "renomear, privar e apagar", onBack = onBack)
 
             when {
                 state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -132,7 +132,7 @@ fun ServerChannelsScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.delete(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("todas as mensagens dessa orbita se perdem — sem volta")
+        MarginaliaLabel("todas as mensagens dessa órbita se perdem — sem volta")
     }
 }
 
@@ -151,7 +151,7 @@ private fun ChannelManageDialog(
     AstraDialog(
         open = true,
         onDismiss = onDismiss,
-        title = "Gerenciar orbita",
+        title = "Gerenciar órbita",
         confirmText = "Salvar visibilidade",
         confirmEnabled = !editing.loadingVisibility,
         onConfirm = onSaveVisibility,
@@ -159,7 +159,7 @@ private fun ChannelManageDialog(
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
             EditorialField(
                 value = name, onValue = { name = it.take(50) },
-                label = "nome da orbita", placeholder = "geral",
+                label = "nome da órbita", placeholder = "geral",
                 enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
             )
             Spacer(Modifier.height(8.dp))
@@ -175,7 +175,7 @@ private fun ChannelManageDialog(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 )
                 Text(
-                    text = "Apagar orbita",
+                    text = "Apagar órbita",
                     style = MaterialTheme.typography.labelLarge,
                     color = astraColors.danger,
                     modifier = Modifier
@@ -188,8 +188,8 @@ private fun ChannelManageDialog(
             Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Orbita privada", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
-                    MarginaliaLabel("so os cargos marcados veem (o dono sempre ve)")
+                    Text("Órbita privada", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
+                    MarginaliaLabel("só os cargos marcados veem (o dono sempre vê)")
                 }
                 Spacer(Modifier.width(12.dp))
                 AstraSwitch(

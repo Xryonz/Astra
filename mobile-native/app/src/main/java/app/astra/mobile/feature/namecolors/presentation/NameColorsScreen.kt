@@ -48,7 +48,7 @@ fun NameColorsSection(
     when {
         state.loading -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
         state.servers.isEmpty() -> Text(
-            "Voce ainda nao esta em nenhum servidor.",
+            "Você ainda não está em nenhuma constelação.",
             style = MaterialTheme.typography.bodyMedium,
             color = astraColors.text3,
             modifier = Modifier.padding(22.dp),

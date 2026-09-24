@@ -70,7 +70,7 @@ fun ServerBansScreen(
                 state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
                 state.error != null -> Box(Modifier.padding(20.dp)) { AuthErrorBox(state.error!!) }
                 state.bans.isEmpty() -> EmptyState(
-                    line = "Ninguem banido",
+                    line = "Ninguém banido",
                     hint = "estrelas banidas aparecem aqui",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {

@@ -1,7 +1,7 @@
 package app.astra.mobile.feature.casca
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,14 +28,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +52,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.astra.mobile.R
@@ -65,15 +62,16 @@ import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
-import kotlin.math.roundToInt
 
 private val LADO = 46.dp
 private val LARGURA_DA_COLUNA = 68.dp
-private val CANTO = RoundedCornerShape(10.dp)
+private val CANTO = CircleShape
+private val LARGURA_DA_MARCA = 3.dp
+private val ALTURA_DA_MARCA = 26.dp
 private const val CHAVE_SUSSURROS = "sussurros"
 private const val CHAVE_DIVISORIA = "divisoria"
 private const val CHAVE_NOVA = "nova"
-private const val VIAGEM_MS = 280
+private const val ACENDER_MS = 180
 private const val ESCALA_NA_MAO = 1.08f
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
@@ -147,21 +145,6 @@ fun ColunaDeOrbitas(
     }
     val orbitasAgora by rememberUpdatedState(naTela)
     val idsAgora by rememberUpdatedState(orbitas.map { it.id })
-
-    val chaveDaMarca: String = if (emSussurros || orbitaAberta == null) CHAVE_SUSSURROS else orbitaAberta
-    val centroDaMarca by remember(chaveDaMarca) {
-        derivedStateOf { centroNaColuna(estado.layoutInfo, chaveDaMarca) }
-    }
-    val yDaMarca = remember { Animatable(Float.NaN) }
-    LaunchedEffect(chaveDaMarca, semMovimento) {
-        var primeiraVez = true
-        snapshotFlow { centroDaMarca }.collect { alvo ->
-            if (alvo == null) return@collect
-            val viajar = primeiraVez && !yDaMarca.value.isNaN() && !semMovimento
-            primeiraVez = false
-            if (viajar) yDaMarca.animateTo(alvo, tween(VIAGEM_MS, easing = EaseOutSoft)) else yDaMarca.snapTo(alvo)
-        }
-    }
 
     val zona = with(LocalDensity.current) { ZONA_DE_ROLAGEM.toPx() }
     val teto = with(LocalDensity.current) { PASSO_DA_ROLAGEM.toPx() }
@@ -343,17 +326,6 @@ fun ColunaDeOrbitas(
             }
         }
 
-        val y = yDaMarca.value
-        val mostrarMarca = !y.isNaN() && centroDaMarca != null && !arrasto.arrastando
-        val metade = with(LocalDensity.current) { (LADO / 2).toPx() }
-        Box(
-            Modifier
-                .align(Alignment.TopCenter)
-                .offset { IntOffset(0, (y.takeUnless { it.isNaN() } ?: 0f).minus(metade).roundToInt()) }
-                .size(LADO)
-                .alpha(if (mostrarMarca) 1f else 0f)
-                .border(1.5.dp, astraColors.accent.copy(alpha = 0.55f), CANTO),
-        )
     }
 }
 
@@ -366,10 +338,16 @@ private fun Peca(
     apagada: Boolean = false,
     conteudo: @Composable () -> Unit,
 ) {
+    val semMovimento = LocalAppPrefs.current.reduceMotion
     val fundo by animateColorAsState(
         if (selecionada) astraColors.overlay else astraColors.raised,
-        tween(VIAGEM_MS),
+        tween(ACENDER_MS),
         label = "fundo",
+    )
+    val aceso by animateFloatAsState(
+        if (selecionada) 1f else 0f,
+        if (semMovimento) tween(0) else tween(ACENDER_MS, easing = EaseOutSoft),
+        label = "aceso",
     )
     Box {
         Box(
@@ -384,6 +362,19 @@ private fun Peca(
             contentAlignment = Alignment.Center,
         ) {
             conteudo()
+        }
+        if (aceso > 0f) {
+            Box(
+                Modifier
+                    .size(LADO)
+                    .graphicsLayer {
+                        val abertura = 0.86f + 0.14f * aceso
+                        scaleX = abertura
+                        scaleY = abertura
+                        alpha = aceso
+                    }
+                    .border(1.5.dp, astraColors.accent.copy(alpha = 0.55f), CANTO),
+            )
         }
         if (naoLida) {
             Box(

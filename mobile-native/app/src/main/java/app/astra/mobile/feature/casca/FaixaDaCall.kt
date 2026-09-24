@@ -103,7 +103,7 @@ private fun ConteudoDaFaixa(
     aoMicrofone: () -> Unit,
     aoSair: () -> Unit,
 ) {
-    val forma = RoundedCornerShape(8.dp)
+    val forma = RoundedCornerShape(18.dp)
     val sala = estado.sala?.nome.orEmpty()
     val linha = when {
         estado.status == CallStatus.Error -> "a call caiu · toque para ver"

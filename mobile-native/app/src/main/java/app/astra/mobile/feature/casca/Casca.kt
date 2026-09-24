@@ -6,9 +6,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -51,7 +52,6 @@ import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.core.update.Novidades
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.theme.EaseOutSoft
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -151,7 +151,6 @@ fun Casca(
     val orbitasNaOrdem = remember(estado.servers, estado.ordemDasOrbitas) {
         naOrdemEscolhida(estado.servers, estado.ordemDasOrbitas)
     }
-    val posicoes = remember(orbitasNaOrdem) { orbitasNaOrdem.withIndex().associate { (i, o) -> o.id to i } }
     var ultimoCanal by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var canalNoMenuId by remember { mutableStateOf<String?>(null) }
     val canalNoMenu = canalNoMenuId?.let { id -> orbitaAberta?.channels?.firstOrNull { it.id == id } }
@@ -167,7 +166,7 @@ fun Casca(
     Column(
         Modifier
             .fillMaxSize()
-            .background(astraColors.base)
+            .background(astraColors.void)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -191,7 +190,10 @@ fun Casca(
             DropdownMenu(
                 expanded = menuDeAdicionar,
                 onDismissRequest = { menuDeAdicionar = false },
-                modifier = Modifier.background(astraColors.overlay),
+                shape = RoundedCornerShape(16.dp),
+                containerColor = astraColors.overlay,
+                border = BorderStroke(1.dp, astraColors.border),
+                offset = DpOffset(x = 8.dp, y = 0.dp),
             ) {
                 ItemDoMenu("Forjar constelação") { menuDeAdicionar = false; forjaDeGrupo = false; forjando = true }
                 ItemDoMenu("Forjar aglomerado") { menuDeAdicionar = false; forjaDeGrupo = true; forjando = true }
@@ -200,13 +202,15 @@ fun Casca(
             }
             }
 
+            val formaDoPainel = RoundedCornerShape(22.dp)
             Box(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(topStart = 16.dp))
+                    .padding(top = 6.dp, bottom = 6.dp, end = 6.dp)
+                    .clip(formaDoPainel)
                     .background(astraColors.base)
-                    .border(1.dp, astraColors.border, RoundedCornerShape(topStart = 16.dp)),
+                    .border(1.dp, astraColors.border, formaDoPainel),
             ) {
                 AnimatedContent(
                     targetState = orbitaAberta?.id ?: CHAVE_DOS_SUSSURROS,
@@ -214,11 +218,7 @@ fun Casca(
                         if (semMovimento) {
                             EnterTransition.None togetherWith ExitTransition.None
                         } else {
-                            val sentido = if ((posicoes[targetState] ?: -1) >= (posicoes[initialState] ?: -1)) 1 else -1
-                            (slideInVertically(tween(TROCA_DE_PAINEL_MS, easing = EaseOutSoft)) { -sentido * it / 12 } +
-                                fadeIn(tween(220, delayMillis = 40))) togetherWith
-                                (slideOutVertically(tween(TROCA_DE_PAINEL_MS, easing = EaseOutSoft)) { sentido * it / 12 } +
-                                    fadeOut(tween(160)))
+                            fadeIn(tween(TROCA_DE_PAINEL_MS)) togetherWith fadeOut(tween(TROCA_DE_PAINEL_MS))
                         }
                     },
                     label = "painel",
@@ -312,6 +312,7 @@ fun Casca(
                 aoSegurar = { menuDeStatus = true },
                 aoAbrirAvisos = aoAbrirAvisos,
                 aoAbrirJornada = aoAbrirJornada,
+                aoAbrirStatus = { menuDeStatus = true },
                 aoDeslizar = {
                     if (emSussurros) {
                         val volta = ultimaOrbita?.takeIf { alvo -> estado.servers.any { it.id == alvo } }
@@ -324,7 +325,9 @@ fun Casca(
             DropdownMenu(
                 expanded = menuDeStatus,
                 onDismissRequest = { menuDeStatus = false },
-                modifier = Modifier.background(astraColors.overlay),
+                shape = RoundedCornerShape(16.dp),
+                containerColor = astraColors.overlay,
+                border = BorderStroke(1.dp, astraColors.border),
             ) {
                 ItemDeStatus("Disponível", UserStatus.ONLINE, viewModel) { menuDeStatus = false }
                 ItemDeStatus("Ausente", UserStatus.IDLE, viewModel) { menuDeStatus = false }

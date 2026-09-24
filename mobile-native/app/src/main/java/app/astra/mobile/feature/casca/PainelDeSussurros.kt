@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.casca
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -92,17 +93,32 @@ fun PainelDeSussurros(
                 top = 6.dp,
                 bottom = 12.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(sussurros, key = { it.id }) { conversa ->
-                LinhaDeSussurro(
-                    conversa = conversa,
-                    naoLido = conversa.id in naoLidos && conversa.id !in silenciados,
-                    silenciada = conversa.id in silenciados,
-                    aoTocar = { aoAbrir(conversa) },
-                    aoSilenciar = { aoSilenciar(conversa, conversa.id !in silenciados) },
-                    aoFechar = { aoFechar(conversa) },
+            itemsIndexed(sussurros, key = { _, conversa -> conversa.id }) { onde, conversa ->
+                val primeira = onde == 0
+                val ultima = onde == sussurros.lastIndex
+                val forma = RoundedCornerShape(
+                    topStart = if (primeira) 16.dp else 0.dp,
+                    topEnd = if (primeira) 16.dp else 0.dp,
+                    bottomStart = if (ultima) 16.dp else 0.dp,
+                    bottomEnd = if (ultima) 16.dp else 0.dp,
                 )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(forma)
+                        .background(astraColors.raised)
+                        .padding(top = if (primeira) 6.dp else 0.dp, bottom = if (ultima) 6.dp else 0.dp),
+                ) {
+                    LinhaDeSussurro(
+                        conversa = conversa,
+                        naoLido = conversa.id in naoLidos && conversa.id !in silenciados,
+                        silenciada = conversa.id in silenciados,
+                        aoTocar = { aoAbrir(conversa) },
+                        aoSilenciar = { aoSilenciar(conversa, conversa.id !in silenciados) },
+                        aoFechar = { aoFechar(conversa) },
+                    )
+                }
             }
         }
     }
@@ -117,14 +133,15 @@ private fun LinhaDeSussurro(
     aoSilenciar: () -> Unit,
     aoFechar: () -> Unit,
 ) {
-    val forma = RoundedCornerShape(8.dp)
+    val forma = RoundedCornerShape(12.dp)
     var menu by remember { mutableStateOf(false) }
     Box {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 2.dp)
             .clip(forma)
-            .background(if (naoLido) astraColors.raised else androidx.compose.ui.graphics.Color.Transparent)
+            .background(if (naoLido) astraColors.overlay else androidx.compose.ui.graphics.Color.Transparent)
             .combinedClickable(onClick = aoTocar, onLongClick = { menu = true })
             .padding(horizontal = 10.dp, vertical = 9.dp)
             .semantics { contentDescription = "Sussurro com ${conversa.otherName}" },
@@ -162,7 +179,9 @@ private fun LinhaDeSussurro(
     DropdownMenu(
         expanded = menu,
         onDismissRequest = { menu = false },
-        modifier = Modifier.background(astraColors.overlay),
+        shape = RoundedCornerShape(16.dp),
+        containerColor = astraColors.overlay,
+        border = BorderStroke(1.dp, astraColors.border),
     ) {
         haQuantoTempo(conversa.lastMessageAt).takeIf { it.isNotEmpty() }?.let { quando ->
             MarginaliaLabel(

@@ -267,7 +267,7 @@ fun CartaoDeSecao(
     aoTocar: (() -> Unit)? = null,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
-    val forma = RoundedCornerShape(12.dp)
+    val forma = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()

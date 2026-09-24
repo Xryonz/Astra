@@ -7,8 +7,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.mobile.feature.server.presentation.ServerMembersScreen
 import app.astra.mobile.ui.components.puxarDaDireita
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -365,7 +367,9 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
         DropdownMenu(
             expanded = open,
             onDismissRequest = { open = false },
-            modifier = Modifier.background(astraColors.overlay),
+            shape = RoundedCornerShape(16.dp),
+            containerColor = astraColors.overlay,
+            border = BorderStroke(1.dp, astraColors.border),
         ) {
             NotifModeRow("Tudo", selected = mode == "all") { open = false; onSelect("all") }
             NotifModeRow("Só menções", selected = mode == "mentions") { open = false; onSelect("mentions") }

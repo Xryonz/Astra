@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.profile.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -129,7 +130,9 @@ fun MeuPerfilScreen(
                     expanded = menuDeStatus,
                     onDismissRequest = { menuDeStatus = false },
                     offset = DpOffset(16.dp, 0.dp),
-                    modifier = Modifier.background(astraColors.overlay),
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = astraColors.overlay,
+                    border = BorderStroke(1.dp, astraColors.border),
                 ) {
                     OPCOES_DE_STATUS.forEach { (rotulo, status) ->
                         ItemDeMenu(
@@ -177,7 +180,7 @@ private fun BotaoFechar(aoFechar: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(CircleShape)
             .background(astraColors.void.copy(alpha = 0.6f))
             .clickable(onClick = aoFechar)
             .semantics { contentDescription = "Fechar" },

@@ -9,6 +9,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -652,7 +653,9 @@ private fun BarraDaCall(
             DropdownMenu(
                 expanded = saidasAbertas,
                 onDismissRequest = { saidasAbertas = false },
-                modifier = Modifier.background(astraColors.overlay),
+                shape = RoundedCornerShape(16.dp),
+                containerColor = astraColors.overlay,
+                border = BorderStroke(1.dp, astraColors.border),
             ) {
                 estado.saidas.forEach { saida ->
                     ItemDeMenu(
@@ -686,7 +689,9 @@ private fun BarraDaCall(
             DropdownMenu(
                 expanded = sonsAbertos,
                 onDismissRequest = { sonsAbertos = false },
-                modifier = Modifier.background(astraColors.overlay),
+                shape = RoundedCornerShape(16.dp),
+                containerColor = astraColors.overlay,
+                border = BorderStroke(1.dp, astraColors.border),
             ) {
                 sons.forEach { som ->
                     ItemDeMenu(

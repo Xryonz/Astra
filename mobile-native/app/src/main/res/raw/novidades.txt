@@ -1,7 +1,5 @@
-versao 2.0.11
-Um anel em volta da sua foto mostra o brilho que você junta conversando.
-Toque nele para abrir Sua jornada: missões de hoje, da semana e conquistas.
-Sons da constelação na barra da call — quem está na sala ouve junto.
-Figurinhas e GIFs na mesma folha do emoji, e tocar já envia.
-Segure uma órbita para silenciar, marcar como lida e mandar na bot.
-Sons, figurinhas e a bot agora se ajustam pelo celular.
+versao 2.0.12
+A casca ficou como o desktop: cartão dentro de cartão, com cada categoria no seu.
+Nada mais tem cara de caixa — cantos maiores, busca em cápsula e botões redondos.
+As constelações da coluna viraram círculos, e a borda acende na que você abriu.
+O seu cartão descolou da borda e o estado virou um botão, ao lado do sino.

@@ -44,6 +44,7 @@ import app.astra.mobile.ui.theme.AccentOption
 import app.astra.mobile.ui.theme.AccentOptions
 import app.astra.mobile.ui.theme.BgOption
 import app.astra.mobile.ui.theme.BgOptions
+import app.astra.mobile.ui.theme.FamiliaDeTema
 import app.astra.mobile.ui.theme.ThemePreset
 import app.astra.mobile.ui.theme.ThemePresets
 import app.astra.mobile.ui.theme.accentOption
@@ -61,13 +62,18 @@ fun AppearanceSection(
             MarginaliaLabel("previa", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PreviewBubbles(prefs.fontSize, prefs.density)
 
-            Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("tema rápido", Modifier.padding(start = 22.dp, bottom = 8.dp))
-            PresetGrid(
-                selectedAccent = prefs.accentId,
-                selectedBg = prefs.bgId,
-                onPick = { p -> viewModel.setTheme(p.accentId, p.bgId) },
-            )
+            FamiliaDeTema.entries.forEach { familia ->
+                val daFamilia = ThemePresets.filter { it.familia == familia }
+                if (daFamilia.isEmpty()) return@forEach
+                Spacer(Modifier.height(22.dp))
+                MarginaliaLabel("temas ${familia.titulo}", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                PresetGrid(
+                    presets = daFamilia,
+                    selectedAccent = prefs.accentId,
+                    selectedBg = prefs.bgId,
+                    onPick = { p -> viewModel.setTheme(p.accentId, p.bgId) },
+                )
+            }
 
             Spacer(Modifier.height(22.dp))
             MarginaliaLabel("cor de destaque", Modifier.padding(start = 22.dp, bottom = 8.dp))
@@ -126,6 +132,7 @@ private fun PreviewBubbles(fontSize: FontSizePref, density: DensityPref) {
 
 @Composable
 private fun PresetGrid(
+    presets: List<ThemePreset>,
     selectedAccent: String,
     selectedBg: String,
     onPick: (ThemePreset) -> Unit,
@@ -134,7 +141,7 @@ private fun PresetGrid(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ThemePresets.chunked(2).forEach { pair ->
+        presets.chunked(2).forEach { pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pair.forEach { p ->
                     PresetCard(

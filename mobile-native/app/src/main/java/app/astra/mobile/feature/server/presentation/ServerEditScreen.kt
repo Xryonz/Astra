@@ -53,7 +53,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.HairlineRule
+import app.astra.mobile.ui.components.QuebraDeCapitulo
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.DmSerif
@@ -275,7 +275,7 @@ fun ServerEditScreen(
                 val code = state.inviteCode
                 if (!code.isNullOrBlank()) {
                     Spacer(Modifier.height(28.dp))
-                    HairlineRule()
+                    QuebraDeCapitulo()
                     Spacer(Modifier.height(16.dp))
                     MarginaliaLabel("convite", Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))

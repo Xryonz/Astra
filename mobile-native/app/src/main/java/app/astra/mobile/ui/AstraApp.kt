@@ -321,7 +321,13 @@ fun AstraApp() {
                         aoEditarPerfil = { nav.navigate(Routes.EDITAR_PERFIL) },
                         aoAbrirConversa = { c ->
                             nav.popBackStack()
-                            nav.navigate(Routes.dmChat(c.id, c.nome, c.chamar))
+                            val atual = nav.currentBackStackEntry
+                            val jaEstaNela = atual?.destination?.route == Routes.DM_CHAT &&
+                                atual.arguments?.getString("conversationId") == c.id
+                            when {
+                                !jaEstaNela -> nav.navigate(Routes.dmChat(c.id, c.nome, c.chamar))
+                                c.chamar -> atual.savedStateHandle["chamar"] = true
+                            }
                         },
                         aoAbrirOrbita = { id ->
                             runCatching { nav.getBackStackEntry(Routes.HOME).savedStateHandle[ORBITA_PEDIDA] = id }

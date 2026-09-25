@@ -1,5 +1,6 @@
-versao 2.0.13
-Toque na foto de alguém: abre um cartão curto, com ver perfil completo embaixo.
-O perfil completo ganhou tela própria, com amigos em comum, constelações e nível.
-O banner parou de escorrer por cima do nome quando estava com zoom.
-A coluna das constelações ficou igual à do desktop, e nenhum menu saiu quadrado.
+versao 2.0.14
+O cartão do perfil não trava mais no meio da subida, com os botões fora da tela.
+O texto enviado some do campo, como sempre deveria ter sumido.
+O ponto de estado ao lado da foto parou de sair mordido.
+Os temas do desktop chegaram: quinze, agrupados em neutros, quentes e frios.
+As configurações perderam o traço entre as linhas, e o fundo ficou mais fundo.

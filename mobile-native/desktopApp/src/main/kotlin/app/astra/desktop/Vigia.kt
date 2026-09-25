@@ -29,7 +29,7 @@ object Vigia {
         Arranque.marcar("VIGIA: a janela desenhou fora de qualquer tela — trazendo de volta")
         janela.setLocationRelativeTo(null)
         if (foraDeQualquerTela(janela)) {
-            Arranque.marcar("VIGIA: nao consegui trazer a janela para a tela")
+            Arranque.marcar("VIGIA: não consegui trazer a janela para a tela")
         }
     }
 
@@ -52,7 +52,7 @@ object Vigia {
             if (nascerEscondido) return@thread
             if (!esperar(PRAZO_ATE_O_QUADRO_MS) { apareceu }) {
                 Arranque.marcar(
-                    "VIGIA: a janela existe ha ${PRAZO_ATE_O_QUADRO_MS / 1000}s e nenhum quadro foi desenhado",
+                    "VIGIA: a janela existe há ${PRAZO_ATE_O_QUADRO_MS / 1000}s e nenhum quadro foi desenhado",
                 )
                 agir()
             }
@@ -80,7 +80,7 @@ object Vigia {
         Arranque.marcar("VIGIA: reabrindo em modo seguro")
         Arranque.armarModoSeguro()
         if (reabrir()) exitProcess(0)
-        Arranque.marcar("VIGIA: nao foi possivel reabrir sozinho")
+        Arranque.marcar("VIGIA: não foi possível reabrir sozinho")
         desistir(
             "O Astra abriu, mas a janela não apareceu, e ele não conseguiu se reabrir.\n\n" +
                 "O relatório está em:\n${CrashLog.dataDir()}",

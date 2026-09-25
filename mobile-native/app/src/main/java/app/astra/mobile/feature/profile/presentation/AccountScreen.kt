@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,7 +41,6 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.QuebraDeCapitulo
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.astraColors
@@ -66,118 +66,119 @@ fun AccountScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 26.dp, vertical = 18.dp),
+                    .padding(vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                EditorialField(
-                    value = state.displayName,
-                    onValue = viewModel::onDisplayName,
-                    label = "nome de exibição",
-                    placeholder = "Como te chamam",
-                    enabled = !state.saving,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next,
-                )
-                Spacer(Modifier.height(22.dp))
-                EditorialField(
-                    value = state.username,
-                    onValue = viewModel::onUsername,
-                    label = "username",
-                    placeholder = "minusculas_e_numeros",
-                    enabled = !state.saving,
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Done,
-                )
-
-                if (state.error != null) {
-                    Spacer(Modifier.height(14.dp))
-                    AuthErrorBox(state.error!!)
-                }
-
-                Spacer(Modifier.height(20.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BotaoCheio(
-                        onClick = viewModel::save,
-                        enabled = state.dirty && !state.saving,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = astraColors.accent,
-                            contentColor = astraColors.textInv,
-                            disabledContainerColor = astraColors.accent.copy(alpha = 0.4f),
-                            disabledContentColor = astraColors.textInv.copy(alpha = 0.7f),
-                        ),
-                        modifier = Modifier.height(46.dp),
-                    ) {
-                        if (state.saving) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = astraColors.textInv)
-                        } else {
-                            Text("SALVAR", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 0.16.em)
-                        }
-                    }
-                    if (state.saved) {
-                        Spacer(Modifier.width(12.dp))
-                        MarginaliaLabel("salvo ✓", color = astraColors.success)
-                    }
-                }
-
-                Spacer(Modifier.height(26.dp))
-                QuebraDeCapitulo()
-                Spacer(Modifier.height(22.dp))
-
-                ReadOnlyField("e-mail", state.email)
-
-                Spacer(Modifier.height(22.dp))
-
-                MarginaliaLabel("senha")
-                Spacer(Modifier.height(8.dp))
-                when {
-                    !state.hasPassword -> Text(
-                        "Sua conta usa login Google e não tem senha.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = astraColors.text3,
+                CartaoDaConta {
+                    EditorialField(
+                        value = state.displayName,
+                        onValue = viewModel::onDisplayName,
+                        label = "nome de exibição",
+                        placeholder = "Como te chamam",
+                        enabled = !state.saving,
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next,
                     )
-                    !state.pwOpen -> {
-                        PillButton("Trocar senha", onClick = viewModel::togglePw)
-                        if (state.pwDone) {
-                            Spacer(Modifier.height(8.dp))
-                            MarginaliaLabel("senha alterada ✓", color = astraColors.success)
-                        }
+                    Spacer(Modifier.height(22.dp))
+                    EditorialField(
+                        value = state.username,
+                        onValue = viewModel::onUsername,
+                        label = "usuário",
+                        placeholder = "letras minúsculas e números",
+                        enabled = !state.saving,
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Done,
+                    )
+
+                    if (state.error != null) {
+                        Spacer(Modifier.height(14.dp))
+                        AuthErrorBox(state.error!!)
                     }
-                    else -> {
-                        EditorialField(
-                            value = state.curPw, onValue = viewModel::onCurPw,
-                            label = "senha atual", placeholder = "••••••••",
-                            enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Next,
-                            password = true,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        EditorialField(
-                            value = state.newPw, onValue = viewModel::onNewPw,
-                            label = "nova senha", placeholder = "8+ caracteres",
-                            enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done,
-                            onIme = viewModel::changePassword, password = true,
-                        )
-                        if (state.pwError != null) {
-                            Spacer(Modifier.height(12.dp))
-                            AuthErrorBox(state.pwError!!)
+
+                    Spacer(Modifier.height(20.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BotaoCheio(
+                            onClick = viewModel::save,
+                            enabled = state.dirty && !state.saving,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = astraColors.accent,
+                                contentColor = astraColors.textInv,
+                                disabledContainerColor = astraColors.accent.copy(alpha = 0.4f),
+                                disabledContentColor = astraColors.textInv.copy(alpha = 0.7f),
+                            ),
+                            modifier = Modifier.height(46.dp),
+                        ) {
+                            if (state.saving) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = astraColors.textInv)
+                            } else {
+                                Text("SALVAR", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 0.16.em)
+                            }
                         }
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            PillButton(if (state.pwSaving) "Salvando..." else "Confirmar", onClick = viewModel::changePassword, accent = true)
-                            PillButton("Cancelar", onClick = viewModel::togglePw)
+                        if (state.saved) {
+                            Spacer(Modifier.width(12.dp))
+                            MarginaliaLabel("salvo ✓", color = astraColors.success)
                         }
                     }
                 }
 
-                Spacer(Modifier.height(26.dp))
-                ReadOnlyField("Coordenada Astra", state.userId, mono = true)
+                CartaoDaConta {
+                    ReadOnlyField("e-mail", state.email)
 
-                Spacer(Modifier.height(26.dp))
-                QuebraDeCapitulo()
-                Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(22.dp))
+
+                    MarginaliaLabel("senha")
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        !state.hasPassword -> Text(
+                            "Sua conta usa login Google e não tem senha.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = astraColors.text3,
+                        )
+                        !state.pwOpen -> {
+                            PillButton("Trocar senha", onClick = viewModel::togglePw)
+                            if (state.pwDone) {
+                                Spacer(Modifier.height(8.dp))
+                                MarginaliaLabel("senha alterada ✓", color = astraColors.success)
+                            }
+                        }
+                        else -> {
+                            EditorialField(
+                                value = state.curPw, onValue = viewModel::onCurPw,
+                                label = "senha atual", placeholder = "••••••••",
+                                enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Next,
+                                password = true,
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            EditorialField(
+                                value = state.newPw, onValue = viewModel::onNewPw,
+                                label = "nova senha", placeholder = "8+ caracteres",
+                                enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done,
+                                onIme = viewModel::changePassword, password = true,
+                            )
+                            if (state.pwError != null) {
+                                Spacer(Modifier.height(12.dp))
+                                AuthErrorBox(state.pwError!!)
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                PillButton(if (state.pwSaving) "Salvando..." else "Confirmar", onClick = viewModel::changePassword, accent = true)
+                                PillButton("Cancelar", onClick = viewModel::togglePw)
+                            }
+                        }
+                    }
+                }
+
+                CartaoDaConta {
+                    ReadOnlyField("Coordenada Astra", state.userId, mono = true)
+                }
+
+                Spacer(Modifier.height(4.dp))
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 18.dp)
                         .height(50.dp)
                         .border(1.dp, astraColors.danger.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
                         .clickable(onClick = viewModel::logout),
@@ -189,6 +190,21 @@ fun AccountScreen(
             }
         }
     }
+}
+
+@Composable
+private fun CartaoDaConta(conteudo: @Composable ColumnScope.() -> Unit) {
+    val forma = RoundedCornerShape(14.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+            .clip(forma)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, forma)
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        content = conteudo,
+    )
 }
 
 @Composable

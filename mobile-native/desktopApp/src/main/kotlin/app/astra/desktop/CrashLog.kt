@@ -44,10 +44,10 @@ object CrashLog {
         val txt = buildString {
             appendLine("──────────────────────────────────────────")
             appendLine("quando : ${LocalDateTime.now()}")
-            appendLine("versao : ${System.getProperty("astra.version") ?: "dev"}")
+            appendLine("versão : ${System.getProperty("astra.version") ?: "dev"}")
             appendLine("thread : $thread")
             appendLine(
-                "memoria: usada ${(rt.totalMemory() - rt.freeMemory()) / 1024 / 1024}MB " +
+                "memória: usada ${(rt.totalMemory() - rt.freeMemory()) / 1024 / 1024}MB " +
                     "/ teto ${rt.maxMemory() / 1024 / 1024}MB",
             )
             appendLine()

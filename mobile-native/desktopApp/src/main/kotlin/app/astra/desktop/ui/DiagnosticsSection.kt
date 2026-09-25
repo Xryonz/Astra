@@ -45,6 +45,13 @@ import app.astra.desktop.ui.theme.Tipo
 
 private val HORA = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
+private val PASSO_RUIM = Regex(
+    "(?iU)\\b(não|nao|caiu|negou|negado|erro|desisti|falhou|failed|ilegível|reiniciou|reiniciar)\\b" +
+        "|sem cano|sem sessão|sem quadro|sem o segredo|fora de faixa|fora de compasso|só com voz",
+)
+
+private fun passoRuim(texto: String) = PASSO_RUIM.containsMatchIn(texto)
+
 @Composable
 internal fun DiagnosticsSection() {
     val socket = remember { GlobalContext.get().get<DesktopSocket>() }
@@ -101,8 +108,7 @@ internal fun DiagnosticsSection() {
                     .padding(10.dp),
             ) {
                 passos.take(16).forEach { (at, texto) ->
-                    val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
-                        texto.contains("NEGADO") || texto.contains("FAILED")
+                    val ruim = passoRuim(texto)
                     Row {
                         Text(
                             HORA.format(Instant.ofEpochMilli(at)),
@@ -219,8 +225,7 @@ internal fun VoicePassos() {
             .padding(10.dp),
     ) {
         passos.take(12).forEach { (at, texto) ->
-            val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
-                texto.contains("NEGADO") || texto.contains("FAILED")
+            val ruim = passoRuim(texto)
             Row {
                 Text(
                     HORA.format(Instant.ofEpochMilli(at)),

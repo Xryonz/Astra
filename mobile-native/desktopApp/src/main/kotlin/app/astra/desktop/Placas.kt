@@ -44,7 +44,7 @@ object Placas {
 
     fun porId(id: String?): Placa? = id?.let { alvo -> todas.firstOrNull { it.id == alvo } }
 
-    private fun descobrir(): List<Placa> = Nativo.tentar("placas de video") { enumerar() } ?: emptyList()
+    private fun descobrir(): List<Placa> = Nativo.tentar("placas de vídeo") { enumerar() } ?: emptyList()
 
     private fun enumerar(): List<Placa> {
         val u = U32.I ?: return emptyList()

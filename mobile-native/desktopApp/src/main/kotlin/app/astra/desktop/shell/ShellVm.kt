@@ -123,7 +123,7 @@ class ShellVm(
                                         "$canal=[$nomes]"
                                     }
                                 socket.noteLocal(
-                                    if (resumo.isBlank()) "· voz: ninguem em call (${voiceIds.size} orbita(s) de voz)"
+                                    if (resumo.isBlank()) "· voz: ninguém em call (${voiceIds.size} órbita(s) de voz)"
                                     else "· voz: $resumo",
                                 )
                                 st.copy(voicePresence = pres)

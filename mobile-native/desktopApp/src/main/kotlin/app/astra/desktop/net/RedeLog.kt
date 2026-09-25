@@ -25,7 +25,7 @@ object RedeLog {
     fun imagemMorreu(url: String) {
         runCatching {
             if (arquivo.length() > TETO_BYTES) arquivo.writeText("")
-            arquivo.appendText("${LocalTime.now().format(hora)}  imagem nao carregou  ${url.take(200)}\n")
+            arquivo.appendText("${LocalTime.now().format(hora)}  imagem não carregou  ${url.take(200)}\n")
         }
     }
 }

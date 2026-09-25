@@ -211,7 +211,7 @@ private fun SkyStep() {
         )
         Spacer(Modifier.height(22.dp))
         Column(Modifier.width(360.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            SkyTerm("✦", "constelação", "um servidor — sua comunidade e a galera dela.")
+            SkyTerm("✦", "constelação", "um servidor — sua comunidade e quem vive nela.")
             SkyTerm("◉", "órbita", "um canal dentro de uma constelação.")
             SkyTerm("☾", "sussurro", "uma conversa direta, no pé do ouvido.")
         }

@@ -42,7 +42,7 @@ internal object Trocador {
         val copia = copiaDe(fixa)
         anotar("preparando a troca para $versao", recomecar = true)
         if (copia.exists() && !copia.deleteRecursively()) {
-            anotar("sobrou uma copia anterior que nao sai")
+            anotar("sobrou uma cópia anterior que não sai")
             return false
         }
         val pronta = runCatching {
@@ -50,7 +50,7 @@ internal object Trocador {
             arquivos(nova) == arquivos(copia) && File(copia, EXECUTAVEL).isFile
         }.getOrDefault(false)
         if (!pronta) {
-            anotar("a copia da versao nova nao ficou identica")
+            anotar("a cópia da versão nova não ficou idêntica")
             copia.deleteRecursively()
         }
         return pronta
@@ -73,7 +73,7 @@ internal object Trocador {
                 .start()
         }.getOrNull()
         if (ajudante == null) {
-            anotar("a versao nova nao abriu")
+            anotar("a versão nova não abriu")
             desistirDaCopia(fixa)
             return false
         }
@@ -86,7 +86,7 @@ internal object Trocador {
             if (!ajudante.isAlive) break
             Thread.sleep(PAUSA_DO_SINAL_MS)
         }
-        anotar("a versao nova nao confirmou que assumiu a troca")
+        anotar("a versão nova não confirmou que assumiu a troca")
         ajudante.descendants().forEach { it.destroyForcibly() }
         ajudante.destroyForcibly()
         desistirDaCopia(fixa)
@@ -99,7 +99,7 @@ internal object Trocador {
         val anterior = valorDe(args, ARG_ANTERIOR)?.toLongOrNull()
         val versao = valorDe(args, ARG_VERSAO)
         if (fixa == null || anterior == null || versao == null) return true
-        anotar("a versao $versao assumiu a troca")
+        anotar("a versão $versao assumiu a troca")
         runCatching { sinalDe(anterior).writeText(versao) }
         instalar(fixa, anterior, versao)
         return true
@@ -111,33 +111,33 @@ internal object Trocador {
         sinalDe(anterior).delete()
         liberarPasta(fixa)
         if (!File(copia, EXECUTAVEL).isFile) {
-            anotar("a copia da versao nova sumiu")
+            anotar("a cópia da versão nova sumiu")
             abrir(fixa, null)
             return
         }
         val reserva = nomeLivre(File(fixa.parentFile, fixa.name + Instalacao.SUFIXO_DA_RESERVA))
         if (reserva == null || !mover(fixa, reserva)) {
-            anotar("a versao anterior nao saiu do lugar")
+            anotar("a versão anterior não saiu do lugar")
             copia.deleteRecursively()
             abrir(fixa, null)
             return
         }
         val assumiu = mover(copia, fixa)
         if (assumiu && abrir(fixa, "$ARG_POS_ATUALIZACAO=$versao")) {
-            anotar("versao $versao no lugar")
+            anotar("versão $versao no lugar")
             return
         }
-        anotar("a versao nova nao assumiu; devolvendo a anterior")
+        anotar("a versão nova não assumiu; devolvendo a anterior")
         if (assumiu) mover(fixa, copia)
         val devolvida = !fixa.exists() && mover(reserva, fixa)
-        if (!abrir(if (devolvida) fixa else reserva, null)) anotar("nao consegui reabrir o Astra")
+        if (!abrir(if (devolvida) fixa else reserva, null)) anotar("não consegui reabrir o Astra")
         copia.deleteRecursively()
     }
 
     private fun esperarSair(pid: Long) {
         val processo = ProcessHandle.of(pid).orElse(null) ?: return
         if (esperar(processo, PRAZO_DA_SAIDA_S)) return
-        anotar("a versao anterior nao fechou em ${PRAZO_DA_SAIDA_S}s; encerrando")
+        anotar("a versão anterior não fechou em ${PRAZO_DA_SAIDA_S}s; encerrando")
         processo.destroyForcibly()
         esperar(processo, PRAZO_DO_ENCERRAMENTO_S)
     }
@@ -194,7 +194,7 @@ internal object Trocador {
             if (runCatching { Files.move(de.toPath(), para.toPath()) }.isSuccess) return true
             Thread.sleep(PAUSA_MS)
         }
-        anotar("nao consegui mover ${de.name} para ${para.name}")
+        anotar("não consegui mover ${de.name} para ${para.name}")
         return false
     }
 

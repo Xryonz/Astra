@@ -85,6 +85,15 @@ val ThemePresets = listOf(
 fun accentOption(id: String?): AccentOption = AccentOptions.firstOrNull { it.id == id } ?: AccentOptions[0]
 fun bgOption(id: String?): BgOption = BgOptions.firstOrNull { it.id == id } ?: BgOptions[0]
 
+private const val FUNDO_MAIS_FUNDO = 0.45f
+
+private fun afundar(c: Color): Color = Color(
+    red = c.red * (1f - FUNDO_MAIS_FUNDO),
+    green = c.green * (1f - FUNDO_MAIS_FUNDO),
+    blue = c.blue * (1f - FUNDO_MAIS_FUNDO),
+    alpha = c.alpha,
+)
+
 private fun lift(c: Color, amount: Float): Color = Color(
     red = (c.red + amount).coerceAtMost(1f),
     green = (c.green + amount).coerceAtMost(1f),
@@ -96,7 +105,7 @@ fun buildAstraColors(accentId: String?, bgId: String?): AstraColors {
     val a = accentOption(accentId).value
     val bg = bgOption(bgId)
     return AstraColorTokens.copy(
-        void = bg.voidC,
+        void = afundar(bg.voidC),
         base = lerp(bg.voidC, bg.raisedC, 0.4f),
         raised = bg.raisedC,
         overlay = lift(bg.raisedC, 0.028f),

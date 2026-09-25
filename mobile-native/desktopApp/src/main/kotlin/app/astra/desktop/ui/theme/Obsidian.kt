@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
 object Obsidian {
-    var void by mutableStateOf(Color(0xFF06060E))
+    var void by mutableStateOf(Color(0xFF030308))
         private set
     var base by mutableStateOf(Color(0xFF09091A))
         private set
@@ -43,7 +43,7 @@ object Obsidian {
     fun apply(accentId: String?, bgId: String?) {
         val a = accentOption(accentId).value
         val bg = bgOption(bgId)
-        void = bg.voidC
+        void = afundar(bg.voidC)
         base = lerp(bg.voidC, bg.raisedC, 0.4f)
         raised = bg.raisedC
         overlay = lift(bg.raisedC, 0.028f)
@@ -72,6 +72,15 @@ object Obsidian {
 private val TEXT1_PADRAO = Color(0xFFE4E4EB)
 private val TEXT2_PADRAO = Color(0xFFC0C0C6)
 private val TEXT3_PADRAO = Color(0xFF8C8C94)
+
+private const val FUNDO_MAIS_FUNDO = 0.45f
+
+private fun afundar(c: Color): Color = Color(
+    red = c.red * (1f - FUNDO_MAIS_FUNDO),
+    green = c.green * (1f - FUNDO_MAIS_FUNDO),
+    blue = c.blue * (1f - FUNDO_MAIS_FUNDO),
+    alpha = c.alpha,
+)
 
 private fun lift(c: Color, amount: Float): Color = Color(
     red = (c.red + amount).coerceAtMost(1f),

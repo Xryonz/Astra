@@ -33,7 +33,6 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
 import java.time.Instant
@@ -150,7 +149,6 @@ private fun NotificationRowItem(n: NotificationRow, onClick: () -> Unit) {
                 }
             }
         }
-        HairlineRule(Modifier.padding(start = 70.dp))
     }
 }
 

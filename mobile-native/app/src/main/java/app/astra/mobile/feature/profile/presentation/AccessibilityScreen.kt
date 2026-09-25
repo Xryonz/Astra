@@ -53,7 +53,7 @@ fun AccessibilityScreen(
 
             if (!prefs.reduceMotion) {
                 Spacer(Modifier.height(16.dp))
-                MarginaliaLabel("efeitos especificos", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                MarginaliaLabel("efeitos específicos", Modifier.padding(start = 22.dp, bottom = 8.dp))
                 ToggleRow(
                     title = "Aurora do fundo",
                     sub = "Brilho GPU atrás do app (o mais pesado)",
@@ -62,7 +62,7 @@ fun AccessibilityScreen(
                 )
                 ToggleRow(
                     title = "Estrelas e meteoros",
-                    sub = "Fundo animado; off deixa estatico",
+                    sub = "Fundo animado; off deixa estático",
                     checked = prefs.animStars,
                     onCheckedChange = viewModel::setAnimStars,
                 )

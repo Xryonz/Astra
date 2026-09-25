@@ -40,7 +40,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.HairlineRule
+import app.astra.mobile.ui.components.QuebraDeCapitulo
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.astraColors
@@ -120,7 +120,7 @@ fun AccountScreen(
                 }
 
                 Spacer(Modifier.height(26.dp))
-                HairlineRule()
+                QuebraDeCapitulo()
                 Spacer(Modifier.height(22.dp))
 
                 ReadOnlyField("e-mail", state.email)
@@ -172,7 +172,7 @@ fun AccountScreen(
                 ReadOnlyField("Coordenada Astra", state.userId, mono = true)
 
                 Spacer(Modifier.height(26.dp))
-                HairlineRule()
+                QuebraDeCapitulo()
                 Spacer(Modifier.height(18.dp))
 
                 Box(

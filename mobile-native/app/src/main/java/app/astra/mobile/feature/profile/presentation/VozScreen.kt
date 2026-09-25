@@ -3,6 +3,7 @@ package app.astra.mobile.feature.profile.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -97,12 +98,11 @@ private fun <T> CartaoDeEscolhas(
             .padding(horizontal = 18.dp)
             .clip(forma)
             .background(astraColors.raised)
-            .border(1.dp, astraColors.border, forma),
+            .border(1.dp, astraColors.border, forma)
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        opcoes.forEachIndexed { i, opcao ->
-            if (i > 0) {
-                Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(astraColors.border))
-            }
+        opcoes.forEach { opcao ->
             val esta = opcao == escolhida
             Row(
                 Modifier

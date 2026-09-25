@@ -151,8 +151,7 @@ fun CabecaDoPerfil(
                 Box(
                     modifier = Modifier
                         .size(LADO_DA_FOTO + ANEL * 2)
-                        .clip(CircleShape)
-                        .background(fundoDoAnel)
+                        .background(fundoDoAnel, CircleShape)
                         .then(if (aoTocarNaFoto != null) Modifier.clickable(onClick = aoTocarNaFoto) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {

@@ -148,7 +148,7 @@ fun PerfilCompletoScreen(
                 }
                 if (v.rostosEmComum.isNotEmpty()) {
                     CartaoDeSecao("Amigos em comum · ${v.amigosEmComum}") {
-                        RostosEmComum(v.rostosEmComum)
+                        RostosEmComum(v.rostosEmComum, v.amigosEmComum)
                     }
                 }
                 if (v.mutual.isNotEmpty()) {
@@ -170,7 +170,7 @@ fun PerfilCompletoScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RostosEmComum(rostos: List<AmigoEmComum>) {
+private fun RostosEmComum(rostos: List<AmigoEmComum>, total: Int) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -185,6 +185,16 @@ private fun RostosEmComum(rostos: List<AmigoEmComum>) {
                     color = astraColors.text2,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        val sobrando = total - rostos.size
+        if (sobrando > 0) {
+            Row(Modifier.height(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "+$sobrando",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = astraColors.text3,
                 )
             }
         }

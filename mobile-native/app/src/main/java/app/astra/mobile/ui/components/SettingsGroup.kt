@@ -6,12 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +50,9 @@ fun SettingsGroup(
                 .fillMaxWidth()
                 .clip(shape)
                 .background(astraColors.raised.copy(alpha = 0.5f))
-                .border(1.dp, astraColors.border.copy(alpha = 0.7f), shape),
+                .border(1.dp, astraColors.border.copy(alpha = 0.7f), shape)
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             rows.forEachIndexed { i, row ->
                 val progress = remember { Animatable(if (entrance) 0f else 1f) }
@@ -69,15 +69,6 @@ fun SettingsGroup(
                         translationY = (1f - progress.value) * dy
                     },
                 ) {
-                    if (i > 0) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp)
-                                .height(1.dp)
-                                .background(astraColors.border.copy(alpha = 0.5f)),
-                        )
-                    }
                     row()
                 }
             }

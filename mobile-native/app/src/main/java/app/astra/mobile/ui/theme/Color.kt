@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-val Void = Color(0xFF06060E)
+val Void = Color(0xFF030308)
 val Base = Color(0xFF09091A)
 val Raised = Color(0xFF0F0F24)
 val Overlay = Color(0xFF15152E)

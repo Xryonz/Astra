@@ -1056,8 +1056,11 @@ fun ChatInputBar(
     val hapticsOn = LocalAppPrefs.current.haptics
     val haptic = LocalHapticFeedback.current
     val send = {
-        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-        onSend(texto)
+        if (canSend) {
+            if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            onSend(texto)
+            texto = ""
+        }
     }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),

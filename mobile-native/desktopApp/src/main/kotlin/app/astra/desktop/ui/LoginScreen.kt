@@ -100,16 +100,16 @@ private fun isUsernameValid(u: String): Boolean =
     u.length in 3..32 && u.all { it in 'a'..'z' || it in '0'..'9' || it == '_' }
 
 private fun loginRules(email: String, password: String) = listOf(
-    AuthRule("email valido", isEmailValid(email)),
+    AuthRule("e-mail válido", isEmailValid(email)),
     AuthRule("senha preenchida", password.isNotEmpty()),
 )
 
 private fun signupRules(email: String, username: String, displayName: String, password: String) = listOf(
-    AuthRule("email valido", isEmailValid(email)),
+    AuthRule("e-mail válido", isEmailValid(email)),
     AuthRule("usuário: 3+ (a-z, 0-9, _)", isUsernameValid(username)),
-    AuthRule("nome de exibicao preenchido", displayName.isNotBlank()),
+    AuthRule("nome de exibição preenchido", displayName.isNotBlank()),
     AuthRule("senha: 8+ caracteres", password.length >= 8),
-    AuthRule("senha com 1 maiuscula e 1 numero", password.any { it.isUpperCase() } && password.any { it.isDigit() }),
+    AuthRule("senha com 1 maiúscula e 1 número", password.any { it.isUpperCase() } && password.any { it.isDigit() }),
 )
 
 @Composable
@@ -228,7 +228,7 @@ fun LoginScreen(
                 Spacer(Modifier.height(18.dp))
                 EditorialField(
                     value = email, onValue = { email = it; error = null },
-                    label = "email", enabled = !loading,
+                    label = "e-mail", enabled = !loading,
                     focusRequester = emailFocus,
                     onSubmit = { runCatching { passFocus.requestFocus() } },
                 )
@@ -246,7 +246,7 @@ fun LoginScreen(
                         Spacer(Modifier.height(14.dp))
                         EditorialField(
                             value = displayName, onValue = { displayName = it; error = null },
-                            label = "nome de exibicao", enabled = !loading,
+                            label = "nome de exibição", enabled = !loading,
                         )
                     }
                 }

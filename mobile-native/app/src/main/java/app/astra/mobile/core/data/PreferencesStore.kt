@@ -24,7 +24,7 @@ enum class FontSizePref(val id: String, val label: String, val scale: Float) {
 enum class DensityPref(val id: String, val label: String, val topDp: Int, val groupedTopDp: Int) {
     COMPACT("compact", "Compacta", 5, 1),
     COMFORTABLE("comfortable", "Confortável", 10, 2),
-    SPACIOUS("spacious", "Espacosa", 16, 4);
+    SPACIOUS("spacious", "Espaçosa", 16, 4);
 
     companion object {
         fun from(id: String?): DensityPref = entries.firstOrNull { it.id == id } ?: COMFORTABLE

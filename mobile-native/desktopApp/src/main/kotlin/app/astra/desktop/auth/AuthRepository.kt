@@ -80,7 +80,7 @@ class AuthRepository(
     suspend fun loginWithGoogle(): Result<Session> = try {
         val token = GoogleAuthFlow.captureRefreshToken().getOrElse { return Result.failure(it) }
         val refreshed = refreshApi.refresh("Bearer $token").data
-            ?: return Result.failure(Exception("Login Google invalido"))
+            ?: return Result.failure(Exception("Login Google inválido"))
         store.save(Session(refreshed.accessToken, refreshed.refreshToken, "", ""))
         val me = runCatching { userApi.me().data?.user }.getOrNull()
         if (me == null) {

@@ -320,7 +320,7 @@ private fun RoleEditor(
     Spacer(Modifier.height(6.dp))
     ToggleRow(
         "Separar na lista de membros",
-        "quem tem este cargo aparece num grupo proprio, acima dos demais",
+        "quem tem este cargo aparece num grupo próprio, acima dos demais",
         hoist,
     ) { hoist = it }
 
@@ -328,7 +328,7 @@ private fun RoleEditor(
     FieldLabel("permissões")
     if (!amOwner) {
         Text(
-            "você so pode conceder permissões que você mesmo tem.",
+            "você só pode conceder permissões que você mesmo tem.",
             style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp).padding(bottom = 8.dp),
         )
@@ -417,7 +417,7 @@ private fun RoleMembers(
     }
 
     if (withRole.isEmpty()) {
-        Text("ninguem ainda.", style = Tipo.descricao)
+        Text("ninguém ainda.", style = Tipo.descricao)
     }
     Column(
         Modifier.widthIn(max = 460.dp).fillMaxWidth().heightIn(max = 220.dp).verticalScroll(rememberScrollState()),

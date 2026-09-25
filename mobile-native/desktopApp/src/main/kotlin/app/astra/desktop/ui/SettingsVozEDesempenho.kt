@@ -78,7 +78,7 @@ internal fun VoiceSection(
     aparelhos: FonteDeAparelhos,
 ) {
     TituloExplicavel(
-        "Transmissao de tela",
+        "Transmissão de tela",
         "Vale ao iniciar a transmissão. O padrão de estreia sai da força do computador — " +
             "quem tem quatro núcleos ou menos começa em 540p, porque comprimir vídeo aqui " +
             "é trabalho do processador.",
@@ -126,7 +126,7 @@ internal fun VoiceSection(
     Text("Dispositivos", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "\"padrao do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
+        "\"padrão do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -152,9 +152,9 @@ internal fun VoiceSection(
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic — ao custo de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
-    ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
-    ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
+    ToggleRow("Cancelamento de eco", "evita o retorno do áudio dos outros pelo seu microfone — ao custo de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Supressão de ruído", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
+    ToggleRow("Ganho automático", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
     Spacer(Modifier.height(10.dp))
     Text(
         if (p.micEchoCancel) {
@@ -233,9 +233,9 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
     Spacer(Modifier.height(6.dp))
 
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparencia") {
+        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparência") {
             SegmentedRow(
-                listOf("Alta" to AuroraQuality.HIGH, "Media" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
+                listOf("Alta" to AuroraQuality.HIGH, "Média" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
@@ -254,7 +254,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
         p.windowTransparent, prefs::setWindowTransparent,
     )
     Text(
-        "a transparencia da janela so aplica ao reiniciar o app.",
+        "a transparência da janela só aplica ao reiniciar o app.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )

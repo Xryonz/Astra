@@ -614,9 +614,9 @@ private fun HexField(selected: String?, onPick: (String) -> Unit) {
 
 private fun colorLabel(css: String?): String {
     val raw = css?.trim().orEmpty()
-    if (raw.isEmpty()) return "padrao"
+    if (raw.isEmpty()) return "padrão"
     BANNER_GRADIENTS.find { it.css == raw }?.let { return it.label.lowercase() }
-    return if (raw.startsWith("#")) raw.lowercase() else "gradiente proprio"
+    return if (raw.startsWith("#")) raw.lowercase() else "gradiente próprio"
 }
 
 @Composable

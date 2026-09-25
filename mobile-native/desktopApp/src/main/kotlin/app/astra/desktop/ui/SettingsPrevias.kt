@@ -476,7 +476,7 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
                     Text("sem nome e sem texto — é tudo que aparece.", style = Tipo.apoio)
                 } else {
                     Text("ana", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-                    Text("e ai, bora marcar a call?", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                    Text("Entramos na órbita às 21h?", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
                 }
             }
         }
@@ -507,9 +507,9 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
                 .background(Obsidian.overlay.copy(alpha = 0.5f))
                 .padding(horizontal = 13.dp, vertical = 11.dp),
         ) {
-            SampleMsg("ana", "e ai, bora marcar a call?", s)
+            SampleMsg("ana", "Entramos na órbita às 21h?", s)
             Spacer(Modifier.height((density.topDp).dp))
-            SampleMsg("você", "fechou, 21h entao", s)
+            SampleMsg("você", "Combinado. Até lá.", s)
         }
         Box(
             Modifier.padding(11.dp).fillMaxWidth().clip(RoundedCornerShape(9.dp))
@@ -660,7 +660,7 @@ private fun cpuCost(p: DesktopPrefs.Prefs): Float {
 
 private fun costWord(v: Float) = when {
     v < 0.36f -> "leve"
-    v < 0.68f -> "medio"
+    v < 0.68f -> "médio"
     else -> "pesado"
 }
 
@@ -716,7 +716,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                if (p.micNoiseSuppression) "supressao de ruido: ligada" else "supressao de ruido: desligada",
+                if (p.micNoiseSuppression) "supressão de ruído: ligada" else "supressão de ruído: desligada",
                 style = Tipo.nota,
             )
         }
@@ -766,7 +766,7 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         }
     }
     if (!available) {
-        Text("microfone indisponivel", style = Tipo.apoio)
+        Text("microfone indisponível", style = Tipo.apoio)
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")

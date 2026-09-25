@@ -334,19 +334,19 @@ private fun buildReport(
     heapMb: Long, heapMax: Long,
     events: List<Pair<Long, String>>,
 ): String = buildString {
-    appendLine("Astra — diagnostico")
-    appendLine("versao : ${System.getProperty("astra.version") ?: "dev"}")
+    appendLine("Astra — diagnóstico")
+    appendLine("versão : ${System.getProperty("astra.version") ?: "dev"}")
     appendLine("SO     : ${System.getProperty("os.name")} ${System.getProperty("os.version")}")
     appendLine("desenho: ${org.jetbrains.skiko.SkikoProperties.renderApi}")
     appendLine("heap   : ${heapMb}MB de ${heapMax}MB")
     appendLine("socket : ${if (connected) "conectado" else "DESCONECTADO"}")
-    appendLine("salas  : ${servers.size} constelacoes, ${channels.size} orbitas, ${dms.size} sussurros")
-    appendLine("saidas : ${outputs.size} -> ${outputs.take(4).joinToString()}")
+    appendLine("salas  : ${servers.size} constelações, ${channels.size} órbitas, ${dms.size} sussurros")
+    appendLine("saídas : ${outputs.size} -> ${outputs.take(4).joinToString()}")
     appendLine("entradas: ${inputs.size} -> ${inputs.take(4).joinToString()}")
     appendLine()
-    appendLine("ultima call (passo a passo):")
+    appendLine("última call (passo a passo):")
     VoiceLog.linhas().takeLast(24).forEach { (at, t) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $t") }
     appendLine()
-    appendLine("ultimos avisos:")
+    appendLine("últimos avisos:")
     events.take(20).forEach { (at, name) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $name") }
 }

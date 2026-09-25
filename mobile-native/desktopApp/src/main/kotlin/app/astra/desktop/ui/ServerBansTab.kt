@@ -58,7 +58,7 @@ internal fun BansSection(
     Spacer(Modifier.height(14.dp))
 
     if (bans.isEmpty()) {
-        Text("ninguem banido.", style = Tipo.descricao)
+        Text("ninguém banido.", style = Tipo.descricao)
         return
     }
 

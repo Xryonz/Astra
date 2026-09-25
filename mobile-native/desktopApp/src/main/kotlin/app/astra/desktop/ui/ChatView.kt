@@ -1520,7 +1520,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
         LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)
         Spacer(Modifier.width(5.dp))
         NomeColorido(
-            texto = ref.authorName ?: "alguem",
+            texto = ref.authorName ?: "alguém",
             cor = ref.authorId?.let { LocalCoresDeCargo.current[it] },
             padrao = Obsidian.accent,
             fontSize = 11.sp,

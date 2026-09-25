@@ -469,7 +469,7 @@ class ChatVm(
         val current = _state.value.pending.toMutableList()
         for (f in files) {
             if (current.size >= MAX_FILES) {
-                error = "Maximo de $MAX_FILES arquivos por mensagem"
+                error = "Máximo de $MAX_FILES arquivos por mensagem"
                 break
             }
             if (!f.isFile) continue
@@ -533,7 +533,7 @@ class ChatVm(
 
     private fun userTyping(userId: String, username: String?) {
         if (userId == myId) return
-        _state.update { it.copy(typing = it.typing + (userId to (username ?: "alguem"))) }
+        _state.update { it.copy(typing = it.typing + (userId to (username ?: "alguém"))) }
         typingExpiry.remove(userId)?.cancel()
         typingExpiry[userId] = scope.launch {
             delay(TYPING_EXPIRY_MS)
@@ -835,7 +835,7 @@ class ChatVm(
         runCatching { json.decodeFromString<T>(raw) }.getOrNull()
 
     private fun MsgAuthorDto?.name(fallbackId: String): String =
-        this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguem"
+        this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguém"
 
     private fun ChannelMessageDto.toChat(): ChatMessage {
         val autor = authorId.ifBlank { author?.id.orEmpty() }

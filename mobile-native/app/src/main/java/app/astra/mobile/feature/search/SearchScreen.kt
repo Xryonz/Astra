@@ -224,7 +224,7 @@ private fun MessageResult(m: SearchMessageDto, onClick: () -> Unit) = RowCard(on
     Column(Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                m.author?.displayName ?: m.author?.username ?: "alguem",
+                m.author?.displayName ?: m.author?.username ?: "alguém",
                 style = MaterialTheme.typography.titleSmall, color = astraColors.text1, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

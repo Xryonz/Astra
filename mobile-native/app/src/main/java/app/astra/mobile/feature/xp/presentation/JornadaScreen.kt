@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -306,10 +307,11 @@ fun BarraDeProgresso(fracao: () -> Float, concluida: Boolean, altura: Dp = 3.dp)
             .fillMaxWidth()
             .height(altura)
             .drawBehind {
-                drawRoundRect(color = trilho, size = size)
+                val ponta = CornerRadius(size.height / 2f)
+                drawRoundRect(color = trilho, size = size, cornerRadius = ponta)
                 val f = fracao().coerceIn(0f, 1f)
                 if (f > 0f) {
-                    drawRoundRect(color = cheio, size = size.copy(width = size.width * f))
+                    drawRoundRect(color = cheio, size = size.copy(width = size.width * f), cornerRadius = ponta)
                 }
             },
     )

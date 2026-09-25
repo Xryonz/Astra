@@ -86,13 +86,13 @@ class EstadoDaFolha internal constructor(
     }
 
     internal suspend fun subir() {
-        if (altura <= 0 || !y.isNaN()) return
+        if (altura <= 0 || saindo || y == 0f) return
         if (semMovimento.value) {
             y = 0f
-        } else {
-            y = altura.toFloat()
-            animate(y, 0f, animationSpec = tween(SUBIDA_MS, easing = EaseOutSoft)) { v, _ -> y = v }
+            return
         }
+        if (y.isNaN()) y = altura.toFloat()
+        animate(y, 0f, animationSpec = tween(SUBIDA_MS, easing = EaseOutSoft)) { v, _ -> y = v }
     }
 
     internal fun arrastar(delta: Float) {

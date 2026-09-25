@@ -85,7 +85,6 @@ fun BarraPessoal(
     ) {
         Box(
             Modifier
-                .clip(CircleShape)
                 .clickable(onClick = aoAbrirJornada)
                 .semantics {
                     contentDescription = if (missoesProntas > 0) {

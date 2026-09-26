@@ -78,12 +78,6 @@ data class PerfilVisivel(
 private val LADO_DA_FOTO = 88.dp
 private val ANEL = 6.dp
 
-fun String?.comoCor(): Color? {
-    val limpo = this?.trim()?.removePrefix("#") ?: return null
-    if (limpo.length != 6) return null
-    return runCatching { Color("FF$limpo".toLong(16)) }.getOrNull()
-}
-
 @Composable
 fun FundoDoTema(tema: String?, modifier: Modifier = Modifier, conteudo: @Composable BoxScope.() -> Unit) {
     val pincel = remember(tema) { parseGradientBrush(tema) }
@@ -98,12 +92,13 @@ fun FundoDoTema(tema: String?, modifier: Modifier = Modifier, conteudo: @Composa
 
 @Composable
 fun BannerDoPerfil(p: PerfilVisivel, altura: Dp, modifier: Modifier = Modifier) {
+    val pincel = remember(p.corDoBanner) { parseGradientBrush(p.corDoBanner) }
     Box(
         modifier
             .fillMaxWidth()
             .height(altura)
             .clipToBounds()
-            .background(p.corDoBanner.comoCor() ?: astraColors.overlay),
+            .then(if (pincel != null) Modifier.background(pincel) else Modifier.background(astraColors.overlay)),
     ) {
         if (!p.banner.isNullOrBlank()) {
             AsyncImage(
@@ -138,7 +133,7 @@ fun CabecaDoPerfil(
     rotuloDoToqueNaFoto: String? = null,
     aoTocarNoRecado: (() -> Unit)? = null,
     sobreOBanner: @Composable BoxScope.() -> Unit = {},
-    presoAFoto: @Composable () -> Unit = {},
+    presoAFoto: @Composable BoxScope.() -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(alturaDoBanner + LADO_DA_FOTO / 2)) {

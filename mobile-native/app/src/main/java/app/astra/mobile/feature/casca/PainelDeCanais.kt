@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,8 +44,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -85,6 +89,7 @@ private const val PREFIXO_DA_VOZ = "voz-"
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.03f
+private const val PROPORCAO_DO_BANNER = 3f
 private val CANTO_DO_CARTAO = 16.dp
 private val MARGEM_DO_CARTAO = 10.dp
 private val CANTO_DA_LINHA = RoundedCornerShape(12.dp)
@@ -443,19 +448,45 @@ fun PainelDeCanais(
 }
 
 @Composable
-private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?, aoAbrirAjustes: () -> Unit) {
-    Column {
-        if (orbita.bannerUrl != null) {
+private fun FaixaDoBanner(orbita: Server) {
+    val imagem = orbita.bannerUrl?.takeIf { it.isNotBlank() }
+    val fundo = if (imagem != null) {
+        Modifier.background(astraColors.overlay)
+    } else {
+        Modifier.background(Brush.verticalGradient(listOf(astraColors.overlay, astraColors.raised)))
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(PROPORCAO_DO_BANNER)
+            .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+            .then(fundo),
+    ) {
+        if (imagem != null) {
             AsyncImage(
-                model = orbita.bannerUrl,
+                model = imagem,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(104.dp)
-                    .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)),
+                contentScale = ContentScale.Fit,
+                alignment = BiasAlignment(0f, orbita.bannerPositionY.coerceIn(0, 100) / 50f - 1f),
+                modifier = Modifier.fillMaxSize().scale(orbita.bannerScale.coerceIn(0, 300) / 100f),
             )
         }
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to Color.Transparent,
+                    1f to astraColors.void.copy(alpha = 0.85f),
+                ),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?, aoAbrirAjustes: () -> Unit) {
+    Column {
+        FaixaDoBanner(orbita)
         Row(
             modifier = Modifier
                 .padding(start = 10.dp, end = 12.dp, top = 12.dp)

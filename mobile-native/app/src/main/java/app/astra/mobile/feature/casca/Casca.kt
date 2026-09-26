@@ -42,7 +42,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalContext
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.home.HomeViewModel
-import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.xp.presentation.EstrelasViewModel
 import app.astra.mobile.feature.xp.presentation.MoedasDeBrilho
 import app.astra.mobile.feature.xp.presentation.anelDeEstrelas
@@ -60,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.ItemDeMenu
+import app.astra.mobile.ui.components.MenuDeEstado
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 
 private const val CHAVE_DOS_SUSSURROS = "sussurros"
@@ -321,19 +321,19 @@ fun Casca(
                         viewModel.selectServer(null)
                     }
                 },
+                menuDoEstado = {
+                    MenuDeEstado(
+                        aberto = menuDeStatus,
+                        atual = estado.myStatus,
+                        aoEscolher = { escolhido ->
+                            viewModel.setStatus(escolhido)
+                            menuDeStatus = false
+                        },
+                        aoFechar = { menuDeStatus = false },
+                        deslocamento = DpOffset(0.dp, 14.dp),
+                    )
+                },
             )
-            DropdownMenu(
-                expanded = menuDeStatus,
-                onDismissRequest = { menuDeStatus = false },
-                shape = RoundedCornerShape(16.dp),
-                containerColor = astraColors.overlay,
-                border = BorderStroke(1.dp, astraColors.border),
-            ) {
-                ItemDeStatus("Disponível", UserStatus.ONLINE, viewModel) { menuDeStatus = false }
-                ItemDeStatus("Ausente", UserStatus.IDLE, viewModel) { menuDeStatus = false }
-                ItemDeStatus("Não perturbe", UserStatus.DND, viewModel) { menuDeStatus = false }
-                ItemDeStatus("Invisível", UserStatus.INVISIBLE, viewModel) { menuDeStatus = false }
-            }
         }
     }
 
@@ -411,21 +411,5 @@ private fun ItemDoMenu(rotulo: String, aoTocar: () -> Unit) {
     ItemDeMenu(
         text = { Text(rotulo, color = astraColors.text1) },
         onClick = aoTocar,
-    )
-}
-
-@Composable
-private fun ItemDeStatus(
-    rotulo: String,
-    status: UserStatus,
-    viewModel: HomeViewModel,
-    aoEscolher: () -> Unit,
-) {
-    ItemDeMenu(
-        text = { Text(rotulo, color = astraColors.text1) },
-        onClick = {
-            viewModel.setStatus(status)
-            aoEscolher()
-        },
     )
 }

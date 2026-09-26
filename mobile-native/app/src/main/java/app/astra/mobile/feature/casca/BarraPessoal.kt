@@ -56,6 +56,7 @@ fun BarraPessoal(
     aoAbrirStatus: () -> Unit,
     aoDeslizar: (paraDireita: Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    menuDoEstado: @Composable () -> Unit = {},
 ) {
     val forma = RoundedCornerShape(18.dp)
     val limite = with(LocalDensity.current) { 56.dp.toPx() }
@@ -141,6 +142,7 @@ fun BarraPessoal(
             contentAlignment = Alignment.Center,
         ) {
             StatusDot(status = status, size = 12.dp, cutoutColor = astraColors.overlay)
+            menuDoEstado()
         }
         Spacer(Modifier.width(8.dp))
         Box(

@@ -1,6 +1,5 @@
 package app.astra.mobile.feature.profile.presentation
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,9 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,16 +35,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.astra.mobile.feature.friends.domain.model.Friend
-import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.CosmicSpinner
-import app.astra.mobile.ui.components.ItemDeMenu
+import app.astra.mobile.ui.components.MenuDeEstado
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
@@ -65,13 +63,6 @@ fun dataPorExtenso(iso: String?): String? {
         OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(DATA_POR_EXTENSO)
     }.getOrElse { iso.take(10) }
 }
-
-private val OPCOES_DE_STATUS = listOf(
-    "Disponível" to UserStatus.ONLINE,
-    "Ausente" to UserStatus.IDLE,
-    "Não perturbe" to UserStatus.DND,
-    "Invisível" to UserStatus.INVISIBLE,
-)
 
 @Composable
 fun MeuPerfilScreen(
@@ -101,51 +92,53 @@ fun MeuPerfilScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            Box {
-                CabecaDoPerfil(
-                    p = PerfilVisivel(
-                        nome = p.displayName.ifBlank { p.username },
-                        usuario = p.username,
-                        avatar = p.avatarUrl,
-                        banner = p.bannerUrl,
-                        corDoBanner = p.bannerColor,
-                        bannerY = p.bannerPositionY,
-                        bannerEscala = p.bannerScale,
-                        fonte = p.displayFont,
-                        pronomes = p.pronouns,
-                        recado = p.customStatus,
-                        status = p.status,
-                        emblemas = estado.emblemas,
-                    ),
-                    alturaDoBanner = 132.dp + topo,
-                    textoSemRecado = "Defina um recado",
-                    aoTocarNaFoto = { menuDeStatus = true },
-                    rotuloDoToqueNaFoto = "mudar seu estado",
-                    aoTocarNoRecado = aoEditar,
-                    sobreOBanner = { BotaoFechar(aoFechar, Modifier.statusBarsPadding().padding(12.dp)) },
-                )
-                DropdownMenu(
-                    expanded = menuDeStatus,
-                    onDismissRequest = { menuDeStatus = false },
-                    offset = DpOffset(16.dp, 0.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    containerColor = astraColors.overlay,
-                    border = BorderStroke(1.dp, astraColors.border),
-                ) {
-                    OPCOES_DE_STATUS.forEach { (rotulo, status) ->
-                        ItemDeMenu(
-                            text = { Text(rotulo, color = astraColors.text1) },
-                            onClick = { menuDeStatus = false; viewModel.trocarStatus(status) },
-                        )
-                    }
-                }
-            }
-
-            AstraButton(
-                text = "Editar perfil",
-                onClick = aoEditar,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+            CabecaDoPerfil(
+                p = PerfilVisivel(
+                    nome = p.displayName.ifBlank { p.username },
+                    usuario = p.username,
+                    avatar = p.avatarUrl,
+                    banner = p.bannerUrl,
+                    corDoBanner = p.bannerColor,
+                    bannerY = p.bannerPositionY,
+                    bannerEscala = p.bannerScale,
+                    fonte = p.displayFont,
+                    pronomes = p.pronouns,
+                    recado = p.customStatus,
+                    status = p.status,
+                    emblemas = estado.emblemas,
+                ),
+                alturaDoBanner = 132.dp + topo,
+                textoSemRecado = "Defina um recado",
+                aoTocarNaFoto = { menuDeStatus = true },
+                rotuloDoToqueNaFoto = "mudar seu estado",
+                aoTocarNoRecado = aoEditar,
+                sobreOBanner = { BotaoFechar(aoFechar, Modifier.statusBarsPadding().padding(12.dp)) },
+                presoAFoto = {
+                    MenuDeEstado(
+                        aberto = menuDeStatus,
+                        atual = p.status,
+                        aoEscolher = { escolhido ->
+                            menuDeStatus = false
+                            viewModel.trocarStatus(escolhido)
+                        },
+                        aoFechar = { menuDeStatus = false },
+                        deslocamento = DpOffset(0.dp, 6.dp),
+                    )
+                },
             )
+
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AstraButton(
+                    text = "Editar perfil",
+                    onClick = aoEditar,
+                    modifier = Modifier.weight(1f),
+                )
+                BotaoDeConfiguracoes(aoAbrirConfiguracoes)
+            }
 
             Column(
                 Modifier.padding(horizontal = 16.dp),
@@ -163,13 +156,8 @@ fun MeuPerfilScreen(
                 }
                 CartaoDeAmigos(estado.amigos, aoAbrirAmigos)
             }
-            Spacer(Modifier.height(120.dp))
+            Spacer(Modifier.navigationBarsPadding().height(24.dp))
         }
-
-        BarraFlutuante(
-            aoAbrirConfiguracoes = aoAbrirConfiguracoes,
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp),
-        )
     }
 }
 
@@ -206,26 +194,17 @@ private fun CartaoDeAmigos(amigos: List<Friend>, aoAbrir: () -> Unit) {
 }
 
 @Composable
-private fun BarraFlutuante(aoAbrirConfiguracoes: () -> Unit, modifier: Modifier = Modifier) {
-    val forma = RoundedCornerShape(20.dp)
-    Row(
-        modifier = modifier
-            .clip(forma)
-            .background(astraColors.overlay)
-            .border(1.dp, astraColors.borderMid, forma)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+private fun BotaoDeConfiguracoes(aoAbrir: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.borderMid, CircleShape)
+            .clickable(onClick = aoAbrir)
+            .semantics { contentDescription = "Configurações" },
+        contentAlignment = Alignment.Center,
     ) {
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = aoAbrirConfiguracoes)
-                .padding(horizontal = 18.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(Lucide.Settings, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.height(4.dp))
-            Text("Configurações", style = MaterialTheme.typography.labelMedium, color = astraColors.text1)
-        }
+        Icon(Lucide.Settings, contentDescription = null, tint = astraColors.text1, modifier = Modifier.size(20.dp))
     }
 }

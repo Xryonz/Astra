@@ -138,6 +138,7 @@ fun CabecaDoPerfil(
     rotuloDoToqueNaFoto: String? = null,
     aoTocarNoRecado: (() -> Unit)? = null,
     sobreOBanner: @Composable BoxScope.() -> Unit = {},
+    presoAFoto: @Composable () -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(alturaDoBanner + LADO_DA_FOTO / 2)) {
@@ -173,6 +174,7 @@ fun CabecaDoPerfil(
                             modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-4).dp, y = (-4).dp),
                         )
                     }
+                    presoAFoto()
                 }
                 val recado = p.recado?.takeIf { it.isNotBlank() }
                 if (recado != null || textoSemRecado != null) {

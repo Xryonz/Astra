@@ -111,7 +111,7 @@ internal fun statusLabel(status: UserStatus) = when (status) {
     UserStatus.ONLINE -> "brilhando"
     UserStatus.IDLE -> "ausente"
     UserStatus.DND -> "não perturbe"
-    UserStatus.INVISIBLE, UserStatus.OFFLINE -> "invisivel"
+    UserStatus.INVISIBLE, UserStatus.OFFLINE -> "invisível"
 }
 
 internal object AboveAnchor : PopupPositionProvider {

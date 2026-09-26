@@ -2,10 +2,12 @@ package app.astra.desktop.net
 
 import app.astra.desktop.auth.SessionStore
 import app.astra.mobile.core.network.RefreshApi
+import app.astra.shared.AstraShared
 import coil3.map.Mapper
 import coil3.request.Options
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
@@ -14,12 +16,17 @@ import retrofit2.HttpException
 import java.nio.ByteBuffer
 import java.util.Base64
 
+private val ORIGEM_DA_API = AstraShared.BASE_URL.toHttpUrl()
+
+private fun Request.vaiParaAApi(): Boolean =
+    url.scheme == ORIGEM_DA_API.scheme && url.host == ORIGEM_DA_API.host && url.port == ORIGEM_DA_API.port
+
 class AuthInterceptor(private val store: SessionStore) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = store.load()?.accessToken ?: return chain.proceed(chain.request())
-        return chain.proceed(
-            chain.request().newBuilder().header("Authorization", "Bearer $token").build(),
-        )
+        val pedido = chain.request()
+        if (!pedido.vaiParaAApi()) return chain.proceed(pedido)
+        val token = store.load()?.accessToken ?: return chain.proceed(pedido)
+        return chain.proceed(pedido.newBuilder().header("Authorization", "Bearer $token").build())
     }
 }
 
@@ -32,13 +39,11 @@ private val IDENTIDADE = buildString {
 }.filter { it.code in 0x20..0x7E }
 
 class DeviceInterceptor(private val store: SessionStore) : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response =
-        chain.proceed(
-            chain.request().newBuilder()
-                .header("X-Device-Id", store.deviceId())
-                .header("User-Agent", IDENTIDADE)
-                .build(),
-        )
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val pedido = chain.request().newBuilder().header("User-Agent", IDENTIDADE)
+        if (chain.request().vaiParaAApi()) pedido.header("X-Device-Id", store.deviceId())
+        return chain.proceed(pedido.build())
+    }
 }
 
 class DesktopTokenAuthenticator(
@@ -48,7 +53,7 @@ class DesktopTokenAuthenticator(
     private val lock = Any()
 
     override fun authenticate(route: Route?, response: Response): Request? {
-        if (response.priorResponse != null) return null
+        if (response.priorResponse != null || !response.request.vaiParaAApi()) return null
         val staleAuth = response.request.header("Authorization")
         synchronized(lock) {
             val session = store.load() ?: return null

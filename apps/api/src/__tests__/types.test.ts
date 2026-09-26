@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   AttachmentSchema, SendMessageSchema, EditMessageSchema,
   RegisterSchema, LoginSchema, MessageCursorSchema,
-  ChangeEmailSchema, ChangeUsernameSchema,
+  ChangeEmailSchema, ChangeUsernameSchema, UpdateProfileSchema,
 } from '@astra/types'
 
 describe('AttachmentSchema — URL safety', () => {
@@ -237,6 +237,33 @@ describe('ChangeEmailSchema — a senha atual e obrigatoria', () => {
   it('recusa e-mail sem formato', () => {
     const r = ChangeEmailSchema.safeParse({ newEmail: 'nao-e-email', currentPassword: 'Senha123' })
     expect(r.success).toBe(false)
+  })
+})
+
+describe('UpdateProfileSchema — cor do perfil', () => {
+  const onix = 'linear-gradient(135deg,#0c0c0c,#3c3c3c)'
+
+  it('texto vazio vira null, que e o que apaga a cor no banco', () => {
+    const r = UpdateProfileSchema.safeParse({ bannerColor: '', profileTheme: '' })
+    expect(r.success).toBe(true)
+    expect(r.success && r.data.bannerColor).toBeNull()
+    expect(r.success && r.data.profileTheme).toBeNull()
+  })
+
+  it('degrade e hex validos passam intactos', () => {
+    const r = UpdateProfileSchema.safeParse({ bannerColor: onix, profileTheme: '#1a1a2e' })
+    expect(r.success && r.data.bannerColor).toBe(onix)
+    expect(r.success && r.data.profileTheme).toBe('#1a1a2e')
+  })
+
+  it('cor malformada continua recusada', () => {
+    expect(UpdateProfileSchema.safeParse({ bannerColor: 'vermelho' }).success).toBe(false)
+    expect(UpdateProfileSchema.safeParse({ profileTheme: 'url(javascript:x)' }).success).toBe(false)
+  })
+
+  it('campo ausente segue ausente, para a rota nao tocar na cor', () => {
+    const r = UpdateProfileSchema.safeParse({ bio: 'oi' })
+    expect(r.success && 'bannerColor' in r.data).toBe(false)
   })
 })
 

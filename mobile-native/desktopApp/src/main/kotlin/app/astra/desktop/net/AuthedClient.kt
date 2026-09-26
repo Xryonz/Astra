@@ -23,10 +23,21 @@ class AuthInterceptor(private val store: SessionStore) : Interceptor {
     }
 }
 
+private val IDENTIDADE = buildString {
+    append("Astra-Desktop/")
+    append(System.getProperty("astra.version") ?: "dev")
+    append(" (")
+    append(System.getProperty("os.name") ?: "desconhecido")
+    append(")")
+}.filter { it.code in 0x20..0x7E }
+
 class DeviceInterceptor(private val store: SessionStore) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response =
         chain.proceed(
-            chain.request().newBuilder().header("X-Device-Id", store.deviceId()).build(),
+            chain.request().newBuilder()
+                .header("X-Device-Id", store.deviceId())
+                .header("User-Agent", IDENTIDADE)
+                .build(),
         )
 }
 

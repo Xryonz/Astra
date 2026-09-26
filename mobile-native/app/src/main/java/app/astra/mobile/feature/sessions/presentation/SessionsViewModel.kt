@@ -87,8 +87,13 @@ class SessionsViewModel @Inject constructor(
     }
 }
 
+private val ASTRA_ANDROID = Regex("""Astra-Android/(\S+)\s*\(Android ([^;)]+)""")
+private val ASTRA_DESKTOP = Regex("""Astra-Desktop/(\S+)\s*\(([^)]+)""")
+
 private fun parseUserAgent(ua: String?): Pair<String, Boolean> {
     if (ua.isNullOrBlank()) return "Dispositivo desconhecido" to false
+    ASTRA_ANDROID.find(ua)?.let { return "Astra no Android ${it.groupValues[2]}" to true }
+    ASTRA_DESKTOP.find(ua)?.let { return "Astra no ${it.groupValues[2]}" to false }
     val mobile = Regex("Mobile|Android|iPhone|iPad", RegexOption.IGNORE_CASE).containsMatchIn(ua)
     val os = when {
         ua.contains("Android", true) -> "Android"

@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.EaseOutSoft
@@ -60,7 +61,7 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
             onError = { falhou = true },
         )
     } else {
-        Box(mod, contentAlignment = Alignment.Center) {
+        Box(mod.clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
             Text(
                 text = name.take(1).uppercase(),
                 style = MaterialTheme.typography.titleMedium,

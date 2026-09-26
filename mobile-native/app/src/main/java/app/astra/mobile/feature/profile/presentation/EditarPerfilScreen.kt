@@ -131,6 +131,7 @@ fun EditarPerfilScreen(
                             fundoDoAnel = astraColors.base,
                             textoSemRecado = "Defina um recado",
                             aoTocarNaFoto = { avatarPicker.launch(imageRequest) },
+                            rotuloDoToqueNaFoto = "trocar a foto",
                             modificadorDoBanner = Modifier.pointerInput(temBanner) {
                                 if (!temBanner) return@pointerInput
                                 detectVerticalDragGestures { mudanca, dy ->

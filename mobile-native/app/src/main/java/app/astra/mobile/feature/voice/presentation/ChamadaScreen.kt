@@ -43,6 +43,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -189,6 +190,12 @@ private fun BotaoDeChamada(icone: ImageVector, rotulo: String, cor: Color, onCli
             Icon(icone, contentDescription = null, tint = cor, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.height(9.dp))
-        Text(rotulo, fontFamily = DmMono, fontSize = 12.sp, color = astraColors.text3)
+        Text(
+            rotulo,
+            fontFamily = DmMono,
+            fontSize = 12.sp,
+            color = astraColors.text3,
+            modifier = Modifier.clearAndSetSemantics { },
+        )
     }
 }

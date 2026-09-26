@@ -135,6 +135,7 @@ fun CabecaDoPerfil(
     textoSemRecado: String? = null,
     modificadorDoBanner: Modifier = Modifier,
     aoTocarNaFoto: (() -> Unit)? = null,
+    rotuloDoToqueNaFoto: String? = null,
     aoTocarNoRecado: (() -> Unit)? = null,
     sobreOBanner: @Composable BoxScope.() -> Unit = {},
 ) {
@@ -152,7 +153,13 @@ fun CabecaDoPerfil(
                     modifier = Modifier
                         .size(LADO_DA_FOTO + ANEL * 2)
                         .background(fundoDoAnel, CircleShape)
-                        .then(if (aoTocarNaFoto != null) Modifier.clickable(onClick = aoTocarNaFoto) else Modifier),
+                        .then(
+                            if (aoTocarNaFoto != null) {
+                                Modifier
+                                    .semantics { contentDescription = "Foto de ${p.nome}" }
+                                    .clickable(onClickLabel = rotuloDoToqueNaFoto, onClick = aoTocarNaFoto)
+                            } else Modifier,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     AstraAvatar(p.avatar, p.nome, size = LADO_DA_FOTO.value.toInt())

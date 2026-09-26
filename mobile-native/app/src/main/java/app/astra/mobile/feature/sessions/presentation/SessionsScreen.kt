@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Monitor
+import com.composables.icons.lucide.Smartphone
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -147,7 +151,12 @@ private fun SessionCard(s: SessionRow, revoking: Boolean, onRevoke: () -> Unit) 
                 .border(1.dp, astraColors.border, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(if (s.isMobile) "📱" else "🖥", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = if (s.isMobile) Lucide.Smartphone else Lucide.Monitor,
+                contentDescription = null,
+                tint = astraColors.text2,
+                modifier = Modifier.size(18.dp),
+            )
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

@@ -78,8 +78,12 @@ fun BarraPessoal(
                     mudanca.consume()
                 }
             }
-            .combinedClickable(onClick = aoTocar, onLongClick = aoSegurar)
-            .semantics { contentDescription = "Seu perfil: $nome, ${rotuloDoStatus(status)}" }
+            .combinedClickable(
+                onClickLabel = "abrir seu perfil",
+                onLongClickLabel = "mudar seu estado",
+                onClick = aoTocar,
+                onLongClick = aoSegurar,
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

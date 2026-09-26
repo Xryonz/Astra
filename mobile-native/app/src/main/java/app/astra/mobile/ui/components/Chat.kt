@@ -71,6 +71,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -303,7 +305,10 @@ fun MensagemDoChat(
                 Spacer(Modifier.width(LADO_DA_FOTO))
             } else {
                 val avatarMod = if (onAuthorClick != null) {
-                    Modifier.clip(CircleShape).clickable(onClick = onAuthorClick)
+                    Modifier
+                        .clip(CircleShape)
+                        .semantics { contentDescription = authorName }
+                        .clickable(onClickLabel = "abrir o perfil", onClick = onAuthorClick)
                 } else Modifier
                 Box(avatarMod) { AstraAvatar(authorAvatar, authorName, size = LADO_DA_FOTO.value.toInt()) }
             }

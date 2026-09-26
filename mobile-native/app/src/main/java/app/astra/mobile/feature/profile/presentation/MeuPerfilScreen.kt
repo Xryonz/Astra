@@ -120,6 +120,7 @@ fun MeuPerfilScreen(
                     alturaDoBanner = 132.dp + topo,
                     textoSemRecado = "Defina um recado",
                     aoTocarNaFoto = { menuDeStatus = true },
+                    rotuloDoToqueNaFoto = "mudar seu estado",
                     aoTocarNoRecado = aoEditar,
                     sobreOBanner = { BotaoFechar(aoFechar, Modifier.statusBarsPadding().padding(12.dp)) },
                 )

@@ -408,8 +408,7 @@ private fun PalcoDaCall(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(astraColors.void)
-                .clickable(onClick = aoTelaCheia)
-                .semantics { contentDescription = "Tela de ${quem.nome}. Toque para ver em tela cheia." },
+                .clickable(onClickLabel = "ver em tela cheia", onClick = aoTelaCheia),
             contentAlignment = Alignment.Center,
         ) {
             val tela = quem.tela

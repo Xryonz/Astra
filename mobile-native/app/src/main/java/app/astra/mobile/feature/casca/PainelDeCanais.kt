@@ -460,9 +460,8 @@ private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?
             modifier = Modifier
                 .padding(start = 10.dp, end = 12.dp, top = 12.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = aoAbrirAjustes)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .semantics { contentDescription = "${orbita.name}, abrir ajustes da órbita" },
+                .clickable(onClickLabel = "abrir ajustes da órbita", onClick = aoAbrirAjustes)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

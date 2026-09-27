@@ -3,6 +3,7 @@ package app.astra.mobile.feature.casca
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.ui.components.AlcaDaFolha
 import app.astra.mobile.ui.components.AstraSwitch
+import app.astra.mobile.ui.components.comVibracaoDeChave
 import app.astra.mobile.ui.components.FolhaQueSobe
 import app.astra.mobile.ui.components.rememberEstadoDaFolha
 import app.astra.mobile.ui.theme.DmSerif
@@ -178,7 +181,7 @@ private fun ChaveDoMenu(
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { aoMudar(!ligada) }
+            .toggleable(value = ligada, role = Role.Switch, onValueChange = comVibracaoDeChave(aoMudar))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -189,6 +192,6 @@ private fun ChaveDoMenu(
             Text(apoio, fontSize = 12.sp, color = astraColors.text3)
         }
         Spacer(Modifier.width(10.dp))
-        AstraSwitch(checked = ligada, onCheckedChange = aoMudar)
+        AstraSwitch(checked = ligada)
     }
 }

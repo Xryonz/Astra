@@ -1,7 +1,7 @@
 package app.astra.mobile.feature.server.presentation
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +23,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraSwitch
+import app.astra.mobile.ui.components.comVibracaoDeChave
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -119,7 +121,7 @@ private fun LinhaDeComando(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { aoMudar(!ligado) }
+            .toggleable(value = ligado, role = Role.Switch, onValueChange = comVibracaoDeChave(aoMudar))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -128,6 +130,6 @@ private fun LinhaDeComando(
             if (apoio.isNotBlank()) Text(apoio, fontSize = 12.sp, color = astraColors.text3)
         }
         Spacer(Modifier.width(10.dp))
-        AstraSwitch(checked = ligado, onCheckedChange = aoMudar)
+        AstraSwitch(checked = ligado)
     }
 }

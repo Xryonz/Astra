@@ -16,13 +16,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.ui.LocalAppPrefs
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
-private val Shimmer = SkeletonAnimation.Shimmer
-
 @Composable
 fun ListSkeleton(rows: Int = 8, avatar: Boolean = true, modifier: Modifier = Modifier) {
+    val brilho = if (LocalAppPrefs.current.reduceMotion) SkeletonAnimation.None else SkeletonAnimation.Shimmer
     Column(modifier.fillMaxSize().padding(top = 6.dp)) {
         repeat(rows) {
             Row(
@@ -32,18 +32,18 @@ fun ListSkeleton(rows: Int = 8, avatar: Boolean = true, modifier: Modifier = Mod
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (avatar) {
-                    Skeleton(Modifier.size(46.dp), Shimmer, CircleShape)
+                    Skeleton(Modifier.size(46.dp), brilho, CircleShape)
                     Spacer(Modifier.width(14.dp))
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Skeleton(
                         Modifier.width(if (it % 2 == 0) 150.dp else 190.dp).height(13.dp),
-                        Shimmer,
+                        brilho,
                         RoundedCornerShape(6.dp),
                     )
                     Skeleton(
                         Modifier.width(if (it % 3 == 0) 220.dp else 120.dp).height(11.dp),
-                        Shimmer,
+                        brilho,
                         RoundedCornerShape(6.dp),
                     )
                 }

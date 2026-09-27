@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AbaDeExpressao
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.ChatInputBar
@@ -293,10 +294,11 @@ fun ChannelChatScreen(
             )
         }
 
+        val semMovimento = LocalAppPrefs.current.reduceMotion
         AnimatedVisibility(
             visible = membrosAbertos,
-            enter = fadeIn(tween(140)),
-            exit = fadeOut(tween(120)),
+            enter = fadeIn(tween(if (semMovimento) 0 else 140)),
+            exit = fadeOut(tween(if (semMovimento) 0 else 120)),
         ) {
             Box(
                 Modifier
@@ -312,8 +314,8 @@ fun ChannelChatScreen(
         AnimatedVisibility(
             visible = membrosAbertos,
             modifier = Modifier.align(Alignment.CenterEnd),
-            enter = slideInHorizontally(tween(260)) { it },
-            exit = slideOutHorizontally(tween(220)) { it },
+            enter = if (semMovimento) fadeIn(tween(0)) else slideInHorizontally(tween(260)) { it },
+            exit = if (semMovimento) fadeOut(tween(0)) else slideOutHorizontally(tween(220)) { it },
         ) {
             Box(
                 Modifier

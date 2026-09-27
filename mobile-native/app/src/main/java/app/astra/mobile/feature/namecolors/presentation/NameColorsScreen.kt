@@ -1,6 +1,11 @@
 package app.astra.mobile.feature.namecolors.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,11 +37,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.ColorGradientPicker
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -131,7 +138,14 @@ private fun ServerColorCard(
             Text(if (expanded) "▴" else "▾", color = astraColors.text3, style = MaterialTheme.typography.titleMedium)
         }
 
-        AnimatedVisibility(visible = expanded) {
+        val semMovimento = LocalAppPrefs.current.reduceMotion
+        AnimatedVisibility(
+            visible = expanded,
+            enter = if (semMovimento) fadeIn(tween(0))
+            else expandVertically(tween(240, easing = EaseOutSoft)) + fadeIn(tween(200)),
+            exit = if (semMovimento) fadeOut(tween(0))
+            else shrinkVertically(tween(200, easing = EaseOutSoft)) + fadeOut(tween(160)),
+        ) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
                 ColorGradientPicker(
                     initial = applied ?: "",

@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                             hostState = toastState,
                             modifier = Modifier.navigationBarsPadding().padding(bottom = 72.dp),
                             position = ToastPosition.BottomCenter,
-                            animation = ToastAnimation.Scale,
+                            animation = if (prefs.reduceMotion) ToastAnimation.None else ToastAnimation.Scale,
                         )
                     }
                 }

@@ -536,7 +536,8 @@ private fun TituloDaCategoria(
     aoTocar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val giro by animateFloatAsState(if (recolhida) -90f else 0f, tween(160), label = "giro")
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val giro by animateFloatAsState(if (recolhida) -90f else 0f, tween(if (semMovimento) 0 else 160), label = "giro")
     val forma = RoundedCornerShape(12.dp)
     Row(
         modifier = modifier

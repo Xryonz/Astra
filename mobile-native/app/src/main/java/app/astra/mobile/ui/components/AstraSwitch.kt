@@ -2,6 +2,7 @@ package app.astra.mobile.ui.components
 
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -12,24 +13,14 @@ import app.astra.mobile.ui.theme.astraColors
 @Composable
 fun AstraSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val haptics = LocalAppPrefs.current.haptics
-    val haptic = LocalHapticFeedback.current
     Switch(
         checked = checked,
-        onCheckedChange = {
-            if (haptics) {
-                haptic.performHapticFeedback(
-                    if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
-                )
-            }
-            onCheckedChange(it)
-        },
+        onCheckedChange = null,
         enabled = enabled,
-        modifier = modifier,
+        modifier = modifier.minimumInteractiveComponentSize(),
         colors = SwitchDefaults.colors(
             checkedThumbColor = astraColors.textInv,
             checkedTrackColor = astraColors.accent,
@@ -39,4 +30,16 @@ fun AstraSwitch(
             uncheckedBorderColor = astraColors.borderMid,
         ),
     )
+}
+
+@Composable
+fun comVibracaoDeChave(aoMudar: (Boolean) -> Unit): (Boolean) -> Unit {
+    val haptics = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
+    return { ligado ->
+        if (haptics) {
+            haptic.performHapticFeedback(if (ligado) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+        }
+        aoMudar(ligado)
+    }
 }

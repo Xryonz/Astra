@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AstraSwitch
+import app.astra.mobile.ui.components.comVibracaoDeChave
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -150,14 +153,21 @@ fun ServerBadgesScreen(
                 state.members.forEach { m ->
                     val granted = grantBadge != null && m.userId in grantBadge.grantedUserIds
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .toggleable(
+                                value = granted,
+                                role = Role.Switch,
+                                onValueChange = comVibracaoDeChave { on ->
+                                    grantBadge?.let { viewModel.toggleGrant(it.id, m.userId, on) }
+                                },
+                            )
+                            .padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(m.name, style = MaterialTheme.typography.bodyMedium, color = astraColors.text1, modifier = Modifier.weight(1f))
-                        AstraSwitch(
-                            checked = granted,
-                            onCheckedChange = { on -> grantBadge?.let { viewModel.toggleGrant(it.id, m.userId, on) } },
-                        )
+                        AstraSwitch(checked = granted)
                     }
                 }
             }

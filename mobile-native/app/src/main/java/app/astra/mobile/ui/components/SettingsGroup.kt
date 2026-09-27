@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
@@ -40,6 +41,7 @@ fun SettingsGroup(
     delayStartMs: Int = 0,
     rows: List<@Composable () -> Unit>,
 ) {
+    val cascata = entrance && !LocalAppPrefs.current.reduceMotion
     Column(modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         if (label != null) {
             MarginaliaLabel("$label", Modifier.padding(start = 4.dp, bottom = 8.dp))
@@ -55,11 +57,13 @@ fun SettingsGroup(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             rows.forEachIndexed { i, row ->
-                val progress = remember { Animatable(if (entrance) 0f else 1f) }
-                LaunchedEffect(entrance) {
-                    if (entrance) {
+                val progress = remember { Animatable(if (cascata) 0f else 1f) }
+                LaunchedEffect(cascata) {
+                    if (cascata) {
                         delay((delayStartMs + i * SETTINGS_ROW_STAGGER_MS).toLong())
                         progress.animateTo(1f, tween(300, easing = EaseOutSoft))
+                    } else {
+                        progress.snapTo(1f)
                     }
                 }
                 val dy = with(LocalDensity.current) { 12.dp.toPx() }

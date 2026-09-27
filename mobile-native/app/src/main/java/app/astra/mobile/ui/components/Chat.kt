@@ -351,13 +351,19 @@ fun MensagemDoChat(
                                         onDragEnd = {
                                             if (triggered) onReply()
                                             scope.launch {
-                                                swipeX.animateTo(
-                                                    0f,
-                                                    spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
-                                                )
+                                                if (prefs.reduceMotion) {
+                                                    swipeX.snapTo(0f)
+                                                } else {
+                                                    swipeX.animateTo(
+                                                        0f,
+                                                        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
+                                                    )
+                                                }
                                             }
                                         },
-                                        onDragCancel = { scope.launch { swipeX.animateTo(0f, spring()) } },
+                                        onDragCancel = {
+                                            scope.launch { if (prefs.reduceMotion) swipeX.snapTo(0f) else swipeX.animateTo(0f, spring()) }
+                                        },
                                     )
                                 }
                             } else {
@@ -786,9 +792,10 @@ fun ChatMessageList(
 
     val listState = rememberLazyListState()
     val newest = rows.lastOrNull()
+    val semMovimento = LocalAppPrefs.current.reduceMotion
     LaunchedEffect(newest?.id) {
         if (newest != null && (newest.mine || listState.firstVisibleItemIndex <= 2)) {
-            listState.animateScrollToItem(0)
+            if (semMovimento) listState.scrollToItem(0) else listState.animateScrollToItem(0)
         }
     }
 
@@ -1014,7 +1021,7 @@ fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> U
         open = open,
         onDismiss = onDismiss,
         onConfirm = onConfirm,
-        animation = AlertDialogAnimation.FadeScale,
+        animation = if (LocalAppPrefs.current.reduceMotion) AlertDialogAnimation.None else AlertDialogAnimation.FadeScale,
     ) {
         AlertDialogHeader(
             title = "Apagar mensagem?",

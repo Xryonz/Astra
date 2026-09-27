@@ -1,4 +1,4 @@
-package app.astra.mobile.feature.server.presentation
+package app.astra.mobile.ui.components
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -11,11 +11,12 @@ import kotlin.math.ceil
 import kotlin.math.max
 
 const val PROPORCAO_DO_BANNER_DA_ORBITA = 3f
+const val PROPORCAO_DO_BANNER_DO_PERFIL = 3.5f
 private const val ZOOM_MAXIMO_DO_BANNER = 300
 private const val FOLGA_DO_ARREDONDAMENTO = 0.001f
 
 @Composable
-fun ImagemDoBannerDaOrbita(url: String, posicaoY: Int, escala: Int, modifier: Modifier = Modifier) {
+fun ImagemDoBanner(url: String, posicaoY: Int, escala: Int, modifier: Modifier = Modifier) {
     AsyncImage(
         model = url,
         contentDescription = null,
@@ -25,10 +26,7 @@ fun ImagemDoBannerDaOrbita(url: String, posicaoY: Int, escala: Int, modifier: Mo
     )
 }
 
-fun zoomQueCobreOBanner(proporcaoDaImagem: Float): Int {
-    val fator = max(
-        PROPORCAO_DO_BANNER_DA_ORBITA / proporcaoDaImagem,
-        proporcaoDaImagem / PROPORCAO_DO_BANNER_DA_ORBITA,
-    )
+fun zoomQueCobre(proporcaoDaImagem: Float, proporcaoDaCaixa: Float): Int {
+    val fator = max(proporcaoDaCaixa / proporcaoDaImagem, proporcaoDaImagem / proporcaoDaCaixa)
     return ceil(fator * 100 - FOLGA_DO_ARREDONDAMENTO).toInt().coerceIn(100, ZOOM_MAXIMO_DO_BANNER)
 }

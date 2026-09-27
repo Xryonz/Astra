@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
@@ -81,8 +82,9 @@ private val ConstellationPath = listOf(0, 1, 2, 3, 4, 5, 6, 0)
 
 @Composable
 fun ConstellationGraphic(modifier: Modifier = Modifier) {
-    val p = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { p.animateTo(1f, tween(1800, easing = EaseOutSoft)) }
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val p = remember { Animatable(if (semMovimento) 1f else 0f) }
+    LaunchedEffect(Unit) { if (p.value < 1f) p.animateTo(1f, tween(1800, easing = EaseOutSoft)) }
     val accent = astraColors.accent
     Canvas(modifier.size(width = 140.dp, height = 100.dp)) {
         val s = size.width / 140f
@@ -127,16 +129,20 @@ fun EmptyState(line: String, hint: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun CosmicSpinner(modifier: Modifier = Modifier, diameter: Int = 30) {
-    val inf = rememberInfiniteTransition(label = "orbit")
-    val angle by inf.animateFloat(
-        0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(1600, easing = LinearEasing)), label = "angle",
-    )
+    val giro = if (LocalAppPrefs.current.reduceMotion) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "orbit").animateFloat(
+            0f, (2 * PI).toFloat(),
+            infiniteRepeatable(tween(1600, easing = LinearEasing)), label = "angle",
+        )
+    }
     val accent = astraColors.accent
     Canvas(modifier.size(diameter.dp)) {
         val r = size.minDimension / 2f - 3.dp.toPx()
         val c = Offset(size.width / 2f, size.height / 2f)
         val dot = (diameter / 13f).dp.toPx().coerceAtLeast(2.dp.toPx())
+        val angle = giro?.value ?: 0f
         for (i in 0..2) {
             val a = angle + i * (2f * PI.toFloat() / 3f)
             val pt = Offset(c.x + r * cos(a), c.y + r * sin(a))

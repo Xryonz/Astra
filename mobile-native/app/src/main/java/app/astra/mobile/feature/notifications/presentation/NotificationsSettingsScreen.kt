@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import app.astra.mobile.ui.components.AstraSwitch
+import app.astra.mobile.ui.components.comVibracaoDeChave
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.network.dto.UpdateNotificationPrefsRequest
@@ -154,6 +157,7 @@ private fun ToggleRow(
             .clip(shape)
             .background(astraColors.raised)
             .border(1.dp, astraColors.border, shape)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = comVibracaoDeChave(onCheckedChange))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -161,7 +165,7 @@ private fun ToggleRow(
             Text(title, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
             MarginaliaLabel(sub)
         }
-        AstraSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        AstraSwitch(checked = checked)
     }
 }
 

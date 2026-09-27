@@ -3,6 +3,7 @@ package app.astra.mobile.core.upload
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.Rect
 import android.media.ExifInterface
 import android.os.Build
 import android.util.Base64
@@ -30,13 +31,7 @@ object ImageEncoder {
         try {
             val src = decodeOriented(bytes)
                 ?: return@withContext Result.failure(ApiException("Imagem inválida."))
-            val scaled = scaleDown(src, maxDimension)
-            var quality = 85
-            var out = compress(scaled, quality)
-            while (out.size > TARGET_BYTES && quality > 40) {
-                quality -= 15
-                out = compress(scaled, quality)
-            }
+            val out = compressUnder(scaleDown(src, maxDimension), TARGET_BYTES)
             Result.success("data:image/webp;base64," + Base64.encodeToString(out, Base64.NO_WRAP))
         } catch (e: Exception) {
             Result.failure(ApiException("Não foi possível processar a imagem."))
@@ -58,14 +53,7 @@ object ImageEncoder {
         try {
             val src = decodeOriented(bytes)
                 ?: return@withContext Result.failure(ApiException("Imagem inválida."))
-            val scaled = scaleDown(src, maxDimension)
-            var quality = 85
-            var out = compress(scaled, quality)
-            while (out.size > targetBytes && quality > 40) {
-                quality -= 15
-                out = compress(scaled, quality)
-            }
-            Result.success(out to "image/webp")
+            Result.success(compressUnder(scaleDown(src, maxDimension), targetBytes) to "image/webp")
         } catch (e: Exception) {
             Result.failure(ApiException("Não foi possível processar a imagem."))
         }
@@ -86,10 +74,44 @@ object ImageEncoder {
         ExifInterface.ORIENTATION_NORMAL
     }
 
+    suspend fun decodeForCrop(bytes: ByteArray, maxDimension: Int): Bitmap? = withContext(Dispatchers.Default) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxDimension) sample *= 2
+        runCatching {
+            val options = BitmapFactory.Options().apply { inSampleSize = sample }
+            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@runCatching null
+            val smaller = scaleDown(decoded, maxDimension).also { if (it !== decoded) decoded.recycle() }
+            orient(smaller, readOrientation(bytes))
+        }.getOrNull()
+    }
+
+    suspend fun cropToDataUri(src: Bitmap, crop: Rect, maxDimension: Int): Result<String> =
+        withContext(Dispatchers.Default) {
+            try {
+                val left = crop.left.coerceIn(0, src.width - 1)
+                val top = crop.top.coerceIn(0, src.height - 1)
+                val width = crop.width().coerceIn(1, src.width - left)
+                val height = crop.height().coerceIn(1, src.height - top)
+                val cut = scaleDown(Bitmap.createBitmap(src, left, top, width, height), maxDimension)
+                Result.success("data:image/webp;base64," + Base64.encodeToString(compressUnder(cut, TARGET_BYTES), Base64.NO_WRAP))
+            } catch (e: Exception) {
+                Result.failure(ApiException("Não foi possível recortar a imagem. Tente de novo."))
+            } catch (e: OutOfMemoryError) {
+                Result.failure(ApiException("A imagem é grande demais para recortar. Escolha uma menor."))
+            }
+        }
+
     private fun decodeOriented(bytes: ByteArray): Bitmap? {
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        return orient(bmp, readOrientation(bytes))
+    }
+
+    private fun orient(bmp: Bitmap, orientation: Int): Bitmap {
         val m = Matrix()
-        when (readOrientation(bytes)) {
+        when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
             ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
             ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
@@ -105,6 +127,16 @@ object ImageEncoder {
         } catch (e: OutOfMemoryError) {
             bmp
         }
+    }
+
+    private fun compressUnder(bmp: Bitmap, targetBytes: Int): ByteArray {
+        var quality = 85
+        var out = compress(bmp, quality)
+        while (out.size > targetBytes && quality > 40) {
+            quality -= 15
+            out = compress(bmp, quality)
+        }
+        return out
     }
 
     private fun compress(bmp: Bitmap, quality: Int): ByteArray {

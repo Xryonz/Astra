@@ -1,8 +1,6 @@
-versao 2.0.15
-Editar perfil ficou mais direto: toque na foto, no banner ou no recado da prévia para mudar cada um.
-A cor do perfil agora é uma só, com as mesmas trinta opções do desktop, e dá para ficar sem cor.
-Uma barra com Desfazer e Salvar aparece assim que algo muda.
-O menu de estado abre em cima da bolinha tocada, com o símbolo de cada estado; Configurações virou o botão ao lado de Editar perfil.
-O banner da constelação aparece no topo dos canais, como no desktop.
-Em Sessões, encerrar as outras fica logo abaixo deste aparelho, e cada um aparece com o próprio nome.
-O leitor de tela deixou de repetir nomes e descrições em várias telas.
+versao 2.0.16
+Ao escolher o banner da constelação ou do perfil, abre uma janela de recorte: arraste para enquadrar e aproxime com dois dedos ou pela barra.
+GIFs entram inteiros, já ajustados para cobrir o espaço do banner.
+O banner do perfil segue a proporção do desktop e começa abaixo da barra do sistema.
+Reduzir animações passa a valer também para janelas, avisos, carregamentos, o menu lateral e o deslizar para responder.
+Nas listas de opções, tocar em qualquer ponto da linha liga ou desliga a chave.

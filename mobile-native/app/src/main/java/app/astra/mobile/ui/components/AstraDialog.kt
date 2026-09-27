@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.dialog.Dialog
 import zed.rainxch.rikkaui.components.ui.dialog.DialogAnimation
@@ -31,7 +32,7 @@ fun AstraDialog(
     Dialog(
         open = open,
         onDismiss = onDismiss,
-        animation = DialogAnimation.FadeScale,
+        animation = if (LocalAppPrefs.current.reduceMotion) DialogAnimation.None else DialogAnimation.FadeScale,
 
         modifier = Modifier.padding(horizontal = 20.dp),
     ) {

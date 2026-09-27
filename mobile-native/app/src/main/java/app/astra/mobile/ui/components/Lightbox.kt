@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -30,13 +31,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun Lightbox(images: List<Attachment>, startIndex: Int, onDismiss: () -> Unit) {
     val att = images.getOrNull(startIndex) ?: return
-    val progress = remember { Animatable(0f) }
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    val progress = remember { Animatable(if (semMovimento) 1f else 0f) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { progress.animateTo(1f, tween(260, easing = EaseOutSoft)) }
+    LaunchedEffect(Unit) { if (progress.value < 1f) progress.animateTo(1f, tween(260, easing = EaseOutSoft)) }
 
     val close: () -> Unit = {
         scope.launch {
-            progress.animateTo(0f, tween(180, easing = EaseOutSoft))
+            if (!semMovimento) progress.animateTo(0f, tween(180, easing = EaseOutSoft))
             onDismiss()
         }
     }

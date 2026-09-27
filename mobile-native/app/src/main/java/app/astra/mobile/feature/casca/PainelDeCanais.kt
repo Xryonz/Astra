@@ -65,10 +65,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
-import app.astra.mobile.feature.server.presentation.ImagemDoBannerDaOrbita
-import app.astra.mobile.feature.server.presentation.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.ImagemDoBanner
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.components.Viagem
 import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.DmSerif
@@ -461,7 +461,7 @@ private fun FaixaDoBanner(orbita: Server) {
             .then(fundo),
     ) {
         if (imagem != null) {
-            ImagemDoBannerDaOrbita(imagem, orbita.bannerPositionY, orbita.bannerScale)
+            ImagemDoBanner(imagem, orbita.bannerPositionY, orbita.bannerScale)
         }
         Box(
             Modifier.matchParentSize().background(

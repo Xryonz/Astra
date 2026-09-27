@@ -97,7 +97,7 @@ fun PerfilCompletoScreen(
                     status = v.presence.comoStatus(),
                     emblemas = estado.badges,
                 ),
-                alturaDoBanner = 132.dp + topo,
+                recuoDoTopo = topo,
                 sobreOBanner = { BotaoFechar(aoFechar, Modifier.statusBarsPadding().padding(12.dp)) },
             )
 

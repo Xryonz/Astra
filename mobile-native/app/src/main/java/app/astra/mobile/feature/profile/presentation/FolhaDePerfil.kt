@@ -119,7 +119,6 @@ private fun ConteudoDaFolha(
                     status = v.presence.comoStatus(),
                     emblemas = estado.badges,
                 ),
-                alturaDoBanner = 104.dp,
                 fundoDoAnel = astraColors.base,
                 sobreOBanner = {
                     AlcaDaFolha(Modifier.align(Alignment.TopCenter).padding(top = 8.dp))

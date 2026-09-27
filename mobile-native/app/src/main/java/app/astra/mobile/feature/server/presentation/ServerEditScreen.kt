@@ -53,8 +53,12 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.ImagemDoBanner
+import app.astra.mobile.ui.components.JanelaDeRecorte
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.components.QuebraDeCapitulo
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.ehGif
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -77,12 +81,15 @@ fun ServerEditScreen(
     val toast = LocalToastHostState.current
     val scope = rememberCoroutineScope()
     var regenOpen by remember { mutableStateOf(false) }
+    var paraRecortar by remember { mutableStateOf<ByteArray?>(null) }
 
     val iconPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadIcon(bytes, mime) }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadBanner(bytes, mime) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) ->
+            if (ehGif(mime)) viewModel.uploadBanner(bytes, mime) else paraRecortar = bytes
+        }
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
@@ -192,7 +199,7 @@ fun ServerEditScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     if (state.bannerUrl.isNotBlank()) {
-                        ImagemDoBannerDaOrbita(state.bannerUrl, state.bannerPositionY, state.bannerScale)
+                        ImagemDoBanner(state.bannerUrl, state.bannerPositionY, state.bannerScale)
                     } else {
                         MarginaliaLabel("toque para escolher · 8MB · GIF anima")
                     }
@@ -316,6 +323,19 @@ fun ServerEditScreen(
         onConfirm = { regenOpen = false; viewModel.regenerateInvite() },
     ) {
         MarginaliaLabel("o link atual para de funcionar na hora")
+    }
+
+    paraRecortar?.let { bytes ->
+        JanelaDeRecorte(
+            bytes = bytes,
+            proporcao = PROPORCAO_DO_BANNER_DA_ORBITA,
+            titulo = "Recortar banner",
+            aoAplicar = { origem, recorte ->
+                paraRecortar = null
+                viewModel.uploadBannerRecortado(origem, recorte)
+            },
+            aoFechar = { paraRecortar = null },
+        )
     }
 }
 

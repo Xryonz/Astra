@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
@@ -63,6 +64,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -78,8 +80,11 @@ import app.astra.mobile.ui.components.DisplayFontOptions
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.FolhaQueSobe
+import app.astra.mobile.ui.components.JanelaDeRecorte
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
 import app.astra.mobile.ui.components.displayFontFamily
+import app.astra.mobile.ui.components.ehGif
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.rememberEstadoDaFolha
 import app.astra.mobile.ui.theme.EaseOutSoft
@@ -93,7 +98,8 @@ import kotlinx.coroutines.delay
 private const val ENCOLHE_MS = 220
 private const val SALVO_VISIVEL_MS = 1_600L
 private const val ESCURO_DA_FOLHA_DO_BANNER = 0.2f
-private val ALTURA_DO_BANNER = 96.dp
+private const val ZOOM_MINIMO_DO_BANNER = 50f
+private const val ZOOM_MAXIMO_DO_BANNER = 300f
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -105,13 +111,16 @@ fun EditarPerfilScreen(
     val ctx = LocalContext.current
     val semMovimento = LocalAppPrefs.current.reduceMotion
     var folhaDoBanner by remember { mutableStateOf(false) }
+    var paraRecortar by remember { mutableStateOf<ByteArray?>(null) }
     val focoDoRecado = remember { FocusRequester() }
 
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadAvatar(bytes, mime) }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadBanner(bytes, mime) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) ->
+            if (ehGif(mime)) viewModel.uploadBanner(bytes, mime) else paraRecortar = bytes
+        }
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
@@ -161,7 +170,6 @@ fun EditarPerfilScreen(
                     Column(Modifier.padding(bottom = 14.dp)) {
                         CabecaDoPerfil(
                             p = previa,
-                            alturaDoBanner = ALTURA_DO_BANNER,
                             fundoDoAnel = astraColors.base,
                             textoSemRecado = "Defina um recado",
                             aoTocarNaFoto = { if (!state.uploadingAvatar) avatarPicker.launch(imageRequest) },
@@ -184,7 +192,9 @@ fun EditarPerfilScreen(
                                     }
                                 },
                             sobreOBanner = {
-                                if (state.uploadingBanner) Enviando(Modifier.fillMaxWidth().height(ALTURA_DO_BANNER))
+                                if (state.uploadingBanner) {
+                                    Enviando(Modifier.fillMaxWidth().aspectRatio(PROPORCAO_DO_BANNER_DO_PERFIL))
+                                }
                                 SeloDeLapis(Modifier.align(Alignment.TopEnd).padding(10.dp))
                             },
                             presoAFoto = {
@@ -252,6 +262,19 @@ fun EditarPerfilScreen(
             aoRemover = viewModel::removeBanner,
             aoMudarEscala = viewModel::onBannerScale,
             aoFechar = { folhaDoBanner = false },
+        )
+    }
+
+    paraRecortar?.let { bytes ->
+        JanelaDeRecorte(
+            bytes = bytes,
+            proporcao = PROPORCAO_DO_BANNER_DO_PERFIL,
+            titulo = "Recortar banner",
+            aoAplicar = { origem, recorte ->
+                paraRecortar = null
+                viewModel.uploadBannerRecortado(origem, recorte)
+            },
+            aoFechar = { paraRecortar = null },
         )
     }
 }
@@ -410,10 +433,15 @@ private fun FolhaDoBanner(
                 MarginaliaLabel("zoom")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Slider(
-                        value = escala.toFloat().coerceIn(50f, 200f),
+                        value = escala.toFloat().coerceIn(ZOOM_MINIMO_DO_BANNER, ZOOM_MAXIMO_DO_BANNER),
                         onValueChange = { aoMudarEscala(it.toInt()) },
-                        valueRange = 50f..200f,
-                        modifier = Modifier.weight(1f),
+                        valueRange = ZOOM_MINIMO_DO_BANNER..ZOOM_MAXIMO_DO_BANNER,
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                contentDescription = "Zoom do banner"
+                                stateDescription = "$escala%"
+                            },
                     )
                     Spacer(Modifier.width(10.dp))
                     Text("$escala%", style = MaterialTheme.typography.labelMedium, color = astraColors.text3)

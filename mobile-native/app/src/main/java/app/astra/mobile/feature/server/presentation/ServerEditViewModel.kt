@@ -1,11 +1,15 @@
 package app.astra.mobile.feature.server.presentation
 
+import android.graphics.Bitmap
+import android.graphics.Rect
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.server.domain.ServerRepository
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DA_ORBITA
+import app.astra.mobile.ui.components.zoomQueCobre
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,10 +79,21 @@ class ServerEditViewModel @Inject constructor(
     fun uploadBanner(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
         viewModelScope.launch {
-            val zoom = ImageEncoder.aspectRatio(bytes)?.let(::zoomQueCobreOBanner) ?: 100
+            val zoom = ImageEncoder.aspectRatio(bytes)?.let { zoomQueCobre(it, PROPORCAO_DO_BANNER_DA_ORBITA) } ?: 100
             ImageEncoder.toDataUri(bytes, mime, BANNER_DIM, BANNER_GIF_MAX)
                 .onSuccess { uri ->
                     _state.update { it.copy(uploadingBanner = false, bannerUrl = uri, bannerPositionY = 50, bannerScale = zoom) }
+                }
+                .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
+        }
+    }
+
+    fun uploadBannerRecortado(origem: Bitmap, recorte: Rect) {
+        _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
+        viewModelScope.launch {
+            ImageEncoder.cropToDataUri(origem, recorte, BANNER_DIM)
+                .onSuccess { uri ->
+                    _state.update { it.copy(uploadingBanner = false, bannerUrl = uri, bannerPositionY = 50, bannerScale = 100) }
                 }
                 .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
         }

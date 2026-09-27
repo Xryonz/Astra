@@ -1,5 +1,7 @@
 package app.astra.mobile.feature.profile.presentation
 
+import android.graphics.Bitmap
+import android.graphics.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.FriendsApi
@@ -7,6 +9,8 @@ import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
+import app.astra.mobile.ui.components.zoomQueCobre
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +47,7 @@ class ProfileEditViewModel @Inject constructor(
         bannerColor = p.bannerColor.orEmpty(), origBannerColor = p.bannerColor.orEmpty(),
         profileTheme = p.profileTheme.orEmpty(), origProfileTheme = p.profileTheme.orEmpty(),
         bannerPositionY = p.bannerPositionY.coerceIn(0, 100), origBannerPositionY = p.bannerPositionY.coerceIn(0, 100),
-        bannerScale = p.bannerScale.coerceIn(50, 200), origBannerScale = p.bannerScale.coerceIn(50, 200),
+        bannerScale = p.bannerScale.coerceIn(ZOOM_MIN, ZOOM_MAX), origBannerScale = p.bannerScale.coerceIn(ZOOM_MIN, ZOOM_MAX),
         displayFont = p.displayFont, origDisplayFont = p.displayFont,
         customStatus = p.customStatus.orEmpty(), origCustomStatus = p.customStatus.orEmpty(),
     )
@@ -53,7 +57,7 @@ class ProfileEditViewModel @Inject constructor(
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
     fun onCorDoPerfil(css: String) = _state.update { it.copy(bannerColor = css, profileTheme = css, saved = false, error = null) }
     fun onBannerPositionY(v: Int) = _state.update { it.copy(bannerPositionY = v.coerceIn(0, 100), saved = false, error = null) }
-    fun onBannerScale(v: Int) = _state.update { it.copy(bannerScale = v.coerceIn(50, 200), saved = false, error = null) }
+    fun onBannerScale(v: Int) = _state.update { it.copy(bannerScale = v.coerceIn(ZOOM_MIN, ZOOM_MAX), saved = false, error = null) }
     fun onDisplayFont(v: String) = _state.update { it.copy(displayFont = v, saved = false, error = null) }
 
     fun uploadAvatar(bytes: ByteArray, mime: String) {
@@ -68,8 +72,22 @@ class ProfileEditViewModel @Inject constructor(
     fun uploadBanner(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
         viewModelScope.launch {
+            val zoom = ImageEncoder.aspectRatio(bytes)?.let { zoomQueCobre(it, PROPORCAO_DO_BANNER_DO_PERFIL) } ?: 100
             ImageEncoder.toDataUri(bytes, mime, BANNER_DIM, BANNER_GIF_MAX)
-                .onSuccess { uri -> _state.update { it.copy(uploadingBanner = false, bannerUrl = uri) } }
+                .onSuccess { uri ->
+                    _state.update { it.copy(uploadingBanner = false, bannerUrl = uri, bannerPositionY = 50, bannerScale = zoom) }
+                }
+                .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
+        }
+    }
+
+    fun uploadBannerRecortado(origem: Bitmap, recorte: Rect) {
+        _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
+        viewModelScope.launch {
+            ImageEncoder.cropToDataUri(origem, recorte, BANNER_DIM)
+                .onSuccess { uri ->
+                    _state.update { it.copy(uploadingBanner = false, bannerUrl = uri, bannerPositionY = 50, bannerScale = 100) }
+                }
                 .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
         }
     }
@@ -134,5 +152,7 @@ class ProfileEditViewModel @Inject constructor(
         const val BANNER_DIM = 1280
         const val AVATAR_GIF_MAX = 4_500_000
         const val BANNER_GIF_MAX = 5_500_000
+        const val ZOOM_MIN = 50
+        const val ZOOM_MAX = 300
     }
 }

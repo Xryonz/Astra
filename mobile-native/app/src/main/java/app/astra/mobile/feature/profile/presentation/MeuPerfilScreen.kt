@@ -107,7 +107,7 @@ fun MeuPerfilScreen(
                     status = p.status,
                     emblemas = estado.emblemas,
                 ),
-                alturaDoBanner = 132.dp + topo,
+                recuoDoTopo = topo,
                 textoSemRecado = "Defina um recado",
                 aoTocarNaFoto = { menuDeStatus = true },
                 rotuloDoToqueNaFoto = "mudar seu estado",

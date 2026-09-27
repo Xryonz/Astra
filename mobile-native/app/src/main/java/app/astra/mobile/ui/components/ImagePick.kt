@@ -12,6 +12,8 @@ fun readImageBytes(ctx: Context, uri: Uri?): Triple<ByteArray, String, String>? 
     return Triple(bytes, mime, "upload.${imageExt(mime)}")
 }
 
+fun ehGif(mime: String): Boolean = mime.substringBefore(';').trim().equals("image/gif", ignoreCase = true)
+
 fun imageExt(mime: String): String = when (mime.substringBefore(';').trim().lowercase()) {
     "image/gif" -> "gif"
     "image/webp" -> "webp"

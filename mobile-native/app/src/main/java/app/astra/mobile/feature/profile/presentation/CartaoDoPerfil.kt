@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -27,13 +28,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -46,6 +45,8 @@ import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.BadgeChips
 import app.astra.mobile.ui.components.BadgeUi
+import app.astra.mobile.ui.components.ImagemDoBanner
+import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.parseGradientBrush
@@ -91,41 +92,36 @@ fun FundoDoTema(tema: String?, modifier: Modifier = Modifier, conteudo: @Composa
 }
 
 @Composable
-fun BannerDoPerfil(p: PerfilVisivel, altura: Dp, modifier: Modifier = Modifier) {
+fun BannerDoPerfil(p: PerfilVisivel, modifier: Modifier = Modifier, recuoDoTopo: Dp = 0.dp) {
     val pincel = remember(p.corDoBanner) { parseGradientBrush(p.corDoBanner) }
-    Box(
-        modifier
+    Column(
+        Modifier
             .fillMaxWidth()
-            .height(altura)
-            .clipToBounds()
             .then(if (pincel != null) Modifier.background(pincel) else Modifier.background(astraColors.overlay)),
     ) {
-        if (!p.banner.isNullOrBlank()) {
-            AsyncImage(
-                model = p.banner,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = BiasAlignment(0f, (p.bannerY / 50f - 1f).coerceIn(-1f, 1f)),
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer {
-                        scaleX = p.bannerEscala / 100f
-                        scaleY = p.bannerEscala / 100f
-                    },
+        Spacer(Modifier.height(recuoDoTopo))
+        Box(
+            modifier
+                .fillMaxWidth()
+                .aspectRatio(PROPORCAO_DO_BANNER_DO_PERFIL)
+                .clipToBounds(),
+        ) {
+            if (!p.banner.isNullOrBlank()) {
+                ImagemDoBanner(p.banner, p.bannerY, p.bannerEscala)
+            }
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.38f)),
+                ),
             )
         }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.38f)),
-            ),
-        )
     }
 }
 
 @Composable
 fun CabecaDoPerfil(
     p: PerfilVisivel,
-    alturaDoBanner: Dp = 120.dp,
+    recuoDoTopo: Dp = 0.dp,
     fundoDoAnel: Color = astraColors.void,
     textoSemRecado: String? = null,
     modificadorDoBanner: Modifier = Modifier,
@@ -136,8 +132,11 @@ fun CabecaDoPerfil(
     presoAFoto: @Composable BoxScope.() -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(alturaDoBanner + LADO_DA_FOTO / 2)) {
-            BannerDoPerfil(p, alturaDoBanner, modificadorDoBanner)
+        Box(Modifier.fillMaxWidth()) {
+            Column {
+                BannerDoPerfil(p, modificadorDoBanner, recuoDoTopo)
+                Spacer(Modifier.height(LADO_DA_FOTO / 2))
+            }
             sobreOBanner()
             Row(
                 modifier = Modifier

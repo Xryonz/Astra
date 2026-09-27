@@ -70,7 +70,20 @@ fun SessionsScreen(
                     Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.sessions.forEach { s ->
+                    val (atuais, outras) = state.sessions.partition { it.current }
+                    atuais.forEach { s ->
+                        SessionCard(s = s, revoking = false, onRevoke = {})
+                    }
+                    if (others > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        EncerrarOutras(
+                            quantas = others,
+                            encerrando = state.revokingOthers,
+                            aoTocar = { confirmOthers = true },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    outras.forEach { s ->
                         SessionCard(
                             s = s,
                             revoking = state.revokingId == s.id,
@@ -89,28 +102,6 @@ fun SessionsScreen(
                     modifier = Modifier.padding(horizontal = 22.dp),
                 )
             }
-
-            if (others > 0) {
-                Spacer(Modifier.height(22.dp))
-                val shape = RoundedCornerShape(14.dp)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp)
-                        .clip(shape)
-                        .background(astraColors.raised)
-                        .border(1.dp, astraColors.danger.copy(alpha = 0.4f), shape)
-                        .clickable(enabled = !state.revokingOthers) { confirmOthers = true }
-                        .padding(horizontal = 16.dp, vertical = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (state.revokingOthers) "Encerrando…" else "Encerrar outras sessões ($others)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = astraColors.danger,
-                    )
-                }
-            }
             Spacer(Modifier.height(28.dp))
         }
     }
@@ -127,6 +118,27 @@ fun SessionsScreen(
             "Todos os outros dispositivos serão desconectados. Este aqui continua logado.",
             style = MaterialTheme.typography.bodyMedium,
             color = astraColors.text2,
+        )
+    }
+}
+
+@Composable
+private fun EncerrarOutras(quantas: Int, encerrando: Boolean, aoTocar: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.danger.copy(alpha = 0.4f), shape)
+            .clickable(enabled = !encerrando, onClick = aoTocar)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (encerrando) "Encerrando…" else "Encerrar outras sessões ($quantas)",
+            style = MaterialTheme.typography.titleMedium,
+            color = astraColors.danger,
         )
     }
 }

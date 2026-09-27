@@ -20,6 +20,24 @@ async function dataUriDeImagem(largura: number, altura: number, formato: 'png' |
   return `data:image/${formato};base64,${bytes.toString('base64')}`
 }
 
+async function dataUriDeArteChapada(largura: number, altura: number): Promise<string> {
+  const pixels = Buffer.alloc(largura * altura * 3)
+  for (let y = 0; y < altura; y++) {
+    for (let x = 0; x < largura; x++) {
+      const i = (y * largura + x) * 3
+      const bx = Math.floor(x / 8) * 8
+      const by = Math.floor(y / 8) * 8
+      pixels[i] = bx % 256
+      pixels[i + 1] = by % 256
+      pixels[i + 2] = (bx + by) % 256
+    }
+  }
+  const bytes = await sharp(pixels, { raw: { width: largura, height: altura, channels: 3 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer()
+  return `data:image/png;base64,${bytes.toString('base64')}`
+}
+
 async function medir(url: string) {
   expect(url.startsWith('/uploads/')).toBe(true)
   const arquivo = path.resolve(process.cwd(), 'uploads', url.slice('/uploads/'.length))
@@ -48,13 +66,23 @@ describe('banner em versão média', () => {
     expect(inteira.width).toBe(2560)
   })
 
-  it('banner menor que a versão média não é esticado', async () => {
+  it('arte de cores chapadas, com PNG mais leve que o WebP reduzido, também ganha versão média', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+
+    const { url, original } = await persistImagemDeExibicao(await dataUriDeArteChapada(2560, 853), LADO_DO_BANNER)
+
+    expect(original).not.toBeNull()
+    expect((await medir(url!)).width).toBe(1280)
+    expect((await medir(original!)).width).toBe(2560)
+  })
+
+  it('banner que já cabe na versão média fica só com a original, sem cópia', async () => {
     const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
 
     const { url, original } = await persistImagemDeExibicao(await dataUriDeImagem(900, 300, 'png'), LADO_DO_BANNER)
 
+    expect(original).toBeNull()
     expect((await medir(url!)).width).toBe(900)
-    if (original) expect((await medir(original)).width).toBe(900)
   })
 
   it('GIF entra inteiro, sem versão média, para não perder a animação', async () => {

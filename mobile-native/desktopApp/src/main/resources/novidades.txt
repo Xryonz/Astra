@@ -1,4 +1,4 @@
-versao 1.0.51
-A chave da sua conta deixou de acompanhar imagens de fora, como GIFs e links colados: agora ela só vai para o servidor do Astra.
-Os textos das configurações recuperaram os acentos que faltavam.
-Em Sessões, cada aparelho passa a aparecer com o nome do app e do sistema a partir do próximo login.
+versao 1.0.52
+Uma imagem que não carregou volta a tentar sozinha: depois de alguns minutos e sempre que a conexão volta.
+Fotos das pessoas das suas listas e ícones e banners das suas constelações são baixados em segundo plano, para abrir na hora.
+Banners novos passam a ser guardados num tamanho que carrega mais rápido, sem perder a qualidade na tela.

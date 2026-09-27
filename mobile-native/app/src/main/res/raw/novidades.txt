@@ -4,3 +4,5 @@ GIFs entram inteiros, já ajustados para cobrir o espaço do banner.
 O banner do perfil segue a proporção do desktop e começa abaixo da barra do sistema.
 Reduzir animações passa a valer também para janelas, avisos, carregamentos, o menu lateral e o deslizar para responder.
 Nas listas de opções, tocar em qualquer ponto da linha liga ou desliga a chave.
+Uma imagem que não carregou volta a tentar sozinha, inclusive quando a internet volta.
+No Wi-Fi, fotos das pessoas das suas listas e ícones e banners das suas constelações são baixados em segundo plano, para abrir na hora.

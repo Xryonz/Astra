@@ -184,7 +184,7 @@ fun ServerEditScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(3f)
+                        .aspectRatio(PROPORCAO_DO_BANNER_DA_ORBITA)
                         .clip(bannerShape)
                         .background(astraColors.raised)
                         .border(1.dp, astraColors.borderMid, bannerShape)
@@ -192,12 +192,7 @@ fun ServerEditScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     if (state.bannerUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = state.bannerUrl,
-                            contentDescription = null,
-                            modifier = Modifier.matchParentSize().clip(bannerShape),
-                            contentScale = ContentScale.Crop,
-                        )
+                        ImagemDoBannerDaOrbita(state.bannerUrl, state.bannerPositionY, state.bannerScale)
                     } else {
                         MarginaliaLabel("toque para escolher · 8MB · GIF anima")
                     }

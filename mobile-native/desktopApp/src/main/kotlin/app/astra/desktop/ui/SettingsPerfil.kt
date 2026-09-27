@@ -235,7 +235,7 @@ internal fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner para baixo.",
+        "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 420.dp),
     )

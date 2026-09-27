@@ -44,19 +44,17 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -67,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.feature.server.presentation.ImagemDoBannerDaOrbita
+import app.astra.mobile.feature.server.presentation.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.Viagem
@@ -74,7 +74,6 @@ import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
-import coil3.compose.AsyncImage
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Hash
@@ -89,7 +88,6 @@ private const val PREFIXO_DA_VOZ = "voz-"
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.03f
-private const val PROPORCAO_DO_BANNER = 3f
 private val CANTO_DO_CARTAO = 16.dp
 private val MARGEM_DO_CARTAO = 10.dp
 private val CANTO_DA_LINHA = RoundedCornerShape(12.dp)
@@ -458,18 +456,12 @@ private fun FaixaDoBanner(orbita: Server) {
     Box(
         Modifier
             .fillMaxWidth()
-            .aspectRatio(PROPORCAO_DO_BANNER)
+            .aspectRatio(PROPORCAO_DO_BANNER_DA_ORBITA)
             .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
             .then(fundo),
     ) {
         if (imagem != null) {
-            AsyncImage(
-                model = imagem,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                alignment = BiasAlignment(0f, orbita.bannerPositionY.coerceIn(0, 100) / 50f - 1f),
-                modifier = Modifier.fillMaxSize().scale(orbita.bannerScale.coerceIn(0, 300) / 100f),
-            )
+            ImagemDoBannerDaOrbita(imagem, orbita.bannerPositionY, orbita.bannerScale)
         }
         Box(
             Modifier.matchParentSize().background(
@@ -642,7 +634,7 @@ private fun LinhaDeQuemEstaNaVoz(pessoa: PessoaNaVoz, modifier: Modifier = Modif
                 translationX = (1f - chegada.value) * -recuo
             }
             .padding(start = 52.dp, end = 16.dp, top = 2.dp, bottom = 6.dp)
-            .semantics(mergeDescendants = true) { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
+            .clearAndSetSemantics { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AstraAvatar(pessoa.foto, pessoa.nome, size = 22)
@@ -683,7 +675,8 @@ internal fun BotaoRedondo(
                     .align(Alignment.TopEnd)
                     .clip(CircleShape)
                     .background(astraColors.accent)
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                    .clearAndSetSemantics { },
             ) {
                 ContadorQueMuda(if (marca > 9) "9+" else "$marca")
             }

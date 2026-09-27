@@ -188,12 +188,13 @@ export async function persistImagemDeExibicao(
     if (!m) return { url: original, original: null }
     const bruto = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
 
+    const { width = 0, height = 0 } = await sharp(bruto).metadata()
+    if (width <= lado && height <= lado) return { url: original, original: null }
+
     const pequeno = await sharp(bruto)
       .resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 90, effort: 6, alphaQuality: 100, smartSubsample: true })
       .toBuffer()
-
-    if (pequeno.length >= bruto.length) return { url: original, original: null }
 
     const key = `${crypto.randomBytes(16).toString('hex')}.webp`
     const url = await putAttachment(key, pequeno, 'image/webp')

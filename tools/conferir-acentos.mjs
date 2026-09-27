@@ -70,7 +70,6 @@ const PERDOADAS = new Set([
   'espaco',
   'nao',
   'nasceu escondido na bandeja — sem quadro por decisao',
-  'ja havia outro Astra aberto — este saiu',
   'voce@exemplo.com',
   'prime video',
   'media player',

@@ -1,3 +1,4 @@
-versao 1.0.50
-O Astra passa a dizer à chamada quando você está falando, e não só a quem usa o desktop.
-Com isso, quem está no celular vê o seu nome acender enquanto você fala.
+versao 1.0.51
+A chave da sua conta deixou de acompanhar imagens de fora, como GIFs e links colados: agora ela só vai para o servidor do Astra.
+Os textos das configurações recuperaram os acentos que faltavam.
+Em Sessões, cada aparelho passa a aparecer com o nome do app e do sistema a partir do próximo login.

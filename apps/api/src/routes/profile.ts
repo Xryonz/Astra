@@ -9,7 +9,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
-import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
+import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
@@ -118,7 +118,11 @@ router.patch(
       update.avatarUrl = url
       if (original !== null) update.avatarFullUrl = original
     }
-    if (bannerUrl   !== undefined) update.bannerUrl   = await persistDataUri(bannerUrl)
+    if (bannerUrl !== undefined) {
+      const { url, original } = await persistImagemDeExibicao(bannerUrl, LADO_DO_BANNER)
+      update.bannerUrl = url
+      update.bannerFullUrl = original
+    }
     if (bannerColor  !== undefined) update.bannerColor  = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme
     if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY

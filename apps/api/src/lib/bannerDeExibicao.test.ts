@@ -1,0 +1,78 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import path from 'path'
+import { promises as fs } from 'fs'
+import sharp from 'sharp'
+
+const criados: string[] = []
+
+async function carregarStorageSemBucket() {
+  vi.resetModules()
+  for (const k of ['S3_ENDPOINT', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'R2_PUBLIC_URL']) {
+    vi.stubEnv(k, '')
+  }
+  vi.stubEnv('NODE_ENV', 'development')
+  return import('./storage')
+}
+
+async function dataUriDeImagem(largura: number, altura: number, formato: 'png' | 'gif'): Promise<string> {
+  const base = sharp({ create: { width: largura, height: altura, channels: 3, background: { r: 40, g: 90, b: 160 } } })
+  const bytes = formato === 'png' ? await base.png().toBuffer() : await base.gif().toBuffer()
+  return `data:image/${formato};base64,${bytes.toString('base64')}`
+}
+
+async function medir(url: string) {
+  expect(url.startsWith('/uploads/')).toBe(true)
+  const arquivo = path.resolve(process.cwd(), 'uploads', url.slice('/uploads/'.length))
+  criados.push(arquivo)
+  return sharp(await fs.readFile(arquivo)).metadata()
+}
+
+afterEach(async () => {
+  vi.unstubAllEnvs()
+  vi.resetModules()
+  await Promise.all(criados.splice(0).map((f) => fs.unlink(f).catch(() => {})))
+})
+
+describe('banner em versão média', () => {
+  it('guarda a versão de exibição com 1280 de largura e a original inteira à parte', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+
+    const { url, original } = await persistImagemDeExibicao(await dataUriDeImagem(2560, 853, 'png'), LADO_DO_BANNER)
+
+    expect(url).not.toBeNull()
+    expect(original).not.toBeNull()
+    const media = await medir(url!)
+    const inteira = await medir(original!)
+    expect(media.width).toBe(1280)
+    expect(media.format).toBe('webp')
+    expect(inteira.width).toBe(2560)
+  })
+
+  it('banner menor que a versão média não é esticado', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+
+    const { url, original } = await persistImagemDeExibicao(await dataUriDeImagem(900, 300, 'png'), LADO_DO_BANNER)
+
+    expect((await medir(url!)).width).toBe(900)
+    if (original) expect((await medir(original)).width).toBe(900)
+  })
+
+  it('GIF entra inteiro, sem versão média, para não perder a animação', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+
+    const { url, original } = await persistImagemDeExibicao(await dataUriDeImagem(2400, 800, 'gif'), LADO_DO_BANNER)
+
+    expect(original).toBeNull()
+    expect(url!.endsWith('.gif')).toBe(true)
+    expect((await medir(url!)).width).toBe(2400)
+  })
+
+  it('endereço de fora e remoção passam intactos', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+
+    expect(await persistImagemDeExibicao('https://media.giphy.com/media/x/giphy.gif', LADO_DO_BANNER))
+      .toEqual({ url: 'https://media.giphy.com/media/x/giphy.gif', original: null })
+    expect(await persistImagemDeExibicao(null, LADO_DO_BANNER)).toEqual({ url: null, original: null })
+    expect(await persistImagemDeExibicao('', LADO_DO_BANNER)).toEqual({ url: '', original: null })
+  })
+})

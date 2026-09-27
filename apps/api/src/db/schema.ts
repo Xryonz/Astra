@@ -22,6 +22,7 @@ export const users = pgTable('User', {
   passwordHash: text('passwordHash'),
   isBot:        boolean('isBot').notNull().default(false),
   bannerUrl:    text('bannerUrl'),
+  bannerFullUrl: text('bannerFullUrl'),
   bannerColor:  text('bannerColor'),
   profileTheme: text('profileTheme'),
 
@@ -117,6 +118,7 @@ export const servers = pgTable('Server', {
   iconFullUrl: text('iconFullUrl'),
 
   bannerUrl:  text('bannerUrl'),
+  bannerFullUrl: text('bannerFullUrl'),
   bannerPositionY: integer('bannerPositionY').notNull().default(50),
   bannerScale:     integer('bannerScale').notNull().default(100),
   iconScale:       integer('iconScale').notNull().default(100),

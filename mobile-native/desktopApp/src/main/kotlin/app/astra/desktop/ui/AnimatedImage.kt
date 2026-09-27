@@ -1,6 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +18,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import app.astra.shared.AstraShared
@@ -89,22 +92,32 @@ fun AstraImage(
         )
     } else {
         val borrao by lembrarBlurhash(blurhash, proporcaoBlur)
-        AsyncImage(
-            model = url,
-            contentDescription = contentDescription,
-            modifier = modifier.drawBehind {
-                val b = borrao ?: return@drawBehind
-                drawImage(
-                    image = b,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(b.width, b.height),
-                    dstOffset = IntOffset.Zero,
-                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-                )
-            },
-            alignment = alignment,
-            contentScale = contentScale,
-        )
+        val comBorrao = modifier.drawBehind {
+            val b = borrao ?: return@drawBehind
+            drawImage(
+                image = b,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(b.width, b.height),
+                dstOffset = IntOffset.Zero,
+                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+            )
+        }
+        var falhou by remember(url, rodadaDasImagens) { mutableStateOf(false) }
+        if (falhou) {
+            Box(
+                if (contentDescription == null) comBorrao
+                else comBorrao.semantics { this.contentDescription = contentDescription },
+            )
+        } else {
+            AsyncImage(
+                model = url,
+                contentDescription = contentDescription,
+                modifier = comBorrao,
+                alignment = alignment,
+                contentScale = contentScale,
+                onError = { falhou = true },
+            )
+        }
     }
 }
 

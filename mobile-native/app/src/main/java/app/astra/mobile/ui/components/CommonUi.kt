@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
@@ -52,7 +53,7 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
         .clip(CircleShape)
         .background(astraColors.raised)
         .border(1.dp, astraColors.borderMid, CircleShape)
-    var falhou by remember(url) { mutableStateOf(false) }
+    var falhou by remember(url, RodadaDasImagens.valor) { mutableStateOf(false) }
     if (!url.isNullOrBlank() && !falhou) {
         AsyncImage(
             model = url,

@@ -28,6 +28,7 @@ import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.deeplink.PendingShare
 import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.update.CuidadorDeAtualizacao
+import app.astra.mobile.core.upload.PreCarregadorDeImagens
 import app.astra.mobile.core.voice.AvisoDeLigacao
 import app.astra.mobile.core.voice.CallService
 import app.astra.mobile.core.voice.LigacaoDeSussurro
@@ -55,11 +56,13 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var preferencesStore: PreferencesStore
     @Inject lateinit var ligacaoDeSussurro: LigacaoDeSussurro
+    @Inject lateinit var preCarregadorDeImagens: PreCarregadorDeImagens
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        preCarregadorDeImagens.iniciar()
 
         setContent {
             val prefs by preferencesStore.prefs.collectAsState(initial = AppPrefs())

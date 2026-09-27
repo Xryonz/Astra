@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.feature.profile.domain.model.MutualServer
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.AstraAvatar
@@ -295,7 +296,7 @@ fun BotaoFechar(aoFechar: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun IconeDaOrbita(orbita: MutualServer, aoTocar: () -> Unit) {
     val forma = RoundedCornerShape(10.dp)
-    var semImagem by remember(orbita.iconUrl) { mutableStateOf(orbita.iconUrl == null) }
+    var semImagem by remember(orbita.iconUrl, RodadaDasImagens.valor) { mutableStateOf(orbita.iconUrl == null) }
     Box(
         modifier = Modifier
             .size(40.dp)

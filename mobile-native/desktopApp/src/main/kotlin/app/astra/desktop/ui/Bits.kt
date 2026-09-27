@@ -43,6 +43,7 @@ import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -310,15 +311,27 @@ fun PopIn(content: @Composable () -> Unit) {
     }
 }
 
-private val urlsMortas = object : LinkedHashMap<String, Boolean>(64, 0.75f, true) {
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 512
+private val urlsMortas = object : LinkedHashMap<String, Int>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>) = size > 512
 }
 
-internal fun imagemMorreu(url: String?): Boolean =
-    url != null && synchronized(urlsMortas) { urlsMortas.containsKey(url) }
+private val rodadaAtual = mutableIntStateOf(0)
+
+internal val rodadaDasImagens: Int get() = rodadaAtual.intValue
+
+fun tentarDeNovoAsImagens() {
+    rodadaAtual.intValue++
+}
+
+internal fun imagemMorreu(url: String?): Boolean {
+    if (url == null) return false
+    val rodada = rodadaAtual.intValue
+    return synchronized(urlsMortas) { urlsMortas[url] == rodada }
+}
 
 internal fun lembrarQueMorreu(url: String?, estado: AsyncImagePainter.State) {
     if (url == null || estado !is AsyncImagePainter.State.Error) return
-    val novidade = synchronized(urlsMortas) { urlsMortas.put(url, true) == null }
-    if (novidade) RedeLog.imagemMorreu(url)
+    val rodada = rodadaAtual.intValue
+    val anterior = synchronized(urlsMortas) { urlsMortas.put(url, rodada) }
+    if (anterior != rodada) RedeLog.imagemMorreu(url)
 }

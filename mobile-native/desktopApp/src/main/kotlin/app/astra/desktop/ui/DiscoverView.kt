@@ -194,12 +194,14 @@ private fun DiscoverCard(
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect).background(Obsidian.overlay)) {
-            if (!s.bannerUrl.isNullOrBlank()) {
+            var bannerFalhou by remember(s.bannerUrl, rodadaDasImagens) { mutableStateOf(false) }
+            if (!s.bannerUrl.isNullOrBlank() && !bannerFalhou) {
                 AsyncImage(
                     model = s.bannerUrl,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    onError = { bannerFalhou = true },
                 )
             }
         }

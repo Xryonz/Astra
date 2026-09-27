@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.BuildConfig
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AstraSwitch
@@ -123,12 +124,14 @@ fun ServerEditScreen(
                         .clickable { iconPicker.launch(imageRequest) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (state.iconUrl.isNotBlank()) {
+                    var iconeFalhou by remember(state.iconUrl, RodadaDasImagens.valor) { mutableStateOf(false) }
+                    if (state.iconUrl.isNotBlank() && !iconeFalhou) {
                         AsyncImage(
                             model = state.iconUrl,
                             contentDescription = null,
                             modifier = Modifier.matchParentSize().clip(shape),
                             contentScale = ContentScale.Crop,
+                            onError = { iconeFalhou = true },
                         )
                     } else {
                         Text(

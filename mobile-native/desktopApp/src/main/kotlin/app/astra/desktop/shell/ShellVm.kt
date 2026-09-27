@@ -9,6 +9,7 @@ import app.astra.desktop.net.mensagemDaApi
 import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.profile.FotoPerdida
 import app.astra.desktop.ui.invalidateProfileCache
+import app.astra.desktop.ui.tentarDeNovoAsImagens
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceLog
 import app.astra.desktop.voice.VoiceSession
@@ -73,6 +74,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 private const val TETO_HISTORICO = 12
+private const val ESPERA_ANTES_DE_PRE_CARREGAR_MS = 5_000L
 
 class ShellVm(
     private val scope: EscopoSupervisionado,
@@ -89,6 +91,7 @@ class ShellVm(
     private val myId: String?,
     private val avisosDaConta: AvisosDaConta,
     private val botPersonaApi: BotPersonaApi,
+    private val preCarregador: PreCarregadorDeImagens,
 ) {
     private val _state = MutableStateFlow(ShellUiState())
     val state = _state.asStateFlow()
@@ -338,6 +341,16 @@ class ShellVm(
             if (finalSelection is Selection.Server) loadMembers(finalSelection.id)
             carregarPresencaDosSussurros()
             recuperarFotosPerdidas()
+            tentarDeNovoAsImagens()
+            preCarregarImagens()
+        }
+    }
+
+    private fun preCarregarImagens() {
+        scope.launch {
+            delay(ESPERA_ANTES_DE_PRE_CARREGAR_MS)
+            val st = _state.value
+            preCarregador.preCarregar(st.servers, st.dms)
         }
     }
 
@@ -1238,12 +1251,14 @@ class ShellVm(
             }
             launch {
                 socket.reconnected.collect {
+                    tentarDeNovoAsImagens()
                     reloadServers()
                     (_state.value.selection as? Selection.Server)?.id?.let { loadMembers(it) }
                     runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()?.let { dms ->
                         dms.forEach { socket.joinDm(it.id) }
                         _state.update { it.copy(dms = dms) }
                     }
+                    preCarregarImagens()
                 }
             }
             launch {

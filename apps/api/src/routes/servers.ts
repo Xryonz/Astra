@@ -17,7 +17,7 @@ import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
-import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
+import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
 import { joinedServer, serverGone, leftServer } from '../lib/realtime'
@@ -242,7 +242,11 @@ serversRouter.patch(
       patch.iconUrl = url
       if (original !== null) patch.iconFullUrl = original
     }
-    if (bannerUrl !== undefined) patch.bannerUrl = await persistDataUri(bannerUrl)
+    if (bannerUrl !== undefined) {
+      const { url, original } = await persistImagemDeExibicao(bannerUrl, LADO_DO_BANNER)
+      patch.bannerUrl = url
+      patch.bannerFullUrl = original
+    }
     if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) patch.bannerScale     = bannerScale
     if (iconScale       !== undefined) patch.iconScale       = iconScale

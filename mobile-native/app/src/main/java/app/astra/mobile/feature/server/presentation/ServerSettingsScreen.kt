@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
@@ -108,12 +109,14 @@ fun ServerSettingsScreen(
                         .border(1.dp, astraColors.borderMid, shape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (!state.iconUrl.isNullOrBlank()) {
+                    var iconeFalhou by remember(state.iconUrl, RodadaDasImagens.valor) { mutableStateOf(false) }
+                    if (!state.iconUrl.isNullOrBlank() && !iconeFalhou) {
                         AsyncImage(
                             model = state.iconUrl,
                             contentDescription = null,
                             modifier = Modifier.matchParentSize().clip(shape),
                             contentScale = ContentScale.Crop,
+                            onError = { iconeFalhou = true },
                         )
                     } else {
                         Text(

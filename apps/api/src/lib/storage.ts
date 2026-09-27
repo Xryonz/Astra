@@ -169,9 +169,11 @@ export async function persistDataUri<T extends string | null | undefined>(value:
 }
 
 const LADO_DE_EXIBICAO = 256
+export const LADO_DO_BANNER = 1280
 
 export async function persistImagemDeExibicao(
   value: string | null | undefined,
+  lado: number = LADO_DE_EXIBICAO,
 ): Promise<{ url: string | null; original: string | null }> {
   if (!value) return { url: value ?? null, original: null }
 
@@ -187,7 +189,7 @@ export async function persistImagemDeExibicao(
     const bruto = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
 
     const pequeno = await sharp(bruto)
-      .resize({ width: LADO_DE_EXIBICAO, height: LADO_DE_EXIBICAO, fit: 'inside', withoutEnlargement: true })
+      .resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 90, effort: 6, alphaQuality: 100, smartSubsample: true })
       .toBuffer()
 

@@ -25,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,7 @@ import app.astra.mobile.core.network.dto.SearchChannelDto
 import app.astra.mobile.core.network.dto.SearchMessageDto
 import app.astra.mobile.core.network.dto.SearchServerDto
 import app.astra.mobile.core.network.dto.SearchUserDto
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -180,11 +183,13 @@ private fun ServerResult(s: SearchServerDto, onClick: () -> Unit) = RowCard(onCl
         Modifier.size(40.dp).clip(shape).background(astraColors.raised).border(1.dp, astraColors.border, shape),
         contentAlignment = Alignment.Center,
     ) {
-        if (!s.iconUrl.isNullOrBlank()) {
+        var iconeFalhou by remember(s.iconUrl, RodadaDasImagens.valor) { mutableStateOf(false) }
+        if (!s.iconUrl.isNullOrBlank() && !iconeFalhou) {
             AsyncImage(
                 model = s.iconUrl, contentDescription = null,
                 modifier = Modifier.fillMaxSize().clip(shape),
                 contentScale = ContentScale.Crop,
+                onError = { iconeFalhou = true },
             )
         } else {
             Text(s.name.take(1).uppercase(), fontFamily = DmSerif, color = astraColors.accent, fontSize = 18.sp)

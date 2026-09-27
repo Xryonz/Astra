@@ -64,6 +64,7 @@ import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.shell.CacheDeConversas
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
+import app.astra.desktop.shell.PreCarregadorDeImagens
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.Obsidian
@@ -77,6 +78,7 @@ import app.astra.desktop.xp.XpStore
 import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
@@ -125,6 +127,7 @@ fun ShellScreen(
             scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
             koin.get<NotificationApi>(), koin.get<InviteApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
             koin.get<AvisosDaConta>(), koin.get<BotPersonaApi>(),
+            PreCarregadorDeImagens(koin.get<ServerApi>(), koin.get<FriendApi>()),
         )
     }
     val state by vm.state.collectAsState()

@@ -462,12 +462,14 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
         val bannerColor = me.bannerColor?.removePrefix("#")?.toLongOrNull(16)
             ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
         Box(Modifier.fillMaxWidth().height(124.dp).background(bannerColor)) {
-            if (!me.bannerUrl.isNullOrBlank()) {
+            var bannerFalhou by remember(me.bannerUrl, rodadaDasImagens) { mutableStateOf(false) }
+            if (!me.bannerUrl.isNullOrBlank() && !bannerFalhou) {
                 AsyncImage(
                     model = me.bannerUrl,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    onError = { bannerFalhou = true },
                 )
             }
         }

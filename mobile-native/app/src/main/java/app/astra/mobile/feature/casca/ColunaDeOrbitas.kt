@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.astra.mobile.R
+import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
@@ -287,7 +288,7 @@ fun ColunaDeOrbitas(
                         apagada = orbita.id in silenciadas,
                         aoTocar = { aoAbrirOrbita(orbita.id) },
                     ) {
-                        var semImagem by remember(orbita.iconUrl) { mutableStateOf(orbita.iconUrl == null) }
+                        var semImagem by remember(orbita.iconUrl, RodadaDasImagens.valor) { mutableStateOf(orbita.iconUrl == null) }
                         if (!semImagem) {
                             AsyncImage(
                                 model = orbita.iconUrl,

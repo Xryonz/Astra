@@ -44,6 +44,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.AtividadePublicador
 import app.astra.desktop.net.Servidor
 import app.astra.desktop.net.DataUriMapper
+import app.astra.desktop.net.ErroGuardadoPorPouco
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.TentativasDeInstalar
@@ -91,6 +92,7 @@ import app.astra.shared.AstraShared
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okio.Path.Companion.toPath
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
@@ -683,6 +685,7 @@ fun main(args: Array<String>) {
                     .components {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
+                        add(OkHttpNetworkFetcherFactory(cacheStrategy = { ErroGuardadoPorPouco() }))
                         add(DecodificadorNitido.Fabrica())
                     }
                     .memoryCache {

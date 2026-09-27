@@ -108,6 +108,8 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "notificationPrefs" text;
 -- futuro para o qual guardar a original.
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarFullUrl" text;
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "iconFullUrl" text;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerFullUrl" text;
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerFullUrl" text;
 
 CREATE TABLE IF NOT EXISTS "Notification" (
   "id" text PRIMARY KEY NOT NULL,

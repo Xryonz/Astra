@@ -36,8 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -239,13 +239,16 @@ private fun LinhaDeMissao(m: ItemMissaoDto, conquista: Boolean, aoResgatar: (Str
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 11.dp)
-            .semantics { contentDescription = descricaoDaMissao(m) },
+            .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Marcador(m.concluida, conquista)
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .clearAndSetSemantics { contentDescription = descricaoDaMissao(m) },
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     m.titulo,
@@ -260,8 +263,10 @@ private fun LinhaDeMissao(m: ItemMissaoDto, conquista: Boolean, aoResgatar: (Str
                     Text("${m.progresso}/${m.alvo}", fontFamily = DmMono, fontSize = 11.sp, color = astraColors.text3)
                 }
             }
-            Spacer(Modifier.height(7.dp))
-            BarraDeProgresso({ fracao.value }, m.concluida)
+            if (m.progresso > 0 || m.concluida) {
+                Spacer(Modifier.height(7.dp))
+                BarraDeProgresso({ fracao.value }, m.concluida)
+            }
         }
         Spacer(Modifier.width(12.dp))
         if (m.resgatavel) {
@@ -270,9 +275,8 @@ private fun LinhaDeMissao(m: ItemMissaoDto, conquista: Boolean, aoResgatar: (Str
                     .height(30.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(astraColors.accent)
-                    .clickable { aoResgatar(m.id) }
-                    .padding(horizontal = 12.dp)
-                    .semantics { contentDescription = "Resgatar ${m.titulo}" },
+                    .clickable(onClickLabel = "resgatar") { aoResgatar(m.id) }
+                    .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("+${m.xp}", fontFamily = DmMono, fontSize = 12.sp, color = astraColors.textInv)
@@ -283,6 +287,7 @@ private fun LinhaDeMissao(m: ItemMissaoDto, conquista: Boolean, aoResgatar: (Str
                 fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = if (m.concluida) astraColors.text3 else astraColors.accent,
+                modifier = Modifier.clearAndSetSemantics { },
             )
         }
     }
@@ -295,6 +300,7 @@ private fun descricaoDaMissao(m: ItemMissaoDto): String = buildString {
     append(m.titulo)
     append(", ")
     append(if (m.concluida) "concluída" else "${m.progresso} de ${m.alvo}")
+    append(", vale ${m.xp} de brilho")
     if (m.resgatavel) append(", pronta para resgatar")
 }
 

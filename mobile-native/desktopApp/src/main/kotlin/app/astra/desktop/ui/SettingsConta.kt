@@ -378,9 +378,14 @@ internal fun SessionsSection() {
     Spacer(Modifier.height(20.dp))
 }
 
+private val ASTRA_ANDROID = Regex("""Astra-Android/(\S+)\s*\(Android ([^;)]+)""")
+private val ASTRA_DESKTOP = Regex("""Astra-Desktop/(\S+)\s*\(([^)]+)""")
+
 private fun prettyAgent(ua: String?): String {
     val s = ua?.trim().orEmpty()
     if (s.isEmpty()) return "dispositivo desconhecido"
+    ASTRA_ANDROID.find(s)?.let { return "Astra no Android ${it.groupValues[2]}" }
+    ASTRA_DESKTOP.find(s)?.let { return "Astra no ${it.groupValues[2]}" }
     if (s.contains("Astra", true)) return s.take(48)
     val os = when {
         s.contains("Windows", true) -> "Windows"

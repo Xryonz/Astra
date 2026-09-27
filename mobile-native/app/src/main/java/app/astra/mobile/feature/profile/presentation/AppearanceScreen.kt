@@ -107,7 +107,7 @@ fun AppearanceSection(
 @Composable
 private fun PreviewBubbles(fontSize: FontSizePref, density: DensityPref) {
     val shape = RoundedCornerShape(14.dp)
-    val samples = listOf("Bora marcar a call?", "fechou, 21h então")
+    val samples = listOf("Entramos na órbita às 21h?", "Combinado. Até lá.")
     Column(Modifier.padding(horizontal = 18.dp)) {
         samples.forEachIndexed { i, text ->
             if (i > 0) Spacer(Modifier.height(density.groupedTopDp.dp + 2.dp))

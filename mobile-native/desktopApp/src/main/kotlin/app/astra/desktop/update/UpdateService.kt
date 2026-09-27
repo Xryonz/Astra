@@ -318,7 +318,7 @@ class UpdateService(private val http: OkHttpClient) {
             e is UnknownHostException -> "sem internet — tente pelo site"
             m.contains("HTTP 404") -> "essa versão ainda não está no GitHub"
             m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"
-            m.contains("space", true) || m.contains("espaco", true) -> "sem espaco em disco para atualizar"
+            m.contains("space", true) || m.contains("espaco", true) || m.contains("espaço", true) -> "sem espaço em disco para atualizar"
             m.contains("incompleto") -> "o download veio incompleto — tente de novo"
             e is IOException -> "a conexão caiu no meio — tente de novo"
             else -> "falha ao baixar — tente pelo site"
@@ -403,7 +403,7 @@ class UpdateService(private val http: OkHttpClient) {
         val obtido = md.digest().joinToString("") { "%02x".format(it) }
         if (obtido != esperado) {
             zip.delete()
-            error("o pacote baixado nao confere com o publicado")
+            error("o pacote baixado não confere com o publicado")
         }
     }
 

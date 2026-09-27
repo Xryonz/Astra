@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -119,8 +120,7 @@ private fun ConteudoDaFaixa(
             .clip(forma)
             .background(astraColors.overlay)
             .border(1.dp, astraColors.accent.copy(alpha = 0.35f), forma)
-            .clickable(onClick = aoAbrir)
-            .semantics { contentDescription = "Call em $sala, $linha. Toque para abrir." }
+            .clickable(onClickLabel = "abrir a call", onClick = aoAbrir)
             .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -128,7 +128,7 @@ private fun ConteudoDaFaixa(
             if (falando != null) {
                 AstraAvatar(falando.second, falando.first, size = 26)
             } else {
-                Text("◉", color = astraColors.accent, fontSize = 16.sp)
+                Text("◉", color = astraColors.accent, fontSize = 16.sp, modifier = Modifier.clearAndSetSemantics { })
             }
         }
         Spacer(Modifier.width(10.dp))

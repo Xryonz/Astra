@@ -41,6 +41,9 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=high
 
+      - name: Conferir acentos no texto visivel
+        run: node tools/conferir-acentos.mjs
+
 
   desktop:
     name: Desktop · compilar

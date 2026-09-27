@@ -92,7 +92,7 @@ fun FriendsScreen(
             val semMovimento = LocalAppPrefs.current.reduceMotion
 
             AstraTabs(
-                tabs = listOf("Em órbita", "Estrelas", "Pedidos"),
+                tabs = listOf("Em órbita", "Amigos", "Pedidos"),
                 counts = listOf(emOrbita.size, state.friends.size, state.incoming.size + state.outgoing.size),
                 posicao = paginas.currentPage + paginas.currentPageOffsetFraction,
                 onSelect = { i ->

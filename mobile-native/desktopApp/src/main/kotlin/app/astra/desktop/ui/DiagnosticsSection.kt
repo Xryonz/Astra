@@ -45,6 +45,13 @@ import app.astra.desktop.ui.theme.Tipo
 
 private val HORA = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
+private val PASSO_RUIM = Regex(
+    "(?iU)\\b(não|nao|caiu|negou|negado|erro|desisti|falhou|failed|ilegível|reiniciou|reiniciar)\\b" +
+        "|sem cano|sem sessão|sem quadro|sem o segredo|fora de faixa|fora de compasso|só com voz",
+)
+
+private fun passoRuim(texto: String) = PASSO_RUIM.containsMatchIn(texto)
+
 @Composable
 internal fun DiagnosticsSection() {
     val socket = remember { GlobalContext.get().get<DesktopSocket>() }
@@ -101,8 +108,7 @@ internal fun DiagnosticsSection() {
                     .padding(10.dp),
             ) {
                 passos.take(16).forEach { (at, texto) ->
-                    val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
-                        texto.contains("NEGADO") || texto.contains("FAILED")
+                    val ruim = passoRuim(texto)
                     Row {
                         Text(
                             HORA.format(Instant.ofEpochMilli(at)),
@@ -219,8 +225,7 @@ internal fun VoicePassos() {
             .padding(10.dp),
     ) {
         passos.take(12).forEach { (at, texto) ->
-            val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
-                texto.contains("NEGADO") || texto.contains("FAILED")
+            val ruim = passoRuim(texto)
             Row {
                 Text(
                     HORA.format(Instant.ofEpochMilli(at)),
@@ -334,19 +339,19 @@ private fun buildReport(
     heapMb: Long, heapMax: Long,
     events: List<Pair<Long, String>>,
 ): String = buildString {
-    appendLine("Astra — diagnostico")
-    appendLine("versao : ${System.getProperty("astra.version") ?: "dev"}")
+    appendLine("Astra — diagnóstico")
+    appendLine("versão : ${System.getProperty("astra.version") ?: "dev"}")
     appendLine("SO     : ${System.getProperty("os.name")} ${System.getProperty("os.version")}")
     appendLine("desenho: ${org.jetbrains.skiko.SkikoProperties.renderApi}")
     appendLine("heap   : ${heapMb}MB de ${heapMax}MB")
     appendLine("socket : ${if (connected) "conectado" else "DESCONECTADO"}")
-    appendLine("salas  : ${servers.size} constelacoes, ${channels.size} orbitas, ${dms.size} sussurros")
-    appendLine("saidas : ${outputs.size} -> ${outputs.take(4).joinToString()}")
+    appendLine("salas  : ${servers.size} constelações, ${channels.size} órbitas, ${dms.size} sussurros")
+    appendLine("saídas : ${outputs.size} -> ${outputs.take(4).joinToString()}")
     appendLine("entradas: ${inputs.size} -> ${inputs.take(4).joinToString()}")
     appendLine()
-    appendLine("ultima call (passo a passo):")
+    appendLine("última call (passo a passo):")
     VoiceLog.linhas().takeLast(24).forEach { (at, t) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $t") }
     appendLine()
-    appendLine("ultimos avisos:")
+    appendLine("últimos avisos:")
     events.take(20).forEach { (at, name) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $name") }
 }

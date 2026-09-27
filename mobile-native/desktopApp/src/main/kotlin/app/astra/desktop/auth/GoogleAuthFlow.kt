@@ -30,7 +30,7 @@ object GoogleAuthFlow {
             val params = parseQuery(ex.requestURI.rawQuery)
             val status = when {
                 params["nonce"] != nonce -> {
-                    complete(deferred, Result.failure(Exception("Falha de seguranca (nonce)")))
+                    complete(deferred, Result.failure(Exception("Falha de segurança (nonce)")))
                     "nonce"
                 }
                 params["refresh"] != null -> {

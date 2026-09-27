@@ -155,7 +155,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         Spacer(Modifier.height(14.dp))
 
         when {
-            loading && results.isEmpty() -> Center("procurando constelacoes…")
+            loading && results.isEmpty() -> Center("procurando constelações…")
             error != null && results.isEmpty() -> Center(error!!)
             results.isEmpty() -> DiscoverEmptyMap(query)
             else -> LazyVerticalGrid(

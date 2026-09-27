@@ -46,7 +46,7 @@ object AstraCopy {
         const val aglomerado = "Grupo privado — sem convite público"
         const val estrela = "Usuário"
         const val orbita = "Canal de texto"
-        const val orbitaVoz = "Canal de voz/video"
+        const val orbitaVoz = "Canal de voz/vídeo"
         const val cometa = "Thread — conversa derivada de uma mensagem"
         const val sussurro = "Mensagem privada 1-a-1"
     }

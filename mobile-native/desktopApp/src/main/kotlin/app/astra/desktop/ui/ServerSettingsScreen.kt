@@ -98,7 +98,7 @@ import kotlinx.coroutines.withContext
 import app.astra.desktop.ui.theme.Tipo
 
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
-    OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
+    OVERVIEW("Visão geral", "nome, imagens e convite", Lucide.Info, true),
     ROLES("Cargos", "permissões e cor do nome", Lucide.Shield, true),
     BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
     SOUNDS("Efeitos sonoros", "sons para tocar em call", Lucide.Volume2, true),

@@ -89,18 +89,18 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
     NAME_COLORS("Cores do nome", "sua cor em cada constelação", Lucide.Palette),
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
-    NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
+    NOTIFICATIONS("Notificações", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
-    APPEARANCE("Aparencia", "cores e fundo", Lucide.Palette),
+    APPEARANCE("Aparência", "cores e fundo", Lucide.Palette),
     PETS("Pets", "companheiro, cor e gestos", Lucide.PawPrint),
     ACCESSIBILITY("Acessibilidade", "leitura, contraste e movimento", Lucide.Accessibility),
-    PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
+    PERFORMANCE("Desempenho", "gráficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
-    PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
-    ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
-    BOTS("Bots", "aparencia da Sparkle e da Sparxie", Lucide.Bot),
+    PERMISSIONS("Permissões", "o que o Windows libera", Lucide.ShieldCheck),
+    ABOUT("Sobre", "versão e atualizações", Lucide.Info),
+    BOTS("Bots", "aparência da Sparkle e da Sparxie", Lucide.Bot),
     RELATOS("Relatos", "falhas enviadas pelos apps", Lucide.CircleAlert),
-    DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
+    DIAGNOSTICS("Diagnóstico", "o que o app está vendo agora", Lucide.CircleDot),
 }
 
 private val abaDeDev: Boolean =
@@ -324,7 +324,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(Modifier.height(10.dp))
                                 Text(
-                                    "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
+                                    "os avisos aparecem na bandeja só com a janela fechada ou minimizada.",
                                     style = Tipo.apoio,
                                     modifier = Modifier.widthIn(max = 460.dp),
                                 )

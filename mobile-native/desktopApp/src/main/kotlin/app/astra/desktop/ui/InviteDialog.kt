@@ -258,7 +258,7 @@ fun InvitePeopleDialog(
         Spacer(Modifier.height(7.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                DialogField(username, "@usuario", { username = it; msg = null }, submit)
+                DialogField(username, "@usuário", { username = it; msg = null }, submit)
             }
             Spacer(Modifier.width(8.dp))
             DialogButton(if (busy) "…" else "adicionar", accent = true) { submit() }

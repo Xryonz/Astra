@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,14 +46,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -63,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.feature.server.presentation.ImagemDoBannerDaOrbita
+import app.astra.mobile.feature.server.presentation.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.Viagem
@@ -70,7 +74,6 @@ import app.astra.mobile.ui.components.viajante
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
-import coil3.compose.AsyncImage
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Hash
@@ -443,26 +446,45 @@ fun PainelDeCanais(
 }
 
 @Composable
+private fun FaixaDoBanner(orbita: Server) {
+    val imagem = orbita.bannerUrl?.takeIf { it.isNotBlank() }
+    val fundo = if (imagem != null) {
+        Modifier.background(astraColors.overlay)
+    } else {
+        Modifier.background(Brush.verticalGradient(listOf(astraColors.overlay, astraColors.raised)))
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(PROPORCAO_DO_BANNER_DA_ORBITA)
+            .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+            .then(fundo),
+    ) {
+        if (imagem != null) {
+            ImagemDoBannerDaOrbita(imagem, orbita.bannerPositionY, orbita.bannerScale)
+        }
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to Color.Transparent,
+                    1f to astraColors.void.copy(alpha = 0.85f),
+                ),
+            ),
+        )
+    }
+}
+
+@Composable
 private fun Capa(orbita: Server, aoBuscar: () -> Unit, aoConvidar: (() -> Unit)?, aoAbrirAjustes: () -> Unit) {
     Column {
-        if (orbita.bannerUrl != null) {
-            AsyncImage(
-                model = orbita.bannerUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(104.dp)
-                    .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)),
-            )
-        }
+        FaixaDoBanner(orbita)
         Row(
             modifier = Modifier
                 .padding(start = 10.dp, end = 12.dp, top = 12.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = aoAbrirAjustes)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .semantics { contentDescription = "${orbita.name}, abrir ajustes da órbita" },
+                .clickable(onClickLabel = "abrir ajustes da órbita", onClick = aoAbrirAjustes)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -612,7 +634,7 @@ private fun LinhaDeQuemEstaNaVoz(pessoa: PessoaNaVoz, modifier: Modifier = Modif
                 translationX = (1f - chegada.value) * -recuo
             }
             .padding(start = 52.dp, end = 16.dp, top = 2.dp, bottom = 6.dp)
-            .semantics(mergeDescendants = true) { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
+            .clearAndSetSemantics { contentDescription = if (pessoa.souEu) "Você está nesta sala" else "${pessoa.nome} está nesta sala" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AstraAvatar(pessoa.foto, pessoa.nome, size = 22)
@@ -653,7 +675,8 @@ internal fun BotaoRedondo(
                     .align(Alignment.TopEnd)
                     .clip(CircleShape)
                     .background(astraColors.accent)
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                    .clearAndSetSemantics { },
             ) {
                 ContadorQueMuda(if (marca > 9) "9+" else "$marca")
             }

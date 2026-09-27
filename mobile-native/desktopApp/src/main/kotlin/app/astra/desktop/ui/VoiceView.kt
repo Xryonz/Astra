@@ -510,7 +510,7 @@ private fun CallSettingsPanel(
         PanelHeader("Microfone")
         SeletorDeAparelho(microfones, microfoneAtual, aoTrocarMicrofone)
         Spacer(Modifier.height(10.dp))
-        PanelHeader("Saida")
+        PanelHeader("Saída")
         SeletorDeAparelho(saidas, saidaAtual, aoTrocarSaida)
         Spacer(Modifier.height(10.dp))
         Text(
@@ -528,7 +528,7 @@ private fun SeletorDeAparelho(
     aoEscolher: (String?) -> Unit,
 ) {
     var aberto by remember { mutableStateOf(false) }
-    val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrao do Windows"
+    val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrão do Windows"
     Box {
         Row(
             Modifier
@@ -561,7 +561,7 @@ private fun SeletorDeAparelho(
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
                         .padding(4.dp),
                 ) {
-                    LinhaDeAparelho("Padrao do Windows", atual == null) {
+                    LinhaDeAparelho("Padrão do Windows", atual == null) {
                         aoEscolher(null); aberto = false
                     }
                     opcoes.forEach { ap ->

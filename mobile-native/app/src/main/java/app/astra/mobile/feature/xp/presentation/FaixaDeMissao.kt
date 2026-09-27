@@ -33,10 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,7 +100,7 @@ private fun CartaoDaMissao(m: MissaoConcluidaDto) {
             .background(astraColors.overlay)
             .border(1.dp, astraColors.accentDim, forma)
             .padding(horizontal = 14.dp, vertical = 12.dp)
-            .semantics {
+            .clearAndSetSemantics {
                 liveRegion = LiveRegionMode.Polite
                 contentDescription = "${rotuloDoTipo(m.tipo)}: ${m.titulo}, mais ${m.xp} de brilho para resgatar"
             },

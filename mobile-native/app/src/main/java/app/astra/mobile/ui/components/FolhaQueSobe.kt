@@ -180,6 +180,7 @@ fun SubirAoAbrir(estado: EstadoDaFolha) {
 fun FolhaQueSobe(
     estado: EstadoDaFolha,
     rotuloDoFundo: String,
+    escuroMaximo: Float = ESCURO_MAXIMO,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
     SemEscurecerODialogo()
@@ -190,7 +191,7 @@ fun FolhaQueSobe(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(astraColors.void.copy(alpha = ESCURO_MAXIMO * estado.visivel))
+                .background(astraColors.void.copy(alpha = escuroMaximo * estado.visivel))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { estado.fechar() }
                 .semantics { contentDescription = rotuloDoFundo },
         )

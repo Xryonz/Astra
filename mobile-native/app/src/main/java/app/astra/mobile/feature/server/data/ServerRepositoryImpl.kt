@@ -110,12 +110,15 @@ class ServerRepositoryImpl @Inject constructor(
         iconUrl: String?,
         isPublic: Boolean?,
         bannerUrl: String?,
+        bannerPositionY: Int?,
+        bannerScale: Int?,
         description: String?,
         messageRetentionDays: Int?,
     ): Result<Server> = try {
         val dto = serverApi.update(id, UpdateServerRequest(
             name = name, iconUrl = iconUrl, isPublic = isPublic,
-            bannerUrl = bannerUrl, description = description, messageRetentionDays = messageRetentionDays,
+            bannerUrl = bannerUrl, bannerPositionY = bannerPositionY, bannerScale = bannerScale,
+            description = description, messageRetentionDays = messageRetentionDays,
         )).data
             ?: return Result.failure(ApiException("Resposta inválida do servidor"))
         Result.success(dto.toDomain())
@@ -219,6 +222,8 @@ private fun ServerDto.toDomain() = Server(
     isPublic = isPublic,
     isGroup = isGroup,
     bannerUrl = bannerUrl,
+    bannerPositionY = bannerPositionY,
+    bannerScale = bannerScale,
     description = description,
     messageRetentionDays = messageRetentionDays,
     channels = channels.map {

@@ -68,14 +68,14 @@ internal fun AboutSection() {
 
     if (!updater.installed) {
         Text(
-            "atualizacoes automaticas so no app instalado (isto e um build de dev).",
+            "atualizações automáticas só no app instalado (isto é um build de dev).",
             style = Tipo.descricao,
             modifier = Modifier.widthIn(max = 460.dp),
         )
         return
     }
 
-    Text("atualizacoes", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Text("atualizações", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
         "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
@@ -85,7 +85,7 @@ internal fun AboutSection() {
     Spacer(Modifier.height(14.dp))
 
     when (val s = st) {
-        is UpdateState.Checking -> AboutStatus("procurando atualizacoes…")
+        is UpdateState.Checking -> AboutStatus("procurando atualizações…")
         is UpdateState.UpToDate -> AboutStatus(
             "você está na ${s.vista} — a mais nova publicada, conferido ${haQuantoTempo(s.conferidoEm)}",
         )
@@ -115,7 +115,7 @@ internal fun AboutSection() {
             AboutStatus(s.reason)
             if (s.releaseUrl != null) {
                 Spacer(Modifier.height(10.dp))
-                AboutButton("abrir pagina do release", accent = false) {
+                AboutButton("abrir página do release", accent = false) {
                     runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(s.releaseUrl)) }
                 }
             }

@@ -199,38 +199,38 @@ private fun writeDiagnostics() = runCatching {
     val dir = CrashLog.dataDir()
     val rt = Runtime.getRuntime()
     val txt = buildString {
-        appendLine("Astra — diagnostico de boot")
+        appendLine("Astra — diagnóstico de boot")
         appendLine("quando       : ${java.time.LocalDateTime.now()}")
-        appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
+        appendLine("versão       : ${System.getProperty("astra.version") ?: "dev"}")
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
-        appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
+        appendLine("   ^ SOFTWARE_* aqui = a CPU está desenhando cada pixel (causa de engasgo)")
         if (Arranque.modoSeguro) {
             appendLine("MODO SEGURO  : ligado — janela opaca, desenho por CPU e conversa com o Windows desligada")
             appendLine("   ^ sem bateria, sem placas, sem atividade, sem foco e sem identidade na barra")
-            appendLine("   ^ ligado porque uma abertura criou a janela e nao desenhou.")
-            appendLine("     Segue ligado ate ser desligado em Configuracoes > Diagnostico.")
+            appendLine("   ^ ligado porque uma abertura criou a janela e não desenhou.")
+            appendLine("     Segue ligado até ser desligado em Configurações > Diagnóstico.")
             appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
         }
-        appendLine("transparencia: ${if (janelaAceitaTransparencia) "aceita" else "NAO aceita — janela opaca"}")
-        appendLine("   ^ NAO aceita e janela transparente = janela invisivel, so o icone na barra")
+        appendLine("transparência: ${if (janelaAceitaTransparencia) "aceita" else "NÃO aceita — janela opaca"}")
+        appendLine("   ^ NÃO aceita e janela transparente = janela invisível, só o ícone na barra")
         appendLine("placa (pedido): ${System.getProperty("skiko.gpu.priority") ?: "auto (o Skiko decide)"}")
         Placas.todas.forEach {
-            val papel = if (it.desenhaATela) "desenha a tela" else "so renderiza"
+            val papel = if (it.desenhaATela) "desenha a tela" else "só renderiza"
             appendLine("placa        : ${it.nome} — $papel, ${if (it.dedicada) "dedicada" else "integrada"}")
         }
         Nativo.recusados().forEach { appendLine("nativo recusado: $it") }
         appendLine("GC           : ${gcName()}")
-        appendLine("heap maximo  : ${rt.maxMemory() / 1024 / 1024} MB")
-        appendLine("nucleos      : ${rt.availableProcessors()}")
+        appendLine("heap máximo  : ${rt.maxMemory() / 1024 / 1024} MB")
+        appendLine("núcleos      : ${rt.availableProcessors()}")
         appendLine("java         : ${System.getProperty("java.version")}")
         appendLine("SO           : $os ${System.getProperty("os.version")}")
         appendLine()
-        appendLine("Abriu e nao mostrou nada? arranque.txt, aqui do lado, diz ate onde chegou.")
+        appendLine("Abriu e não mostrou nada? arranque.txt, aqui do lado, diz até onde chegou.")
         appendLine("(a trilha da abertura ANTERIOR fica em arranque-anterior.txt, intacta.)")
         appendLine("Erro que a interface engoliu? saida.txt guarda tudo que o app imprimiu.")
         appendLine("Fechou sozinho? o motivo fica em falhas.txt, nesta mesma pasta.")
         appendLine("(sem falhas.txt = a JVM morreu por fora, em código nativo. O laudo é")
-        appendLine(" hs_err_pid<numero>.log, na pasta da instalação — ${pastaDaInstalacao()})")
+        appendLine(" hs_err_pid<número>.log, na pasta da instalação — ${pastaDaInstalacao()})")
         appendLine("(nem falhas.txt nem hs_err, e estava numa call? veja gst.txt, aqui do lado.)")
     }
     java.io.File(dir, "diagnostico.txt").writeText(txt)
@@ -475,21 +475,21 @@ fun main(args: Array<String>) {
         WindowsAppId.aplicar()
         Arranque.marcar("identidade no Windows aplicada")
     }
-    Arranque.marcar("instancia unica garantida")
+    Arranque.marcar("instância única garantida")
     startKoin { modules(appModule) }
-    Arranque.marcar("Koin de pe")
+    Arranque.marcar("Koin de pé")
     thread(isDaemon = true, name = "astra-diagnostico") {
         writeDiagnostics()
-        Arranque.marcar("diagnostico escrito")
+        Arranque.marcar("diagnóstico escrito")
     }
     thread(isDaemon = true, name = "astra-despedida") {
         GlobalContext.get().get<DesktopSocket>().registrarDespedida()
         Arranque.marcar("despedida registrada")
     }
     identidade.join(PRAZO_DA_IDENTIDADE_MS)
-    Arranque.marcar("entrando na composicao")
+    Arranque.marcar("entrando na composição")
     application {
-        marcoDoArranque("composicao iniciada")
+        marcoDoArranque("composição iniciada")
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         var resgate by remember { mutableStateOf(0) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
@@ -526,7 +526,7 @@ fun main(args: Array<String>) {
 
         val updater = remember { GlobalContext.get().get<UpdateService>() }
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
-        marcoDoArranque("preferencias e servicos lidos")
+        marcoDoArranque("preferências e serviços lidos")
         LaunchedEffect(Unit) {
             Obsidian.aplicarContraste(bootPrefs.altoContraste)
             Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
@@ -631,7 +631,7 @@ fun main(args: Array<String>) {
                 resizable = false,
                 alwaysOnTop = true,
             ) {
-                marcoDoArranque("portao de atualizacao na tela")
+                marcoDoArranque("portão de atualização na tela")
                 LaunchedEffect(Unit) {
                     try {
                         withFrameNanos { }
@@ -663,7 +663,7 @@ fun main(args: Array<String>) {
             remember { Vigia.janelaCriada() }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
-                Arranque.marcar("composicao da janela pronta")
+                Arranque.marcar("composição da janela pronta")
                 withFrameNanos { }
                 Arranque.desenhou()
                 Vigia.apareceu(window)

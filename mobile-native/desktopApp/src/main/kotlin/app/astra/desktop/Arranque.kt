@@ -8,7 +8,7 @@ object Arranque {
     private const val MARCA_SEGURO = "modo-seguro.txt"
     private const val RECUO = "recuo.txt"
 
-    const val MARCO_RECUOU = "ja havia outro Astra aberto — este saiu"
+    const val MARCO_RECUOU = "já havia outro Astra aberto — este saiu"
 
     const val MARCO_CHAMADO = "um segundo Astra pediu a frente — trazendo a janela"
 
@@ -39,7 +39,7 @@ object Arranque {
         }
         modoSeguro = acabouDeCair || marcaSegura.exists()
         arquivo.writeText("Astra $versao — por onde o arranque passou\n")
-        if (acabouDeCair) marcar("a abertura anterior criou a janela e NAO desenhou")
+        if (acabouDeCair) marcar("a abertura anterior criou a janela e NÃO desenhou")
         if (modoSeguro) marcar("MODO SEGURO ligado — desenho por CPU e janela opaca")
         marcar("main")
     }
@@ -65,7 +65,7 @@ object Arranque {
 
     fun recuouDeUmTravado(pid: Long) = runCatching {
         recuo.writeText(
-            "o Astra de numero $pid segurava a vaga e nao respondia — encerrado para abrir outro\n" +
+            "o Astra de número $pid segurava a vaga e não respondia — encerrado para abrir outro\n" +
                 "${java.time.LocalDateTime.now()}\n",
         )
     }

@@ -133,7 +133,7 @@ internal fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     PresetGrid(p.accentId, p.bgId) { prefs.setTheme(it.accentId, it.bgId) }
 
     SettingsDivider()
-    LabeledControl("Fundo", "liso e o padrao; a aurora e um shader animado e cobra GPU") {
+    LabeledControl("Fundo", "liso é o padrão; a aurora é um shader animado e cobra GPU") {
         SegmentedRow(FundoPref.entries.map { it.label to it }, fundoAtual(p)) { aplicarFundo(prefs, it) }
     }
     SettingsDivider()

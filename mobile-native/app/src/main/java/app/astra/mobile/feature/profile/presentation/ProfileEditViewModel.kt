@@ -51,8 +51,7 @@ class ProfileEditViewModel @Inject constructor(
     fun onBio(v: String) = _state.update { it.copy(bio = v, saved = false, error = null) }
     fun onCustomStatus(v: String) = _state.update { it.copy(customStatus = v.take(128), saved = false, error = null) }
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
-    fun onBannerColor(v: String) = _state.update { it.copy(bannerColor = v, saved = false, error = null) }
-    fun onProfileTheme(v: String) = _state.update { it.copy(profileTheme = v, saved = false, error = null) }
+    fun onCorDoPerfil(css: String) = _state.update { it.copy(bannerColor = css, profileTheme = css, saved = false, error = null) }
     fun onBannerPositionY(v: Int) = _state.update { it.copy(bannerPositionY = v.coerceIn(0, 100), saved = false, error = null) }
     fun onBannerScale(v: Int) = _state.update { it.copy(bannerScale = v.coerceIn(50, 200), saved = false, error = null) }
     fun onDisplayFont(v: String) = _state.update { it.copy(displayFont = v, saved = false, error = null) }
@@ -76,6 +75,27 @@ class ProfileEditViewModel @Inject constructor(
     }
 
     fun removeBanner() = _state.update { it.copy(bannerUrl = "", saved = false, error = null) }
+
+    fun desfazer() = _state.update {
+        it.copy(
+            avatarUrl = it.origAvatarUrl,
+            bannerUrl = it.origBannerUrl,
+            bio = it.origBio,
+            pronouns = it.origPronouns,
+            bannerColor = it.origBannerColor,
+            profileTheme = it.origProfileTheme,
+            bannerPositionY = it.origBannerPositionY,
+            bannerScale = it.origBannerScale,
+            displayFont = it.origDisplayFont,
+            customStatus = it.origCustomStatus,
+            saved = false,
+            error = null,
+        )
+    }
+
+    fun esquecerSalvo() = _state.update { it.copy(saved = false) }
+
+    fun limparErro() = _state.update { it.copy(error = null) }
 
     fun save() {
         val s = _state.value

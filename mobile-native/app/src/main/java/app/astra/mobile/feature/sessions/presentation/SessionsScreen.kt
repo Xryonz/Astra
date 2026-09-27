@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Monitor
+import com.composables.icons.lucide.Smartphone
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -66,7 +70,20 @@ fun SessionsScreen(
                     Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.sessions.forEach { s ->
+                    val (atuais, outras) = state.sessions.partition { it.current }
+                    atuais.forEach { s ->
+                        SessionCard(s = s, revoking = false, onRevoke = {})
+                    }
+                    if (others > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        EncerrarOutras(
+                            quantas = others,
+                            encerrando = state.revokingOthers,
+                            aoTocar = { confirmOthers = true },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    outras.forEach { s ->
                         SessionCard(
                             s = s,
                             revoking = state.revokingId == s.id,
@@ -85,28 +102,6 @@ fun SessionsScreen(
                     modifier = Modifier.padding(horizontal = 22.dp),
                 )
             }
-
-            if (others > 0) {
-                Spacer(Modifier.height(22.dp))
-                val shape = RoundedCornerShape(14.dp)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp)
-                        .clip(shape)
-                        .background(astraColors.raised)
-                        .border(1.dp, astraColors.danger.copy(alpha = 0.4f), shape)
-                        .clickable(enabled = !state.revokingOthers) { confirmOthers = true }
-                        .padding(horizontal = 16.dp, vertical = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (state.revokingOthers) "Encerrando…" else "Encerrar outras sessões ($others)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = astraColors.danger,
-                    )
-                }
-            }
             Spacer(Modifier.height(28.dp))
         }
     }
@@ -123,6 +118,27 @@ fun SessionsScreen(
             "Todos os outros dispositivos serão desconectados. Este aqui continua logado.",
             style = MaterialTheme.typography.bodyMedium,
             color = astraColors.text2,
+        )
+    }
+}
+
+@Composable
+private fun EncerrarOutras(quantas: Int, encerrando: Boolean, aoTocar: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.danger.copy(alpha = 0.4f), shape)
+            .clickable(enabled = !encerrando, onClick = aoTocar)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (encerrando) "Encerrando…" else "Encerrar outras sessões ($quantas)",
+            style = MaterialTheme.typography.titleMedium,
+            color = astraColors.danger,
         )
     }
 }
@@ -147,7 +163,12 @@ private fun SessionCard(s: SessionRow, revoking: Boolean, onRevoke: () -> Unit) 
                 .border(1.dp, astraColors.border, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(if (s.isMobile) "📱" else "🖥", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = if (s.isMobile) Lucide.Smartphone else Lucide.Monitor,
+                contentDescription = null,
+                tint = astraColors.text2,
+                modifier = Modifier.size(18.dp),
+            )
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

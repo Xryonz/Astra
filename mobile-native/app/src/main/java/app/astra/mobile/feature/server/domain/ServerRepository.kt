@@ -14,6 +14,8 @@ interface ServerRepository {
         iconUrl: String? = null,
         isPublic: Boolean? = null,
         bannerUrl: String? = null,
+        bannerPositionY: Int? = null,
+        bannerScale: Int? = null,
         description: String? = null,
         messageRetentionDays: Int? = null,
     ): Result<Server>

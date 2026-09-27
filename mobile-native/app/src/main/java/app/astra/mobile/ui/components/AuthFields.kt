@@ -44,6 +44,7 @@ fun EditorialField(
     onIme: () -> Unit = {},
     password: Boolean = false,
     singleLine: Boolean = true,
+    modificadorDoCampo: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
     val lineColor by animateColorAsState(
@@ -69,7 +70,7 @@ fun EditorialField(
                 onDone = { onIme() },
                 onGo = { onIme() },
             ),
-            modifier = Modifier
+            modifier = modificadorDoCampo
                 .fillMaxWidth()
                 .onFocusChanged { focused = it.isFocused },
             decorationBox = { inner ->

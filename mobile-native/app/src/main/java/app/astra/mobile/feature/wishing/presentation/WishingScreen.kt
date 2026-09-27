@@ -152,7 +152,7 @@ private fun WishCard(w: WishDto) {
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = w.author?.displayName ?: "Alguem",
+                    text = w.author?.displayName ?: "Alguém",
                     fontFamily = DmSerif,
                     style = MaterialTheme.typography.titleSmall,
                     color = astraColors.text1,

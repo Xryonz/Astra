@@ -37,7 +37,7 @@ internal class FaixaRecusada(motivo: String) : IOException(motivo)
 
 internal class DownloadInterrompido : IOException("download interrompido")
 
-private class EnderecoVencido : IOException("o endereco do arquivo venceu")
+private class EnderecoVencido : IOException("o endereço do arquivo venceu")
 
 private data class FimDoCentral(val quantas: Int, val tamanho: Long, val ondeComeca: Long)
 

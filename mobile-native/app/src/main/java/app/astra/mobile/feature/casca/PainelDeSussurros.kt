@@ -28,8 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.feature.dm.domain.model.Conversation
@@ -76,7 +74,7 @@ fun PainelDeSussurros(
                 modifier = Modifier.weight(1f),
             )
             BotaoRedondo(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar)
-            BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Amigos", aoTocar = aoAbrirAmigos, marca = pedidos)
+            BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Estrelas", aoTocar = aoAbrirAmigos, marca = pedidos)
             BotaoRedondo(icone = Lucide.Plus, rotulo = "Novo sussurro", aoTocar = aoNovoSussurro)
         }
 
@@ -142,9 +140,13 @@ private fun LinhaDeSussurro(
             .padding(horizontal = 6.dp, vertical = 2.dp)
             .clip(forma)
             .background(if (naoLido) astraColors.overlay else androidx.compose.ui.graphics.Color.Transparent)
-            .combinedClickable(onClick = aoTocar, onLongClick = { menu = true })
-            .padding(horizontal = 10.dp, vertical = 9.dp)
-            .semantics { contentDescription = "Sussurro com ${conversa.otherName}" },
+            .combinedClickable(
+                onClickLabel = "abrir o sussurro",
+                onLongClickLabel = "mais opções",
+                onClick = aoTocar,
+                onLongClick = { menu = true },
+            )
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AstraAvatar(

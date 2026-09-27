@@ -78,12 +78,6 @@ data class PerfilVisivel(
 private val LADO_DA_FOTO = 88.dp
 private val ANEL = 6.dp
 
-fun String?.comoCor(): Color? {
-    val limpo = this?.trim()?.removePrefix("#") ?: return null
-    if (limpo.length != 6) return null
-    return runCatching { Color("FF$limpo".toLong(16)) }.getOrNull()
-}
-
 @Composable
 fun FundoDoTema(tema: String?, modifier: Modifier = Modifier, conteudo: @Composable BoxScope.() -> Unit) {
     val pincel = remember(tema) { parseGradientBrush(tema) }
@@ -98,12 +92,13 @@ fun FundoDoTema(tema: String?, modifier: Modifier = Modifier, conteudo: @Composa
 
 @Composable
 fun BannerDoPerfil(p: PerfilVisivel, altura: Dp, modifier: Modifier = Modifier) {
+    val pincel = remember(p.corDoBanner) { parseGradientBrush(p.corDoBanner) }
     Box(
         modifier
             .fillMaxWidth()
             .height(altura)
             .clipToBounds()
-            .background(p.corDoBanner.comoCor() ?: astraColors.overlay),
+            .then(if (pincel != null) Modifier.background(pincel) else Modifier.background(astraColors.overlay)),
     ) {
         if (!p.banner.isNullOrBlank()) {
             AsyncImage(
@@ -135,8 +130,10 @@ fun CabecaDoPerfil(
     textoSemRecado: String? = null,
     modificadorDoBanner: Modifier = Modifier,
     aoTocarNaFoto: (() -> Unit)? = null,
+    rotuloDoToqueNaFoto: String? = null,
     aoTocarNoRecado: (() -> Unit)? = null,
     sobreOBanner: @Composable BoxScope.() -> Unit = {},
+    presoAFoto: @Composable BoxScope.() -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(alturaDoBanner + LADO_DA_FOTO / 2)) {
@@ -152,7 +149,13 @@ fun CabecaDoPerfil(
                     modifier = Modifier
                         .size(LADO_DA_FOTO + ANEL * 2)
                         .background(fundoDoAnel, CircleShape)
-                        .then(if (aoTocarNaFoto != null) Modifier.clickable(onClick = aoTocarNaFoto) else Modifier),
+                        .then(
+                            if (aoTocarNaFoto != null) {
+                                Modifier
+                                    .semantics { contentDescription = "Foto de ${p.nome}" }
+                                    .clickable(onClickLabel = rotuloDoToqueNaFoto, onClick = aoTocarNaFoto)
+                            } else Modifier,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     AstraAvatar(p.avatar, p.nome, size = LADO_DA_FOTO.value.toInt())
@@ -166,6 +169,7 @@ fun CabecaDoPerfil(
                             modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-4).dp, y = (-4).dp),
                         )
                     }
+                    presoAFoto()
                 }
                 val recado = p.recado?.takeIf { it.isNotBlank() }
                 if (recado != null || textoSemRecado != null) {

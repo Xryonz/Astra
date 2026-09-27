@@ -71,16 +71,25 @@ object ImageEncoder {
         }
     }
 
+    suspend fun aspectRatio(bytes: ByteArray): Float? = withContext(Dispatchers.Default) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+        val ratio = bounds.outWidth.toFloat() / bounds.outHeight
+        if (readOrientation(bytes) in SIDEWAYS) 1f / ratio else ratio
+    }
+
+    private fun readOrientation(bytes: ByteArray): Int = try {
+        ExifInterface(ByteArrayInputStream(bytes))
+            .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    } catch (e: Exception) {
+        ExifInterface.ORIENTATION_NORMAL
+    }
+
     private fun decodeOriented(bytes: ByteArray): Bitmap? {
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-        val orientation = try {
-            ExifInterface(ByteArrayInputStream(bytes))
-                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-        } catch (e: Exception) {
-            ExifInterface.ORIENTATION_NORMAL
-        }
         val m = Matrix()
-        when (orientation) {
+        when (readOrientation(bytes)) {
             ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
             ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
             ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
@@ -117,4 +126,10 @@ object ImageEncoder {
     }
 
     private const val TARGET_BYTES = 1_500_000
+    private val SIDEWAYS = setOf(
+        ExifInterface.ORIENTATION_ROTATE_90,
+        ExifInterface.ORIENTATION_ROTATE_270,
+        ExifInterface.ORIENTATION_TRANSPOSE,
+        ExifInterface.ORIENTATION_TRANSVERSE,
+    )
 }

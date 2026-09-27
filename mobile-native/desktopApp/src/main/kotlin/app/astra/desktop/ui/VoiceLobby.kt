@@ -67,7 +67,7 @@ fun VoiceLobby(
         Spacer(Modifier.height(4.dp))
         Text(
             when (present.size) {
-                0 -> "ninguem por aqui ainda"
+                0 -> "ninguém por aqui ainda"
                 1 -> "1 pessoa na sala"
                 else -> "${present.size} pessoas na sala"
             },
@@ -82,7 +82,7 @@ fun VoiceLobby(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 present.forEach { (uid, member) ->
-                    val name = member?.user?.displayName ?: member?.user?.username ?: "alguem"
+                    val name = member?.user?.displayName ?: member?.user?.username ?: "alguém"
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
                             Modifier

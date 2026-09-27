@@ -1,5 +1,6 @@
 package app.astra.mobile.core.di
 
+import android.os.Build
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
@@ -33,6 +34,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -55,12 +57,25 @@ object NetworkModule {
         else HttpLoggingInterceptor.Level.NONE
     }
 
+    private val IDENTIDADE_DO_APP =
+        "Astra-Android/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
+            .filter { it.code in 0x20..0x7E }
+
+    private fun identidade() = Interceptor { cadeia ->
+        cadeia.proceed(
+            cadeia.request().newBuilder()
+                .header("User-Agent", IDENTIDADE_DO_APP)
+                .build(),
+        )
+    }
+
     @Provides
     @Singleton
     fun provideOkHttp(
         authInterceptor: AuthInterceptor,
         authenticator: TokenAuthenticator,
     ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(identidade())
         .addInterceptor(authInterceptor)
         .addInterceptor(logging())
         .authenticator(authenticator)
@@ -173,6 +188,7 @@ object NetworkModule {
     @Singleton
     fun provideRefreshApi(json: Json): RefreshApi {
         val client = OkHttpClient.Builder()
+            .addInterceptor(identidade())
             .addInterceptor(logging())
             .build()
         val retrofit = Retrofit.Builder()

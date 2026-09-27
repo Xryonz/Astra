@@ -22,6 +22,11 @@ export const LoginSchema = z.object({
 
 const BANNER_COLOR_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(\s*-?\d{1,3}deg\s*,\s*#[0-9a-fA-F]{6}(?:\s*,\s*#[0-9a-fA-F]{6}){1,3}\s*\))$/
 
+const COR_OU_NENHUMA = z
+  .string()
+  .refine((v) => v === '' || BANNER_COLOR_RE.test(v), 'Cor inválida')
+  .transform((v) => (v === '' ? null : v))
+
 export const BANNER_BORDER_STYLES = [
   'none', 'aurora', 'pulse', 'ink',
   'marquee', 'glow', 'noise', 'shimmer',
@@ -43,8 +48,8 @@ export const UpdateProfileSchema = z.object({
   bio:        z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
   avatarUrl:  z.string().optional().nullable(),
   bannerUrl:  z.string().optional().nullable(),
-  bannerColor:  z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
-  profileTheme: z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
+  bannerColor:  COR_OU_NENHUMA.optional().nullable(),
+  profileTheme: COR_OU_NENHUMA.optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
   bannerScale:     z.number().int().min(50).max(300).optional(),
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),

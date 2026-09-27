@@ -81,6 +81,7 @@ playwright/.cache/
 .agents/
 .cursor/
 .windsurf/
+.mcp.json
 skills-lock.json
 CLAUDE.md
 AGENTS.md

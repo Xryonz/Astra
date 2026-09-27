@@ -16,6 +16,8 @@ data class Server(
     val isPublic: Boolean = false,
     val isGroup: Boolean = false,
     val bannerUrl: String? = null,
+    val bannerPositionY: Int = 50,
+    val bannerScale: Int = 100,
     val description: String? = null,
     val messageRetentionDays: Int? = null,
 )

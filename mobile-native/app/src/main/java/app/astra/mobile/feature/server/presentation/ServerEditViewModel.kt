@@ -43,6 +43,8 @@ class ServerEditViewModel @Inject constructor(
                                 name = s.name, origName = s.name,
                                 iconUrl = s.iconUrl.orEmpty(), origIcon = s.iconUrl.orEmpty(),
                                 bannerUrl = s.bannerUrl.orEmpty(), origBanner = s.bannerUrl.orEmpty(),
+                                bannerPositionY = s.bannerPositionY, origBannerPositionY = s.bannerPositionY,
+                                bannerScale = s.bannerScale, origBannerScale = s.bannerScale,
                                 description = s.description.orEmpty(), origDescription = s.description.orEmpty(),
                                 retentionDays = s.messageRetentionDays ?: 0, origRetention = s.messageRetentionDays ?: 0,
                                 isPublic = s.isPublic, origPublic = s.isPublic,
@@ -73,8 +75,11 @@ class ServerEditViewModel @Inject constructor(
     fun uploadBanner(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
         viewModelScope.launch {
+            val zoom = ImageEncoder.aspectRatio(bytes)?.let(::zoomQueCobreOBanner) ?: 100
             ImageEncoder.toDataUri(bytes, mime, BANNER_DIM, BANNER_GIF_MAX)
-                .onSuccess { uri -> _state.update { it.copy(uploadingBanner = false, bannerUrl = uri) } }
+                .onSuccess { uri ->
+                    _state.update { it.copy(uploadingBanner = false, bannerUrl = uri, bannerPositionY = 50, bannerScale = zoom) }
+                }
                 .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
         }
     }
@@ -89,6 +94,8 @@ class ServerEditViewModel @Inject constructor(
                 name = s.name.trim().takeIf { it != s.origName },
                 iconUrl = s.iconUrl.takeIf { it != s.origIcon },
                 bannerUrl = s.bannerUrl.takeIf { it != s.origBanner },
+                bannerPositionY = s.bannerPositionY.takeIf { it != s.origBannerPositionY },
+                bannerScale = s.bannerScale.takeIf { it != s.origBannerScale },
                 description = s.description.trim().takeIf { it != s.origDescription },
                 messageRetentionDays = s.retentionDays.takeIf { it != s.origRetention },
                 isPublic = s.isPublic.takeIf { it != s.origPublic },
@@ -100,6 +107,8 @@ class ServerEditViewModel @Inject constructor(
                             name = srv.name, origName = srv.name,
                             iconUrl = srv.iconUrl.orEmpty(), origIcon = srv.iconUrl.orEmpty(),
                             bannerUrl = srv.bannerUrl.orEmpty(), origBanner = srv.bannerUrl.orEmpty(),
+                            bannerPositionY = srv.bannerPositionY, origBannerPositionY = srv.bannerPositionY,
+                            bannerScale = srv.bannerScale, origBannerScale = srv.bannerScale,
                             description = srv.description.orEmpty(), origDescription = srv.description.orEmpty(),
                             retentionDays = srv.messageRetentionDays ?: 0, origRetention = srv.messageRetentionDays ?: 0,
                             isPublic = srv.isPublic, origPublic = srv.isPublic,

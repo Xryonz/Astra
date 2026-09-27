@@ -235,7 +235,7 @@ internal fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner para baixo.",
+        "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 420.dp),
     )
@@ -614,9 +614,9 @@ private fun HexField(selected: String?, onPick: (String) -> Unit) {
 
 private fun colorLabel(css: String?): String {
     val raw = css?.trim().orEmpty()
-    if (raw.isEmpty()) return "padrao"
+    if (raw.isEmpty()) return "padrão"
     BANNER_GRADIENTS.find { it.css == raw }?.let { return it.label.lowercase() }
-    return if (raw.startsWith("#")) raw.lowercase() else "gradiente proprio"
+    return if (raw.startsWith("#")) raw.lowercase() else "gradiente próprio"
 }
 
 @Composable

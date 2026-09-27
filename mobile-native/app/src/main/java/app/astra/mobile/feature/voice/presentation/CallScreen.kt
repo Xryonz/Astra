@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -333,31 +334,35 @@ private fun CartaoDaPessoa(p: PessoaNaTela, aoParar: (() -> Unit)?, aoTocar: (()
             .clip(forma)
             .background(astraColors.raised)
             .border(1.dp, contorno, forma)
-            .then(if (aoTocar != null) Modifier.clickable(onClick = aoTocar) else Modifier)
-            .semantics { contentDescription = descricaoDe(p) }
+            .then(if (aoTocar != null) Modifier.clickable(onClickLabel = "ver a transmissão", onClick = aoTocar) else Modifier)
             .padding(vertical = 18.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
-            if (p.falando) {
-                Box(Modifier.fillMaxSize().drawBehind { drawCircle(accent.copy(alpha = 0.16f)) })
+        Column(
+            Modifier.clearAndSetSemantics { contentDescription = descricaoDe(p) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+                if (p.falando) {
+                    Box(Modifier.fillMaxSize().drawBehind { drawCircle(accent.copy(alpha = 0.16f)) })
+                }
+                AstraAvatar(p.foto, p.nome, size = 72)
             }
-            AstraAvatar(p.foto, p.nome, size = 72)
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            when {
-                p.surdo -> IconeDeEstado(Lucide.VolumeX, astraColors.danger)
-                p.mudo -> IconeDeEstado(Lucide.MicOff, astraColors.text3)
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    p.surdo -> IconeDeEstado(Lucide.VolumeX, astraColors.danger)
+                    p.mudo -> IconeDeEstado(Lucide.MicOff, astraColors.text3)
+                }
+                if (p.transmitindo) IconeDeEstado(Lucide.ScreenShare, astraColors.text2)
+                Text(
+                    p.nome,
+                    fontSize = 13.sp,
+                    color = if (p.falando) astraColors.accent else astraColors.text2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            if (p.transmitindo) IconeDeEstado(Lucide.ScreenShare, astraColors.text2)
-            Text(
-                p.nome,
-                fontSize = 13.sp,
-                color = if (p.falando) astraColors.accent else astraColors.text2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
         if (aoParar != null) {
             Spacer(Modifier.height(10.dp))
@@ -376,7 +381,8 @@ private fun SeloDeTransmitindo() {
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(astraColors.accentDim)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+            .clearAndSetSemantics { },
     )
 }
 
@@ -408,8 +414,7 @@ private fun PalcoDaCall(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(astraColors.void)
-                .clickable(onClick = aoTelaCheia)
-                .semantics { contentDescription = "Tela de ${quem.nome}. Toque para ver em tela cheia." },
+                .clickable(onClickLabel = "ver em tela cheia", onClick = aoTelaCheia),
             contentAlignment = Alignment.Center,
         ) {
             val tela = quem.tela
@@ -459,9 +464,9 @@ private fun RostoPequeno(p: PessoaNaTela, emCartaz: Boolean, aoTocar: (() -> Uni
             .clip(forma)
             .background(if (emCartaz) astraColors.overlay else astraColors.raised)
             .border(1.dp, contorno, forma)
-            .then(if (aoTocar != null) Modifier.clickable(onClick = aoTocar) else Modifier)
-            .semantics { contentDescription = descricaoDe(p) }
-            .padding(vertical = 10.dp, horizontal = 6.dp),
+            .then(if (aoTocar != null) Modifier.clickable(onClickLabel = "ver a transmissão", onClick = aoTocar) else Modifier)
+            .padding(vertical = 10.dp, horizontal = 6.dp)
+            .clearAndSetSemantics { contentDescription = descricaoDe(p) },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AstraAvatar(p.foto, p.nome, size = 40)

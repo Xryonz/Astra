@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 MARCO_DESENHOU = "primeiro quadro desenhado"
-MARCO_RECUOU = "ja havia outro Astra aberto"
+MARCO_RECUOU = "já havia outro Astra aberto"
 MARCO_CHAMADO = "um segundo Astra pediu a frente"
 PORTA_DA_COPIA_UNICA = 47821
 CADEADO_DA_COPIA_UNICA = "Local\\Astra-copia-unica"

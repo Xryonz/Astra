@@ -1,6 +1,6 @@
 # ONDE o processador do Astra esta indo, por THREAD.
 #
-# ASCII puro (ver gst-poc.ps1 sobre aspa curva no PowerShell 5.1).
+# ASCII puro: o PowerShell 5.1 le arquivo sem BOM como ANSI e quebra com aspa curva.
 #
 # POR QUE ISTO E NAO UM PROFILER DE VERDADE:
 #

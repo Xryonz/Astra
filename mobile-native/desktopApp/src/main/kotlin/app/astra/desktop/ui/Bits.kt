@@ -62,7 +62,9 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -86,6 +88,7 @@ fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.96f,
     formaDoFoco: Shape = RoundedCornerShape(8.dp),
+    folgaDoFoco: Dp = 0.dp,
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
@@ -124,10 +127,14 @@ fun Modifier.clickScale(
             drawContent()
             if (!focado || modoDeEntrada.inputMode != InputMode.Keyboard) return@drawWithContent
             val traco = Stroke(width = 2.dp.toPx())
-            when (val contorno = formaDoFoco.createOutline(size, layoutDirection, this)) {
-                is Outline.Rectangle -> drawRect(corDoFoco, style = traco)
-                is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
-                is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
+            val folga = folgaDoFoco.toPx()
+            val area = Size(size.width + folga * 2, size.height + folga * 2)
+            translate(-folga, -folga) {
+                when (val contorno = formaDoFoco.createOutline(area, layoutDirection, this)) {
+                    is Outline.Rectangle -> drawRect(corDoFoco, size = area, style = traco)
+                    is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
+                    is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
+                }
             }
         }
 }
@@ -209,6 +216,12 @@ class MencaoClicavel {
     var abrir: (usuario: String) -> Unit = {}
 }
 val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
+
+class AcoesDoPerfil(
+    val chamar: (usuario: String, titulo: String) -> Unit = { _, _ -> },
+    val editarPerfil: () -> Unit = {},
+)
+val LocalAcoesDoPerfil = staticCompositionLocalOf { AcoesDoPerfil() }
 
 class PuloParaMensagem {
     var estaCarregada: (messageId: String) -> Boolean = { false }

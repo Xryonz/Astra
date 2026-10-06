@@ -1,6 +1,6 @@
 # QUANTO O ASTRA GASTA PARADO -- com as tres travas que faltaram na primeira vez.
 #
-# ASCII puro (ver gst-poc.ps1 sobre aspa curva no PowerShell 5.1).
+# ASCII puro: o PowerShell 5.1 le arquivo sem BOM como ANSI e quebra com aspa curva.
 #
 # POR QUE ESTE ARQUIVO EXISTE
 #

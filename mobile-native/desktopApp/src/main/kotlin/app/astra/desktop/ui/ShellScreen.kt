@@ -344,11 +344,18 @@ fun ShellScreen(
 
     val emSegundoPlano = !LocalWindowActive.current
     val cores = remember(state.members) { coresDeCargo(state.members) }
+    val acoesDoPerfil = remember(vm) {
+        AcoesDoPerfil(
+            chamar = vm::chamarNoSussurro,
+            editarPerfil = { settingsTab = SettingsTab.PROFILE; settingsOpen = true },
+        )
+    }
     CompositionLocalProvider(
         LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
         LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
         LocalCoresDeCargo provides cores,
+        LocalAcoesDoPerfil provides acoesDoPerfil,
     ) {
     Box(
         Modifier
@@ -727,7 +734,7 @@ fun ShellScreen(
     }
 }
 
-private const val USUARIO_DA_BOT = "astra_bot"
+internal const val USUARIO_DA_BOT = "astra_bot"
 
 internal val LARGURA_RAIL = 72.dp
 internal val LARGURA_SIDEBAR = 260.dp

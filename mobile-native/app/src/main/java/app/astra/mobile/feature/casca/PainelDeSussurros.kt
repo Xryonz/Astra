@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.feature.dm.domain.model.Conversation
+import app.astra.mobile.feature.home.CartaoDeAtualizacao
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
@@ -77,6 +78,8 @@ fun PainelDeSussurros(
             BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Estrelas", aoTocar = aoAbrirAmigos, marca = pedidos)
             BotaoRedondo(icone = Lucide.Plus, rotulo = "Novo sussurro", aoTocar = aoNovoSussurro)
         }
+
+        CartaoDeAtualizacao(Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 6.dp))
 
         if (sussurros.isEmpty()) {
             EmptyState(line = "Nenhum sussurro ainda", hint = "chame alguém pelo nome de usuário")

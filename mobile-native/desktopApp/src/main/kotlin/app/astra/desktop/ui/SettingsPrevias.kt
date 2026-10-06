@@ -274,7 +274,7 @@ internal fun PrivacySection(
             "vale para conversa NOVA. quem já está falando com você continua falando — " +
                 "apertar isto não cala ninguém que você já estava respondendo.",
             style = Tipo.apoio,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         Spacer(Modifier.height(10.dp))
         FiltroDeSussurro(draft.dmPrivacy) { aoMudarPerfil(draft.copy(dmPrivacy = it)) }
@@ -283,7 +283,7 @@ internal fun PrivacySection(
             "quem for barrado recebe a mesma recusa de quem foi bloqueado. não dá para " +
                 "descobrir, do outro lado, qual é o seu ajuste.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
 
         SettingsDivider()
@@ -302,27 +302,27 @@ internal fun PrivacySection(
         Text(
             "sai apenas o nome do programa, o mesmo que o Windows mostra no Gerenciador de Tarefas.",
             style = Tipo.rotulo,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         Spacer(Modifier.height(8.dp))
         Text(
             "o título da janela nunca é lido. Ele entregaria arquivo aberto, aba, endereço e busca — " +
                 "por isso navegador aparece só como “Navegando”, sem dizer qual nem o quê.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         Spacer(Modifier.height(8.dp))
         Text(
             "nada disso é guardado: some sozinho um minuto depois de você fechar o Astra, " +
                 "e desligar aqui apaga na hora.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         Spacer(Modifier.height(8.dp))
         Text(
             "desligado, o Astra nem chega a olhar qual programa está na frente.",
             style = Tipo.apoio,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
     }
 }
@@ -347,7 +347,7 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "com ele valendo: o aviso da bandeja perde nome e texto, o som de aviso não toca, " +
             "e o seu e-mail vira máscara na aba Conta.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(10.dp))
     ToggleRow(
@@ -808,7 +808,7 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
 
 @Composable
 internal fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
-    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

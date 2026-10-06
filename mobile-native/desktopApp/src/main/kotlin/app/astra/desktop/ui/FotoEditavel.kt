@@ -27,10 +27,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Pencil
 
-class AcoesDoBanner {
-    var construir: () -> List<MenuEntry> = { emptyList() }
-}
-
 class AcoesDoCartao {
     var foto: () -> List<MenuEntry> = { emptyList() }
     var banner: () -> List<MenuEntry> = { emptyList() }

@@ -70,7 +70,7 @@ internal fun AboutSection() {
         Text(
             "atualizações automáticas só no app instalado (isto é um build de dev).",
             style = Tipo.descricao,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         return
     }
@@ -80,7 +80,7 @@ internal fun AboutSection() {
     Text(
         "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(14.dp))
 
@@ -99,7 +99,7 @@ internal fun AboutSection() {
             Spacer(Modifier.height(10.dp))
             Progress(
                 s.progress,
-                Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 Obsidian.accent,
                 Obsidian.overlay,
                 6.dp,

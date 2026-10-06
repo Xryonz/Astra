@@ -149,7 +149,6 @@ val Pet.gestoDeSusto: Anim?
 
 private const val LIMITE_DE_CARINHO = 3
 
-private val RAMPA_BASE = intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836)
 private const val OPACO = 0xFF000000.toInt()
 
 enum class Pelagem(val rotulo: String, val rampa: IntArray) {

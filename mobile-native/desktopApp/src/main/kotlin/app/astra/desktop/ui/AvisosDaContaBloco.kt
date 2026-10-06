@@ -41,7 +41,7 @@ internal fun BlocoDeAjustes(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised.copy(alpha = 0.22f))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Text(
             titulo.uppercase(),
@@ -54,9 +54,9 @@ internal fun BlocoDeAjustes(
         Text(
             explicacao,
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         conteudo()
     }
 }

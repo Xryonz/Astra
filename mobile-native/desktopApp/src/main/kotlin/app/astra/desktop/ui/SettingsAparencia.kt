@@ -78,7 +78,7 @@ internal fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSel
                     .clip(RoundedCornerShape(8.dp))
                     .background(bg)
                     .clickable(interactionSource = pillSrc, indication = null) { onSelect(value) }
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
     }
@@ -92,7 +92,7 @@ internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boole
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

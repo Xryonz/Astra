@@ -109,18 +109,6 @@ val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
 
 data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
 
-private val MentionRegex = Regex("@[a-z0-9_]+", RegexOption.IGNORE_CASE)
-
-fun mentionAnnotated(text: String, accent: Color) = buildAnnotatedString {
-    var last = 0
-    for (m in MentionRegex.findAll(text)) {
-        if (m.range.first > last) append(text.substring(last, m.range.first))
-        withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Medium)) { append(m.value) }
-        last = m.range.last + 1
-    }
-    if (last < text.length) append(text.substring(last))
-}
-
 private val CodeBlockRegex = Regex("```[a-zA-Z0-9]*\\n?([\\s\\S]*?)```")
 private val InlineTokenRegex = Regex("(`[^`\\n]+`)|(@[a-z0-9_]+)", RegexOption.IGNORE_CASE)
 

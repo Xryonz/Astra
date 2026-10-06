@@ -135,6 +135,9 @@ class UpdateService(private val http: OkHttpClient) {
             val tamanho = alvo.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
             if (alvo.deleteRecursively()) liberado += tamanho
         }
+        if (Instalacao.raiz == null && !baixando.get()) {
+            Instalacao.pastaDosZips()?.takeIf { it.list()?.isEmpty() == true }?.delete()
+        }
         Trocador.limparRoteiros()
         return liberado
     }

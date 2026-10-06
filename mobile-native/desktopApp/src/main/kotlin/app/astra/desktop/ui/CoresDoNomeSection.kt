@@ -79,7 +79,7 @@ internal fun CoresDoNomeSection(me: ProfileUserDto?) {
     Text(
         "sua cor vale por constelação — o mesmo nome pode ter cores diferentes em cada uma.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(14.dp))
 
@@ -88,7 +88,7 @@ internal fun CoresDoNomeSection(me: ProfileUserDto?) {
         lista == null -> Text("carregando…", style = Tipo.descricao)
         lista.isEmpty() -> Text("você ainda não está em nenhuma constelação.", style = Tipo.descricao)
         else -> Column(
-            Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+            Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             lista.filterNot { it.isGroup }.forEach { srv ->
@@ -174,7 +174,7 @@ private fun LinhaDeConstelacao(
                 .clickScale(interacao)
                 .hoverable(interacao)
                 .clickable(interactionSource = interacao, indication = null, onClick = aoAlternar)
-                .padding(horizontal = 14.dp, vertical = 11.dp),
+                .padding(horizontal = 18.dp, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DesktopAvatar(servidor.iconUrl, servidor.name, 26)

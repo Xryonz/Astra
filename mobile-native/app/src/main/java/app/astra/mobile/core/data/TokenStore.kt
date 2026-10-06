@@ -34,10 +34,6 @@ class TokenStore @Inject constructor(
         dataStore.edit { it[userIdKey] = id }
     }
 
-    suspend fun setAccess(access: String) {
-        dataStore.edit { it[accessKey] = access }
-    }
-
     suspend fun clear() {
         dataStore.edit { it.remove(accessKey); it.remove(refreshKey); it.remove(userIdKey) }
     }

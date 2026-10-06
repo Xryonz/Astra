@@ -10,19 +10,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,16 +27,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -49,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -57,8 +49,6 @@ import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.MemberRoleDto
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.MessageCircle
 import org.koin.core.context.GlobalContext
 
 private const val CACHE_MS = 5 * 60_000L
@@ -107,6 +97,7 @@ fun ProfileAnchor(
 ) {
     var open by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
+    val acoes = LocalAcoesDoPerfil.current
     val densidade = LocalDensity.current
     val posicao = remember(densidade) {
         with(densidade) { AoLadoDaAncora(folgaPx = 12.dp.roundToPx(), margemPx = 12.dp.roundToPx()) }
@@ -132,6 +123,8 @@ fun ProfileAnchor(
                         open = false
                         onStartDm(u, t)
                     },
+                    onChamar = { u, t -> open = false; acoes.chamar(u, t) },
+                    onEditarPerfil = { open = false; acoes.editarPerfil() },
                     onOpenFull = { open = false; full = true },
                     entraPelaDireita = entraPelaDireita,
                 )
@@ -157,6 +150,7 @@ fun ProfileCardNoPonto(
     onClose: () -> Unit,
 ) {
     var full by remember(userId) { mutableStateOf(false) }
+    val acoes = LocalAcoesDoPerfil.current
     if (!full) {
         Popup(
             popupPositionProvider = remember(at) { AtPointer(at) },
@@ -168,6 +162,8 @@ fun ProfileCardNoPonto(
                 isMe = isMe,
                 cargos = emptyList(),
                 onStartDm = { u, t -> onStartDm(u, t) },
+                onChamar = { u, t -> onClose(); acoes.chamar(u, t) },
+                onEditarPerfil = { onClose(); acoes.editarPerfil() },
                 onOpenFull = { full = true },
             )
         }
@@ -187,6 +183,8 @@ private fun ProfilePopupCard(
     isMe: Boolean,
     cargos: List<MemberRoleDto>,
     onStartDm: (String, String) -> Unit,
+    onChamar: (String, String) -> Unit,
+    onEditarPerfil: () -> Unit,
     onOpenFull: () -> Unit,
     entraPelaDireita: Boolean = false,
 ) {
@@ -233,44 +231,51 @@ private fun ProfilePopupCard(
                 servidoresEmComum = v.mutualServers,
                 amigosEmComum = v.mutualFriends,
                 cargos = cargos,
-                acoesNoBanner = if (isMe) null else {
-                    {
-                        AcaoRedonda(Lucide.MessageCircle, "Enviar sussurro") {
-                            onStartDm(p.username, p.displayName ?: p.username)
+            ) {
+                val nome = p.displayName ?: p.username
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (isMe) {
+                        BotaoDoCartao("editar perfil", principal = true, Modifier.weight(1f), onEditarPerfil)
+                    } else {
+                        BotaoDoCartao("sussurrar", principal = true, Modifier.weight(1f)) {
+                            onStartDm(p.username, nome)
+                        }
+                        if (p.username != USUARIO_DA_BOT) {
+                            BotaoDoCartao("chamar", principal = false, Modifier.weight(1f)) {
+                                onChamar(p.username, nome)
+                            }
                         }
                     }
-                },
-            ) {
-                val fullSrc = remember { MutableInteractionSource() }
-                Text(
-                    "ver perfil completo",
-                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, textAlign = TextAlign.Center),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickScale(fullSrc)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                        .clickable(interactionSource = fullSrc, indication = null, onClick = onOpenFull)
-                        .padding(vertical = 8.dp),
-                    maxLines = 1,
-                )
+                }
+                Spacer(Modifier.height(8.dp))
+                BotaoDoCartao("ver perfil completo", principal = false, Modifier.fillMaxWidth(), onOpenFull)
             }
         }
     }
 }
 
 @Composable
-private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit) {
+private fun BotaoDoCartao(rotulo: String, principal: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .clickScale(src, formaDoFoco = FormaDeBotao)
-            .clip(FormaDeBotao)
-            .background(Obsidian.void.copy(alpha = 0.5f))
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(icone, tint = Obsidian.text2, size = 15.dp, rotulo = rotulo, modifier = Modifier.padding(5.dp))
-    }
+    val forma = RoundedCornerShape(8.dp)
+    Text(
+        rotulo,
+        style = TextStyle(
+            color = if (principal) Obsidian.void else Obsidian.text1,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        ),
+        modifier = modifier
+            .clickScale(src, formaDoFoco = RoundedCornerShape(11.dp), folgaDoFoco = 3.dp)
+            .clip(forma)
+            .then(
+                if (principal) Modifier.background(Obsidian.accent)
+                else Modifier.border(1.dp, Obsidian.borderMid, forma)
+            )
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(vertical = 9.dp),
+        maxLines = 1,
+    )
 }
 

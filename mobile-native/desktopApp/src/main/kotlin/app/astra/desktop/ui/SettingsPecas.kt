@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -189,7 +190,6 @@ internal fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, 
 internal fun PasswordField(placeholder: String, value: String, onChange: (String) -> Unit) {
     Box(
         Modifier
-            .widthIn(max = 420.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised)
@@ -280,7 +280,6 @@ internal fun DeviceDropdown(
     Box {
         Row(
             Modifier
-                .widthIn(max = 460.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
@@ -291,7 +290,7 @@ internal fun DeviceDropdown(
                 )
                 .hoverable(hov)
                 .clickable { open = !open }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -307,14 +306,14 @@ internal fun DeviceDropdown(
         if (open) {
             Popup(
                 alignment = Alignment.TopStart,
-                offset = IntOffset(0, 46),
+                offset = IntOffset(0, with(LocalDensity.current) { 52.dp.roundToPx() }),
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
                 Column(
                     Modifier
                         .popupReveal()
-                        .widthIn(min = 240.dp, max = 460.dp)
+                        .widthIn(min = 240.dp, max = 640.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Obsidian.overlay)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
@@ -397,13 +396,12 @@ internal fun InfoNote(title: String, body: String) {
     var open by remember { mutableStateOf(false) }
     Column(
         Modifier
-            .widthIn(max = 460.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(9.dp))
             .background(Obsidian.overlay.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
             .clickable { open = !open }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LIcon(Lucide.Info, tint = Obsidian.accent, size = 14.dp)

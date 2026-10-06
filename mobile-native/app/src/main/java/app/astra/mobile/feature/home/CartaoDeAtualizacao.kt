@@ -56,7 +56,8 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
         enter = if (semMovimento) fadeIn(tween(120)) else fadeIn(tween(220)) + expandVertically(tween(220)),
         exit = if (semMovimento) fadeOut(tween(90)) else fadeOut(tween(160)) + shrinkVertically(tween(200)),
     ) {
-        val (titulo, texto, acao) = when (val a = mostrado) {
+        val atual = mostrado ?: return@AnimatedVisibility
+        val (titulo, texto, acao) = when (val a = atual) {
             AvisoDeAtualizacao.PedirPermissao -> Triple(
                 "Atualizações automáticas",
                 "Libere a instalação para o Astra se manter atualizado sozinho.",
@@ -73,7 +74,6 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
                     ?: "A instalação automática da versão ${a.versao} falhou duas vezes. Baixe pela página da versão.",
                 "Abrir página",
             )
-            null -> return@AnimatedVisibility
         }
 
         val forma = RoundedCornerShape(8.dp)
@@ -96,7 +96,7 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
                 AstraButton(
                     text = acao,
                     onClick = {
-                        when (val a = mostrado) {
+                        when (val a = atual) {
                             AvisoDeAtualizacao.PedirPermissao -> runCatching {
                                 contexto.startActivity(
                                     Intent(
@@ -107,7 +107,6 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
                             }
                             is AvisoDeAtualizacao.Pronta -> CuidadorDeAtualizacao.instalarAgora(contexto)
                             is AvisoDeAtualizacao.Falhou -> runCatching { navegador.openUri(a.pagina) }
-                            null -> Unit
                         }
                     },
                 )

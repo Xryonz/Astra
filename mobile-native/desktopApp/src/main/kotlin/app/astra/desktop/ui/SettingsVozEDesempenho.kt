@@ -51,10 +51,10 @@ internal fun PermissionsSection(onTestarAviso: () -> Unit) {
     Text(
         "o Windows decide o que cada programa pode usar — e quando ele bloqueia, não avisa: o microfone entrega silêncio, o aviso não aparece, a call não conecta. aqui é possível ver o que está liberado e liberar o que faltar.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 560.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(16.dp))
-    PainelDePermissoes(onTestarAviso = onTestarAviso, modifier = Modifier.widthIn(max = 560.dp))
+    PainelDePermissoes(onTestarAviso = onTestarAviso, modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(20.dp))
     InfoNote(
         "Por que não aparece a caixa de \"permitir\"",
@@ -116,7 +116,7 @@ internal fun VoiceSection(
         Text(
             "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: silêncio. a lista abaixo mostra até onde chegou — a etapa que faltar é a culpada.",
             style = Tipo.apoio,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         Spacer(Modifier.height(10.dp))
         VoicePassos()
@@ -128,7 +128,7 @@ internal fun VoiceSection(
     Text(
         "\"padrão do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(10.dp))
     LaunchedEffect(Unit) { aparelhos.listar() }
@@ -146,7 +146,7 @@ internal fun VoiceSection(
     Text(
         "os dois só abaixam. para uma pessoa específica, use o botão direito no cartão dela na chamada.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
 
     SettingsDivider()
@@ -168,7 +168,7 @@ internal fun VoiceSection(
                 "é isto que precisa voltar."
         },
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(12.dp))
     MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
@@ -177,7 +177,7 @@ internal fun VoiceSection(
         "os ajustes do microfone valem na hora, mesmo com a call aberta — o som corta " +
             "por um instante enquanto o microfone reabre.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
 }
 
@@ -205,7 +205,7 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
                     .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, RoundedCornerShape(10.dp))
                     .hoverable(interaction)
                     .clickable { onSelect(value) }
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                    .padding(horizontal = 18.dp, vertical = 15.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LIcon(
@@ -256,7 +256,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
     Text(
         "a transparência da janela só aplica ao reiniciar o app.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
 
     Spacer(Modifier.height(6.dp))
@@ -320,10 +320,10 @@ private fun ArranqueComWindows(arranque: RascunhoDoArranque) {
 
 @Composable
 internal fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Text(title, style = Tipo.corpo)
         Text(sub, style = Tipo.apoio)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         content()
     }
 }

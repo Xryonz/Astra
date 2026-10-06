@@ -286,16 +286,6 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(screenQuality = v) }
     }
 
-    fun setAccent(id: String) {
-        anotar("accentId", id)
-        _state.update { it.copy(accentId = id) }
-    }
-
-    fun setBg(id: String) {
-        anotar("bgId", id)
-        _state.update { it.copy(bgId = id) }
-    }
-
     fun setTheme(accentId: String, bgId: String) {
         anotar("accentId", accentId)
         anotar("bgId", bgId)

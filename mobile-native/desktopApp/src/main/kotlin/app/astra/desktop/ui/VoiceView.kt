@@ -619,38 +619,6 @@ private fun PanelHeader(text: String) {
     )
 }
 
-@Composable
-private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPick: (T) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.base)
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        options.forEach { (label, value) ->
-            val on = value == selected
-            val bg by animateColorAsState(
-                if (on) Obsidian.accent.copy(alpha = 0.16f) else Obsidian.base.copy(alpha = 0f),
-                tween(140),
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(bg)
-                    .border(1.dp, if (on) Obsidian.accent.copy(alpha = 0.5f) else Obsidian.borderDim.copy(alpha = 0f), RoundedCornerShape(6.dp))
-                    .clickable { onPick(value) }
-                    .padding(vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text2, fontSize = 12.sp))
-            }
-        }
-    }
-}
-
 private const val FIREWALL_DISPENSADO = "firewall:dispensado"
 
 @Composable

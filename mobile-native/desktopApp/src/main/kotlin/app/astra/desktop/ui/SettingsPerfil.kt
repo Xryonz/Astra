@@ -113,7 +113,6 @@ internal fun ProfileSection(
         Text(
             "lendo a imagem…",
             style = Tipo.rotulo,
-            modifier = Modifier.widthIn(max = 460.dp),
         )
     }
     SideEffect {
@@ -237,7 +236,7 @@ internal fun ProfileSection(
     Text(
         "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 420.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
 
     SettingsDivider()
@@ -246,7 +245,7 @@ internal fun ProfileSection(
 
     SettingsDivider()
     FieldLabel("recado")
-    Row(Modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         StatusEmojiButton(draft.statusEmoji) { onChange(draft.copy(statusEmoji = it)) }
         Spacer(Modifier.width(8.dp))
         Box(
@@ -318,7 +317,7 @@ private const val ZOOM_MAX = 300
 @Composable
 internal fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) {
     Row(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -370,7 +369,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     val faixa = (ZOOM_MAX - ZOOM_MIN).toFloat()
     val pct = ((scale - ZOOM_MIN) / faixa).coerceIn(0f, 1f)
     Row(
-        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
@@ -496,7 +495,6 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
     Box {
         Row(
             Modifier
-                .widthIn(max = 420.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
@@ -622,7 +620,7 @@ private fun colorLabel(css: String?): String {
 @Composable
 private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
     Column(
-        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         BANNER_GRADIENTS.chunked(6).forEach { row ->
@@ -659,7 +657,6 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     Box {
         Row(
             Modifier
-                .widthIn(max = 420.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
@@ -748,7 +745,6 @@ internal fun ProfileField(
     FieldLabel(label)
     Box(
         Modifier
-            .widthIn(max = 420.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised)

@@ -635,97 +635,99 @@ fun ChatView(
                 draft = ""
             }
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
-            if (candidatos.isNotEmpty() && matches.isEmpty()) {
-                MencaoPalette(candidatos) { escolhido ->
-                    val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
-                    draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+            Column(Modifier.fillMaxWidth().then(lugarDoPetNoCampo())) {
+                if (candidatos.isNotEmpty() && matches.isEmpty()) {
+                    MencaoPalette(candidatos) { escolhido ->
+                        val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
+                        draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+                    }
+                    Spacer(Modifier.height(6.dp))
+                } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
+                    EmojiPalette(emojiCandidatos) { escolhido ->
+                        val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
+                        draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
+                    }
+                    Spacer(Modifier.height(6.dp))
                 }
-                Spacer(Modifier.height(6.dp))
-            } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
-                EmojiPalette(emojiCandidatos) { escolhido ->
-                    val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
-                    draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
+                CommandPalette(matches) { picked ->
+                    draft = picked.name.substringBefore(" <") + " "
                 }
-                Spacer(Modifier.height(6.dp))
-            }
-            CommandPalette(matches) { picked ->
-                draft = picked.name.substringBefore(" <") + " "
-            }
-            if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-            val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .marcoDoTour(Marco.ESCREVER)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Obsidian.raised)
-                    .border(
-                        1.dp,
-                        if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
-                        RoundedCornerShape(12.dp),
+                if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .marcoDoTour(Marco.ESCREVER)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Obsidian.raised)
+                        .border(
+                            1.dp,
+                            if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ComposerPlusButton(
+                        onPickFiles = vm::addFiles,
+                        onCriarEnquete = if (isChannel) ({ enqueteAberta = true }) else null,
                     )
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ComposerPlusButton(
-                    onPickFiles = vm::addFiles,
-                    onCriarEnquete = if (isChannel) ({ enqueteAberta = true }) else null,
-                )
-                Spacer(Modifier.width(4.dp))
-                Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
-                    if (draft.isEmpty()) {
-                        Text(
-                            placeholder,
-                            style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
+                        if (draft.isEmpty()) {
+                            Text(
+                                placeholder,
+                                style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        BasicTextField(
+                            value = draft,
+                            onValueChange = {
+                                draft = it.take(4000)
+                                if (it.isNotBlank()) vm.typing()
+                            },
+                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
+                            cursorBrush = SolidColor(Obsidian.accent),
+                            maxLines = 8,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { composerFocused = it.isFocused }
+                                .onPreviewKeyEvent { e ->
+                                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                                        submit(); true
+                                    } else false
+                                },
                         )
                     }
-                    BasicTextField(
-                        value = draft,
-                        onValueChange = {
-                            draft = it.take(4000)
-                            if (it.isNotBlank()) vm.typing()
-                        },
-                        textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
-                        cursorBrush = SolidColor(Obsidian.accent),
-                        maxLines = 8,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { composerFocused = it.isFocused }
-                            .onPreviewKeyEvent { e ->
-                                if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                                    submit(); true
-                                } else false
-                            },
-                    )
-                }
-                if (draft.length > 3600) {
-                    Text(
-                        "${4000 - draft.length}",
-                        style = TextStyle(
-                            color = if (draft.length >= 4000) Obsidian.danger else Obsidian.text3,
-                            fontSize = 11.sp,
-                        ),
-                    )
+                    if (draft.length > 3600) {
+                        Text(
+                            "${4000 - draft.length}",
+                            style = TextStyle(
+                                color = if (draft.length >= 4000) Obsidian.danger else Obsidian.text3,
+                                fontSize = 11.sp,
+                            ),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
                     Spacer(Modifier.width(4.dp))
-                }
-                ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
-                Spacer(Modifier.width(4.dp))
-                if (serverId != null) {
+                    if (serverId != null) {
+                        ComposerPickerButton(
+                            Seletor.FIGURINHA,
+                            serverId = serverId,
+                            onPickSticker = vm::sendSticker,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
                     ComposerPickerButton(
-                        Seletor.FIGURINHA,
-                        serverId = serverId,
-                        onPickSticker = vm::sendSticker,
+                        Seletor.EMOJI,
+                        onPickEmoji = { draft = (draft + it).take(4000) },
+                        emojisDaSala = emojisDaSala.lista,
                     )
                     Spacer(Modifier.width(4.dp))
+                    SendButton(enabled = canSend) { submit() }
                 }
-                ComposerPickerButton(
-                    Seletor.EMOJI,
-                    onPickEmoji = { draft = (draft + it).take(4000) },
-                    emojisDaSala = emojisDaSala.lista,
-                )
-                Spacer(Modifier.width(4.dp))
-                SendButton(enabled = canSend) { submit() }
             }
         }
     }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -50,6 +49,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.AvisosNaTela
 import app.astra.desktop.EscopoSupervisionado
@@ -428,7 +428,7 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
-        Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
+        Column(Modifier.larguraDaColunaDasOrbitas().fillMaxHeight()) {
         Row(Modifier.weight(1f)) {
         Rail(
             servers = state.servers,
@@ -578,7 +578,7 @@ fun ShellScreen(
             caminho = caminhoDaChamada,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .width(LARGURA_RAIL + LARGURA_SIDEBAR)
+                .larguraDaColunaDasOrbitas()
                 .height(ALTURA_DO_RODAPE)
                 .marcoDoTour(Marco.VOZ),
         )
@@ -591,6 +591,8 @@ fun ShellScreen(
             petId = prefs.state.value.petTipo,
             pelagem = prefs.state.value.petPelagem,
             nome = prefs.state.value.petNome,
+            noCampo = prefs.state.value.petNoCampo,
+            aoMudarDeLugar = prefs::setPetNoCampo,
         )
 
         val cfgServer = state.selectedServer
@@ -737,11 +739,22 @@ fun ShellScreen(
 internal const val USUARIO_DA_BOT = "astra_bot"
 
 internal val LARGURA_RAIL = 72.dp
-internal val LARGURA_SIDEBAR = 260.dp
+private val LARGURA_SIDEBAR = 260.dp
+private val LARGURA_SIDEBAR_MAXIMA = 320.dp
+private val ONDE_A_SIDEBAR_COMECA_A_CRESCER = 1280.dp
+private const val CRESCIMENTO_DA_SIDEBAR = 0.15f
 private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
 private val ALTURA_DO_RODAPE = 62.dp
 
 internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
     this.background(bg.copy(alpha = alpha))
+
+private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
+    val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)
+        .coerceIn(LARGURA_SIDEBAR, LARGURA_SIDEBAR_MAXIMA)
+    val largura = (LARGURA_RAIL + sidebar).roundToPx().coerceIn(limites.minWidth, limites.maxWidth)
+    val medido = medivel.measure(limites.copy(minWidth = largura, maxWidth = largura))
+    layout(medido.width, medido.height) { medido.place(0, 0) }
+}
 

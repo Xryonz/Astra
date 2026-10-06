@@ -79,6 +79,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val petPelagem: String = "LARANJA",
         val petTipo: String = "SIMPLES",
         val petNome: String = "",
+        val petNoCampo: Boolean = false,
         val modoTransmissao: Boolean = false,
         val modoTransmissaoAuto: Boolean = false,
         val micNoiseSuppression: Boolean = true,
@@ -191,6 +192,7 @@ class DesktopPrefs(private val store: SessionStore) {
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
         petTipo = store.uiPref("petTipo") ?: store.uiPref("petBicho") ?: "SIMPLES",
         petNome = store.uiPref("petNome") ?: "",
+        petNoCampo = store.uiPref("petNoCampo") == "1",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
@@ -341,6 +343,11 @@ class DesktopPrefs(private val store: SessionStore) {
         val limpo = v.trim().take(16)
         anotar("petNome", limpo)
         _state.update { it.copy(petNome = limpo) }
+    }
+
+    fun setPetNoCampo(v: Boolean) {
+        store.setUiPref("petNoCampo", if (v) "1" else "0")
+        _state.update { it.copy(petNoCampo = v) }
     }
 
     fun setMicNoiseSuppression(v: Boolean) {

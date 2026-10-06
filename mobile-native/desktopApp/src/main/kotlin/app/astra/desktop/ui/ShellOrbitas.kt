@@ -152,7 +152,7 @@ internal fun Sidebar(
 ) {
     var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
     Column(
-        Modifier.width(LARGURA_SIDEBAR).fillMaxHeight()
+        Modifier.fillMaxWidth().fillMaxHeight()
             .panelSurface(Obsidian.base, 0.62f)
             .marcoDoTour(Marco.CANAIS),
     ) {

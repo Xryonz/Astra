@@ -1,6 +1,6 @@
 type Autor = { displayName?: string | null; avatarUrl?: string | null } | null | undefined
 
-const DISCO_APAGADO = '/uploads/'
+export const DISCO_APAGADO = '/uploads/'
 
 export function fotoViva(foto: string | null | undefined): string | null {
   if (!foto || foto.startsWith(DISCO_APAGADO)) return null

@@ -19,6 +19,7 @@ import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { getBotId } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
 import { entregarSussurro } from '../lib/realtime'
+import { semAnexosPerdidos } from '../lib/anexosPerdidos'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -226,7 +227,7 @@ export function createDMRouter(io: SocketServer) {
 
       const shaped = items.map((m) => ({
         ...m,
-        attachments: safeJson<unknown[]>(m.attachments, []),
+        attachments: semAnexosPerdidos(safeJson<unknown[]>(m.attachments, [])),
         call:        m.call ? safeJson<unknown>(m.call, null) : null,
         replyTo:     m.replyToId ? replyMap.get(m.replyToId) ?? null : null,
       }))

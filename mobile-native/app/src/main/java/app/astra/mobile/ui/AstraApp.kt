@@ -118,7 +118,7 @@ private fun NavGraphBuilder.tela(
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entrada ->
     val cena = this
-    Box(Modifier.fillMaxSize().background(astraColors.void)) { cena.content(entrada) }
+    CosmicBackdrop(interactive = true) { cena.content(entrada) }
 }
 
 private object Routes {

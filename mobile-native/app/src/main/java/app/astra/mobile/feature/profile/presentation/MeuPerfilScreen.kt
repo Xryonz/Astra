@@ -80,7 +80,7 @@ fun MeuPerfilScreen(
     var menuDeStatus by remember { mutableStateOf(false) }
     val p = estado.perfil
 
-    FundoDoTema(p?.profileTheme, Modifier.fillMaxSize().background(astraColors.void)) {
+    FundoDoTema(p?.profileTheme, Modifier.fillMaxSize()) {
         if (p == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
             BotaoFechar(aoFechar, Modifier.statusBarsPadding().padding(12.dp))

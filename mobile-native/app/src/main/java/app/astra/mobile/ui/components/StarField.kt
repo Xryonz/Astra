@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -31,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -142,33 +144,20 @@ private fun rememberParallaxTilt(enabled: Boolean): State<Offset> {
 fun StarField(
     modifier: Modifier = Modifier,
     color: Color = astraColors.accent,
-    tilt: State<Offset>? = null,
+    relogio: RelogioDoCeu? = null,
 ) {
-    if (!LocalAppPrefs.current.starsOn) {
+    if (!LocalAppPrefs.current.starsOn || relogio == null) {
         StarFieldStatic(modifier, color)
         return
     }
-    val inf = rememberInfiniteTransition(label = "starfield")
-
-    val drift by inf.animateFloat(
-        0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(90_000, easing = LinearEasing)), label = "drift",
-    )
-
-    val tau by inf.animateFloat(
-        0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(5_000, easing = LinearEasing)), label = "tau",
-    )
-
-    val meteorT by inf.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "meteor",
-    )
 
     Canvas(modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
-        val tv = tilt?.value ?: Offset.Zero
+        val drift = relogio.deriva.value
+        val tau = relogio.pulso.value
+        val meteorT = relogio.meteoro.value
+        val tv = relogio.inclinacao.value
         val dxBg = sin(drift) * 14.dp.toPx() - tv.x * 5.dp.toPx()
         val dyBg = (cos(drift) - 1f) * 9.dp.toPx() - tv.y * 5.dp.toPx()
         val dxTw = sin(drift) * 14.dp.toPx() - tv.x * 10.dp.toPx()
@@ -292,22 +281,63 @@ private class TouchFx {
     val ripple = Animatable(3f)
 }
 
+class RelogioDoCeu(
+    val aurora: State<Float>,
+    val deriva: State<Float>,
+    val pulso: State<Float>,
+    val meteoro: State<Float>,
+    val inclinacao: State<Offset>,
+    val sombreador: RuntimeShader?,
+)
+
+val LocalRelogioDoCeu = staticCompositionLocalOf<RelogioDoCeu?> { null }
+
+@Composable
+fun ProvedorDoCeu(conteudo: @Composable () -> Unit) {
+    val prefs = LocalAppPrefs.current
+    val relogio = if (prefs.auroraOn || prefs.starsOn) rememberRelogioDoCeu() else null
+    CompositionLocalProvider(LocalRelogioDoCeu provides relogio, content = conteudo)
+}
+
+@Composable
+private fun rememberRelogioDoCeu(): RelogioDoCeu {
+    val inf = rememberInfiniteTransition(label = "ceu")
+    val aurora = inf.animateFloat(
+        0f, TIME_LOOP,
+        infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "aurora-t",
+    )
+    val deriva = inf.animateFloat(
+        0f, (2 * PI).toFloat(),
+        infiniteRepeatable(tween(90_000, easing = LinearEasing)), label = "drift",
+    )
+    val pulso = inf.animateFloat(
+        0f, (2 * PI).toFloat(),
+        infiniteRepeatable(tween(5_000, easing = LinearEasing)), label = "tau",
+    )
+    val meteoro = inf.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "meteor",
+    )
+    val inclinacao = rememberParallaxTilt(enabled = true)
+    val sombreador = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RuntimeShader(AURORA_AGSL) else null
+    }
+    return remember(aurora, deriva, pulso, meteoro, inclinacao, sombreador) {
+        RelogioDoCeu(aurora, deriva, pulso, meteoro, inclinacao, sombreador)
+    }
+}
+
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 private fun AuroraShader(
     color: Color,
-    tilt: State<Offset>,
+    shader: RuntimeShader,
+    relogio: RelogioDoCeu,
     fx: TouchFx,
     modifier: Modifier = Modifier,
 ) {
-    val shader = remember { RuntimeShader(AURORA_AGSL) }
     val brush = remember(shader) { ShaderBrush(shader) }
-    val inf = rememberInfiniteTransition(label = "aurora")
-    val time by inf.animateFloat(
-        0f, TIME_LOOP,
-        infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "aurora-t",
-    )
-
+    val tilt = relogio.inclinacao
     val r = color.red; val g = color.green; val b = color.blue
     Canvas(
         modifier
@@ -330,7 +360,7 @@ private fun AuroraShader(
         val age = fx.ripple.value
         shader.setFloatUniform("iResolution", size.width, size.height)
         shader.setFloatUniform("accent", r, g, b)
-        shader.setFloatUniform("iTime", time)
+        shader.setFloatUniform("iTime", relogio.aurora.value)
         shader.setFloatUniform("tilt", tv.x, tv.y)
         shader.setFloatUniform("touchPos", fx.uv.value.x, fx.uv.value.y)
         shader.setFloatUniform("touchGlow", fx.glow.value)
@@ -346,8 +376,9 @@ fun CosmicBackdrop(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val prefs = LocalAppPrefs.current
-    val auroraShown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && prefs.auroraOn
-    val tilt = rememberParallaxTilt(enabled = auroraShown || prefs.starsOn)
+    val relogio = LocalRelogioDoCeu.current
+    val sombreador = relogio?.sombreador
+    val auroraShown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && prefs.auroraOn && sombreador != null
     val fx = remember { TouchFx() }
     val trail = remember { mutableStateListOf<TrailPoint>() }
     val scope = rememberCoroutineScope()
@@ -400,10 +431,10 @@ fun CosmicBackdrop(
         Modifier
     }
     Box(modifier.fillMaxSize().background(astraColors.void).then(touchMod)) {
-        if (auroraShown) {
-            AuroraShader(astraColors.accent, tilt = tilt, fx = fx)
+        if (auroraShown && relogio != null && sombreador != null) {
+            AuroraShader(astraColors.accent, sombreador, relogio, fx = fx)
         }
-        StarField(tilt = tilt)
+        StarField(relogio = relogio)
         CometTrail(trail, astraColors.accent)
         content()
     }

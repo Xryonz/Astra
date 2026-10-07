@@ -526,12 +526,16 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             }
+            state.avisoDoAnexo?.let { aviso ->
+                Text(aviso, style = Tipo.erro)
+                Spacer(Modifier.height(6.dp))
+            }
             if (state.pending.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    state.pending.forEachIndexed { i, pf ->
+                    state.pending.forEach { pf ->
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -547,15 +551,22 @@ fun ChatView(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                pf.file.name,
+                                pf.nome,
                                 style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 180.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(sizeLabel(pf.file.length()), style = Tipo.nota)
+                            Text(
+                                when {
+                                    pf.comprimindo == null -> sizeLabel(pf.file.length())
+                                    pf.comprimindo < 0.01f -> "preparando o vídeo"
+                                    else -> "comprimindo ${(pf.comprimindo * 100).toInt()}%"
+                                },
+                                style = Tipo.nota,
+                            )
                             Spacer(Modifier.width(6.dp))
-                            HoverGlyph(Lucide.X, "remover anexo") { vm.removePending(i) }
+                            HoverGlyph(Lucide.X, "remover anexo") { vm.removePending(pf.id) }
                         }
                     }
                 }
@@ -624,8 +635,10 @@ fun ChatView(
             val prefixosBot = remember(allCommands) {
                 allCommands.map { it.name.substringBefore(' ') }.toSet()
             }
+            val comprimindo = state.pending.any { it.comprimindo != null }
             fun submit() {
                 if (draft.isBlank() && state.pending.isEmpty()) return
+                if (comprimindo) return
                 val texto = draft.trim()
                 val prefixo = prefixosBot.firstOrNull {
                     texto.equals(it, true) || texto.startsWith("$it ", true)
@@ -634,7 +647,7 @@ fun ChatView(
                 else vm.send(draft)
                 draft = ""
             }
-            val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
+            val canSend = (draft.isNotBlank() || state.pending.isNotEmpty()) && !comprimindo
             Column(Modifier.fillMaxWidth().then(lugarDoPetNoCampo())) {
                 if (candidatos.isNotEmpty() && matches.isEmpty()) {
                     MencaoPalette(candidatos) { escolhido ->

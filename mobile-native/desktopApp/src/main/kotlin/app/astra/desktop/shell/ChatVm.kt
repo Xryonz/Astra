@@ -5,6 +5,10 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
 import app.astra.desktop.net.insistir
+import app.astra.desktop.voice.CompressorDeVideo
+import app.astra.desktop.voice.PreparoDoVideo
+import app.astra.desktop.voice.VoiceLog
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.UploadApi
@@ -50,6 +54,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
 
 sealed interface ChatTarget {
     val id: String
@@ -83,7 +88,13 @@ data class ChatMessage(
     val kind: String? = null,
 )
 
-data class PendingFile(val file: File, val mime: String)
+data class PendingFile(
+    val file: File,
+    val mime: String,
+    val nome: String = file.name,
+    val comprimindo: Float? = null,
+    val id: String = java.util.UUID.randomUUID().toString(),
+)
 
 fun expirada(poll: PollDto): Boolean {
     val fim = poll.expiresAt ?: return false
@@ -98,6 +109,7 @@ data class ChatUiState(
     val replyingTo: ChatMessage? = null,
     val typing: Map<String, String> = emptyMap(),
     val pending: List<PendingFile> = emptyList(),
+    val avisoDoAnexo: String? = null,
     val error: String? = null,
     val acordando: Boolean = false,
     val errorPermanente: Boolean = false,
@@ -147,6 +159,8 @@ class ChatVm(
     private var typingIdleJob: Job? = null
     private var lastTypingEmit = 0L
     private val typingExpiry = mutableMapOf<String, Job>()
+    private val compressoes = ConcurrentHashMap<String, Job>()
+    private val comprimidos: MutableSet<File> = ConcurrentHashMap.newKeySet()
 
     init {
         load()
@@ -156,6 +170,9 @@ class ChatVm(
     }
 
     fun dispose() {
+        compressoes.values.forEach { it.cancel() }
+        compressoes.clear()
+        _state.value.pending.forEach(::apagarSeComprimido)
         cache.guardar(target, _state.value.messages)
         liveJob?.cancel()
         cargaJob?.cancel()
@@ -233,10 +250,11 @@ class ChatVm(
         }
     }
 
-    fun send(text: String, allowFast: Boolean = true) {
+    fun send(text: String, allowFast: Boolean = true, comAnexos: Boolean = true) {
         val content = text.trim()
-        val pending = _state.value.pending
+        val pending = if (comAnexos) _state.value.pending else emptyList()
         if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
+        if (pending.any { it.comprimindo != null }) return
         val replyToId = _state.value.replyingTo?.id
 
         if (allowFast && content.isNotEmpty() && pending.isEmpty() && replyToId == null && socket.isConnected()) {
@@ -252,7 +270,7 @@ class ChatVm(
                     runCatching {
                         val parts = pending.map { pf ->
                             MultipartBody.Part.createFormData(
-                                "files", pf.file.name,
+                                "files", pf.nome,
                                 pf.file.readBytes().toRequestBody(pf.mime.toMediaTypeOrNull()),
                             )
                         }
@@ -281,11 +299,13 @@ class ChatVm(
             }
             result
                 .onSuccess { msg ->
+                    pending.forEach(::apagarSeComprimido)
                     _state.update {
                         it.copy(
                             sending = false,
                             replyingTo = null,
-                            pending = emptyList(),
+                            pending = it.pending.filterNot { p -> pending.any { enviado -> enviado.id == p.id } },
+                            avisoDoAnexo = null,
                             messages = if (msg != null && it.messages.none { m -> m.id == msg.id }) it.messages + msg else it.messages,
                         )
                     }
@@ -336,7 +356,7 @@ class ChatVm(
             fire = true
             st.copy(messages = st.messages.filterNot { it.clientNonce == nonce && it.pending })
         }
-        if (fire) send(content, allowFast = false)
+        if (fire) send(content, allowFast = false, comAnexos = false)
     }
 
     private fun markFailed(nonce: String, error: String) {
@@ -364,7 +384,7 @@ class ChatVm(
     fun retry(msg: ChatMessage) {
         if (!msg.failed) return
         _state.update { st -> st.copy(messages = st.messages.filterNot { it.id == msg.id }, error = null) }
-        send(msg.content)
+        send(msg.content, comAnexos = false)
     }
 
     private fun sendError(t: Throwable, fallback: String): String {
@@ -467,28 +487,83 @@ class ChatVm(
     fun addFiles(files: List<File>) {
         var error: String? = null
         val current = _state.value.pending.toMutableList()
+        val videos = mutableListOf<PendingFile>()
         for (f in files) {
             if (current.size >= MAX_FILES) {
                 error = "Máximo de $MAX_FILES arquivos por mensagem"
                 break
             }
             if (!f.isFile) continue
-            if (f.length() > MAX_FILE_BYTES) {
-                error = "${f.name} passa de 25MB"
-                continue
-            }
             val mime = mimeOf(f)
             if (mime == null || mime !in ALLOWED_MIMES) {
                 error = "Tipo não suportado: ${f.name}"
                 continue
             }
-            current += PendingFile(f, mime)
+            val comprimivel = mime.startsWith("video/") && CompressorDeVideo.disponivel
+            if (!comprimivel && f.length() > MAX_FILE_BYTES) {
+                error = "${f.name} passa de 25 MB"
+                continue
+            }
+            val pf = if (comprimivel) PendingFile(f, mime, comprimindo = 0f) else PendingFile(f, mime)
+            current += pf
+            if (comprimivel) videos += pf
         }
-        _state.update { it.copy(pending = current, error = error) }
+        _state.update { it.copy(pending = current, avisoDoAnexo = error) }
+        videos.forEach(::prepararVideo)
     }
 
-    fun removePending(index: Int) {
-        _state.update { it.copy(pending = it.pending.filterIndexed { i, _ -> i != index }) }
+    private fun prepararVideo(pf: PendingFile) {
+        compressoes[pf.id] = scope.launch {
+            val preparo = try {
+                CompressorDeVideo.preparar(pf.file, MAX_FILE_BYTES) { fracao ->
+                    trocarPendente(pf.id) { it.copy(comprimindo = fracao) }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                VoiceLog.nota("[video] a preparação de ${pf.file.name} falhou: ${e.message}")
+                if (pf.file.length() <= MAX_FILE_BYTES) PreparoDoVideo.Pronto(pf.file)
+                else PreparoDoVideo.Recusado("${pf.file.name} não pôde ser comprimido. Envie um vídeo de até 25 MB.")
+            }
+            compressoes.remove(pf.id)
+            val aindaAnexado = _state.value.pending.any { it.id == pf.id }
+            when (preparo) {
+                is PreparoDoVideo.Pronto -> {
+                    val comprimido = preparo.arquivo != pf.file
+                    if (!aindaAnexado) {
+                        if (comprimido) preparo.arquivo.delete()
+                        return@launch
+                    }
+                    if (comprimido) comprimidos += preparo.arquivo
+                    trocarPendente(pf.id) {
+                        if (!comprimido) it.copy(comprimindo = null)
+                        else it.copy(
+                            file = preparo.arquivo,
+                            mime = "video/mp4",
+                            nome = pf.file.nameWithoutExtension + ".mp4",
+                            comprimindo = null,
+                        )
+                    }
+                }
+                is PreparoDoVideo.Recusado -> if (aindaAnexado) _state.update { st ->
+                    st.copy(pending = st.pending.filterNot { it.id == pf.id }, avisoDoAnexo = preparo.motivo)
+                }
+            }
+        }
+    }
+
+    private fun trocarPendente(id: String, mudar: (PendingFile) -> PendingFile) {
+        _state.update { st -> st.copy(pending = st.pending.map { if (it.id == id) mudar(it) else it }) }
+    }
+
+    private fun apagarSeComprimido(pf: PendingFile) {
+        if (comprimidos.remove(pf.file)) pf.file.delete()
+    }
+
+    fun removePending(id: String) {
+        compressoes.remove(id)?.cancel()
+        _state.value.pending.firstOrNull { it.id == id }?.let(::apagarSeComprimido)
+        _state.update { it.copy(pending = it.pending.filterNot { pf -> pf.id == id }, avisoDoAnexo = null) }
     }
 
     private fun mimeOf(f: File): String? {

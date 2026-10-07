@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -478,6 +479,11 @@ func rodarFerramenta(args []string) int {
 		saida.Encode(map[string]string{"ev": "erro", "msg": err.Error()})
 		return 1
 	}
+
+	go func() {
+		io.Copy(io.Discard, os.Stdin)
+		os.Exit(1)
+	}()
 
 	runtime.LockOSThread()
 	if err := abrirCOM(); err != nil {

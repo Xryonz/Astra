@@ -577,7 +577,7 @@ private fun CardButton(label: String, accent: Boolean, enabled: Boolean = true, 
 @Composable
 private fun EditField(label: String, value: String, single: Boolean, onChange: (String) -> Unit) {
     Column {
-        Text(label, style = Tipo.nota)
+        Text(label.uppercase(), style = Tipo.secao)
         Spacer(Modifier.height(3.dp))
         BasicTextField(
             value = value,

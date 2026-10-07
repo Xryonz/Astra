@@ -305,7 +305,7 @@ internal fun SettingsDivider() {
 internal fun FieldLabel(text: String) {
     Text(
         text.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp),
+        style = Tipo.secao,
         modifier = Modifier.padding(bottom = 8.dp),
     )
 }
@@ -321,7 +321,7 @@ private fun PresetGrid(selAccent: String, selBg: String, onPick: (ThemePreset) -
             if (doGrupo.isEmpty()) return@forEach
             Text(
                 familia.titulo.uppercase(),
-                style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+                style = Tipo.subsecao,
                 modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
             )
             doGrupo.chunked(2).forEach { pair ->

@@ -614,7 +614,7 @@ private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit
 private fun PanelHeader(text: String) {
     Text(
         text.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+        style = Tipo.secao,
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }

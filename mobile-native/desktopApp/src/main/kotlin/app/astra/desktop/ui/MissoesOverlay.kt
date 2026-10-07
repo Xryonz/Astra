@@ -261,11 +261,8 @@ private fun Grupo(titulo: String, direita: String, conteudo: @Composable () -> U
 private fun Secao(titulo: String, direita: String) {
     Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            titulo,
-            style = TextStyle(
-                color = Obsidian.text2, fontSize = 11.sp,
-                fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp,
-            ),
+            titulo.uppercase(),
+            style = Tipo.secao,
         )
         Spacer(Modifier.weight(1f))
         Text(direita, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono))

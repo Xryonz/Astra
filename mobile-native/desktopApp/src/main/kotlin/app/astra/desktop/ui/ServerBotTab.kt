@@ -63,7 +63,7 @@ fun ServerBotTab(
         catalogo.groupBy { it.categoria }.forEach { (categoria, itens) ->
             Text(
                 categoria.uppercase(),
-                style = Tipo.nota,
+                style = Tipo.secao,
                 modifier = Modifier.widthIn(max = 620.dp),
             )
             Spacer(Modifier.height(6.dp))

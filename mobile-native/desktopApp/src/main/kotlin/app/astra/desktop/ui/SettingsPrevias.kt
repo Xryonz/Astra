@@ -102,7 +102,7 @@ internal fun SettingsPreview(
     acoesDoCartao: AcoesDoCartao? = null,
 ) {
     Column(modifier) {
-        FieldLabel("previa")
+        FieldLabel("prévia")
         Box {
             when (tab) {
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
@@ -253,7 +253,7 @@ private fun CartaoDaPrevia(
 private fun RotuloDaPrevia(texto: String) {
     Text(
         texto.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.4.sp),
+        style = Tipo.subsecao,
         modifier = Modifier.padding(bottom = 6.dp),
     )
 }

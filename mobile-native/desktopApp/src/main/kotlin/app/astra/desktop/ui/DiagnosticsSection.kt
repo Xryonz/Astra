@@ -303,7 +303,7 @@ private fun ModoSeguroBloco() {
 private fun DiagTitle(text: String) {
     Text(
         text.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+        style = Tipo.secao,
     )
     Spacer(Modifier.height(6.dp))
 }

@@ -613,8 +613,8 @@ private fun OverviewSection(
           )
           Spacer(Modifier.height(10.dp))
           Text(
-              "PREVIA",
-              style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+              "PRÉVIA",
+              style = Tipo.secao,
           )
           Spacer(Modifier.height(18.dp))
           msg?.let { (text, ok) ->

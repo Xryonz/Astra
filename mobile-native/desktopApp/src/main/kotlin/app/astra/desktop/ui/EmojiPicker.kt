@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.DesktopPrefs
@@ -200,11 +199,8 @@ private fun linhas(n: Int): Int = (n + COLUNAS - 1) / COLUNAS
 @Composable
 private fun TituloSecao(nome: String) {
     Text(
-        nome,
-        style = TextStyle(
-            color = Obsidian.text3, fontSize = 9.5.sp,
-            fontWeight = FontWeight.Medium, letterSpacing = 1.1.sp,
-        ),
+        nome.uppercase(),
+        style = Tipo.secao,
         modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 4.dp),
     )
 }

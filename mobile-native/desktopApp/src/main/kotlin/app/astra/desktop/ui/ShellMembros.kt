@@ -146,10 +146,12 @@ private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
             Spacer(Modifier.width(6.dp))
         }
         Text(
-            text = "$label — $count",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.6.sp),
+            text = label,
+            style = Tipo.secao,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        Text(text = " — $count", style = Tipo.secao, maxLines = 1)
     }
 }
 

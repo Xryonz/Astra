@@ -59,7 +59,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -76,6 +75,7 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ChannelVisibilityDto
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -786,7 +786,7 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val rotation = animateFloatAsState(if (collapsed) -90f else 0f, tween(140))
-    val tint = if (hovered) Obsidian.text2 else Obsidian.text3
+    val tint = if (hovered) Obsidian.text1 else Obsidian.text2
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -806,7 +806,7 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
         Spacer(Modifier.width(5.dp))
         Text(
             text = name.uppercase(),
-            style = TextStyle(color = tint, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
+            style = Tipo.secao.copy(color = tint),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }

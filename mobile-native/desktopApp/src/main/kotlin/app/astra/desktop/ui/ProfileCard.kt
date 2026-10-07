@@ -328,7 +328,7 @@ private fun CorpoCompacto(
         ) {
             Text(
                 "CARGOS",
-                style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+                style = Tipo.secao,
             )
             Spacer(Modifier.height(7.dp))
             FlowRow(
@@ -480,7 +480,7 @@ private fun Secao(titulo: String, conteudo: @Composable () -> Unit) {
     CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(horizontal = 11.dp, vertical = 9.dp)) {
         Text(
             titulo.uppercase(),
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+            style = Tipo.secao,
         )
         Spacer(Modifier.height(6.dp))
         conteudo()

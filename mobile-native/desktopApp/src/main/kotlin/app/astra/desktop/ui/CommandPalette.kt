@@ -71,7 +71,7 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
     ) {
         Text(
             "COMANDOS",
-            style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+            style = Tipo.secao,
             modifier = Modifier.padding(start = 14.dp, top = 11.dp, bottom = 6.dp),
         )
         LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp)) {

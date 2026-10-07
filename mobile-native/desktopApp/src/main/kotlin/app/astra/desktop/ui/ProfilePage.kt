@@ -296,7 +296,7 @@ private fun ColunaDeVinculos(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (isMe) "SUA PROGRESSÃO" else "PROGRESSÃO",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                        style = Tipo.secao,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
@@ -321,7 +321,7 @@ private fun ColunaDeVinculos(
             CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
                 Text(
                     "INSÍGNIAS",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                    style = Tipo.secao,
                 )
                 Spacer(Modifier.height(9.dp))
                 FlowRow(
@@ -342,7 +342,7 @@ private fun ColunaDeVinculos(
             CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
                 Text(
                     "AMIGOS EM COMUM",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                    style = Tipo.secao,
                 )
                 Spacer(Modifier.height(6.dp))
                 if (rostosEmComum.isEmpty()) {
@@ -384,7 +384,7 @@ private fun ColunaDeVinculos(
         CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
             Text(
                 if (isMe) "SUAS CONSTELAÇÕES" else "CONSTELAÇÕES EM COMUM",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                style = Tipo.secao,
             )
             Spacer(Modifier.height(8.dp))
             if (constelacoes.isEmpty()) {

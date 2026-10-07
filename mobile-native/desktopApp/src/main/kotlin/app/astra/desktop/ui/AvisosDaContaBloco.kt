@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.AvisosDaConta
@@ -45,10 +44,7 @@ internal fun BlocoDeAjustes(
     ) {
         Text(
             titulo.uppercase(),
-            style = TextStyle(
-                color = Obsidian.text2, fontSize = 10.sp,
-                letterSpacing = 1.sp, fontWeight = FontWeight.Medium,
-            ),
+            style = Tipo.secao,
         )
         Spacer(Modifier.height(3.dp))
         Text(

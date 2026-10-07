@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -107,12 +107,24 @@ export async function putAttachment(key: string, body: Buffer, mime: string): Pr
 
       CacheControl: 'public, max-age=31536000, immutable',
     }))
-    return `${R2_PUBLIC_URL!.replace(/\/$/, '')}/${key}`
+    return urlNoBucket(key)
   }
 
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
   await fs.promises.writeFile(path.join(UPLOAD_DIR, key), body)
   return `/uploads/${key}`
+}
+
+function urlNoBucket(key: string): string {
+  return `${R2_PUBLIC_URL!.replace(/\/$/, '')}/${key}`
+}
+
+export async function guardarSeNovo(key: string, body: Buffer, mime: string): Promise<string> {
+  if (s3) {
+    const jaExiste = await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key })).then(() => true, () => false)
+    if (jaExiste) return urlNoBucket(key)
+  }
+  return putAttachment(key, body, mime)
 }
 
 export async function removeAttachment(url: string | null | undefined): Promise<void> {

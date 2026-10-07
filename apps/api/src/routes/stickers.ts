@@ -6,7 +6,7 @@ import { serverStickers } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
-import { removeAttachment } from '../lib/storage'
+import { removerSeNinguemUsa } from '../lib/arquivoCompartilhado'
 
 export const stickersRouter = Router()
 stickersRouter.use(requireAuth)
@@ -83,6 +83,6 @@ stickersRouter.delete('/:serverId/:stickerId', asyncHandler(async (req: Request,
     .returning({ url: serverStickers.url })
   if (!removida) return res.status(404).json({ error: 'Figurinha não encontrada' })
 
-  await removeAttachment(removida.url)
+  await removerSeNinguemUsa(removida.url)
   res.json({ ok: true })
 }))

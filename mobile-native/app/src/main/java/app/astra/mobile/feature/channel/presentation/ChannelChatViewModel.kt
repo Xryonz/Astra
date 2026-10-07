@@ -10,7 +10,11 @@ import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.translate.Translator
+import android.net.Uri
+import app.astra.mobile.core.upload.AndamentoDoVideo
+import app.astra.mobile.core.upload.FilaDeVideos
 import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
@@ -42,6 +46,7 @@ data class ChannelChatUiState(
 
     val pendingAttachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+    val videoEmPreparo: AndamentoDoVideo? = null,
 
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),
@@ -54,6 +59,7 @@ data class ChannelChatUiState(
 class ChannelChatViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val imageUploader: ImageUploader,
+    private val preparadorDeVideo: PreparadorDeVideo,
     private val translator: Translator,
     private val notificationsApi: NotificationsApi,
     savedStateHandle: SavedStateHandle,
@@ -186,6 +192,23 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
+    private val filaDeVideos = FilaDeVideos(
+        escopo = viewModelScope,
+        preparador = preparadorDeVideo,
+        uploader = imageUploader,
+        aoAndar = { andamento -> _state.update { it.copy(videoEmPreparo = andamento) } },
+        aoAnexar = { anexos -> _state.update { it.copy(pendingAttachments = it.pendingAttachments + anexos) } },
+        aoFalhar = { motivo -> _state.update { it.copy(error = motivo) } },
+    )
+
+    fun attachVideos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        _state.update { it.copy(error = null) }
+        filaDeVideos.adicionar(uris)
+    }
+
+    fun cancelarVideo(posicao: Int) = filaDeVideos.cancelar(posicao)
+
     fun translate(messageId: String, content: String) {
         val st = _state.value
         if (st.translations.containsKey(messageId)) {
@@ -289,7 +312,7 @@ class ChannelChatViewModel @Inject constructor(
             repository.send(channelId, text, replyId, pending)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending + it.pendingAttachments) }
                 }
         }
     }

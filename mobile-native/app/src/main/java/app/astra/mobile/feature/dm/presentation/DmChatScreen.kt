@@ -105,8 +105,12 @@ fun DmChatScreen(
         ActivityResultContracts.PickMultipleVisualMedia(10),
     ) { uris ->
         if (uris.isNotEmpty()) scope.launch {
+            val (videos, fotos) = withContext(Dispatchers.IO) {
+                uris.partition { context.contentResolver.getType(it)?.startsWith("video/") == true }
+            }
+            viewModel.attachVideos(videos)
             val files = withContext(Dispatchers.IO) {
-                uris.mapNotNull { uri ->
+                fotos.mapNotNull { uri ->
                     readImageBytes(context, uri)?.let { (b, m, n) -> UploadFile(b, m, n) }
                 }
             }
@@ -254,6 +258,8 @@ fun DmChatScreen(
             PendingAttachmentsBar(
                 attachments = state.pendingAttachments,
                 onRemove = viewModel::removeAttachment,
+                videoEmPreparo = state.videoEmPreparo,
+                aoCancelarVideo = viewModel::cancelarVideo,
             )
 
             ChatInputBar(
@@ -263,7 +269,7 @@ fun DmChatScreen(
                 sending = state.sending,
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
-                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                 onGif = { folhaAberta = AbaDeExpressao.GIFS },
                 onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,

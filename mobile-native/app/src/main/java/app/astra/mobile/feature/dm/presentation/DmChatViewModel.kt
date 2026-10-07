@@ -13,7 +13,10 @@ import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.voice.LigacaoDeSussurro
 import app.astra.mobile.core.translate.Translator
+import android.net.Uri
+import app.astra.mobile.core.upload.FilaDeVideos
 import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +34,7 @@ import javax.inject.Inject
 class DmChatViewModel @Inject constructor(
     private val repository: DmRepository,
     private val imageUploader: ImageUploader,
+    private val preparadorDeVideo: PreparadorDeVideo,
     private val translator: Translator,
     private val ligacaoDeSussurro: LigacaoDeSussurro,
     private val friendsApi: FriendsApi,
@@ -125,6 +129,23 @@ class DmChatViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
         }
     }
+
+    private val filaDeVideos = FilaDeVideos(
+        escopo = viewModelScope,
+        preparador = preparadorDeVideo,
+        uploader = imageUploader,
+        aoAndar = { andamento -> _state.update { it.copy(videoEmPreparo = andamento) } },
+        aoAnexar = { anexos -> _state.update { it.copy(pendingAttachments = it.pendingAttachments + anexos) } },
+        aoFalhar = { motivo -> _state.update { it.copy(error = motivo) } },
+    )
+
+    fun attachVideos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        _state.update { it.copy(error = null) }
+        filaDeVideos.adicionar(uris)
+    }
+
+    fun cancelarVideo(posicao: Int) = filaDeVideos.cancelar(posicao)
 
     fun translate(messageId: String, content: String) {
         val st = _state.value
@@ -227,7 +248,7 @@ class DmChatViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
 
-                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending + it.pendingAttachments) }
                 }
         }
     }

@@ -41,6 +41,7 @@ import com.composables.icons.lucide.Smile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -790,8 +791,10 @@ fun ChatMessageList(
     val itens = remember(rows) { montarItens(rows).asReversed() }
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
+    val tocador = rememberTocadorDaConversa()
 
     Box(modifier) {
+        CompositionLocalProvider(LocalTocadorDaConversa provides tocador) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -852,10 +855,12 @@ fun ChatMessageList(
                 }
             }
         }
+        }
 
         lightbox?.let { (imgs, idx) ->
             Lightbox(images = imgs, startIndex = idx, onDismiss = { lightbox = null })
         }
+        TelaCheiaDoVideo(tocador)
     }
 }
 
@@ -1094,7 +1099,7 @@ fun ChatInputBar(
                     border = BorderStroke(1.dp, astraColors.border),
                 ) {
                     if (onAttach != null) {
-                        ComposerOption(Lucide.Image, "Fotos", enabled = !uploading) { menuOpen = false; onAttach() }
+                        ComposerOption(Lucide.Image, "Fotos e vídeos", enabled = !uploading) { menuOpen = false; onAttach() }
                     }
                     if (onGif != null) {
                         ComposerOption(Lucide.Film, "GIF") { menuOpen = false; onGif() }

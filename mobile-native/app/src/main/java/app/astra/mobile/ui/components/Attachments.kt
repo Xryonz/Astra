@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,8 +42,12 @@ import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.isAudio
 import app.astra.mobile.core.model.isImage
+import app.astra.mobile.core.model.isVideo
+import app.astra.mobile.core.upload.AndamentoDoVideo
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Play
 
 @Composable
 fun MessageAttachments(
@@ -49,11 +59,13 @@ fun MessageAttachments(
     if (attachments.isEmpty()) return
     val figurinhas = remember(attachments) { attachments.filter { it.figurinha } }
     val images = remember(attachments) { attachments.filter { it.isImage && !it.figurinha } }
-    val files = remember(attachments) { attachments.filter { !it.isImage && !it.isAudio && !it.figurinha } }
+    val videos = remember(attachments) { attachments.filter { it.isVideo && !it.figurinha } }
+    val files = remember(attachments) { attachments.filter { !it.isImage && !it.isAudio && !it.isVideo && !it.figurinha } }
 
     Column(modifier.width(maxWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         figurinhas.forEach { Figurinha(it) }
         if (images.isNotEmpty()) ImageGrid(images, onOpen = { idx -> onOpenImage(images, idx) })
+        videos.forEach { VideoNaConversa(it) }
         files.forEach { FileChip(it) }
     }
 }
@@ -141,7 +153,7 @@ private fun FileChip(att: Attachment) {
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(astraColors.base),
+                .background(astraColors.overlay),
             contentAlignment = Alignment.Center,
         ) {
             Text("📎", style = MaterialTheme.typography.titleMedium)
@@ -169,8 +181,10 @@ fun PendingAttachmentsBar(
     attachments: List<Attachment>,
     onRemove: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
+    videoEmPreparo: AndamentoDoVideo? = null,
+    aoCancelarVideo: (Int) -> Unit = {},
 ) {
-    if (attachments.isEmpty()) return
+    if (attachments.isEmpty() && videoEmPreparo == null) return
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -200,24 +214,99 @@ fun PendingAttachmentsBar(
                             .background(astraColors.raised)
                             .border(1.dp, astraColors.borderMid, thumbShape),
                         contentAlignment = Alignment.Center,
-                    ) { Text("📎", style = MaterialTheme.typography.titleMedium) }
+                    ) {
+                        if (att.isVideo) {
+                            Icon(Lucide.Play, contentDescription = att.name, tint = astraColors.text2, modifier = Modifier.size(22.dp))
+                        } else {
+                            Text("📎", style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
                 }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(2.dp)
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .clickable { onRemove(att) },
-                    contentAlignment = Alignment.Center,
-                ) { Text("×", style = MaterialTheme.typography.labelLarge, color = Color.White) }
+                BotaoDeTirar("Remover anexo", Modifier.align(Alignment.TopEnd)) { onRemove(att) }
             }
         }
+        if (videoEmPreparo != null) VideoEmPreparo(videoEmPreparo, aoCancelarVideo)
     }
 }
 
-private fun fmtBytes(b: Long?): String {
+@Composable
+private fun VideoEmPreparo(andamento: AndamentoDoVideo, aoCancelar: (Int) -> Unit) {
+    val formato = RoundedCornerShape(10.dp)
+    val enviando = andamento.enviando
+    val fracao = andamento.fracao
+    val porcentagem = "${(fracao * 100).toInt()}%"
+    val contagem = if (andamento.total > 1) "${andamento.posicao} de ${andamento.total}" else null
+    val qual = contagem?.let { " $it" }.orEmpty()
+    Box(Modifier.size(62.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(formato)
+                .background(astraColors.raised)
+                .border(1.dp, astraColors.borderMid, formato)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (enviando) "Enviando o vídeo$qual" else "Comprimindo o vídeo$qual, $porcentagem"
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = if (enviando) "enviando" else porcentagem,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = astraColors.text1,
+                )
+                if (contagem != null) {
+                    Text(text = contagem, style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
+                }
+            }
+            if (!enviando) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape)
+                        .background(astraColors.base),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(fracao)
+                            .fillMaxHeight()
+                            .background(astraColors.accent, CircleShape),
+                    )
+                }
+            }
+        }
+        BotaoDeTirar("Cancelar o vídeo", Modifier.align(Alignment.TopEnd)) { aoCancelar(andamento.posicao) }
+    }
+}
+
+@Composable
+private fun BotaoDeTirar(rotulo: String, modifier: Modifier, aoTocar: () -> Unit) {
+    Box(
+        modifier = modifier
+            .padding(2.dp)
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(onClick = aoTocar)
+            .semantics { contentDescription = rotulo },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "×",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            modifier = Modifier.clearAndSetSemantics {},
+        )
+    }
+}
+
+internal fun fmtBytes(b: Long?): String {
     if (b == null) return ""
     return when {
         b < 1024 -> "${b}B"

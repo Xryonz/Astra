@@ -114,8 +114,12 @@ fun ChannelChatScreen(
         ActivityResultContracts.PickMultipleVisualMedia(10),
     ) { uris ->
         if (uris.isNotEmpty()) scope.launch {
+            val (videos, fotos) = withContext(Dispatchers.IO) {
+                uris.partition { context.contentResolver.getType(it)?.startsWith("video/") == true }
+            }
+            viewModel.attachVideos(videos)
             val files = withContext(Dispatchers.IO) {
-                uris.mapNotNull { uri ->
+                fotos.mapNotNull { uri ->
                     readImageBytes(context, uri)?.let { (b, m, n) -> UploadFile(b, m, n) }
                 }
             }
@@ -232,6 +236,8 @@ fun ChannelChatScreen(
             PendingAttachmentsBar(
                 attachments = state.pendingAttachments,
                 onRemove = viewModel::removeAttachment,
+                videoEmPreparo = state.videoEmPreparo,
+                aoCancelarVideo = viewModel::cancelarVideo,
             )
 
             ChatInputBar(
@@ -241,7 +247,7 @@ fun ChannelChatScreen(
                 sending = state.sending,
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
-                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                 onGif = { folhaAberta = AbaDeExpressao.GIFS },
                 onPoll = { pollOpen = true },
                 onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },

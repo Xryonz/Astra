@@ -31,7 +31,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import com.composables.icons.lucide.ArrowUp
 import com.composables.icons.lucide.ChartColumn
+import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Film
 import com.composables.icons.lucide.Image
 import com.composables.icons.lucide.Lucide
@@ -97,8 +107,6 @@ import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogAnimation
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogCancel
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogFooter
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogHeader
-import zed.rainxch.rikkaui.components.ui.input.Input
-import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -1045,106 +1053,180 @@ fun ChatInputBar(
     hasAttachments: Boolean = false,
     emojiPendente: String? = null,
     aoUsarEmoji: () -> Unit = {},
+    placeholder: String = "Mensagem",
 ) {
-    var texto by rememberSaveable { mutableStateOf(rascunhoExterno) }
+    var campo by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(rascunhoExterno, TextRange(rascunhoExterno.length)))
+    }
+    val texto = campo.text
     LaunchedEffect(rascunhoExterno) {
-        if (rascunhoExterno != texto) texto = rascunhoExterno
+        if (rascunhoExterno != campo.text) campo = TextFieldValue(rascunhoExterno, TextRange(rascunhoExterno.length))
     }
     LaunchedEffect(emojiPendente) {
         val emoji = emojiPendente ?: return@LaunchedEffect
-        texto += emoji
-        onInput(texto)
+        val selecao = campo.selection
+        val novo = campo.text.replaceRange(selecao.min, selecao.max, emoji)
+        campo = TextFieldValue(novo, TextRange(selecao.min + emoji.length))
+        onInput(novo)
         aoUsarEmoji()
     }
 
-    val canSend = (texto.isNotBlank() || hasAttachments) && !sending && !uploading
+    val temConteudo = texto.isNotBlank() || hasAttachments
+    val canSend = temConteudo && !sending && !uploading
     val hapticsOn = LocalAppPrefs.current.haptics
     val haptic = LocalHapticFeedback.current
     val send = {
         if (canSend) {
             if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
             onSend(texto)
-            texto = ""
+            campo = TextFieldValue("")
         }
     }
+    var focado by remember { mutableStateOf(false) }
+    val formato = RoundedCornerShape(24.dp)
+    val estiloDoTexto = MaterialTheme.typography.bodyLarge
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(formato)
+            .background(astraColors.raised)
+            .border(1.dp, if (focado) astraColors.borderBright else astraColors.borderMid, formato)
+            .padding(4.dp),
+        verticalAlignment = Alignment.Bottom,
     ) {
-
-        val hasOptions = onAttach != null || onGif != null || onPoll != null || onEmoji != null
-        if (hasOptions) {
-            var menuOpen by remember { mutableStateOf(false) }
-            Box {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(if (menuOpen) astraColors.accentDim else astraColors.raised)
-                        .border(1.dp, astraColors.borderMid, CircleShape)
-                        .clickable { menuOpen = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (uploading) "…" else "+",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (menuOpen) astraColors.accent else astraColors.text2,
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    shape = RoundedCornerShape(16.dp),
-                    containerColor = astraColors.overlay,
-                    border = BorderStroke(1.dp, astraColors.border),
-                ) {
-                    if (onAttach != null) {
-                        ComposerOption(Lucide.Image, "Fotos e vídeos", enabled = !uploading) { menuOpen = false; onAttach() }
-                    }
-                    if (onGif != null) {
-                        ComposerOption(Lucide.Film, "GIF") { menuOpen = false; onGif() }
-                    }
-                    if (onPoll != null) {
-                        ComposerOption(Lucide.ChartColumn, "Enquete") { menuOpen = false; onPoll() }
-                    }
-                    if (onEmoji != null) {
-                        ComposerOption(Lucide.Smile, "Emoji") { menuOpen = false; onEmoji() }
-                    }
-                }
-            }
-            Spacer(Modifier.width(8.dp))
+        if (onAttach != null || onPoll != null) {
+            MaisDaBarra(onAttach = onAttach, onPoll = onPoll, uploading = uploading)
+        } else {
+            Spacer(Modifier.width(12.dp))
         }
 
-        Input(
-            value = texto,
-            onValueChange = { novo -> texto = novo; onInput(novo) },
+        BasicTextField(
+            value = campo,
+            onValueChange = { novo ->
+                val mudouOTexto = novo.text != campo.text
+                campo = novo
+                if (mudouOTexto) onInput(novo.text)
+            },
             modifier = Modifier
                 .weight(1f)
-
+                .heightIn(min = ALVO_DA_BARRA)
+                .semantics { contentDescription = placeholder }
+                .onFocusChanged { focado = it.isFocused }
                 .onPreviewKeyEvent { e ->
                     if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
                         send(); true
                     } else false
                 },
-            placeholder = "Mensagem",
-            singleLine = false,
-            animation = InputAnimation.Glow,
+            textStyle = estiloDoTexto.copy(color = astraColors.text1),
+            cursorBrush = SolidColor(astraColors.accent),
+            maxLines = 6,
+            decorationBox = { campoInterno ->
+                Box(Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+                    if (texto.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = estiloDoTexto,
+                            color = astraColors.text3,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    campoInterno()
+                }
+            },
         )
-        Spacer(Modifier.width(8.dp))
+
+        if (onEmoji != null) IconeDaBarra(Lucide.Smile, "Emoji", onEmoji)
+        if (temConteudo) {
+            Box(
+                modifier = Modifier
+                    .size(ALVO_DA_BARRA)
+                    .clip(CircleShape)
+                    .clickable(enabled = canSend, onClick = send),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (canSend) astraColors.accent else astraColors.overlay),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Lucide.ArrowUp,
+                        contentDescription = "Enviar",
+                        tint = if (canSend) astraColors.textInv else astraColors.text3,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        } else if (onGif != null) {
+            IconeDaBarra(Lucide.Film, "GIF", onGif)
+        }
+    }
+}
+
+private val ALVO_DA_BARRA = 44.dp
+
+@Composable
+private fun MaisDaBarra(onAttach: (() -> Unit)?, onPoll: (() -> Unit)?, uploading: Boolean) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val direto = onPoll == null
+    Box {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(ALVO_DA_BARRA)
                 .clip(CircleShape)
-                .background(if (canSend) astraColors.accent else astraColors.raised)
-                .border(1.dp, if (canSend) Color.Transparent else astraColors.borderMid, CircleShape)
-                .clickable(enabled = canSend, onClick = send),
+                .clickable(enabled = !(direto && uploading)) {
+                    if (direto) onAttach?.invoke() else menuOpen = true
+                }
+                .then(if (uploading) Modifier.semantics { contentDescription = "Enviando anexo" } else Modifier),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "↑",
-                style = MaterialTheme.typography.titleLarge,
-                color = if (canSend) astraColors.textInv else astraColors.text3,
-            )
+            if (uploading) {
+                Text(
+                    "…",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = astraColors.text2,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
+            } else {
+                Icon(
+                    Lucide.Plus,
+                    contentDescription = if (direto) "Anexar fotos e vídeos" else "Mais opções",
+                    tint = if (menuOpen) astraColors.accent else astraColors.text2,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
         }
+        DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = astraColors.overlay,
+            border = BorderStroke(1.dp, astraColors.border),
+        ) {
+            if (onAttach != null) {
+                ComposerOption(Lucide.Image, "Fotos e vídeos", enabled = !uploading) { menuOpen = false; onAttach() }
+            }
+            if (onPoll != null) {
+                ComposerOption(Lucide.ChartColumn, "Enquete") { menuOpen = false; onPoll() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconeDaBarra(icone: ImageVector, rotulo: String, aoTocar: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(ALVO_DA_BARRA)
+            .clip(CircleShape)
+            .clickable(onClick = aoTocar),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icone, contentDescription = rotulo, tint = astraColors.text2, modifier = Modifier.size(22.dp))
     }
 }

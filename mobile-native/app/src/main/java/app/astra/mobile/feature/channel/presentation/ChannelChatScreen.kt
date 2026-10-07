@@ -253,6 +253,7 @@ fun ChannelChatScreen(
                 onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+                placeholder = viewModel.channelName.takeIf { it.isNotBlank() }?.let { "Conversar em #$it" } ?: "Mensagem",
             )
         }
 

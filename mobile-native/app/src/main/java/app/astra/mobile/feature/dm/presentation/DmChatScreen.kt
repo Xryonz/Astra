@@ -274,6 +274,7 @@ fun DmChatScreen(
                 onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+                placeholder = viewModel.otherName.takeIf { it.isNotBlank() }?.let { "Sussurrar para $it" } ?: "Mensagem",
             )
         }
 

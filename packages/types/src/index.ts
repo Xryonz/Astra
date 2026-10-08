@@ -47,11 +47,6 @@ export const UpdateProfileSchema = z.object({
     .optional(),
   bio:        z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
   avatarUrl:  z.string().optional().nullable(),
-  avatarRecorte: z.object({
-    x:    z.number().int().min(0),
-    y:    z.number().int().min(0),
-    lado: z.number().int().min(1).max(20_000),
-  }).optional(),
   bannerUrl:  z.string().optional().nullable(),
   bannerColor:  COR_OU_NENHUMA.optional().nullable(),
   profileTheme: COR_OU_NENHUMA.optional().nullable(),
@@ -63,6 +58,15 @@ export const UpdateProfileSchema = z.object({
   dmPrivacy:       z.enum(['all', 'shared', 'friends']).optional(),
   statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
+})
+
+export const RecortarFotoSchema = z.object({
+  imagem: z.string().startsWith('data:'),
+  recorte: z.object({
+    x:    z.number().int().min(0),
+    y:    z.number().int().min(0),
+    lado: z.number().int().min(1).max(20_000),
+  }),
 })
 
 export const ProfileNoteSchema = z.object({

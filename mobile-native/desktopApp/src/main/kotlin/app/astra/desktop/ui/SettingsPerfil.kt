@@ -61,6 +61,7 @@ import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.RecortarFotoRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
@@ -85,7 +86,6 @@ internal fun ProfileSection(
     acoesDoCartao: AcoesDoCartao,
 ) {
     val scope = rememberCoroutineScope()
-    var busyAvatar by remember { mutableStateOf(false) }
     var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var cropAvatar by remember { mutableStateOf<CropSource?>(null) }
@@ -93,23 +93,11 @@ internal fun ProfileSection(
 
     fun escolherAvatar() {
         val file = AvatarPicker.choose() ?: return
-        busyAvatar = true
         msg = null
-        scope.launch {
-            val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
-            if (!animated) {
-                busyAvatar = false
-                cropAvatar = CropSource.Local(file)
-                return@launch
-            }
-            val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
-            busyAvatar = false
-            r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
-                .onFailure { msg = "não foi possível ler essa imagem" to false }
-        }
+        cropAvatar = CropSource.Local(file)
     }
 
-    if (busyAvatar || busyBanner) {
+    if (busyBanner) {
         Text(
             "lendo a imagem…",
             style = Tipo.rotulo,
@@ -120,7 +108,7 @@ internal fun ProfileSection(
             val atual = draft.avatarUrl
             buildList {
                 add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
-                if (atual != null && !ImageCrop.isAnimated(atual)) {
+                if (atual != null) {
                     add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
                         cropAvatar = CropSource.Remote(atual)
                     })
@@ -214,6 +202,10 @@ internal fun ProfileSection(
             outW = ImageCrop.AVATAR_OUT_W,
             onApply = { onChange(draft.copy(avatarUrl = it)) },
             onClose = { cropAvatar = null },
+            recortarNoServidor = { imagem, recorte ->
+                GlobalContext.get().get<UserApi>().recortarFoto(RecortarFotoRequest(imagem, recorte)).data?.url
+                    ?: error("o servidor não devolveu a foto recortada")
+            },
         )
     }
     cropBanner?.let { src ->

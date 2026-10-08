@@ -60,6 +60,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.mobile.core.network.dto.RecorteDaFotoDto
 import app.astra.shared.AstraShared
 import app.astra.desktop.ui.theme.Text
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +93,12 @@ sealed interface CropSource {
     data class Remote(val url: String) : CropSource
 }
 
-class CropImage(val img: SkiaImage, val hasAlpha: Boolean) {
+class CropImage(
+    val img: SkiaImage,
+    val hasAlpha: Boolean,
+    val escalaDoOriginal: Float = 1f,
+    val animacao: ByteArray? = null,
+) {
     val w: Int get() = img.width
     val h: Int get() = img.height
     fun close() { runCatching { img.close() } }
@@ -108,12 +114,28 @@ object ImageCrop {
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
     private val plain by lazy { OkHttpClient() }
 
-    fun isAnimated(file: File): Boolean = runCatching {
-        val codec = Codec.makeFromData(Data.makeFromBytes(file.readBytes()))
+    const val TETO_DA_ANIMACAO = 9_000_000
+
+    fun isAnimated(file: File): Boolean = runCatching { contarQuadros(file.readBytes()) > 1 }.getOrDefault(false)
+
+    private fun contarQuadros(bytes: ByteArray): Int = runCatching {
+        val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
         val n = codec.frameCount
         runCatching { codec.close() }
-        n > 1
-    }.getOrDefault(false)
+        n
+    }.getOrDefault(1)
+
+    fun dataUriDaAnimacao(bytes: ByteArray): String {
+        val webp = bytes.size > 12 && String(bytes, 8, 4, Charsets.US_ASCII) == "WEBP"
+        return "data:${if (webp) "image/webp" else "image/gif"};base64," + Base64.getEncoder().encodeToString(bytes)
+    }
+
+    fun mensagemDoServidor(t: Throwable): String {
+        val http = t as? retrofit2.HttpException ?: return "sem conexão com o servidor"
+        val corpo = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
+        val texto = corpo?.let { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }
+        return texto?.replaceFirstChar { it.lowercase() } ?: "não foi possível recortar essa imagem"
+    }
 
     fun isAnimated(url: String?): Boolean {
         val u = url ?: return false
@@ -169,8 +191,9 @@ object ImageCrop {
         require(bytes.isNotEmpty()) { "a imagem veio vazia" }
         val img = SkiaImage.makeFromEncoded(bytes)
         val hasAlpha = img.imageInfo.colorInfo.alphaType != ColorAlphaType.OPAQUE
+        val animacao = if (contarQuadros(bytes) > 1) bytes else null
         val m = max(img.width, img.height)
-        if (m <= SRC_MAX) return CropImage(img, hasAlpha)
+        if (m <= SRC_MAX) return CropImage(img, hasAlpha, 1f, animacao)
         val s = SRC_MAX.toFloat() / m
         val w = (img.width * s).toInt().coerceAtLeast(1)
         val h = (img.height * s).toInt().coerceAtLeast(1)
@@ -185,8 +208,9 @@ object ImageCrop {
         )
         val small = surface.makeImageSnapshot()
         runCatching { surface.close() }
+        val escala = img.width.toFloat() / w
         runCatching { img.close() }
-        return CropImage(small, hasAlpha)
+        return CropImage(small, hasAlpha, escala, animacao)
     }
 
     private fun fetch(url: String): ByteArray? {
@@ -238,6 +262,7 @@ fun CropDialog(
     outW: Int,
     onApply: (String) -> Unit,
     onClose: () -> Unit,
+    recortarNoServidor: (suspend (imagem: String, recorte: RecorteDaFotoDto) -> String)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var loaded by remember { mutableStateOf<CropImage?>(null) }
@@ -315,6 +340,9 @@ fun CropDialog(
                     "arraste para enquadrar · a roda do mouse aproxima.",
                     style = Tipo.apoio,
                 )
+                if (cur?.animacao != null && recortarNoServidor != null) {
+                    Text("a animação continua depois do recorte.", style = Tipo.apoio)
+                }
                 Spacer(Modifier.height(14.dp))
                 Box(
                     Modifier
@@ -398,6 +426,30 @@ fun CropDialog(
                         val sy = i.h / 2f - (cropH / 2f + pan.y) / zoom
                         val sw = cropW / zoom
                         val sh = cropH / zoom
+                        val animacao = i.animacao
+                        if (animacao != null && recortarNoServidor != null) {
+                            if (animacao.size > ImageCrop.TETO_DA_ANIMACAO) {
+                                busy = false
+                                err = "a animação passa de 9 MB — escolha um GIF menor"
+                                return@CropButton
+                            }
+                            val e = i.escalaDoOriginal
+                            val recorte = RecorteDaFotoDto(
+                                x = (sx * e).roundToInt().coerceAtLeast(0),
+                                y = (sy * e).roundToInt().coerceAtLeast(0),
+                                lado = (sw * e).roundToInt().coerceAtLeast(1),
+                            )
+                            scope.launch {
+                                val r = runCatching {
+                                    val imagem = withContext(Dispatchers.Default) { ImageCrop.dataUriDaAnimacao(animacao) }
+                                    recortarNoServidor(imagem, recorte)
+                                }
+                                busy = false
+                                r.onSuccess { onApply(it); onClose() }
+                                    .onFailure { err = ImageCrop.mensagemDoServidor(it) }
+                            }
+                            return@CropButton
+                        }
                         scope.launch {
                             val r = withContext(Dispatchers.IO) { ImageCrop.bake(i, sx, sy, sw, sh, outW) }
                             busy = false

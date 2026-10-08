@@ -97,7 +97,7 @@ object Vigia {
         ProcessBuilder("explorer.exe", CrashLog.dataDir().absolutePath).start()
     }
 
-    private fun reabrir(): Boolean = runCatching {
+    fun reabrir(): Boolean = runCatching {
         val exe = System.getProperty("jpackage.app-path") ?: return@runCatching false
         SingleInstance.release()
         ProcessBuilder(exe).directory(File(exe).parentFile).start()

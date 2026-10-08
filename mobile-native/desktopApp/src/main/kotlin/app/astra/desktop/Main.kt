@@ -66,6 +66,7 @@ import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
+import app.astra.desktop.ui.DesenhoDaJanela
 import app.astra.desktop.ui.Quadros
 import app.astra.desktop.ui.contandoQuadros
 import app.astra.desktop.ui.AstraTitleBar
@@ -210,7 +211,8 @@ private fun writeDiagnostics() = runCatching {
             appendLine("MODO SEGURO  : ligado — janela opaca, desenho por CPU e conversa com o Windows desligada")
             appendLine("   ^ sem bateria, sem placas, sem atividade, sem foco e sem identidade na barra")
             appendLine("   ^ ligado porque uma abertura criou a janela e não desenhou.")
-            appendLine("     Segue ligado até ser desligado em Configurações > Diagnóstico.")
+            appendLine("     A próxima abertura tenta a placa de novo; depois de 2 quedas seguidas, segue ligado")
+            appendLine("     até ser desligado em Configurações > Diagnóstico.")
             appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
         }
         appendLine("transparência: ${if (janelaAceitaTransparencia) "aceita" else "NÃO aceita — janela opaca"}")
@@ -668,6 +670,9 @@ fun main(args: Array<String>) {
                 Arranque.marcar("composição da janela pronta")
                 withFrameNanos { }
                 Arranque.desenhou()
+                DesenhoDaJanela.api = window.renderApi
+                window.onRenderApiChanged { DesenhoDaJanela.api = window.renderApi }
+                Arranque.marcar("desenho: ${window.renderApi}")
                 Vigia.apareceu(window)
                 SingleInstance.aJanelaRespondeu()
             }

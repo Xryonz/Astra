@@ -197,6 +197,16 @@ private fun lembrarFocoDoApp(): Boolean {
     return foco
 }
 
+private fun placaQueDesenha(componente: java.awt.Component): String? {
+    if (componente is org.jetbrains.skiko.SkiaLayer) {
+        return componente.renderInfo.lines()
+            .firstOrNull { it.startsWith("Video card:") || it.startsWith("Model:") }
+            ?.substringAfter(':')?.trim()
+    }
+    if (componente !is java.awt.Container) return null
+    return componente.components.firstNotNullOfOrNull { placaQueDesenha(it) }
+}
+
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
     val dir = CrashLog.dataDir()
@@ -473,6 +483,9 @@ fun main(args: Array<String>) {
     if (Arranque.modoSeguro) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
+    if (System.getProperty("skiko.gpu.priority") == null) {
+        System.setProperty("skiko.gpu.priority", "discrete")
+    }
     Vigia.vigiar(nascerEscondido)
     Arranque.marcar("vigia armado")
     val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {
@@ -673,6 +686,7 @@ fun main(args: Array<String>) {
                 DesenhoDaJanela.api = window.renderApi
                 window.onRenderApiChanged { DesenhoDaJanela.api = window.renderApi }
                 Arranque.marcar("desenho: ${window.renderApi}")
+                placaQueDesenha(window)?.let { Arranque.marcar("placa que desenha: $it") }
                 Vigia.apareceu(window)
                 SingleInstance.aJanelaRespondeu()
             }

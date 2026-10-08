@@ -12,6 +12,7 @@ import kotlin.system.exitProcess
 
 private const val AMOSTRAS = 240
 private const val TETO_DE_QUADRO_MS = 100.0
+private const val TETO_NA_MEDICAO_MS = 2_000.0
 private const val PISO_DE_QUADRO_MS = 0.5
 private const val MINIMO_PARA_OPINAR = 60
 private const val RODADAS_DA_MEDICAO = 6
@@ -71,7 +72,7 @@ object Quadros {
         anterior = agora
         if (ultimo == 0L) return
         val ms = (agora - ultimo) / 1_000_000.0
-        if (ms > TETO_DE_QUADRO_MS || ms < PISO_DE_QUADRO_MS) return
+        if (ms > (if (medindo) TETO_NA_MEDICAO_MS else TETO_DE_QUADRO_MS) || ms < PISO_DE_QUADRO_MS) return
         janela[cursor] = ms
         cursor = (cursor + 1) % AMOSTRAS
         if (escritas < AMOSTRAS) escritas++

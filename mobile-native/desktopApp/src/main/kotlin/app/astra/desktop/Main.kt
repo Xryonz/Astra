@@ -721,7 +721,7 @@ fun main(args: Array<String>) {
 
             val koin = GlobalContext.get()
             val windowInfo = LocalWindowInfo.current
-            val janelaComFoco = lembrarFocoDoApp()
+            val janelaComFoco = lembrarFocoDoApp() || Quadros.medindo
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }

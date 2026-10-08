@@ -788,7 +788,11 @@ fun main(args: Array<String>) {
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     val alguemFala by QuemFala.alguem.collectAsState()
-                    LaunchedEffect(alguemFala, prefState.reduceMotionEff) {
+                    LaunchedEffect(alguemFala, prefState.reduceMotionEff, prefState.auroraOn) {
+                        if (!prefState.auroraOn) {
+                            auroraPulse.snapTo(0f)
+                            return@LaunchedEffect
+                        }
                         if (prefState.reduceMotionEff) return@LaunchedEffect
                         if (alguemFala) auroraPulse.animateTo(1f, tween(240, easing = EaseOutStd))
                         else auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))

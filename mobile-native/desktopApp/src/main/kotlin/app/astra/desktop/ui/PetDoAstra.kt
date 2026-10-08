@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -228,6 +231,11 @@ internal object FolhasDoPet {
 }
 
 private const val FPS = 30
+
+private class TemposDoPet {
+    var naAnim = 0f
+    var piscada = 0f
+}
 private val LARGURA_VETOR = 34.dp
 private val FOLGA_DO_POUSO = 20.dp
 private val RAIO_DO_RODAPE = 10.dp
@@ -285,10 +293,12 @@ fun PetDoAstra(
     var x by remember { mutableStateOf(-1f) }
     var alvoX by remember { mutableStateOf(0f) }
     var anim by remember { mutableStateOf(Anim.PARADO) }
-    var tempoNaAnim by remember { mutableStateOf(0f) }
+    val tempos = remember { TemposDoPet() }
+    var quadroDaFolha by remember { mutableIntStateOf(0) }
+    var olhoFechado by remember { mutableStateOf(false) }
+    var passoDoVetor by remember { mutableFloatStateOf(0f) }
     var olhandoPraDireita by remember { mutableStateOf(false) }
     var espera by remember { mutableStateOf(2f) }
-    var piscada by remember { mutableStateOf(0f) }
     var caricias by remember { mutableStateOf(0) }
     var ultimaCaricia by remember { mutableStateOf(0L) }
     var deMalAte by remember { mutableStateOf(0L) }
@@ -298,7 +308,7 @@ fun PetDoAstra(
             val susto = pet.gestoDeSusto ?: return@collect
             if (anim != Anim.PARADO && anim != Anim.ANDANDO) return@collect
             anim = susto
-            tempoNaAnim = 0f
+            tempos.naAnim = 0f
         }
     }
 
@@ -318,8 +328,8 @@ fun PetDoAstra(
             }
             val dt = 1f / FPS
 
-            piscada += dt
-            tempoNaAnim += dt
+            tempos.piscada += dt
+            tempos.naAnim += dt
 
             when (anim) {
                 Anim.PARADO -> {
@@ -327,7 +337,7 @@ fun PetDoAstra(
                     if (espera <= 0f) {
                         alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
                         anim = Anim.ANDANDO
-                        tempoNaAnim = 0f
+                        tempos.naAnim = 0f
                     }
                 }
 
@@ -337,7 +347,7 @@ fun PetDoAstra(
                     if (abs(dx) <= v) {
                         x = alvoX
                         anim = Anim.PARADO
-                        tempoNaAnim = 0f
+                        tempos.naAnim = 0f
                         espera = 4f + Random.nextFloat() * 9f
                     } else {
                         olhandoPraDireita = dx > 0f
@@ -347,26 +357,31 @@ fun PetDoAstra(
 
                 Anim.CARINHO, Anim.FESTA, Anim.RECOLHE, Anim.ATAQUE -> {
                     val c = pet.passos[anim]
-                    if (c == null || tempoNaAnim >= c.quadros.toFloat() / c.fps) {
+                    if (c == null || tempos.naAnim >= c.quadros.toFloat() / c.fps) {
                         val recolhido = anim == Anim.RECOLHE
                         anim = Anim.PARADO
-                        tempoNaAnim = 0f
+                        tempos.naAnim = 0f
                         espera = if (recolhido) 5f + Random.nextFloat() * 3f
                         else 2f + Random.nextFloat() * 2.5f
                     }
                 }
 
             }
+            val passoAtual = pet.passos[anim]
+            quadroDaFolha = if (passoAtual == null) 0 else (tempos.naAnim * passoAtual.fps).toInt() % passoAtual.quadros
+            olhoFechado = (tempos.piscada % 4.2f) < 0.13f
+            if (folhas?.get(anim) == null) passoDoVetor = tempos.naAnim * 7f
             esperarPeloTeto(FPS, inicio)
         }
     }
 
+    val posicionado by remember { derivedStateOf { x >= 0f } }
     Box(
         Modifier
             .fillMaxSize()
             .onGloballyPositioned { origem = it.positionInWindow() },
     ) {
-        if (piso.width <= larguraPx || x < 0f) return@Box
+        if (piso.width <= larguraPx || !posicionado) return@Box
         val y = piso.top
 
         val sobHover = remember { MutableInteractionSource() }
@@ -383,7 +398,7 @@ fun PetDoAstra(
                     if (anim != Anim.PARADO && anim != Anim.ANDANDO) {
                         val tocando = pet.passos[anim]
                         if (tocando != null &&
-                            tempoNaAnim < tocando.quadros.toFloat() / tocando.fps
+                            tempos.naAnim < tocando.quadros.toFloat() / tocando.fps
                         ) return@clickable
                     }
 
@@ -394,7 +409,7 @@ fun PetDoAstra(
                     if (caricias >= LIMITE_DE_CARINHO) {
                         deMalAte = agora + 6000
                         caricias = 0
-                        tempoNaAnim = 0f
+                        tempos.naAnim = 0f
 
                         val recolhe = pet.passos[Anim.RECOLHE]
                         if (recolhe != null) {
@@ -406,7 +421,7 @@ fun PetDoAstra(
                     } else {
                         val escada = pet.escadaDeCarinho
                         anim = escada.getOrNull(caricias - 1) ?: escada.lastOrNull() ?: Anim.CARINHO
-                        tempoNaAnim = 0f
+                        tempos.naAnim = 0f
                         Sfx.carinho()
                     }
                 }
@@ -435,7 +450,7 @@ fun PetDoAstra(
                                     x = mao.x.coerceIn(novoPiso.left + larguraPx / 2f, novoPiso.right - larguraPx / 2f)
                                     alvoX = x
                                     anim = Anim.PARADO
-                                    tempoNaAnim = 0f
+                                    tempos.naAnim = 0f
                                     espera = 2f + Random.nextFloat() * 2f
                                     if (destino != moraNoCampo) {
                                         moraNoCampo = destino
@@ -469,8 +484,8 @@ fun PetDoAstra(
                         esc = LARGURA_VETOR.toPx() / 34f,
                         paraDireita = olhandoPraDireita,
                         andando = anim == Anim.ANDANDO,
-                        passo = tempoNaAnim * 7f,
-                        olhoFechado = (piscada % 4.2f) < 0.13f,
+                        passo = passoDoVetor,
+                        olhoFechado = olhoFechado,
                         animacaoDeEvento = 0f,
                         pelo = Obsidian.text2,
                         detalhe = Obsidian.accent,
@@ -480,7 +495,7 @@ fun PetDoAstra(
             }
 
             val passo = pet.passos[anim] ?: return@Canvas
-            val i = (tempoNaAnim * passo.fps).toInt() % passo.quadros
+            val i = quadroDaFolha % passo.quadros
             val esq = (x - larguraPx / 2f).roundToInt()
             val topo = (y - pesPx).roundToInt()
 

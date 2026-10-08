@@ -10,9 +10,6 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,15 +23,23 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -52,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.astraColors
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
@@ -116,7 +122,7 @@ private fun rememberParallaxTilt(enabled: Boolean): State<Offset> {
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
             }
             val register = {
-                accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME) }
+                accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
             }
             val observer = LifecycleEventObserver { _, event ->
                 when (event) {
@@ -151,7 +157,7 @@ fun StarField(
         return
     }
 
-    Canvas(modifier.fillMaxSize()) {
+    Canvas(modifier.fillMaxSize().preferredFrameRate(QUADROS_DO_CEU).graphicsLayer()) {
         val w = size.width
         val h = size.height
         val drift = relogio.deriva.value
@@ -299,25 +305,64 @@ fun ProvedorDoCeu(conteudo: @Composable () -> Unit) {
     CompositionLocalProvider(LocalRelogioDoCeu provides relogio, content = conteudo)
 }
 
+object CeuCoberto {
+    private var cobertores by mutableIntStateOf(0)
+
+    val coberto: Boolean get() = cobertores > 0
+
+    fun cobrir() { cobertores++ }
+
+    fun descobrir() { cobertores = (cobertores - 1).coerceAtLeast(0) }
+}
+
+@Composable
+fun CobrirOCeu(ativo: Boolean = true) {
+    DisposableEffect(ativo) {
+        if (ativo) CeuCoberto.cobrir()
+        onDispose { if (ativo) CeuCoberto.descobrir() }
+    }
+}
+
+private const val QUADROS_DO_CEU = 60f
+private const val PASSO_DO_CEU_NS = 1_000_000_000L / 60
+private const val FOLGA_DO_PASSO = 0.6f
+private const val CICLO_DO_CEU = 360f
+
 @Composable
 private fun rememberRelogioDoCeu(): RelogioDoCeu {
-    val inf = rememberInfiniteTransition(label = "ceu")
-    val aurora = inf.animateFloat(
-        0f, TIME_LOOP,
-        infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "aurora-t",
-    )
-    val deriva = inf.animateFloat(
-        0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(90_000, easing = LinearEasing)), label = "drift",
-    )
-    val pulso = inf.animateFloat(
-        0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(5_000, easing = LinearEasing)), label = "tau",
-    )
-    val meteoro = inf.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "meteor",
-    )
+    val segundos = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        if ((coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f) == 0f) return@LaunchedEffect
+        var ultimoQuadro = -1L
+        var ultimoPasso = -1L
+        var devido = 0L
+        while (true) {
+            if (CeuCoberto.coberto) {
+                snapshotFlow { CeuCoberto.coberto }.first { !it }
+                ultimoQuadro = -1L
+            }
+            withFrameNanos { agora ->
+                if (ultimoQuadro < 0) {
+                    ultimoQuadro = agora
+                    ultimoPasso = agora
+                    devido = agora + PASSO_DO_CEU_NS
+                    return@withFrameNanos
+                }
+                val folga = ((agora - ultimoQuadro) * FOLGA_DO_PASSO).toLong()
+                ultimoQuadro = agora
+                if (agora >= devido - folga) {
+                    segundos.floatValue =
+                        (segundos.floatValue + ((agora - ultimoPasso) / 1_000_000_000f).coerceAtMost(0.1f)) % CICLO_DO_CEU
+                    ultimoPasso = agora
+                    devido = maxOf(devido + PASSO_DO_CEU_NS, agora)
+                }
+            }
+        }
+    }
+    val aurora = remember { derivedStateOf { (segundos.floatValue % 60f) / 60f * TIME_LOOP } }
+    val deriva = remember { derivedStateOf { (segundos.floatValue % 90f) / 90f * (2 * PI).toFloat() } }
+    val pulso = remember { derivedStateOf { (segundos.floatValue % 5f) / 5f * (2 * PI).toFloat() } }
+    val meteoro = remember { derivedStateOf { (segundos.floatValue % 24f) / 24f } }
     val inclinacao = rememberParallaxTilt(enabled = true)
     val sombreador = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RuntimeShader(AURORA_AGSL) else null
@@ -349,6 +394,7 @@ private fun AuroraShader(
                 )
                 layout(w, h) { half.place(0, 0) }
             }
+            .preferredFrameRate(QUADROS_DO_CEU)
             .graphicsLayer {
                 scaleX = 2f
                 scaleY = 2f
@@ -452,7 +498,7 @@ private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
             points.removeAll { now - it.bornMs > TRAIL_LIFE_MS }
         }
     }
-    Canvas(Modifier.fillMaxSize()) {
+    Canvas(Modifier.fillMaxSize().graphicsLayer()) {
         frame.value
         val now = System.currentTimeMillis()
         val n = points.size

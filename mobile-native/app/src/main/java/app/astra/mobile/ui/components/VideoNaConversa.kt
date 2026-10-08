@@ -301,6 +301,7 @@ private fun VideoEmTelaCheia(player: Player, nome: String?, aoFechar: () -> Unit
         onDismissRequest = aoFechar,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        CobrirOCeu()
         val botao = rememberPlayPauseButtonState(player)
         val progresso = rememberProgressStateWithTickInterval(player, tickIntervalMs = 250)
         var arrastando by remember { mutableStateOf<Float?>(null) }

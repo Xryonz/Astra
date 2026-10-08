@@ -28,11 +28,13 @@ import app.astra.mobile.feature.channel.domain.model.MessageReaction
 import app.astra.mobile.feature.channel.domain.model.Poll
 import app.astra.mobile.feature.channel.domain.model.PollOption
 import app.astra.mobile.feature.channel.domain.model.TypingUser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -183,7 +185,7 @@ class ChannelRepositoryImpl @Inject constructor(
 
             emitAll(messageDao.observe(channelId).map { rows -> rows.map { it.toChannelMessage(uid, json) } })
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     override fun typingEvents(channelId: String): Flow<TypingUser> =
         socketManager.channelTyping

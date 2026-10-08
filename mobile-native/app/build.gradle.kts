@@ -28,6 +28,10 @@ val dadosDaChave = Properties().apply {
     arquivoDaChave?.inputStream()?.use { load(it) }
 }
 
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+}
+
 android {
     namespace = "app.astra.mobile"
     compileSdk = 36

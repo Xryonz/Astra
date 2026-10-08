@@ -490,7 +490,7 @@ fun ShellScreen(
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
-            silenciada = state::orbitaSilenciada,
+            silenciada = remember(vm) { { id: String -> vm.state.value.orbitaSilenciada(id) } },
             onToggleChannelMute = vm::toggleChannelMute,
             onToggleChannelBot = vm::setChannelBot,
             onToggleChannelKeepBot = vm::setChannelKeepBot,

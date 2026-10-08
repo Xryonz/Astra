@@ -195,7 +195,9 @@ internal fun Sidebar(
                     FaixaDaConstelacao(
                         nome = srv.name,
                         membros = members.size,
-                        online = members.count { it.userId == myId || memberPresence[it.userId]?.let { p -> p != "OFFLINE" } == true },
+                        online = remember(members, memberPresence, myId) {
+                            members.count { it.userId == myId || memberPresence[it.userId]?.let { p -> p != "OFFLINE" } == true }
+                        },
                         membrosAbertos = membersOpen,
                         onToggleMembros = onToggleMembers,
                         onConvidar = { onConvidar(srv) },
@@ -357,15 +359,20 @@ private fun OrbitList(
     val byCat = remember(server.channels) { server.channels.groupBy { it.categoryId } }
     val looseIds = remember(loose) { loose.map { it.id } }
     val drag = remember(server.id) { ChannelDragState() }
-    val chMenu = ChannelMenu(
-        podeGerenciar, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
-        onExcluirCanal, onToggleChannelMute,
-        botAtende = { ch ->
-            ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
-        },
-        onToggleBot = onToggleChannelBot,
-        onToggleKeepBot = onToggleChannelKeepBot,
-    )
+    val chMenu = remember(
+        podeGerenciar, server.categories, silenciada, onMarkChannelRead, onOpenChannelRename,
+        onOpenChannelVisibility, onExcluirCanal, onToggleChannelMute, onToggleChannelBot, onToggleChannelKeepBot,
+    ) {
+        ChannelMenu(
+            podeGerenciar, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelVisibility,
+            onExcluirCanal, onToggleChannelMute,
+            botAtende = { ch ->
+                ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
+            },
+            onToggleBot = onToggleChannelBot,
+            onToggleKeepBot = onToggleChannelKeepBot,
+        )
+    }
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
@@ -486,7 +493,7 @@ internal class ChannelDragState {
     }
 }
 
-internal class ChannelDragCtx(
+internal data class ChannelDragCtx(
     val state: ChannelDragState,
     val section: String,
     val index: Int,

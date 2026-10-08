@@ -79,6 +79,15 @@ data class UpdateProfileRequest(
 )
 
 @Serializable
+data class RecorteDaFotoDto(val x: Int, val y: Int, val lado: Int)
+
+@Serializable
+data class RecortarFotoRequest(val imagem: String, val recorte: RecorteDaFotoDto)
+
+@Serializable
+data class FotoRecortadaDto(val url: String)
+
+@Serializable
 data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String,

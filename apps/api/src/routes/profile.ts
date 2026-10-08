@@ -10,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
 import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
+import { recortarFoto, AnimacaoGrandeDemais } from '../lib/recorteDeFoto'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
@@ -85,7 +86,7 @@ router.patch(
   validate(UpdateProfileSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const {
-      displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
+      displayName, username, bio, avatarUrl, avatarRecorte, bannerUrl, bannerColor, profileTheme,
       bannerPositionY, bannerScale, bannerBorder, bannerTextColor,
       pronouns, statusEmoji, displayFont, dmPrivacy,
     } = req.body
@@ -114,7 +115,19 @@ router.patch(
     if (username    !== undefined) update.username    = username
     if (bio         !== undefined) update.bio         = bio
     if (avatarUrl !== undefined) {
-      const { url, original } = await persistImagemDeExibicao(avatarUrl)
+      let foto = avatarUrl
+      if (avatarRecorte && avatarUrl?.startsWith('data:')) {
+        try {
+          foto = await recortarFoto(avatarUrl, avatarRecorte)
+        } catch (e) {
+          if (e instanceof AnimacaoGrandeDemais) {
+            return res.status(413).json({ error: 'Animação longa demais para foto de perfil. Escolha um GIF mais curto ou menor.' })
+          }
+          return res.status(422).json({ error: 'Não foi possível ler essa imagem.' })
+        }
+        if (!foto) return res.status(422).json({ error: 'O enquadramento ficou fora da imagem.' })
+      }
+      const { url, original } = await persistImagemDeExibicao(foto)
       update.avatarUrl = url
       if (original !== null) update.avatarFullUrl = original
     }

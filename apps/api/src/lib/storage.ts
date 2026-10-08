@@ -155,6 +155,12 @@ function mimeExt(mime: string): string {
 
 const DATA_URI_RE = /^data:([\w.+-]+\/[\w.+-]+)?(;base64)?,(.*)$/s
 
+export function bytesDoDataUri(value: string): Buffer | null {
+  const m = DATA_URI_RE.exec(value)
+  if (!m) return null
+  return m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
+}
+
 export async function persistDataUri<T extends string | null | undefined>(value: T): Promise<T | string> {
   if (!value || !value.startsWith('data:')) return value
   const m = DATA_URI_RE.exec(value)

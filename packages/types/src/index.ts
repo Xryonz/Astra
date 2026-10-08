@@ -47,6 +47,11 @@ export const UpdateProfileSchema = z.object({
     .optional(),
   bio:        z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
   avatarUrl:  z.string().optional().nullable(),
+  avatarRecorte: z.object({
+    x:    z.number().int().min(0),
+    y:    z.number().int().min(0),
+    lado: z.number().int().min(1).max(20_000),
+  }).optional(),
   bannerUrl:  z.string().optional().nullable(),
   bannerColor:  COR_OU_NENHUMA.optional().nullable(),
   profileTheme: COR_OU_NENHUMA.optional().nullable(),

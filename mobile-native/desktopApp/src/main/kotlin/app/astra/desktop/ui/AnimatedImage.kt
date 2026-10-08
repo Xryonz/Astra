@@ -8,7 +8,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -28,8 +27,11 @@ import androidx.compose.ui.draw.drawBehind
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -42,7 +44,7 @@ import org.koin.core.qualifier.named
 import java.util.Base64
 import kotlin.math.roundToInt
 
-private data class AnimatedFrames(
+internal data class AnimatedFrames(
     val frames: List<ImageBitmap>,
     val durationsMs: List<Int>,
     val width: Int,
@@ -135,27 +137,26 @@ private fun QuadrosAnimados(
 }
 
 @Composable
-internal fun FotoAnimada(
-    url: String,
-    ladoPx: Int,
-    contentDescription: String?,
-    modifier: Modifier,
-    enquantoCarrega: @Composable () -> Unit,
-) {
-    val lado = if (ladoPx <= LADO_PEQUENO_DA_FOTO) LADO_PEQUENO_DA_FOTO else LADO_GRANDE_DA_FOTO
-    val quadros by produceState(AnimatedImageStore.cached(url, lado), url, lado) {
-        if (value == null) value = withContext(Dispatchers.IO) { AnimatedImageStore.loadOrDecode(url, lado) }
+internal fun lembrarQuadrosDaFoto(url: String, ladoPx: Int): AnimatedFrames? {
+    var quadros by remember(url, ladoPx) {
+        mutableStateOf(AnimatedImageStore.cached(url, ladoPx, cobrir = true))
     }
-    val q = quadros
-    if (q != null && q.frames.isNotEmpty()) {
-        QuadrosAnimados(q, tocar = true, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
-    } else {
-        enquantoCarrega()
+    LaunchedEffect(url, ladoPx) {
+        if (quadros != null) return@LaunchedEffect
+        delay(ESPERA_ANTES_DE_DECODIFICAR_MS)
+        quadros = withContext(Dispatchers.IO) { AnimatedImageStore.loadOrDecode(url, ladoPx, cobrir = true) }
     }
+    return quadros?.takeIf { it.frames.isNotEmpty() }
 }
 
-private const val LADO_PEQUENO_DA_FOTO = 128
-private const val LADO_GRANDE_DA_FOTO = 320
+@Composable
+internal fun FotoAnimada(quadros: AnimatedFrames, contentDescription: String?, modifier: Modifier) {
+    QuadrosAnimados(quadros, tocar = true, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
+}
+
+internal fun fotoSabidamenteParada(url: String): Boolean = AnimatedImageStore.isKnownStatic(url)
+
+private const val ESPERA_ANTES_DE_DECODIFICAR_MS = 150L
 
 private class QuadrosPainter(
     private val quadros: List<ImageBitmap>,
@@ -189,7 +190,12 @@ internal fun mightAnimate(url: String): Boolean {
 
 private const val ANIM_MAX_DIM = 1024
 
-private fun decodeAnimated(bytes: ByteArray, ladoMaximo: Int): AnimatedFrames? = runCatching {
+private fun decodeAnimated(
+    bytes: ByteArray,
+    lado: Int,
+    cobrir: Boolean,
+    ativo: () -> Boolean,
+): AnimatedFrames? = runCatching {
     val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
     val count = codec.frameCount
     if (count <= 1) return null
@@ -197,7 +203,8 @@ private fun decodeAnimated(bytes: ByteArray, ladoMaximo: Int): AnimatedFrames? =
     val w = info.width
     val h = info.height
     if (w <= 0 || h <= 0) return null
-    val scale = minOf(1f, ladoMaximo.toFloat() / maxOf(w, h))
+    val ladoDeReferencia = if (cobrir) minOf(w, h) else maxOf(w, h)
+    val scale = minOf(1f, lado.toFloat() / ladoDeReferencia)
     val tw = (w * scale).toInt().coerceAtLeast(1)
     val th = (h * scale).toInt().coerceAtLeast(1)
     val perFrame = tw.toLong() * th * 4
@@ -208,28 +215,34 @@ private fun decodeAnimated(bytes: ByteArray, ladoMaximo: Int): AnimatedFrames? =
     val bmp = Bitmap().apply { allocPixels(info) }
     val out = ArrayList<ImageBitmap>(n)
     val durs = ArrayList<Int>(n)
-    for (i in 0 until n) {
-        codec.readPixels(bmp, i)
-        val full = SkiaImage.makeFromBitmap(bmp)
-        if (scale < 1f) {
-            out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
-            runCatching { full.close() }
-        } else {
-            out += full.toComposeImageBitmap()
+    try {
+        for (i in 0 until n) {
+            if (!ativo()) throw CancellationException()
+            codec.readPixels(bmp, i)
+            val full = SkiaImage.makeFromBitmap(bmp)
+            if (scale < 1f) {
+                out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
+                runCatching { full.close() }
+            } else {
+                out += full.toComposeImageBitmap()
+            }
+            val d = fi.getOrNull(i)?.duration ?: 100
+            durs += if (d <= 0) 100 else d
         }
-        val d = fi.getOrNull(i)?.duration ?: 100
-        durs += if (d <= 0) 100 else d
+    } finally {
+        runCatching { bmp.close() }
     }
-    runCatching { bmp.close() }
     AnimatedFrames(out, durs, tw, th)
-}.getOrNull()
+}.getOrElse { if (it is CancellationException) throw it else null }
 
 private const val ANIM_CACHE_BYTES = 48L * 1024 * 1024
 
 private object AnimatedImageStore {
     private val lock = Any()
 
-    private val cache = LinkedHashMap<String, AnimatedFrames>(16, 0.75f, true)
+    private data class Chave(val url: String, val lado: Int, val cobrir: Boolean)
+
+    private val cache = LinkedHashMap<Chave, AnimatedFrames>(16, 0.75f, true)
     private var cacheBytes = 0L
 
     private fun trimLocked() {
@@ -246,19 +259,27 @@ private object AnimatedImageStore {
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
 
-    private fun chave(url: String, lado: Int) = if (lado == ANIM_MAX_DIM) url else "$lado|$url"
+    private fun guardavel(chave: Chave) = !(chave.cobrir && chave.url.startsWith("data:"))
 
-    fun cached(url: String, lado: Int = ANIM_MAX_DIM): AnimatedFrames? = synchronized(lock) { cache[chave(url, lado)] }
+    fun cached(url: String, lado: Int = ANIM_MAX_DIM, cobrir: Boolean = false): AnimatedFrames? {
+        val chave = Chave(url, lado, cobrir)
+        if (!guardavel(chave)) return null
+        return synchronized(lock) { cache[chave] }
+    }
+
     fun isKnownStatic(url: String): Boolean = synchronized(lock) { staticKeys.containsKey(url) }
 
-    suspend fun loadOrDecode(url: String, lado: Int = ANIM_MAX_DIM): AnimatedFrames? {
-        val chave = chave(url, lado)
+    suspend fun loadOrDecode(url: String, lado: Int = ANIM_MAX_DIM, cobrir: Boolean = false): AnimatedFrames? {
+        val chave = Chave(url, lado, cobrir)
+        val guardar = guardavel(chave)
         synchronized(lock) {
-            cache[chave]?.let { return it }
+            if (guardar) cache[chave]?.let { return it }
             if (staticKeys.containsKey(url)) return null
         }
         val bytes = fetchBytes(url) ?: return null
-        val frames = decodeAnimated(bytes, lado)
+        val contexto = currentCoroutineContext()
+        val frames = decodeAnimated(bytes, lado, cobrir) { contexto.isActive }
+        if (!guardar) return frames
         synchronized(lock) {
             if (frames == null) {
                 staticKeys[url] = true

@@ -178,7 +178,8 @@ fun LIcon(
 
 @Composable
 fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false) {
-    val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !LocalReduceMotion.current
+    val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !fotoSabidamenteParada(url) &&
+        !LocalReduceMotion.current
     val sobre = remember { MutableInteractionSource() }
     val comOMouse by sobre.collectIsHoveredAsState()
     Box(
@@ -193,21 +194,19 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = fal
             contentAlignment = Alignment.Center,
         ) {
             if (!url.isNullOrBlank() && !imagemMorreu(url)) {
-                val parada = @Composable {
-                    AsyncImage(
-                        model = url,
-                        contentDescription = name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        onState = { lembrarQueMorreu(url, it) },
-                    )
-                }
-                if (podeAnimar && (animar || comOMouse)) {
-                    val ladoPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
-                    FotoAnimada(url, ladoPx, name, Modifier.fillMaxSize(), parada)
+                val quadros = if (podeAnimar && (animar || comOMouse)) {
+                    lembrarQuadrosDaFoto(url, with(LocalDensity.current) { sizeDp.dp.roundToPx() })
                 } else {
-                    parada()
+                    null
                 }
+                AsyncImage(
+                    model = url,
+                    contentDescription = if (quadros == null) name else null,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (quadros == null) 1f else 0f },
+                    contentScale = ContentScale.Crop,
+                    onState = { lembrarQueMorreu(url, it) },
+                )
+                if (quadros != null) FotoAnimada(quadros, name, Modifier.fillMaxSize())
             } else {
                 Text(
                     text = name.take(1).uppercase(),

@@ -74,6 +74,12 @@ object ImageEncoder {
         ExifInterface.ORIENTATION_NORMAL
     }
 
+    suspend fun larguraOriginal(bytes: ByteArray): Int? = withContext(Dispatchers.Default) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        bounds.outWidth.takeIf { it > 0 }
+    }
+
     suspend fun decodeForCrop(bytes: ByteArray, maxDimension: Int): Bitmap? = withContext(Dispatchers.Default) {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)

@@ -112,10 +112,11 @@ fun EditarPerfilScreen(
     val semMovimento = LocalAppPrefs.current.reduceMotion
     var folhaDoBanner by remember { mutableStateOf(false) }
     var paraRecortar by remember { mutableStateOf<ByteArray?>(null) }
+    var fotoParaRecortar by remember { mutableStateOf<Pair<ByteArray, String>?>(null) }
     val focoDoRecado = remember { FocusRequester() }
 
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadAvatar(bytes, mime) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> fotoParaRecortar = bytes to mime }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         readImageBytes(ctx, uri)?.let { (bytes, mime, _) ->
@@ -275,6 +276,23 @@ fun EditarPerfilScreen(
                 viewModel.uploadBannerRecortado(origem, recorte)
             },
             aoFechar = { paraRecortar = null },
+        )
+    }
+
+    fotoParaRecortar?.let { (bytes, mime) ->
+        val animada = ehGif(mime)
+        JanelaDeRecorte(
+            bytes = bytes,
+            proporcao = 1f,
+            titulo = "Recortar foto",
+            redondo = true,
+            aviso = if (animada) "A animação continua depois do recorte." else null,
+            aoAplicar = { origem, recorte ->
+                fotoParaRecortar = null
+                if (animada) viewModel.uploadAvatarAnimado(bytes, mime, origem, recorte)
+                else viewModel.uploadAvatarRecortado(origem, recorte)
+            },
+            aoFechar = { fotoParaRecortar = null },
         )
     }
 }

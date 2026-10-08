@@ -2,6 +2,7 @@ package app.astra.mobile.feature.profile.presentation
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.FriendsApi
@@ -13,11 +14,14 @@ import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
 import app.astra.mobile.ui.components.zoomQueCobre
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
@@ -60,11 +64,33 @@ class ProfileEditViewModel @Inject constructor(
     fun onBannerScale(v: Int) = _state.update { it.copy(bannerScale = v.coerceIn(ZOOM_MIN, ZOOM_MAX), saved = false, error = null) }
     fun onDisplayFont(v: String) = _state.update { it.copy(displayFont = v, saved = false, error = null) }
 
-    fun uploadAvatar(bytes: ByteArray, mime: String) {
+    fun uploadAvatarRecortado(origem: Bitmap, recorte: Rect) {
         _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
         viewModelScope.launch {
-            ImageEncoder.toDataUri(bytes, mime, AVATAR_DIM, AVATAR_GIF_MAX)
+            ImageEncoder.cropToDataUri(origem, recorte, AVATAR_DIM)
                 .onSuccess { uri -> _state.update { it.copy(uploadingAvatar = false, avatarUrl = uri) } }
+                .onFailure { e -> _state.update { it.copy(uploadingAvatar = false, error = e.message) } }
+        }
+    }
+
+    fun uploadAvatarAnimado(bytes: ByteArray, mime: String, origem: Bitmap, recorte: Rect) {
+        if (bytes.size > AVATAR_GIF_MAX) {
+            _state.update { it.copy(error = "GIF muito grande — escolha um menor.", saved = false) }
+            return
+        }
+        _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
+        viewModelScope.launch {
+            val fator = (ImageEncoder.larguraOriginal(bytes) ?: origem.width).toFloat() / origem.width
+            val imagem = withContext(Dispatchers.Default) {
+                "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+            userRepository.recortarFoto(
+                imagem,
+                x = (recorte.left * fator).roundToInt().coerceAtLeast(0),
+                y = (recorte.top * fator).roundToInt().coerceAtLeast(0),
+                lado = (recorte.width() * fator).roundToInt().coerceAtLeast(1),
+            )
+                .onSuccess { url -> _state.update { it.copy(uploadingAvatar = false, avatarUrl = url) } }
                 .onFailure { e -> _state.update { it.copy(uploadingAvatar = false, error = e.message) } }
         }
     }

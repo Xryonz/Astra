@@ -26,6 +26,8 @@ interface UserRepository {
         displayFont: String? = null,
     ): Result<Profile>
 
+    suspend fun recortarFoto(imagem: String, x: Int, y: Int, lado: Int): Result<String>
+
     suspend fun changePassword(current: String, new: String): Result<Unit>
 
     suspend fun setPassword(new: String): Result<Unit>

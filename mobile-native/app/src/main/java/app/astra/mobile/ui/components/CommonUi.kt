@@ -42,12 +42,15 @@ import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.decode.BitmapFactoryDecoder
+import coil3.request.ImageRequest
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
-fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size: Int = 46) {
+fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size: Int = 46, animar: Boolean = false) {
     val mod = modifier
         .size(size.dp)
         .clip(CircleShape)
@@ -55,8 +58,17 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
         .border(1.dp, astraColors.borderMid, CircleShape)
     var falhou by remember(url, RodadaDasImagens.valor) { mutableStateOf(false) }
     if (!url.isNullOrBlank() && !falhou) {
+        val contexto = LocalPlatformContext.current
+        val pedido = remember(url, animar) {
+            if (animar) url
+            else ImageRequest.Builder(contexto)
+                .data(url)
+                .decoderFactory(BitmapFactoryDecoder.Factory())
+                .memoryCacheKeyExtra(CHAVE_DO_QUADRO, QUADRO_PARADO)
+                .build()
+        }
         AsyncImage(
-            model = url,
+            model = pedido,
             contentDescription = null,
             modifier = mod,
             contentScale = ContentScale.Crop,
@@ -72,6 +84,9 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
         }
     }
 }
+
+private const val CHAVE_DO_QUADRO = "quadro"
+private const val QUADRO_PARADO = "parado"
 
 private val ConstellationStars = listOf(
     Offset(20f, 75f), Offset(50f, 40f), Offset(80f, 55f), Offset(110f, 25f),

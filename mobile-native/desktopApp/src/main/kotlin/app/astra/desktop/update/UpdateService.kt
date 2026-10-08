@@ -6,7 +6,9 @@ import app.astra.desktop.Instalacao
 import app.astra.desktop.Lancador
 import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
+import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.voice.SidecarDeVoz
+import org.koin.core.context.GlobalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -453,6 +455,7 @@ class UpdateService(private val http: OkHttpClient) {
             return
         }
         SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
+        runCatching { GlobalContext.get().get<SessionStore>().gravarPendencias() }
         if (Trocador.precisaTrocar(nova)) {
             FocoDoSistema.cederAFrenteAQualquerUm()
             if (Trocador.preparar(nova, versaoNova) && Trocador.trocar(nova, versaoNova)) {

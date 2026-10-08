@@ -260,7 +260,7 @@ internal fun OrbitItem(
                 UnreadCountBadge(unreadCount)
             }
         }
-        if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart), chave = unreadCount)
+        if (isUnread) UnreadPill(ch.id, Modifier.align(Alignment.CenterStart), chave = unreadCount)
         if (dSt != null && dragCtx != null && dSt.dragging &&
             dSt.section == dragCtx.section && dSt.id != ch.id && dSt.targetIndex == dragCtx.index
         ) {
@@ -301,8 +301,8 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
 }
 
 @Composable
-internal fun UnreadPill(modifier: Modifier = Modifier, chave: Any? = Unit) {
-    val glow = pulsoBreve(chave, piso = 0.55f, meiaVoltaMs = 1400)
+internal fun UnreadPill(id: String, modifier: Modifier = Modifier, chave: Any? = Unit) {
+    val glow = pulsoBreve(PREFIXO_DO_NAO_LIDO + id, chave, piso = 0.55f, meiaVoltaMs = 1400)
     Box(
         modifier
             .width(3.dp)

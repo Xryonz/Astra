@@ -845,7 +845,7 @@ fun main(args: Array<String>) {
                                 LoginScreen(repo = authRepo, onLoggedIn = { sess, isNew ->
                                     session = sess
                                     if (isNew) needsOnboarding = true
-                                    pulseScope.launch {
+                                    if (prefState.auroraOn && !prefState.reduceMotionEff) pulseScope.launch {
                                         auroraPulse.snapTo(1f)
                                         auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
                                     }

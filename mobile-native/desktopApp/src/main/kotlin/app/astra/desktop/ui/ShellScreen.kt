@@ -438,6 +438,7 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
+        LaunchedEffect(state.unread) { PulsosJaDados.esquecerOsLidos(state.unread) }
         Column(Modifier.larguraDaColunaDasOrbitas().fillMaxHeight()) {
         Row(Modifier.weight(1f)) {
         Rail(

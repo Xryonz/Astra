@@ -126,14 +126,16 @@ class SessionStore {
     }
 
     init {
-        Runtime.getRuntime().addShutdownHook(Thread {
-            if (gravacaoPendente.get()) gravarUiPrefs()
-        })
+        Runtime.getRuntime().addShutdownHook(Thread { gravarPendencias() })
     }
 
-    private fun uiPropsLocked(): Properties = uiProps ?: Properties().apply {
-        if (uiFile.exists()) runCatching { uiFile.inputStream().use { load(it) } }
-    }.also { uiProps = it }
+    private fun uiPropsLocked(): Properties {
+        uiProps?.let { return it }
+        val lidas = Properties()
+        val leu = !uiFile.exists() || runCatching { uiFile.inputStream().use { lidas.load(it) } }.isSuccess
+        if (leu) uiProps = lidas
+        return lidas
+    }
 
     fun uiPref(key: String): String? = synchronized(uiLock) { uiPropsLocked().getProperty(key) }
 
@@ -157,14 +159,17 @@ class SessionStore {
         if (gravacaoPendente.get()) gravarUiPrefs() else synchronized(escritaLock) { }
     }
 
-    private fun gravarUiPrefs() = synchronized(escritaLock) {
-        gravacaoPendente.set(false)
-        val copia = synchronized(uiLock) { Properties().apply { putAll(uiPropsLocked()) } }
-        runCatching {
-            dir.mkdirs()
-            val tmp = File(dir, "ui.properties.tmp")
-            tmp.outputStream().use { copia.store(it, "Astra ui prefs") }
-            Files.move(tmp.toPath(), uiFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+    private fun gravarUiPrefs() {
+        synchronized(escritaLock) {
+            gravacaoPendente.set(false)
+            val copia = synchronized(uiLock) { uiProps?.let { lidas -> Properties().apply { putAll(lidas) } } }
+                ?: return
+            runCatching {
+                dir.mkdirs()
+                val tmp = File(dir, "ui.properties.tmp")
+                tmp.outputStream().use { copia.store(it, "Astra ui prefs") }
+                Files.move(tmp.toPath(), uiFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            }
         }
     }
 

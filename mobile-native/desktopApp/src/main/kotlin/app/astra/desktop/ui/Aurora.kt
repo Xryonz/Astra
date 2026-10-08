@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -21,8 +20,10 @@ import app.astra.desktop.ui.theme.Obsidian
 import kotlin.math.ceil
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
@@ -270,56 +271,73 @@ private fun Modifier.auroraPeloProcessador(pulse: () -> Float): Modifier {
     val oitavas = LocalRenderPrefs.current.auroraOctaves
     val accent = Obsidian.accent
     val voidC = Obsidian.void
-    val reduceMotion = LocalReduceMotion.current
-    val active = rememberUpdatedState(LocalWindowActive.current)
+    val parado = rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
     val pulso = rememberUpdatedState(pulse)
-    var tamanho by remember { mutableStateOf(IntSize.Zero) }
+    val tamanho = remember { mutableStateOf(IntSize.Zero) }
     val relogio = remember { floatArrayOf(0f) }
     val quadro = remember { mutableStateOf<Image?>(null) }
 
-    LaunchedEffect(oitavas, reduceMotion, tamanho, accent, voidC) {
-        if (tamanho.width <= 0 || tamanho.height <= 0) return@LaunchedEffect
+    LaunchedEffect(oitavas, accent, voidC) {
         val efeito = runCatching { RuntimeEffect.makeForShader(auroraSksl(oitavas).trimIndent()) }.getOrNull()
             ?: return@LaunchedEffect
-        val largura = ceil(tamanho.width / FATOR_NO_PROCESSADOR).toInt()
-        val altura = ceil(tamanho.height / FATOR_NO_PROCESSADOR).toInt()
         val construtor = RuntimeShaderBuilder(efeito)
-        val superficie = Surface.makeRasterN32Premul(largura, altura)
         val pintor = Paint()
+        var superficie: Surface? = null
+        var desenhadoEm = IntSize.Zero
         try {
             var anterior = System.nanoTime()
             while (true) {
-                if (!reduceMotion && !active.value) {
-                    snapshotFlow { active.value }.first { it }
+                val tam = tamanho.value
+                if (tam.width <= 0 || tam.height <= 0) {
+                    snapshotFlow { tamanho.value }.first { it.width > 0 && it.height > 0 }
+                    continue
+                }
+                if (parado.value && desenhadoEm == tam) {
+                    snapshotFlow { !parado.value || tamanho.value != tam }.first { it }
                     anterior = System.nanoTime()
+                    continue
                 }
                 val inicio = System.nanoTime()
-                relogio[0] = if (reduceMotion) AURORA_STILL
-                else (relogio[0] + ((inicio - anterior) / 1_000_000_000f).coerceAtMost(0.25f)) % AURORA_LOOP
+                if (!parado.value) {
+                    relogio[0] = (relogio[0] + ((inicio - anterior) / 1_000_000_000f).coerceAtMost(0.25f)) % AURORA_LOOP
+                }
                 anterior = inicio
+                val largura = ceil(tam.width / FATOR_NO_PROCESSADOR).toInt()
+                val altura = ceil(tam.height / FATOR_NO_PROCESSADOR).toInt()
+                val alvo = superficie?.takeIf { it.width == largura && it.height == altura }
+                    ?: Surface.makeRasterN32Premul(largura, altura).also {
+                        superficie?.close()
+                        superficie = it
+                    }
                 val boost = 1f + 0.15f * pulso.value().coerceIn(0f, 1f)
                 construtor.uniform("uTime", relogio[0])
                 construtor.uniform("uSize", largura.toFloat(), altura.toFloat())
                 construtor.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
                 construtor.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
-                val imagem = withContext(Dispatchers.Default) {
+                val imagem = withContext(NonCancellable + Dispatchers.Default) {
                     Quadros.cronometrar("aurora") {
                         val shader = construtor.makeShader()
                         pintor.shader = shader
-                        superficie.canvas.drawRect(Rect.makeWH(largura.toFloat(), altura.toFloat()), pintor)
+                        alvo.canvas.drawRect(Rect.makeWH(largura.toFloat(), altura.toFloat()), pintor)
                         pintor.shader = null
                         shader.close()
-                        superficie.makeImageSnapshot()
+                        alvo.makeImageSnapshot()
                     }
+                }
+                if (!isActive) {
+                    imagem.close()
+                    break
                 }
                 quadro.value?.close()
                 quadro.value = imagem
-                if (reduceMotion) break
-                delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
+                desenhadoEm = tam
+                if (!parado.value) {
+                    delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
+                }
             }
         } finally {
             pintor.close()
-            superficie.close()
+            superficie?.close()
             construtor.close()
             efeito.close()
         }
@@ -330,7 +348,7 @@ private fun Modifier.auroraPeloProcessador(pulse: () -> Float): Modifier {
             quadro.value = null
         }
     }
-    return onSizeChanged { tamanho = it }.drawBehind {
+    return onSizeChanged { tamanho.value = it }.drawBehind {
         Quadros.marcar()
         val imagem = quadro.value
         if (imagem == null) {

@@ -261,7 +261,7 @@ internal fun DmList(
                         }
                     }
                 }
-                if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+                if (isUnread) UnreadPill(conv.id, Modifier.align(Alignment.CenterStart))
             }
             }
             }

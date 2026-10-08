@@ -247,11 +247,17 @@ val LocalPuloParaMensagem = staticCompositionLocalOf { PuloParaMensagem() }
 val LocalWindowActive = compositionLocalOf { true }
 
 @Composable
-internal fun pulsoBreve(chave: Any?, piso: Float, meiaVoltaMs: Int): State<Float> {
+internal fun pulsoBreve(id: String, chave: Any?, piso: Float, meiaVoltaMs: Int): State<Float> {
     val brilho = remember { Animatable(1f) }
-    val quieto by rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
-    LaunchedEffect(chave) {
-        if (quieto) return@LaunchedEffect
+    val quietoAgora = LocalReduceMotion.current || !LocalWindowActive.current
+    val quieto by rememberUpdatedState(quietoAgora)
+    LaunchedEffect(quietoAgora) { if (quietoAgora) brilho.snapTo(1f) }
+    LaunchedEffect(id, chave) {
+        if (PulsosJaDados.registrar(id, chave)) return@LaunchedEffect
+        if (quieto) {
+            brilho.snapTo(1f)
+            return@LaunchedEffect
+        }
         repeat(PULSOS_DO_AVISO) {
             brilho.animateTo(piso, tween(meiaVoltaMs, easing = EaseOutSoft))
             brilho.animateTo(1f, tween(meiaVoltaMs, easing = EaseOutSoft))
@@ -259,6 +265,22 @@ internal fun pulsoBreve(chave: Any?, piso: Float, meiaVoltaMs: Int): State<Float
     }
     return brilho.asState()
 }
+
+internal object PulsosJaDados {
+    private val ultimo = HashMap<String, Any?>()
+
+    fun registrar(id: String, chave: Any?): Boolean {
+        if (ultimo.containsKey(id) && ultimo[id] == chave) return true
+        ultimo[id] = chave
+        return false
+    }
+
+    fun esquecerOsLidos(naoLidos: Set<String>) {
+        ultimo.keys.removeAll { it.startsWith(PREFIXO_DO_NAO_LIDO) && it.removePrefix(PREFIXO_DO_NAO_LIDO) !in naoLidos }
+    }
+}
+
+internal const val PREFIXO_DO_NAO_LIDO = "naoLido:"
 
 private const val PULSOS_DO_AVISO = 3
 

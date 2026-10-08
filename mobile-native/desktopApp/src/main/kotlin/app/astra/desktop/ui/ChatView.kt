@@ -502,9 +502,9 @@ fun ChatView(
                     Spacer(Modifier.width(6.dp))
                     val names = state.typing.values.toList()
                     val label = when (names.size) {
-                        1 -> "${names[0]} esta digitando…"
+                        1 -> "${names[0]} está digitando…"
                         2 -> "${names[0]} e ${names[1]} estão digitando…"
-                        else -> "varias pessoas estão digitando…"
+                        else -> "várias pessoas estão digitando…"
                     }
                     Text(label, style = Tipo.apoio)
                 }

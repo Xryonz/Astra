@@ -260,7 +260,7 @@ private fun PontoDeAtualizacao(updater: UpdateService) {
                 }
             }
         }
-        val brilho = pulsoBreve(chave = st is UpdateState.Ready, piso = 0.45f, meiaVoltaMs = 1300)
+        val brilho = pulsoBreve("atualizacao", chave = st is UpdateState.Ready, piso = 0.45f, meiaVoltaMs = 1300)
         val fonteDeInteracao = remember { MutableInteractionSource() }
         Box(
             Modifier

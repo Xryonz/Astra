@@ -297,6 +297,10 @@ fun PetDoAstra(
     var quadroDaFolha by remember { mutableIntStateOf(0) }
     var olhoFechado by remember { mutableStateOf(false) }
     var passoDoVetor by remember { mutableFloatStateOf(0f) }
+    fun zerarAnimacao() {
+        tempos.naAnim = 0f
+        quadroDaFolha = 0
+    }
     var olhandoPraDireita by remember { mutableStateOf(false) }
     var espera by remember { mutableStateOf(2f) }
     var caricias by remember { mutableStateOf(0) }
@@ -308,7 +312,7 @@ fun PetDoAstra(
             val susto = pet.gestoDeSusto ?: return@collect
             if (anim != Anim.PARADO && anim != Anim.ANDANDO) return@collect
             anim = susto
-            tempos.naAnim = 0f
+            zerarAnimacao()
         }
     }
 
@@ -337,7 +341,7 @@ fun PetDoAstra(
                     if (espera <= 0f) {
                         alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
                         anim = Anim.ANDANDO
-                        tempos.naAnim = 0f
+                        zerarAnimacao()
                     }
                 }
 
@@ -347,7 +351,7 @@ fun PetDoAstra(
                     if (abs(dx) <= v) {
                         x = alvoX
                         anim = Anim.PARADO
-                        tempos.naAnim = 0f
+                        zerarAnimacao()
                         espera = 4f + Random.nextFloat() * 9f
                     } else {
                         olhandoPraDireita = dx > 0f
@@ -360,7 +364,7 @@ fun PetDoAstra(
                     if (c == null || tempos.naAnim >= c.quadros.toFloat() / c.fps) {
                         val recolhido = anim == Anim.RECOLHE
                         anim = Anim.PARADO
-                        tempos.naAnim = 0f
+                        zerarAnimacao()
                         espera = if (recolhido) 5f + Random.nextFloat() * 3f
                         else 2f + Random.nextFloat() * 2.5f
                     }
@@ -409,7 +413,7 @@ fun PetDoAstra(
                     if (caricias >= LIMITE_DE_CARINHO) {
                         deMalAte = agora + 6000
                         caricias = 0
-                        tempos.naAnim = 0f
+                        zerarAnimacao()
 
                         val recolhe = pet.passos[Anim.RECOLHE]
                         if (recolhe != null) {
@@ -421,7 +425,7 @@ fun PetDoAstra(
                     } else {
                         val escada = pet.escadaDeCarinho
                         anim = escada.getOrNull(caricias - 1) ?: escada.lastOrNull() ?: Anim.CARINHO
-                        tempos.naAnim = 0f
+                        zerarAnimacao()
                         Sfx.carinho()
                     }
                 }
@@ -450,7 +454,7 @@ fun PetDoAstra(
                                     x = mao.x.coerceIn(novoPiso.left + larguraPx / 2f, novoPiso.right - larguraPx / 2f)
                                     alvoX = x
                                     anim = Anim.PARADO
-                                    tempos.naAnim = 0f
+                                    zerarAnimacao()
                                     espera = 2f + Random.nextFloat() * 2f
                                     if (destino != moraNoCampo) {
                                         moraNoCampo = destino

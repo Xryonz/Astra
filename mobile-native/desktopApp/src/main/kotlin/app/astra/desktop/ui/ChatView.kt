@@ -487,6 +487,7 @@ fun ChatView(
             }
         }
 
+        EscopoProprio {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
             val reduzirMovimento = LocalReduceMotion.current
             AnimatedVisibility(
@@ -557,9 +558,10 @@ fun ChatView(
                                 modifier = Modifier.widthIn(max = 180.dp),
                             )
                             Spacer(Modifier.width(6.dp))
+                            val tamanhoDoArquivo = remember(pf.file) { pf.file.length() }
                             Text(
                                 when {
-                                    pf.comprimindo == null -> sizeLabel(pf.file.length())
+                                    pf.comprimindo == null -> sizeLabel(tamanhoDoArquivo)
                                     pf.comprimindo < 0.01f -> "preparando o vídeo"
                                     else -> "comprimindo ${(pf.comprimindo * 100).toInt()}%"
                                 },
@@ -743,6 +745,7 @@ fun ChatView(
                 }
             }
         }
+        }
     }
 
     if (enqueteAberta) {
@@ -772,6 +775,11 @@ fun ChatView(
     }
     }
     }
+}
+
+@Composable
+private fun EscopoProprio(conteudo: @Composable () -> Unit) {
+    conteudo()
 }
 
 @Composable

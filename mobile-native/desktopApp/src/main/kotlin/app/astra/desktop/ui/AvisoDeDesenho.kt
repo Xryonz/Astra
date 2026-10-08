@@ -105,7 +105,7 @@ fun AvisoDeDesenhoPeloProcessador(aoDispensar: () -> Unit) {
 
 private fun reabrirUsandoAPlaca(): String {
     if (!Arranque.sairDoModoSeguro()) {
-        return "não foi possível gravar a escolha — tente em Configurações, na aba Diagnóstico"
+        return "não foi possível gravar a escolha — confira se há espaço livre no disco"
     }
     FocoDoSistema.cederAFrenteAQualquerUm()
     if (Vigia.reabrir()) {

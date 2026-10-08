@@ -212,7 +212,7 @@ private fun writeDiagnostics() = runCatching {
             appendLine("   ^ sem bateria, sem placas, sem atividade, sem foco e sem identidade na barra")
             appendLine("   ^ ligado porque uma abertura criou a janela e não desenhou.")
             appendLine("     A próxima abertura tenta a placa de novo; depois de 2 quedas seguidas, segue ligado")
-            appendLine("     até ser desligado em Configurações > Diagnóstico.")
+            appendLine("     até a pessoa usar o botão do aviso na tela inicial.")
             appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
         }
         appendLine("transparência: ${if (janelaAceitaTransparencia) "aceita" else "NÃO aceita — janela opaca"}")

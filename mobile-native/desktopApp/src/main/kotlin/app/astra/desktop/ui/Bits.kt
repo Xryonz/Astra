@@ -264,6 +264,8 @@ private const val PULSOS_DO_AVISO = 3
 
 val LocalJanelaNaTela = compositionLocalOf { true }
 
+val LocalFundoLiso = staticCompositionLocalOf { false }
+
 data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
 val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }
 

@@ -757,8 +757,16 @@ private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
 private val ALTURA_DO_RODAPE = 62.dp
 
+@Composable
 internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
-    this.background(bg.copy(alpha = alpha))
+    if (LocalFundoLiso.current) this.background(sobreOFundoLiso(bg, alpha, Obsidian.void))
+    else this.background(bg.copy(alpha = alpha))
+
+private fun sobreOFundoLiso(cor: Color, alfa: Float, fundo: Color) = Color(
+    red = fundo.red + (cor.red - fundo.red) * alfa,
+    green = fundo.green + (cor.green - fundo.green) * alfa,
+    blue = fundo.blue + (cor.blue - fundo.blue) * alfa,
+)
 
 private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
     val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)

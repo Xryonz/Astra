@@ -71,6 +71,7 @@ import app.astra.desktop.ui.Quadros
 import app.astra.desktop.ui.contandoQuadros
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
+import app.astra.desktop.ui.LocalFundoLiso
 import app.astra.desktop.ui.LocalReduceMotion
 import app.astra.desktop.ui.LocalRenderPrefs
 import app.astra.desktop.ui.LocalJanelaNaTela
@@ -766,6 +767,7 @@ fun main(args: Array<String>) {
                 LocalContextMenuRepresentation provides AstraTextContextMenu,
                 LocalWindowActive provides (naTela && janelaComFoco),
                 LocalReduceMotion provides (prefState.reduceMotionEff || !janelaComFoco || transmitindo),
+                LocalFundoLiso provides (!prefState.auroraOn && !prefState.starsOn),
             ) {
             RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
@@ -819,8 +821,6 @@ fun main(args: Array<String>) {
                     ) {
                         if (prefState.auroraOn) {
                             Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
-                        } else {
-                            Box(Modifier.fillMaxSize().background(Obsidian.void))
                         }
                         if (prefState.starsOn) StarField(Modifier.fillMaxSize())
                     }

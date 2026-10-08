@@ -370,7 +370,7 @@ private fun PhotoStep(displayName: String, avatarUrl: String?, busy: Boolean, on
         Box(
             Modifier.clip(CircleShape).border(2.dp, Obsidian.accent, CircleShape).padding(3.dp),
         ) {
-            DesktopAvatar(avatarUrl, displayName, 96)
+            DesktopAvatar(avatarUrl, displayName, 96, animar = true)
         }
         Spacer(Modifier.height(18.dp))
         OnbButton(

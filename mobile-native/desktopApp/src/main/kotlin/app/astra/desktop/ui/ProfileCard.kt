@@ -229,10 +229,10 @@ private fun AvatarDoCartao(
                 acoes = acoesDaFoto,
                 modifier = Modifier.size(px.dp),
             ) { aceso ->
-                DesktopAvatar(dados.avatarUrl, dados.nome, px)
+                DesktopAvatar(dados.avatarUrl, dados.nome, px, animar = true)
             }
         } else {
-            DesktopAvatar(dados.avatarUrl, dados.nome, px)
+            DesktopAvatar(dados.avatarUrl, dados.nome, px, animar = true)
         }
     }
 }

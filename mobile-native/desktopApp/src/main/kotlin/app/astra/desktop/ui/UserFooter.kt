@@ -477,7 +477,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
             Box(
                 Modifier.offset(y = (-20).dp),
             ) {
-                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 56)
+                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 56, animar = true)
             }
             Column(Modifier.offset(y = (-8).dp)) {
                 if (!editing) {

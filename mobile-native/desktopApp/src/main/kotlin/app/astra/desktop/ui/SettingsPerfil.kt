@@ -457,7 +457,7 @@ private fun ResizeBannerDialog(
                     )
                     Column(Modifier.padding(horizontal = 16.dp)) {
                         Box(Modifier.offset(y = (-30).dp)) {
-                            DesktopAvatar(draft.avatarUrl, name, 72)
+                            DesktopAvatar(draft.avatarUrl, name, 72, animar = true)
                         }
                         Column(Modifier.offset(y = (-8).dp)) {
                             Text(

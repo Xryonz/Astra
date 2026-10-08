@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -72,24 +73,7 @@ fun AstraImage(
 
     val a = anim
     if (a != null && a.frames.isNotEmpty()) {
-        val indice = remember(a) { mutableIntStateOf(0) }
-        if (!reduce && a.frames.size > 1) {
-            LaunchedEffect(a) {
-                var i = 0
-                while (true) {
-                    delay(a.durationsMs[i].coerceAtLeast(20).toLong())
-                    i = (i + 1) % a.frames.size
-                    indice.intValue = i
-                }
-            }
-        }
-        Image(
-            painter = remember(a) { QuadrosPainter(a.frames, indice) },
-            contentDescription = contentDescription,
-            modifier = modifier,
-            alignment = alignment,
-            contentScale = contentScale,
-        )
+        QuadrosAnimados(a, tocar = !reduce, contentDescription, modifier, alignment, contentScale)
     } else {
         val borrao by lembrarBlurhash(blurhash, proporcaoBlur)
         val comBorrao = modifier.drawBehind {
@@ -121,6 +105,58 @@ fun AstraImage(
     }
 }
 
+@Composable
+private fun QuadrosAnimados(
+    a: AnimatedFrames,
+    tocar: Boolean,
+    contentDescription: String?,
+    modifier: Modifier,
+    alignment: Alignment,
+    contentScale: ContentScale,
+) {
+    val indice = remember(a) { mutableIntStateOf(0) }
+    if (tocar && a.frames.size > 1) {
+        LaunchedEffect(a) {
+            var i = 0
+            while (true) {
+                delay(a.durationsMs[i].coerceAtLeast(20).toLong())
+                i = (i + 1) % a.frames.size
+                indice.intValue = i
+            }
+        }
+    }
+    Image(
+        painter = remember(a) { QuadrosPainter(a.frames, indice) },
+        contentDescription = contentDescription,
+        modifier = modifier,
+        alignment = alignment,
+        contentScale = contentScale,
+    )
+}
+
+@Composable
+internal fun FotoAnimada(
+    url: String,
+    ladoPx: Int,
+    contentDescription: String?,
+    modifier: Modifier,
+    enquantoCarrega: @Composable () -> Unit,
+) {
+    val lado = if (ladoPx <= LADO_PEQUENO_DA_FOTO) LADO_PEQUENO_DA_FOTO else LADO_GRANDE_DA_FOTO
+    val quadros by produceState(AnimatedImageStore.cached(url, lado), url, lado) {
+        if (value == null) value = withContext(Dispatchers.IO) { AnimatedImageStore.loadOrDecode(url, lado) }
+    }
+    val q = quadros
+    if (q != null && q.frames.isNotEmpty()) {
+        QuadrosAnimados(q, tocar = true, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
+    } else {
+        enquantoCarrega()
+    }
+}
+
+private const val LADO_PEQUENO_DA_FOTO = 128
+private const val LADO_GRANDE_DA_FOTO = 320
+
 private class QuadrosPainter(
     private val quadros: List<ImageBitmap>,
     private val indice: IntState,
@@ -142,7 +178,7 @@ private class QuadrosPainter(
     }
 }
 
-private fun mightAnimate(url: String): Boolean {
+internal fun mightAnimate(url: String): Boolean {
     if (url.startsWith("data:")) {
         val head = url.substringBefore(',').lowercase()
         return "image/gif" in head || "image/webp" in head
@@ -153,7 +189,7 @@ private fun mightAnimate(url: String): Boolean {
 
 private const val ANIM_MAX_DIM = 1024
 
-private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
+private fun decodeAnimated(bytes: ByteArray, ladoMaximo: Int): AnimatedFrames? = runCatching {
     val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
     val count = codec.frameCount
     if (count <= 1) return null
@@ -161,7 +197,7 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val w = info.width
     val h = info.height
     if (w <= 0 || h <= 0) return null
-    val scale = minOf(1f, ANIM_MAX_DIM.toFloat() / maxOf(w, h))
+    val scale = minOf(1f, ladoMaximo.toFloat() / maxOf(w, h))
     val tw = (w * scale).toInt().coerceAtLeast(1)
     val th = (h * scale).toInt().coerceAtLeast(1)
     val perFrame = tw.toLong() * th * 4
@@ -210,21 +246,24 @@ private object AnimatedImageStore {
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
 
-    fun cached(url: String): AnimatedFrames? = synchronized(lock) { cache[url] }
+    private fun chave(url: String, lado: Int) = if (lado == ANIM_MAX_DIM) url else "$lado|$url"
+
+    fun cached(url: String, lado: Int = ANIM_MAX_DIM): AnimatedFrames? = synchronized(lock) { cache[chave(url, lado)] }
     fun isKnownStatic(url: String): Boolean = synchronized(lock) { staticKeys.containsKey(url) }
 
-    suspend fun loadOrDecode(url: String): AnimatedFrames? {
+    suspend fun loadOrDecode(url: String, lado: Int = ANIM_MAX_DIM): AnimatedFrames? {
+        val chave = chave(url, lado)
         synchronized(lock) {
-            cache[url]?.let { return it }
+            cache[chave]?.let { return it }
             if (staticKeys.containsKey(url)) return null
         }
         val bytes = fetchBytes(url) ?: return null
-        val frames = decodeAnimated(bytes)
+        val frames = decodeAnimated(bytes, lado)
         synchronized(lock) {
             if (frames == null) {
                 staticKeys[url] = true
             } else {
-                cache.put(url, frames)?.let { cacheBytes -= it.bytes }
+                cache.put(chave, frames)?.let { cacheBytes -= it.bytes }
                 cacheBytes += frames.bytes
                 trimLocked()
             }

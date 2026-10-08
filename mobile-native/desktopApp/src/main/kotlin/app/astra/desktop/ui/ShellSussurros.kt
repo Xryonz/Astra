@@ -219,7 +219,7 @@ internal fun DmList(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box {
-                        DesktopAvatar(u?.avatarUrl, name, 28)
+                        DesktopAvatar(u?.avatarUrl, name, 28, animar = hovered)
                         StatusDot(
                             status = userStatus(dmPresence[u?.id]),
                             size = 10.dp,

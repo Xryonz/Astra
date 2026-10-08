@@ -921,7 +921,7 @@ private fun MessageRow(
                 }
             } else {
                 ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
+                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34, animar = hovered)
                 }
                 Spacer(Modifier.width(10.dp))
                 PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {

@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
@@ -176,10 +177,14 @@ fun LIcon(
 }
 
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false) {
+    val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !LocalReduceMotion.current
+    val sobre = remember { MutableInteractionSource() }
+    val comOMouse by sobre.collectIsHoveredAsState()
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
+            .then(if (podeAnimar) Modifier.hoverable(sobre) else Modifier)
             .pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
     ) {
@@ -188,13 +193,21 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
             contentAlignment = Alignment.Center,
         ) {
             if (!url.isNullOrBlank() && !imagemMorreu(url)) {
-                AsyncImage(
-                    model = url,
-                    contentDescription = name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onState = { lembrarQueMorreu(url, it) },
-                )
+                val parada = @Composable {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        onState = { lembrarQueMorreu(url, it) },
+                    )
+                }
+                if (podeAnimar && (animar || comOMouse)) {
+                    val ladoPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
+                    FotoAnimada(url, ladoPx, name, Modifier.fillMaxSize(), parada)
+                } else {
+                    parada()
+                }
             } else {
                 Text(
                     text = name.take(1).uppercase(),

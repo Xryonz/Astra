@@ -585,7 +585,7 @@ fun ShellScreen(
             ensurdecido = voice.ensurdecido,
             onAlternarMudo = voice::alternarMudo,
             onAlternarEnsurdecer = voice::alternarEnsurdecer,
-            caminho = caminhoDaChamada,
+            caminho = { caminhoDaChamada },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .larguraDaColunaDasOrbitas()

@@ -138,7 +138,7 @@ fun UserFooter(
     ensurdecido: Boolean,
     onAlternarMudo: () -> Unit,
     onAlternarEnsurdecer: () -> Unit,
-    caminho: LeituraDoCaminho? = null,
+    caminho: () -> LeituraDoCaminho? = { null },
     modifier: Modifier = Modifier,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
@@ -303,10 +303,7 @@ fun UserFooter(
                 }
             }
         }
-        if (caminho != null) {
-            SinalDaChamada(caminho)
-            Spacer(Modifier.width(4.dp))
-        }
+        SinalSeHouver(caminho)
         if (silenciado) {
             FooterIcon(
                 icon = Lucide.BellOff,
@@ -600,6 +597,13 @@ private fun forcaDoSinal(c: LeituraDoCaminho): Int = when {
     c.perda >= 8 || c.ida >= 300 || c.tremor >= 60 -> 1
     c.perda >= 3 || c.ida >= 150 || c.tremor >= 30 -> 2
     else -> 3
+}
+
+@Composable
+private fun SinalSeHouver(caminho: () -> LeituraDoCaminho?) {
+    val leitura = caminho() ?: return
+    SinalDaChamada(leitura)
+    Spacer(Modifier.width(4.dp))
 }
 
 @Composable

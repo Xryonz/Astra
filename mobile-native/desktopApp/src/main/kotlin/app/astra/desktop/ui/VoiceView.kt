@@ -153,17 +153,7 @@ fun VoiceView(
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        val inicio by call.inicio.collectAsState()
-        val tempo by lembrarTempoDeCall(inicio)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = TextStyle(color = color, fontSize = 11.sp))
-            if (tempo.isNotEmpty()) {
-                Text(
-                    "  ·  $tempo",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
-                )
-            }
-        }
+        EstadoDaCall(label, color, call.inicio)
         Spacer(Modifier.height(14.dp))
 
         FaixaDoFirewall()
@@ -485,6 +475,21 @@ fun VoiceView(
                 rotulo = "Sair da chamada",
                 onClick = onLeave,
                 preenchido = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EstadoDaCall(label: String, cor: Color, inicioDaCall: StateFlow<Long?>) {
+    val inicio by inicioDaCall.collectAsState()
+    val tempo by lembrarTempoDeCall(inicio)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = TextStyle(color = cor, fontSize = 11.sp))
+        if (tempo.isNotEmpty()) {
+            Text(
+                "  ·  $tempo",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
             )
         }
     }

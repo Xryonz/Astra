@@ -3,10 +3,6 @@ package app.astra.desktop.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
@@ -51,7 +47,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.ui.theme.DmSerif
-import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
@@ -265,7 +260,7 @@ internal fun OrbitItem(
                 UnreadCountBadge(unreadCount)
             }
         }
-        if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+        if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart), chave = unreadCount)
         if (dSt != null && dragCtx != null && dSt.dragging &&
             dSt.section == dragCtx.section && dSt.id != ch.id && dSt.targetIndex == dragCtx.index
         ) {
@@ -306,23 +301,14 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
 }
 
 @Composable
-internal fun UnreadPill(modifier: Modifier = Modifier) {
-    val glow = if (LocalReduceMotion.current || !LocalWindowActive.current) null else {
-        rememberInfiniteTransition(label = "unread").animateFloat(
-            initialValue = 0.55f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1400, easing = EaseOutSoft),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        )
-    }
+internal fun UnreadPill(modifier: Modifier = Modifier, chave: Any? = Unit) {
+    val glow = pulsoBreve(chave, piso = 0.55f, meiaVoltaMs = 1400)
     Box(
         modifier
             .width(3.dp)
             .height(16.dp)
             .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
-            .graphicsLayer { alpha = glow?.value ?: 1f }
+            .graphicsLayer { alpha = glow.value }
             .background(Obsidian.accent),
     )
 }

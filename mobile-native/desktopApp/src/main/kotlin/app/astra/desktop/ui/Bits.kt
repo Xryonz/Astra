@@ -22,7 +22,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.LaunchedEffect
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -242,6 +245,22 @@ class PuloParaMensagem {
 val LocalPuloParaMensagem = staticCompositionLocalOf { PuloParaMensagem() }
 
 val LocalWindowActive = compositionLocalOf { true }
+
+@Composable
+internal fun pulsoBreve(chave: Any?, piso: Float, meiaVoltaMs: Int): State<Float> {
+    val brilho = remember { Animatable(1f) }
+    val quieto by rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
+    LaunchedEffect(chave) {
+        if (quieto) return@LaunchedEffect
+        repeat(PULSOS_DO_AVISO) {
+            brilho.animateTo(piso, tween(meiaVoltaMs, easing = EaseOutSoft))
+            brilho.animateTo(1f, tween(meiaVoltaMs, easing = EaseOutSoft))
+        }
+    }
+    return brilho.asState()
+}
+
+private const val PULSOS_DO_AVISO = 3
 
 val LocalJanelaNaTela = compositionLocalOf { true }
 

@@ -746,7 +746,13 @@ fun main(args: Array<String>) {
             val rounded = transparentWindow && state.placement == WindowPlacement.Floating
             val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
 
-            CompositionLocalProvider(LocalContextMenuRepresentation provides AstraTextContextMenu) {
+            val naTela = windowVisible && !state.isMinimized
+            val transmitindo by Transmitindo.ativo.collectAsState()
+            CompositionLocalProvider(
+                LocalContextMenuRepresentation provides AstraTextContextMenu,
+                LocalWindowActive provides (naTela && janelaComFoco),
+                LocalReduceMotion provides (prefState.reduceMotionEff || !janelaComFoco || transmitindo),
+            ) {
             RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
                     Modifier
@@ -771,7 +777,6 @@ fun main(args: Array<String>) {
                         atualizacao = updater,
                     )
                     ServidorAcordandoStrip()
-                    val naTela = windowVisible && !state.isMinimized
                     LaunchedEffect(naTela) { JanelaVisivel.marcar(naTela) }
                     CompositionLocalProvider(
                         LocalWindowActive provides (naTela && janelaComFoco),
@@ -782,7 +787,6 @@ fun main(args: Array<String>) {
                     LaunchedEffect(Unit) { Quadros.medirParaArquivo(this) }
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
-                    val transmitindo by Transmitindo.ativo.collectAsState()
                     val alguemFala by QuemFala.alguem.collectAsState()
                     LaunchedEffect(alguemFala, prefState.reduceMotionEff) {
                         if (prefState.reduceMotionEff) return@LaunchedEffect

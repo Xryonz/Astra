@@ -116,7 +116,9 @@ fun EditarPerfilScreen(
     val focoDoRecado = remember { FocusRequester() }
 
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> fotoParaRecortar = bytes to mime }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) ->
+            if (viewModel.fotoCabe(bytes, mime)) fotoParaRecortar = bytes to mime
+        }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         readImageBytes(ctx, uri)?.let { (bytes, mime, _) ->

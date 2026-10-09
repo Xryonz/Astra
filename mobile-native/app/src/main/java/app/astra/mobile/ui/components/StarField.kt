@@ -106,6 +106,7 @@ private fun rememberParallaxTilt(enabled: Boolean): State<Offset> {
             var primed = false
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(e: SensorEvent) {
+                    if (CeuCoberto.coberto) return
                     val x = e.values[0]; val y = e.values[1]
                     if (!primed) {
                         fastX = x; fastY = y; slowX = x; slowY = y; primed = true

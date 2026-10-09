@@ -33,12 +33,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+private const val ESPERA_PELO_BANCO_MS = 2_000L
 
 private fun DmMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
     id = id,
@@ -78,7 +82,7 @@ class DmChatViewModel @Inject constructor(
         .distinctUntilChanged { antes, depois -> antes.first === depois.first && antes.second === depois.second }
         .map { (mensagens, traducoes) -> montarConversa(mensagens.map { it.comoLinha(traducoes) }) }
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConversaMontada.VAZIA)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ConversaMontada.VAZIA)
 
     private var otherUserId: String? = null
 
@@ -125,7 +129,12 @@ class DmChatViewModel @Inject constructor(
     private fun loadHistory() {
         viewModelScope.launch {
             repository.messages(conversationId, null)
-                .onSuccess { _state.update { it.copy(loading = false) } }
+                .onSuccess { pagina ->
+                    if (pagina.messages.isNotEmpty()) {
+                        withTimeoutOrNull(ESPERA_PELO_BANCO_MS) { _state.first { it.messages.isNotEmpty() } }
+                    }
+                    _state.update { it.copy(loading = false) }
+                }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
         }
     }

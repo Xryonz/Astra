@@ -11,6 +11,7 @@ import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
 import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
+import app.astra.mobile.ui.components.ehGif
 import app.astra.mobile.ui.components.zoomQueCobre
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -73,11 +74,15 @@ class ProfileEditViewModel @Inject constructor(
         }
     }
 
-    fun uploadAvatarAnimado(bytes: ByteArray, mime: String, origem: Bitmap, recorte: Rect) {
-        if (bytes.size > AVATAR_GIF_MAX) {
+    fun fotoCabe(bytes: ByteArray, mime: String): Boolean {
+        if (ehGif(mime) && bytes.size > AVATAR_GIF_MAX) {
             _state.update { it.copy(error = "GIF muito grande — escolha um menor.", saved = false) }
-            return
+            return false
         }
+        return true
+    }
+
+    fun uploadAvatarAnimado(bytes: ByteArray, mime: String, origem: Bitmap, recorte: Rect) {
         _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
         viewModelScope.launch {
             val fator = (ImageEncoder.larguraOriginal(bytes) ?: origem.width).toFloat() / origem.width

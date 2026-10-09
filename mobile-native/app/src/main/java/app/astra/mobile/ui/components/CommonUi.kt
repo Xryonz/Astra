@@ -59,8 +59,9 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
     var falhou by remember(url, RodadaDasImagens.valor) { mutableStateOf(false) }
     if (!url.isNullOrBlank() && !falhou) {
         val contexto = LocalPlatformContext.current
-        val pedido = remember(url, animar) {
-            if (animar) url
+        val anima = animar && !LocalAppPrefs.current.reduceMotion
+        val pedido = remember(url, anima) {
+            if (anima) url
             else ImageRequest.Builder(contexto)
                 .data(url)
                 .decoderFactory(BitmapFactoryDecoder.Factory())

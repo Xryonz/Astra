@@ -691,7 +691,7 @@ private fun rotuloDoDia(dia: LocalDate, hoje: LocalDate): String = when (dia) {
     else -> (if (dia.year == hoje.year) DIA_DO_MES else DIA_COM_ANO).format(dia)
 }
 
-private sealed interface ItemDaConversa {
+internal sealed interface ItemDaConversa {
     val chave: String
 
     data class Dia(override val chave: String, val rotulo: String) : ItemDaConversa
@@ -743,6 +743,19 @@ private fun montarItens(rows: List<ChatRow>): List<ItemDaConversa> {
     return itens
 }
 
+@Immutable
+class ConversaMontada internal constructor(
+    val rows: List<ChatRow>,
+    internal val itens: List<ItemDaConversa>,
+) {
+    companion object {
+        val VAZIA = ConversaMontada(emptyList(), emptyList())
+    }
+}
+
+fun montarConversa(rows: List<ChatRow>): ConversaMontada =
+    ConversaMontada(rows, montarItens(rows).asReversed())
+
 private class ChegadaDeMensagens {
     private var ultima: String? = null
     private var aoVivo = false
@@ -766,7 +779,7 @@ private class ChegadaDeMensagens {
 
 @Composable
 fun ChatMessageList(
-    rows: List<ChatRow>,
+    conversa: ConversaMontada,
     vivo: Boolean,
     modifier: Modifier = Modifier,
     canEdit: Boolean = true,
@@ -784,6 +797,7 @@ fun ChatMessageList(
     onOpenProfile: ((String, String) -> Unit)? = null,
     aoAbrirMeuPerfil: (() -> Unit)? = null,
 ) {
+    val rows = conversa.rows
     val chegada = remember { ChegadaDeMensagens() }
     remember(rows, vivo) { chegada.observar(rows, vivo) }
 
@@ -796,7 +810,7 @@ fun ChatMessageList(
         }
     }
 
-    val itens = remember(rows) { montarItens(rows).asReversed() }
+    val itens = conversa.itens
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
     val tocador = rememberTocadorDaConversa()

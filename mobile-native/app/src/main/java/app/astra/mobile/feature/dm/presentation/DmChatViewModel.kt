@@ -19,16 +19,41 @@ import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
+import app.astra.mobile.feature.dm.domain.model.DmMessage
+import app.astra.mobile.ui.components.ChatRow
+import app.astra.mobile.ui.components.ConversaMontada
+import app.astra.mobile.ui.components.montarConversa
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private fun DmMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
+    id = id,
+    mine = mine,
+    authorId = authorId,
+    authorName = authorName,
+    authorAvatar = authorAvatar,
+    authorFont = authorFont,
+    content = content,
+    replyAuthor = replyToAuthor,
+    replyContent = replyToContent,
+    attachments = attachments,
+    translation = traducoes[id],
+    criadaEm = createdAt,
+)
 
 @HiltViewModel
 class DmChatViewModel @Inject constructor(
@@ -47,6 +72,13 @@ class DmChatViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(DmChatUiState())
     val state = _state.asStateFlow()
+
+    val conversa: StateFlow<ConversaMontada> = _state
+        .map { it.messages to it.translations }
+        .distinctUntilChanged { antes, depois -> antes.first === depois.first && antes.second === depois.second }
+        .map { (mensagens, traducoes) -> montarConversa(mensagens.map { it.comoLinha(traducoes) }) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConversaMontada.VAZIA)
 
     private var otherUserId: String? = null
 

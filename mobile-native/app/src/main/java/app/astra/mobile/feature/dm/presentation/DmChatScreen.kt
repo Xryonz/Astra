@@ -80,6 +80,7 @@ fun DmChatScreen(
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val conversa by viewModel.conversa.collectAsState()
     val context = LocalContext.current
     val pedirMicrofone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { liberado ->
         if (liberado) viewModel.ligar()
@@ -194,34 +195,14 @@ fun DmChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.loading && state.messages.isEmpty() -> EsperaDaConversa(carregando = true)
-                    state.messages.isEmpty() -> EmptyState(
+                    state.messages.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio cósmico",
                         hint = "diga oi 👋",
                     )
+                    state.messages.isEmpty() || conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {
-
-                        val rows = remember(state.messages, state.translations) {
-                            state.messages.map { m ->
-                                ChatRow(
-                                    id = m.id,
-                                    mine = m.mine,
-                                    authorId = m.authorId,
-                                    authorName = m.authorName,
-                                    authorAvatar = m.authorAvatar,
-                                    authorFont = m.authorFont,
-                                    content = m.content,
-                                    replyAuthor = m.replyToAuthor,
-                                    replyContent = m.replyToContent,
-                                    attachments = m.attachments,
-                                    translation = state.translations[m.id],
-                                    criadaEm = m.createdAt,
-                                )
-                            }
-                        }
-
                         ChatMessageList(
-                            rows = rows,
+                            conversa = conversa,
                             vivo = !state.loading,
                             modifier = Modifier.fillMaxSize(),
                             canEdit = false,

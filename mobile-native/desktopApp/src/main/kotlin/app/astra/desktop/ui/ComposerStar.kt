@@ -47,8 +47,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Paperclip
 import com.composables.icons.lucide.Smile
 import com.composables.icons.lucide.Sticker
-import java.awt.FileDialog
-import java.awt.Frame
+import app.astra.desktop.JanelaDeArquivo
 import java.io.File
 
 internal enum class Seletor { EMOJI, GIF, FIGURINHA }
@@ -196,12 +195,7 @@ fun ComposerPlusButton(
     }
 }
 
-internal fun chooseFiles(): List<File> {
-    val dlg = FileDialog(null as Frame?, "Enviar arquivo", FileDialog.LOAD)
-    dlg.isMultipleMode = true
-    dlg.isVisible = true
-    return dlg.files?.toList().orEmpty()
-}
+internal fun chooseFiles(): List<File> = JanelaDeArquivo.escolher("Enviar arquivo", varios = true)
 
 @Composable
 private fun MenuRow(icone: ImageVector, label: String, onClick: () -> Unit) {

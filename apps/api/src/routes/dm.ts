@@ -315,7 +315,7 @@ export function createDMRouter(io: SocketServer) {
     validate(SendDMSchema),
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
-      const { content, attachments = [], replyToId, ttlSeconds } = req.body as z.infer<typeof SendDMSchema>
+      const { content, attachments = [], replyToId, ttlSeconds, clientNonce } = req.body as z.infer<typeof SendDMSchema>
 
       const anexoRuim = primeiroAnexoNaoPermitido(attachments)
       if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
@@ -381,6 +381,7 @@ export function createDMRouter(io: SocketServer) {
         attachments,
         replyTo: replySnapshot,
         author,
+        clientNonce: clientNonce ?? null,
       }
 
       entregarSussurro(io, conversationId, [req.userId, receiverId], 'new_dm', message)

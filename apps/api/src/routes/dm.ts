@@ -20,6 +20,7 @@ import { getBotId } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
 import { entregarSussurro } from '../lib/realtime'
 import { semAnexosPerdidos } from '../lib/anexosPerdidos'
+import { encodeCursor, parseCursor } from '../lib/cursorDeMensagens'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -162,7 +163,13 @@ export function createDMRouter(io: SocketServer) {
         eq(directMessages.conversationId, conversationId),
         isNull(directMessages.deletedAt),
       ]
-      if (cursor) conditions.push(lt(directMessages.id, cursor))
+      const cursorLido = parseCursor(cursor)
+      if (cursorLido) {
+        conditions.push(or(
+          lt(directMessages.createdAt, cursorLido.createdAt),
+          and(eq(directMessages.createdAt, cursorLido.createdAt), lt(directMessages.id, cursorLido.id)),
+        )!)
+      }
 
       const now = new Date()
       conditions.push(
@@ -192,12 +199,13 @@ export function createDMRouter(io: SocketServer) {
         .from(directMessages)
         .innerJoin(users, eq(users.id, directMessages.senderId))
         .where(and(...conditions))
-        .orderBy(desc(directMessages.createdAt))
+        .orderBy(desc(directMessages.createdAt), desc(directMessages.id))
         .limit(take + 1)
 
       const hasMore   = rows.length > take
       const items     = hasMore ? rows.slice(0, take) : rows
-      const nextCursor = hasMore ? items[items.length - 1].id : null
+      const ultima    = items[items.length - 1]
+      const nextCursor = hasMore && ultima ? encodeCursor(ultima.createdAt, ultima.id) : null
 
       const replyIds = items.map((m) => m.replyToId).filter(Boolean) as string[]
       let replyMap = new Map<string, { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null }>()

@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -517,7 +518,7 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
                 .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
-            Text("escrever…", style = TextStyle(color = Obsidian.text3, fontSize = (13 * s).sp))
+            Text("escrever…", style = TextStyle(color = Obsidian.text3, fontSize = 15.sp))
         }
     }
 }
@@ -534,8 +535,8 @@ private fun SampleMsg(name: String, text: String, scale: Float) {
         }
         Spacer(Modifier.width(9.dp))
         Column {
-            Text(name, style = TextStyle(color = c, fontSize = (12 * scale).sp, fontFamily = DmSerif))
-            Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (18 * scale).sp))
+            Text(name, style = TextStyle(color = c, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = DmSerif))
+            Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (15 * scale).sp, lineHeight = (22 * scale).sp))
         }
     }
 }

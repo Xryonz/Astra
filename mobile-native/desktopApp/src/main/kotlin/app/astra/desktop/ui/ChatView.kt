@@ -692,7 +692,7 @@ fun ChatView(
                         if (draft.isEmpty()) {
                             Text(
                                 placeholder,
-                                style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
+                                style = TextStyle(color = Obsidian.text3, fontSize = 15.sp, lineHeight = 22.sp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -702,7 +702,7 @@ fun ChatView(
                                 draft = it.take(4000)
                                 if (it.isNotBlank()) vm.typing()
                             },
-                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
+                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp, lineHeight = 22.sp),
                             cursorBrush = SolidColor(Obsidian.accent),
                             maxLines = 8,
                             modifier = Modifier
@@ -941,7 +941,7 @@ private fun MessageRow(
                             texto = msg.authorName,
                             cor = LocalCoresDeCargo.current[msg.authorId],
                             padrao = Obsidian.text1,
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                         )
@@ -1007,8 +1007,8 @@ private fun ContentBlock(
         val emojis = LocalEmojisDaSala.current
         val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
         val fator = if (realce.soEmoji) 2f else 1f
-        val corpo = (13 * scale * fator).sp
-        val linha = ((if (realce.temPersonalizado) 21 else 19) * scale * fator).sp
+        val corpo = (15 * scale * fator).sp
+        val linha = ((if (realce.temPersonalizado) 24 else 22) * scale * fator).sp
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
                 text = remember(msg.content, msg.edited, meuUsuario, emojis) {
@@ -1477,7 +1477,7 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
     BasicTextField(
         value = draft,
         onValueChange = { draft = it },
-        textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 19.sp),
+        textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp, lineHeight = 22.sp),
         cursorBrush = SolidColor(Obsidian.accent),
         modifier = Modifier
             .fillMaxWidth()

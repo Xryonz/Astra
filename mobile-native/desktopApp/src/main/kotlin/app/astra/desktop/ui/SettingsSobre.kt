@@ -39,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -158,7 +160,7 @@ private fun BlocoDeDesinstalar() {
     Spacer(Modifier.height(4.dp))
     Text(
         "apaga o Astra deste computador: o programa, as versões guardadas, os atalhos, o login e as " +
-            "preferências. as permissões de rede do Windows ficam, para a próxima instalação não perguntar de novo.",
+            "preferências. as regras de rede que o Windows criou para o Astra não são apagadas.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -225,7 +227,7 @@ private fun TelaDeDesinstalacao() {
             Modifier
                 .fillMaxSize()
                 .background(Obsidian.void.copy(alpha = 0.82f))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .pointerInput(Unit) { detectTapGestures { } },
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -261,8 +263,8 @@ private fun TelaDeDesinstalacao() {
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    if (falhou) "feche o Astra e apague a pasta do programa à mão."
-                    else "o Astra fecha sozinho no fim, e a pasta do programa some logo depois.",
+                    if (falhou) "feche o Astra e apague à mão a pasta do programa e a pasta Astra dentro de %APPDATA%."
+                    else "o Astra fecha sozinho no fim, e os arquivos do programa somem logo depois.",
                     style = Tipo.apoio,
                 )
                 if (falhou) {
@@ -356,11 +358,13 @@ private fun AboutStatus(text: String) {
 @Composable
 internal fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
     val cor = if (accent) Obsidian.accent else Obsidian.text2
+    val src = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
+            .clickScale(src)
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

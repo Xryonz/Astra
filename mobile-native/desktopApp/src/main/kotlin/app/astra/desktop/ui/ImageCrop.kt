@@ -131,7 +131,8 @@ object ImageCrop {
     }
 
     fun mensagemDoServidor(t: Throwable): String {
-        val http = t as? retrofit2.HttpException ?: return "sem conexão com o servidor"
+        if (t is java.io.IOException) return "sem conexão com o servidor"
+        val http = t as? retrofit2.HttpException ?: return "não foi possível recortar essa imagem"
         val corpo = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
         val texto = corpo?.let { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }
         return texto?.replaceFirstChar { it.lowercase() } ?: "não foi possível recortar essa imagem"
@@ -412,6 +413,11 @@ fun CropDialog(
                         }
                     }
                 }
+                val erroAoAplicar = err
+                if (erroAoAplicar != null && cur != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(erroAoAplicar, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                }
                 Spacer(Modifier.height(14.dp))
                 CropZoomTrack(pct) { pct = it; pan = clampPan(pan, cover * it / 100f) }
                 Spacer(Modifier.height(18.dp))
@@ -421,6 +427,7 @@ fun CropDialog(
                         val i = cur ?: return@CropButton
                         if (busy) return@CropButton
                         busy = true
+                        err = null
                         val zoom = cover * pct / 100f
                         val sx = i.w / 2f - (cropW / 2f + pan.x) / zoom
                         val sy = i.h / 2f - (cropH / 2f + pan.y) / zoom

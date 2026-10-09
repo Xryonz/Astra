@@ -47,6 +47,8 @@ private const val ESPERA_PELO_BANCO_MS = 2_000L
 data class ChannelChatUiState(
     val loading: Boolean = true,
     val messages: List<ChannelMessage> = emptyList(),
+    val cursorAnterior: String? = null,
+    val carregandoAntigas: Boolean = false,
     val input: String = "",
     val sending: Boolean = false,
     val error: String? = null,
@@ -173,9 +175,23 @@ class ChannelChatViewModel @Inject constructor(
                     if (pagina.messages.isNotEmpty()) {
                         withTimeoutOrNull(ESPERA_PELO_BANCO_MS) { _state.first { it.messages.isNotEmpty() } }
                     }
-                    _state.update { it.copy(loading = false) }
+                    _state.update { it.copy(loading = false, cursorAnterior = pagina.nextCursor.takeIf { pagina.hasMore }) }
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
+        }
+    }
+
+    fun carregarAntigas() {
+        val cursor = _state.value.cursorAnterior ?: return
+        if (_state.value.carregandoAntigas) return
+        _state.update { it.copy(carregandoAntigas = true) }
+        viewModelScope.launch {
+            repository.messages(channelId, cursor)
+                .onSuccess { pagina ->
+                    val proximo = pagina.nextCursor.takeIf { pagina.hasMore && pagina.messages.isNotEmpty() }
+                    _state.update { it.copy(carregandoAntigas = false, cursorAnterior = proximo) }
+                }
+                .onFailure { _state.update { it.copy(carregandoAntigas = false) } }
         }
     }
 

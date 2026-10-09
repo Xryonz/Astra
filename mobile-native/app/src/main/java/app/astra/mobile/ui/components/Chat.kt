@@ -52,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -677,6 +678,7 @@ data class ChatRow(
 
 private const val PAUSA_QUE_QUEBRA_O_BLOCO_MIN = 7L
 private const val MAIS_QUE_ISSO_E_HISTORICO = 2
+private const val ITENS_ANTES_DO_TOPO = 10
 
 private val PORTUGUES = Locale.forLanguageTag("pt-BR")
 private val DIA_DO_MES = DateTimeFormatter.ofPattern("d 'de' MMMM", PORTUGUES)
@@ -796,6 +798,8 @@ fun ChatMessageList(
     onClosePoll: (ChatRow) -> Unit = {},
     onOpenProfile: ((String, String) -> Unit)? = null,
     aoAbrirMeuPerfil: (() -> Unit)? = null,
+    cursorDasAntigas: String? = null,
+    aoPedirAntigas: () -> Unit = {},
 ) {
     val rows = conversa.rows
     val chegada = remember { ChegadaDeMensagens() }
@@ -811,6 +815,17 @@ fun ChatMessageList(
     }
 
     val itens = conversa.itens
+
+    val pertoDoTopo by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val maisAlto = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+            maisAlto.index >= info.totalItemsCount - ITENS_ANTES_DO_TOPO
+        }
+    }
+    LaunchedEffect(pertoDoTopo, cursorDasAntigas) {
+        if (pertoDoTopo && cursorDasAntigas != null) aoPedirAntigas()
+    }
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
     val tocador = rememberTocadorDaConversa()

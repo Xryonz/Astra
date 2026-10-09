@@ -211,10 +211,12 @@ fun DmChatScreen(
                             onTranslate = { viewModel.translate(it.id, it.content) },
                             onOpenProfile = onOpenProfile,
                             aoAbrirMeuPerfil = aoAbrirMeuPerfil,
+                            cursorDasAntigas = state.cursorAnterior,
+                            aoPedirAntigas = viewModel::carregarAntigas,
                         )
                     }
                 }
-                LinhaDeEspera(state.loading, Modifier.align(Alignment.TopCenter))
+                LinhaDeEspera(state.loading || state.carregandoAntigas, Modifier.align(Alignment.TopCenter))
             }
 
             if (state.error != null) {

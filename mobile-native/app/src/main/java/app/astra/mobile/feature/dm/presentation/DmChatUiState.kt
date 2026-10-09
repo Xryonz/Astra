@@ -8,6 +8,8 @@ import app.astra.mobile.feature.friends.domain.model.Presence
 data class DmChatUiState(
     val loading: Boolean = true,
     val messages: List<DmMessage> = emptyList(),
+    val cursorAnterior: String? = null,
+    val carregandoAntigas: Boolean = false,
     val input: String = "",
     val sending: Boolean = false,
     val error: String? = null,

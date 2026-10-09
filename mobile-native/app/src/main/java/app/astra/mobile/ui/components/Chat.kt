@@ -85,6 +85,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -207,6 +208,7 @@ private val LADO_DA_FOTO = 38.dp
 private val RECUO_DO_TEXTO = 12.dp
 private val MARGEM_LATERAL = 14.dp
 private const val ENTRADA_MS = 240
+private const val ALFA_ENQUANTO_ENVIA = 0.55f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -240,6 +242,9 @@ fun MensagemDoChat(
     onVotePoll: ((String) -> Unit)? = null,
     onClosePoll: (() -> Unit)? = null,
     onAuthorClick: (() -> Unit)? = null,
+    enviando: Boolean = false,
+    falhou: Boolean = false,
+    onTentarDeNovo: (() -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
     val animar = entrar && !prefs.reduceMotion
@@ -274,9 +279,16 @@ fun MensagemDoChat(
         Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                alpha = entrada.value
+                alpha = entrada.value * (if (enviando) ALFA_ENQUANTO_ENVIA else 1f)
                 translationY = (1f - entrada.value) * subida
             }
+            .then(
+                when {
+                    enviando -> Modifier.semantics { stateDescription = "enviando" }
+                    falhou -> Modifier.semantics { stateDescription = "não enviada" }
+                    else -> Modifier
+                },
+            )
             .then(
                 if (mencionaVoce) {
                     Modifier.drawBehind {
@@ -369,8 +381,12 @@ fun MensagemDoChat(
                             },
                         )
                         .then(
-                            if (hasMenu) {
-                                Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
+                            if (hasMenu || onTentarDeNovo != null) {
+                                Modifier.combinedClickable(
+                                    onClickLabel = if (onTentarDeNovo != null) "tentar enviar de novo" else null,
+                                    onLongClick = if (hasMenu) ({ menuOpen = true }) else null,
+                                    onClick = { onTentarDeNovo?.invoke() },
+                                )
                             } else {
                                 Modifier
                             },
@@ -424,6 +440,13 @@ fun MensagemDoChat(
                     }
                     if (translation != null) Traducao(translation, corpoSp)
                     ReacoesDaMensagem(reactions, onToggleReaction, Modifier.padding(top = 3.dp))
+                    if (falhou) {
+                        Text(
+                            text = "Não enviada. Toque para tentar de novo.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = astraColors.danger,
+                        )
+                    }
                 }
                 if (hasMenu) {
                     MessageActionsMenu(
@@ -674,6 +697,9 @@ data class ChatRow(
     val kind: String? = null,
     val criadaEm: String? = null,
     val mencionaVoce: Boolean = false,
+    val nonce: String? = null,
+    val enviando: Boolean = false,
+    val falhou: Boolean = false,
 )
 
 private const val PAUSA_QUE_QUEBRA_O_BLOCO_MIN = 7L
@@ -701,7 +727,7 @@ internal sealed interface ItemDaConversa {
         override val chave: String get() = row.id
     }
     data class Fala(val row: ChatRow, val agrupada: Boolean, val hora: String?) : ItemDaConversa {
-        override val chave: String get() = row.id
+        override val chave: String get() = row.nonce ?: row.id
     }
 }
 
@@ -758,6 +784,39 @@ class ConversaMontada internal constructor(
 fun montarConversa(rows: List<ChatRow>): ConversaMontada =
     ConversaMontada(rows, montarItens(rows).asReversed())
 
+data class MensagemPendente(
+    val nonce: String,
+    val conteudo: String,
+    val criadaEm: String,
+    val respostaId: String? = null,
+    val respostaAutor: String? = null,
+    val respostaConteudo: String? = null,
+    val falhou: Boolean = false,
+)
+
+data class Remetente(val id: String, val nome: String, val avatar: String?, val fonte: String?)
+
+private const val PREFIXO_DA_PENDENTE = "pendente:"
+
+fun linhasPendentes(pendentes: List<MensagemPendente>, confirmadas: Set<String>, eu: Remetente?): List<ChatRow> =
+    pendentes.filterNot { it.nonce in confirmadas }.map { p ->
+        ChatRow(
+            id = PREFIXO_DA_PENDENTE + p.nonce,
+            mine = true,
+            authorId = eu?.id,
+            authorName = eu?.nome ?: "Você",
+            authorAvatar = eu?.avatar,
+            authorFont = eu?.fonte,
+            content = p.conteudo,
+            replyAuthor = p.respostaAutor,
+            replyContent = p.respostaConteudo,
+            criadaEm = p.criadaEm,
+            nonce = p.nonce,
+            enviando = !p.falhou,
+            falhou = p.falhou,
+        )
+    }
+
 private class ChegadaDeMensagens {
     private var ultima: String? = null
     private var aoVivo = false
@@ -800,6 +859,8 @@ fun ChatMessageList(
     aoAbrirMeuPerfil: (() -> Unit)? = null,
     cursorDasAntigas: String? = null,
     aoPedirAntigas: () -> Unit = {},
+    onTentarDeNovo: (ChatRow) -> Unit = {},
+    onDescartarPendente: (ChatRow) -> Unit = {},
 ) {
     val rows = conversa.rows
     val chegada = remember { ChegadaDeMensagens() }
@@ -855,6 +916,7 @@ fun ChatMessageList(
                     is ItemDaConversa.Fala -> {
                         val row = item.row
                         val entrar = remember(row.id) { chegada.consumir(row.id) }
+                        val pendente = row.enviando || row.falhou
                         MensagemDoChat(
                             authorName = row.authorName,
                             authorAvatar = row.authorAvatar,
@@ -874,19 +936,27 @@ fun ChatMessageList(
                             translation = row.translation,
                             poll = row.poll,
                             canClosePoll = row.poll != null && row.mine,
-                            onEdit = if (row.mine && canEdit && row.poll == null) ({ onEdit(row) }) else null,
-                            onDelete = if (row.mine) ({ onDelete(row) }) else null,
-                            onReply = { onReply(row) },
-                            onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
-                            onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
-                            onMoreReactions = if (canReact && onMoreReactions != null) ({ onMoreReactions(row) }) else null,
-                            onTranslate = if (row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
+                            onEdit = if (!pendente && row.mine && canEdit && row.poll == null) ({ onEdit(row) }) else null,
+                            onDelete = when {
+                                row.falhou -> ({ onDescartarPendente(row) })
+                                row.enviando -> null
+                                row.mine -> ({ onDelete(row) })
+                                else -> null
+                            },
+                            onReply = if (pendente) null else ({ onReply(row) }),
+                            onTogglePin = if (canPin && !pendente) ({ onTogglePin(row) }) else null,
+                            onToggleReaction = if (canReact && !pendente) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
+                            onMoreReactions = if (canReact && !pendente && onMoreReactions != null) ({ onMoreReactions(row) }) else null,
+                            onTranslate = if (!pendente && row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
                             onOpenImage = { imgs, idx -> lightbox = imgs to idx },
                             onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
                             onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
                             onAuthorClick = if (row.mine) aoAbrirMeuPerfil else row.authorId?.let { aid ->
                                 onOpenProfile?.let { open -> ({ open(aid, row.authorName) }) }
                             },
+                            enviando = row.enviando,
+                            falhou = row.falhou,
+                            onTentarDeNovo = if (row.falhou) ({ onTentarDeNovo(row) }) else null,
                         )
                     }
                 }

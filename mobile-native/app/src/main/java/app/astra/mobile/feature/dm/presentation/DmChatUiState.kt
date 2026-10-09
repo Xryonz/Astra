@@ -4,6 +4,8 @@ import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.AndamentoDoVideo
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.friends.domain.model.Presence
+import app.astra.mobile.ui.components.MensagemPendente
+import app.astra.mobile.ui.components.Remetente
 
 data class DmChatUiState(
     val loading: Boolean = true,
@@ -30,4 +32,7 @@ data class DmChatUiState(
 
     val outroAvatar: String? = null,
     val outroStatus: Presence? = null,
+
+    val pendentes: List<MensagemPendente> = emptyList(),
+    val eu: Remetente? = null,
 )

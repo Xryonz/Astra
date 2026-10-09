@@ -20,8 +20,12 @@ import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.DmMessage
+import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.ConversaMontada
+import app.astra.mobile.ui.components.MensagemPendente
+import app.astra.mobile.ui.components.Remetente
+import app.astra.mobile.ui.components.linhasPendentes
 import app.astra.mobile.ui.components.montarConversa
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -40,6 +44,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 
 private const val ESPERA_PELO_BANCO_MS = 2_000L
@@ -57,6 +63,7 @@ private fun DmMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
     attachments = attachments,
     translation = traducoes[id],
     criadaEm = createdAt,
+    nonce = clientNonce,
 )
 
 @HiltViewModel
@@ -67,6 +74,7 @@ class DmChatViewModel @Inject constructor(
     private val translator: Translator,
     private val ligacaoDeSussurro: LigacaoDeSussurro,
     private val friendsApi: FriendsApi,
+    private val userRepository: UserRepository,
     @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -78,9 +86,14 @@ class DmChatViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     val conversa: StateFlow<ConversaMontada> = _state
-        .map { it.messages to it.translations }
-        .distinctUntilChanged { antes, depois -> antes.first === depois.first && antes.second === depois.second }
-        .map { (mensagens, traducoes) -> montarConversa(mensagens.map { it.comoLinha(traducoes) }) }
+        .distinctUntilChanged { antes, depois ->
+            antes.messages === depois.messages && antes.translations === depois.translations &&
+                antes.pendentes === depois.pendentes && antes.eu === depois.eu
+        }
+        .map { st ->
+            val confirmadas = st.messages.mapNotNullTo(HashSet()) { it.clientNonce }
+            montarConversa(st.messages.map { it.comoLinha(st.translations) } + linhasPendentes(st.pendentes, confirmadas, st.eu))
+        }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, ConversaMontada.VAZIA)
 
@@ -92,6 +105,11 @@ class DmChatViewModel @Inject constructor(
         observeMessages()
         loadHistory()
         observeTyping()
+        viewModelScope.launch {
+            userRepository.me().onSuccess { p ->
+                _state.update { it.copy(eu = Remetente(p.id, p.displayName, p.avatarUrl, p.displayFont)) }
+            }
+        }
         viewModelScope.launch {
             repository.conversations().onSuccess { list ->
                 val conv = list.find { it.id == conversationId }
@@ -291,6 +309,10 @@ class DmChatViewModel @Inject constructor(
     fun send(rascunho: String) {
         val text = rascunho.trim()
         val pending = _state.value.pendingAttachments
+        if (text.isNotEmpty() && pending.isEmpty()) {
+            enviarNaHora(text)
+            return
+        }
         if ((text.isEmpty() && pending.isEmpty()) || _state.value.sending || _state.value.uploading) return
         stopTypingNow()
         val replyId = _state.value.replyToId
@@ -306,6 +328,55 @@ class DmChatViewModel @Inject constructor(
                     _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending + it.pendingAttachments) }
                 }
         }
+    }
+
+    private fun enviarNaHora(text: String) {
+        stopTypingNow()
+        val atual = _state.value
+        val pendente = MensagemPendente(
+            nonce = UUID.randomUUID().toString(),
+            conteudo = text,
+            criadaEm = Instant.now().toString(),
+            respostaId = atual.replyToId,
+            respostaAutor = atual.replyToAuthor,
+            respostaConteudo = atual.replyToPreview,
+        )
+        _state.update {
+            it.copy(input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null, pendentes = it.pendentes + pendente)
+        }
+        enviarPendente(pendente)
+    }
+
+    private fun enviarPendente(pendente: MensagemPendente) {
+        viewModelScope.launch {
+            repository.send(conversationId, pendente.conteudo, pendente.respostaId, clientNonce = pendente.nonce)
+                .onSuccess {
+                    withTimeoutOrNull(ESPERA_PELO_BANCO_MS) {
+                        _state.first { st -> st.messages.any { it.clientNonce == pendente.nonce } }
+                    }
+                    _state.update { st -> st.copy(pendentes = st.pendentes.filterNot { it.nonce == pendente.nonce }) }
+                }
+                .onFailure { e ->
+                    _state.update { st ->
+                        st.copy(
+                            error = e.message,
+                            pendentes = st.pendentes.map { if (it.nonce == pendente.nonce) it.copy(falhou = true) else it },
+                        )
+                    }
+                }
+        }
+    }
+
+    fun tentarDeNovo(nonce: String?) {
+        val pendente = _state.value.pendentes.firstOrNull { it.nonce == nonce && it.falhou } ?: return
+        _state.update { st ->
+            st.copy(error = null, pendentes = st.pendentes.map { if (it.nonce == nonce) it.copy(falhou = false) else it })
+        }
+        enviarPendente(pendente.copy(falhou = false))
+    }
+
+    fun descartarPendente(nonce: String?) {
+        _state.update { st -> st.copy(pendentes = st.pendentes.filterNot { it.nonce == nonce }) }
     }
 
     override fun onCleared() {

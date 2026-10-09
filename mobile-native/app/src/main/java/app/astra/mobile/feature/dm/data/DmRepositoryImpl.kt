@@ -126,11 +126,11 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(conversationId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<DmMessage> = try {
+    override suspend fun send(conversationId: String, content: String, replyToId: String?, attachments: List<Attachment>, clientNonce: String?): Result<DmMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId, attachments.map { it.toDto() })).data
+        val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId, attachments.map { it.toDto() }, clientNonce)).data
             ?: return Result.failure(ApiException("Resposta inválida do servidor"))
-        messageDao.upsert(dto.toEntity(conversationId, json))
+        messageDao.upsert(dto.toEntity(conversationId, json).copy(clientNonce = clientNonce ?: dto.clientNonce))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexão com o servidor"))
@@ -254,6 +254,7 @@ private fun DmMessageDto.toEntity(conversationId: String, json: Json) = MessageE
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
     attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
+    clientNonce = clientNonce,
 )
 
 private fun MessageEntity.toDm(uid: String?, json: Json): DmMessage {
@@ -272,5 +273,6 @@ private fun MessageEntity.toDm(uid: String?, json: Json): DmMessage {
         replyToAuthor = replyToAuthor,
         replyToContent = replyToContent,
         attachments = atts,
+        clientNonce = clientNonce,
     )
 }

@@ -14,6 +14,7 @@ data class DmMessage(
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,
     val attachments: List<Attachment> = emptyList(),
+    val clientNonce: String? = null,
 )
 
 data class MessagesPage(

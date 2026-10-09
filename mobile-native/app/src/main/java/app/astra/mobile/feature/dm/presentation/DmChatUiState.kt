@@ -35,4 +35,11 @@ data class DmChatUiState(
 
     val pendentes: List<MensagemPendente> = emptyList(),
     val eu: Remetente? = null,
-)
+) {
+    fun comMensagens(msgs: List<DmMessage>, chegaram: Set<String>): DmChatUiState {
+        val restantes = pendentes.filterNot { it.nonce in chegaram }
+        if (restantes.size == pendentes.size) return copy(messages = msgs)
+        val falhaResolvida = pendentes.any { it.falhou && it.nonce in chegaram }
+        return copy(messages = msgs, pendentes = restantes, error = if (falhaResolvida) null else error)
+    }
+}

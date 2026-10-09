@@ -1,5 +1,9 @@
 package app.astra.mobile.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -41,6 +45,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.composables.icons.lucide.ArrowUp
 import com.composables.icons.lucide.ChartColumn
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Film
 import com.composables.icons.lucide.Image
@@ -54,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,6 +90,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
@@ -279,16 +288,9 @@ fun MensagemDoChat(
         Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                alpha = entrada.value * (if (enviando) ALFA_ENQUANTO_ENVIA else 1f)
+                alpha = entrada.value
                 translationY = (1f - entrada.value) * subida
             }
-            .then(
-                when {
-                    enviando -> Modifier.semantics { stateDescription = "enviando" }
-                    falhou -> Modifier.semantics { stateDescription = "não enviada" }
-                    else -> Modifier
-                },
-            )
             .then(
                 if (mencionaVoce) {
                     Modifier.drawBehind {
@@ -381,6 +383,16 @@ fun MensagemDoChat(
                             },
                         )
                         .then(
+                            when {
+                                enviando -> Modifier.semantics(mergeDescendants = true) {
+                                    stateDescription = "enviando"
+                                    liveRegion = LiveRegionMode.Polite
+                                }
+                                falhou -> Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
+                                else -> Modifier
+                            },
+                        )
+                        .then(
                             if (hasMenu || onTentarDeNovo != null) {
                                 Modifier.combinedClickable(
                                     onClickLabel = if (onTentarDeNovo != null) "tentar enviar de novo" else null,
@@ -428,7 +440,13 @@ fun MensagemDoChat(
                             onClose = { onClosePoll?.invoke() },
                         )
                     } else if (content.isNotBlank() || edited) {
-                        ConteudoDaMensagem(content, edited, corpoSp)
+                        if (enviando) {
+                            Box(Modifier.graphicsLayer { alpha = ALFA_ENQUANTO_ENVIA }) {
+                                ConteudoDaMensagem(content, edited, corpoSp)
+                            }
+                        } else {
+                            ConteudoDaMensagem(content, edited, corpoSp)
+                        }
                     }
                     if (attachments.isNotEmpty()) {
                         MessageAttachments(
@@ -713,6 +731,22 @@ private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", P
 private fun instanteDe(texto: String?): OffsetDateTime? =
     texto?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
 
+private fun instanteDaMaisRecente(rows: List<ChatRow>): OffsetDateTime? =
+    rows.lastOrNull { !it.enviando && !it.falhou }?.let { instanteDe(it.criadaEm) }
+
+private fun contarNovas(rows: List<ChatRow>, vista: OffsetDateTime?): Int {
+    if (vista == null) return 0
+    var novas = 0
+    for (i in rows.indices.reversed()) {
+        val row = rows[i]
+        if (row.enviando || row.falhou) continue
+        val quando = instanteDe(row.criadaEm) ?: continue
+        if (!quando.isAfter(vista)) break
+        if (!row.mine && row.kind == null) novas++
+    }
+    return novas
+}
+
 private fun rotuloDoDia(dia: LocalDate, hoje: LocalDate): String = when (dia) {
     hoje -> "hoje"
     hoje.minusDays(1) -> "ontem"
@@ -723,11 +757,18 @@ internal sealed interface ItemDaConversa {
     val chave: String
 
     data class Dia(override val chave: String, val rotulo: String) : ItemDaConversa
-    data class Passagem(val row: ChatRow) : ItemDaConversa {
-        override val chave: String get() = row.id
-    }
-    data class Fala(val row: ChatRow, val agrupada: Boolean, val hora: String?) : ItemDaConversa {
-        override val chave: String get() = row.nonce ?: row.id
+    data class Passagem(val row: ChatRow, override val chave: String) : ItemDaConversa
+    data class Fala(val row: ChatRow, val agrupada: Boolean, val hora: String?, override val chave: String) : ItemDaConversa
+}
+
+private class ChavesUnicas {
+    private val usadas = HashSet<String>()
+
+    fun de(base: String): String {
+        if (usadas.add(base)) return base
+        var n = 2
+        while (!usadas.add("$base#$n")) n++
+        return "$base#$n"
     }
 }
 
@@ -736,21 +777,26 @@ private fun montarItens(rows: List<ChatRow>): List<ItemDaConversa> {
     val zona = ZoneId.systemDefault()
     val hoje = LocalDate.now(zona)
     val itens = ArrayList<ItemDaConversa>(rows.size + 4)
+    val chaves = ChavesUnicas()
     var diaAnterior: LocalDate? = null
     var anterior: ChatRow? = null
     var instanteAnterior: OffsetDateTime? = null
+    var maisRecente: OffsetDateTime? = null
     for (row in rows) {
-        val instante = instanteDe(row.criadaEm)
+        val lido = instanteDe(row.criadaEm)
+        val pendente = row.enviando || row.falhou
+        val instante = if (pendente && lido != null && maisRecente != null && lido.isBefore(maisRecente)) maisRecente else lido
+        if (instante != null && (maisRecente == null || instante.isAfter(maisRecente))) maisRecente = instante
         val local = instante?.atZoneSameInstant(zona)
         val dia = local?.toLocalDate()
         if (dia != null && dia != diaAnterior) {
-            itens += ItemDaConversa.Dia("dia-$dia", rotuloDoDia(dia, hoje))
+            itens += ItemDaConversa.Dia(chaves.de("dia-$dia"), rotuloDoDia(dia, hoje))
             diaAnterior = dia
             anterior = null
             instanteAnterior = null
         }
         if (row.kind != null) {
-            itens += ItemDaConversa.Passagem(row)
+            itens += ItemDaConversa.Passagem(row, chaves.de(row.id))
             anterior = null
             instanteAnterior = null
             continue
@@ -764,7 +810,7 @@ private fun montarItens(rows: List<ChatRow>): List<ItemDaConversa> {
             Duration.between(instanteAnterior, instante).toMinutes() < PAUSA_QUE_QUEBRA_O_BLOCO_MIN
         val agrupada = mesmaPessoa && semPausa && row.replyContent == null
         val hora = local?.let { "%02d:%02d".format(it.hour, it.minute) }
-        itens += ItemDaConversa.Fala(row, agrupada, hora)
+        itens += ItemDaConversa.Fala(row, agrupada, hora, chaves.de(row.nonce ?: row.id))
         anterior = row
         if (instante != null) instanteAnterior = instante
     }
@@ -798,7 +844,12 @@ data class Remetente(val id: String, val nome: String, val avatar: String?, val 
 
 private const val PREFIXO_DA_PENDENTE = "pendente:"
 
-fun linhasPendentes(pendentes: List<MensagemPendente>, confirmadas: Set<String>, eu: Remetente?): List<ChatRow> =
+fun linhasPendentes(
+    pendentes: List<MensagemPendente>,
+    confirmadas: Set<String>,
+    eu: Remetente?,
+    minhaCor: String? = null,
+): List<ChatRow> =
     pendentes.filterNot { it.nonce in confirmadas }.map { p ->
         ChatRow(
             id = PREFIXO_DA_PENDENTE + p.nonce,
@@ -806,6 +857,7 @@ fun linhasPendentes(pendentes: List<MensagemPendente>, confirmadas: Set<String>,
             authorId = eu?.id,
             authorName = eu?.nome ?: "Você",
             authorAvatar = eu?.avatar,
+            authorColor = minhaCor,
             authorFont = eu?.fonte,
             content = p.conteudo,
             replyAuthor = p.respostaAutor,
@@ -816,6 +868,55 @@ fun linhasPendentes(pendentes: List<MensagemPendente>, confirmadas: Set<String>,
             falhou = p.falhou,
         )
     }
+
+@Composable
+private fun VoltarAoPresente(
+    visivel: Boolean,
+    novas: Int,
+    modifier: Modifier = Modifier,
+    aoTocar: () -> Unit,
+) {
+    val semMovimento = LocalAppPrefs.current.reduceMotion
+    var congelada by remember { mutableIntStateOf(novas) }
+    LaunchedEffect(visivel, novas) { if (visivel) congelada = novas }
+    val exibidas = if (visivel) novas else congelada
+    AnimatedVisibility(
+        visible = visivel,
+        enter = fadeIn(tween(if (semMovimento) 0 else 140)) +
+            slideInVertically(tween(if (semMovimento) 0 else 160, easing = EaseOutSoft)) { it / 2 },
+        exit = fadeOut(tween(if (semMovimento) 0 else 100)),
+        modifier = modifier,
+    ) {
+        val rotulo = when (exibidas) {
+            0 -> "Voltar ao presente"
+            1 -> "1 nova mensagem"
+            else -> "$exibidas novas mensagens"
+        }
+        Row(
+            Modifier
+                .heightIn(min = 40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(astraColors.raised)
+                .border(1.dp, astraColors.borderMid, RoundedCornerShape(8.dp))
+                .clickable(role = Role.Button, onClick = aoTocar)
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Lucide.ChevronDown,
+                contentDescription = null,
+                tint = if (exibidas > 0) astraColors.accent else astraColors.text2,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                rotulo,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (exibidas > 0) astraColors.text1 else astraColors.text2,
+            )
+        }
+    }
+}
 
 private class ChegadaDeMensagens {
     private var ultima: String? = null
@@ -887,6 +988,14 @@ fun ChatMessageList(
     LaunchedEffect(pertoDoTopo, cursorDasAntigas) {
         if (pertoDoTopo && cursorDasAntigas != null) aoPedirAntigas()
     }
+
+    val rolagem = rememberCoroutineScope()
+    val noPresente by remember { derivedStateOf { listState.firstVisibleItemIndex <= 2 } }
+    var vistaNoPresente by remember { mutableStateOf<OffsetDateTime?>(null) }
+    LaunchedEffect(noPresente, newest?.id) {
+        if (noPresente) vistaNoPresente = instanteDaMaisRecente(rows)
+    }
+    val novas = remember(rows, vistaNoPresente) { contarNovas(rows, vistaNoPresente) }
 
     var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
     val tocador = rememberTocadorDaConversa()
@@ -962,6 +1071,14 @@ fun ChatMessageList(
                 }
             }
         }
+        }
+
+        VoltarAoPresente(
+            visivel = !noPresente && rows.isNotEmpty(),
+            novas = novas,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp),
+        ) {
+            rolagem.launch { if (semMovimento) listState.scrollToItem(0) else listState.animateScrollToItem(0) }
         }
 
         lightbox?.let { (imgs, idx) ->

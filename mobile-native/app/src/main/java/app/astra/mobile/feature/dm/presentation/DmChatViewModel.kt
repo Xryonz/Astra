@@ -43,6 +43,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.util.UUID
@@ -63,7 +65,7 @@ private fun DmMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
     attachments = attachments,
     translation = traducoes[id],
     criadaEm = createdAt,
-    nonce = clientNonce,
+    nonce = clientNonce.takeIf { mine },
 )
 
 @HiltViewModel
@@ -84,6 +86,8 @@ class DmChatViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(DmChatUiState())
     val state = _state.asStateFlow()
+
+    private val filaDeEnvio = Mutex()
 
     val conversa: StateFlow<ConversaMontada> = _state
         .distinctUntilChanged { antes, depois ->
@@ -139,7 +143,8 @@ class DmChatViewModel @Inject constructor(
     private fun observeMessages() {
         viewModelScope.launch {
             repository.observeMessages(conversationId).collect { msgs ->
-                _state.update { it.copy(messages = msgs) }
+                val chegaram = msgs.mapNotNullTo(HashSet()) { it.clientNonce }
+                _state.update { st -> st.comMensagens(msgs, chegaram) }
             }
         }
     }
@@ -164,6 +169,10 @@ class DmChatViewModel @Inject constructor(
         viewModelScope.launch {
             repository.messages(conversationId, cursor)
                 .onSuccess { pagina ->
+                    val umaDaPagina = pagina.messages.firstOrNull()?.id
+                    if (umaDaPagina != null) {
+                        withTimeoutOrNull(ESPERA_PELO_BANCO_MS) { conversa.first { c -> c.rows.any { it.id == umaDaPagina } } }
+                    }
                     val proximo = pagina.nextCursor.takeIf { pagina.hasMore && pagina.messages.isNotEmpty() }
                     _state.update { it.copy(carregandoAntigas = false, cursorAnterior = proximo) }
                 }
@@ -349,7 +358,9 @@ class DmChatViewModel @Inject constructor(
 
     private fun enviarPendente(pendente: MensagemPendente) {
         viewModelScope.launch {
-            repository.send(conversationId, pendente.conteudo, pendente.respostaId, clientNonce = pendente.nonce)
+            filaDeEnvio.withLock {
+                repository.send(conversationId, pendente.conteudo, pendente.respostaId, clientNonce = pendente.nonce)
+            }
                 .onSuccess {
                     withTimeoutOrNull(ESPERA_PELO_BANCO_MS) {
                         _state.first { st -> st.messages.any { it.clientNonce == pendente.nonce } }
@@ -368,11 +379,12 @@ class DmChatViewModel @Inject constructor(
     }
 
     fun tentarDeNovo(nonce: String?) {
-        val pendente = _state.value.pendentes.firstOrNull { it.nonce == nonce && it.falhou } ?: return
+        val antiga = _state.value.pendentes.firstOrNull { it.nonce == nonce && it.falhou } ?: return
+        val pendente = antiga.copy(falhou = false, criadaEm = Instant.now().toString())
         _state.update { st ->
-            st.copy(error = null, pendentes = st.pendentes.map { if (it.nonce == nonce) it.copy(falhou = false) else it })
+            st.copy(error = null, pendentes = st.pendentes.map { if (it.nonce == nonce) pendente else it })
         }
-        enviarPendente(pendente.copy(falhou = false))
+        enviarPendente(pendente)
     }
 
     fun descartarPendente(nonce: String?) {

@@ -506,25 +506,36 @@ class ShellVm(
     }
 
     fun startDm(username: String, title: String) {
+        scope.launch { abrirSussurro(username, title) }
+    }
+
+    fun chamarNoSussurro(username: String, title: String) {
         scope.launch {
-            val conv = runCatching { dmApi.open(OpenDmRequest(username)).data }.getOrNull() ?: return@launch
-            if (_state.value.dms.none { it.id == conv.conversationId }) {
-                val dms = runCatching { dmApi.conversations().data.orEmpty() }
-                    .getOrDefault(_state.value.dms)
-                dms.forEach { socket.joinDm(it.id) }
-                _state.update { it.copy(dms = dms) }
-                carregarPresencaDosSussurros()
-            }
-            _state.update {
-                it.copy(
-                    selection = Selection.Dms,
-                    chat = ChatTarget.Dm(conv.conversationId, title),
-                    voiceChannel = null,
-                    friendsOpen = false,
-                )
-            }
-            saveLocation()
+            val id = abrirSussurro(username, title) ?: return@launch
+            val foto = _state.value.dms.find { it.id == id }?.otherUser?.avatarUrl
+            ligarNoSussurro(id, title, foto, video = false)
         }
+    }
+
+    private suspend fun abrirSussurro(username: String, title: String): String? {
+        val conv = runCatching { dmApi.open(OpenDmRequest(username)).data }.getOrNull() ?: return null
+        if (_state.value.dms.none { it.id == conv.conversationId }) {
+            val dms = runCatching { dmApi.conversations().data.orEmpty() }
+                .getOrDefault(_state.value.dms)
+            dms.forEach { socket.joinDm(it.id) }
+            _state.update { it.copy(dms = dms) }
+            carregarPresencaDosSussurros()
+        }
+        _state.update {
+            it.copy(
+                selection = Selection.Dms,
+                chat = ChatTarget.Dm(conv.conversationId, title),
+                voiceChannel = null,
+                friendsOpen = false,
+            )
+        }
+        saveLocation()
+        return conv.conversationId
     }
 
     fun createServer(name: String) {

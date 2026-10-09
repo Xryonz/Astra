@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -10,8 +11,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -32,6 +37,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -75,6 +81,27 @@ object AvisosDoPet {
 
 object PisoDoPet {
     var caixa by mutableStateOf(Rect.Zero)
+    var campo by mutableStateOf<Rect?>(null)
+        private set
+    private var donoDoCampo: Any? = null
+
+    fun marcarCampo(dono: Any, onde: Rect) {
+        donoDoCampo = dono
+        if (campo != onde) campo = onde
+    }
+
+    fun largarCampo(dono: Any) {
+        if (donoDoCampo !== dono) return
+        donoDoCampo = null
+        campo = null
+    }
+}
+
+@Composable
+internal fun lugarDoPetNoCampo(): Modifier {
+    val dono = remember { Any() }
+    DisposableEffect(dono) { onDispose { PisoDoPet.largarCampo(dono) } }
+    return remember(dono) { Modifier.onGloballyPositioned { PisoDoPet.marcarCampo(dono, it.boundsInWindow()) } }
 }
 
 class Passo(
@@ -149,7 +176,6 @@ val Pet.gestoDeSusto: Anim?
 
 private const val LIMITE_DE_CARINHO = 3
 
-private val RAMPA_BASE = intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836)
 private const val OPACO = 0xFF000000.toInt()
 
 enum class Pelagem(val rotulo: String, val rampa: IntArray) {
@@ -205,7 +231,31 @@ internal object FolhasDoPet {
 }
 
 private const val FPS = 30
+
+private class TemposDoPet {
+    var naAnim = 0f
+    var piscada = 0f
+}
 private val LARGURA_VETOR = 34.dp
+private val FOLGA_DO_POUSO = 20.dp
+private val RAIO_DO_RODAPE = 10.dp
+private val RAIO_DO_CAMPO = 12.dp
+
+private fun poleiroSob(ponto: Offset, rodape: Rect, campo: Rect?, folga: Float, larguraDoPet: Float): Boolean? = when {
+    campo != null && campo.width > larguraDoPet && campo.inflate(folga).contains(ponto) -> true
+    rodape.width > larguraDoPet && rodape.inflate(folga).contains(ponto) -> false
+    else -> null
+}
+
+private fun DrawScope.contornarPoleiro(lugar: Rect, raio: Float, sobAMao: Boolean) {
+    drawRoundRect(
+        color = Obsidian.accent.copy(alpha = if (sobAMao) 0.9f else 0.4f),
+        topLeft = lugar.topLeft,
+        size = lugar.size,
+        cornerRadius = CornerRadius(raio, raio),
+        style = Stroke(width = 1.5.dp.toPx()),
+    )
+}
 
 @Composable
 fun PetDoAstra(
@@ -213,6 +263,8 @@ fun PetDoAstra(
     petId: String = Pet.SIMPLES.name,
     pelagem: String = Pelagem.LARANJA.name,
     nome: String = "",
+    noCampo: Boolean = false,
+    aoMudarDeLugar: (noCampo: Boolean) -> Unit = {},
 ) {
     if (!ligado) return
     val congelado = rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
@@ -220,6 +272,7 @@ fun PetDoAstra(
     val pet = Pet.de(petId)
     val cor = Pelagem.de(pelagem)
     val folhas = remember(pet, cor) { FolhasDoPet.folhas(pet, cor) }
+    val cabeca = remember(cor) { coresDaCabeca(cor) }
     val medidor = rememberTextMeasurer()
 
     val densidadeLocal = LocalDensity.current
@@ -230,14 +283,26 @@ fun PetDoAstra(
     val pesPx = (pet.pes * mult).toFloat()
 
     var origem by remember { mutableStateOf(Offset.Zero) }
-    val piso = PisoDoPet.caixa.translate(-origem.x, -origem.y)
+    var moraNoCampo by remember { mutableStateOf(noCampo) }
+    LaunchedEffect(noCampo) { moraNoCampo = noCampo }
+    val piso = (if (moraNoCampo) PisoDoPet.campo else PisoDoPet.caixa)?.translate(-origem.x, -origem.y) ?: Rect.Zero
+    val pisoAtual by rememberUpdatedState(piso)
+    val mudarDeLugar by rememberUpdatedState(aoMudarDeLugar)
+    var segurando by remember { mutableStateOf(false) }
+    var mao by remember { mutableStateOf(Offset.Zero) }
     var x by remember { mutableStateOf(-1f) }
     var alvoX by remember { mutableStateOf(0f) }
     var anim by remember { mutableStateOf(Anim.PARADO) }
-    var tempoNaAnim by remember { mutableStateOf(0f) }
+    val tempos = remember { TemposDoPet() }
+    var quadroDaFolha by remember { mutableIntStateOf(0) }
+    var olhoFechado by remember { mutableStateOf(false) }
+    var passoDoVetor by remember { mutableFloatStateOf(0f) }
+    fun zerarAnimacao() {
+        tempos.naAnim = 0f
+        quadroDaFolha = 0
+    }
     var olhandoPraDireita by remember { mutableStateOf(false) }
     var espera by remember { mutableStateOf(2f) }
-    var piscada by remember { mutableStateOf(0f) }
     var caricias by remember { mutableStateOf(0) }
     var ultimaCaricia by remember { mutableStateOf(0L) }
     var deMalAte by remember { mutableStateOf(0L) }
@@ -247,7 +312,7 @@ fun PetDoAstra(
             val susto = pet.gestoDeSusto ?: return@collect
             if (anim != Anim.PARADO && anim != Anim.ANDANDO) return@collect
             anim = susto
-            tempoNaAnim = 0f
+            zerarAnimacao()
         }
     }
 
@@ -261,14 +326,14 @@ fun PetDoAstra(
         alvoX = alvoX.coerceIn(limiteEsq, limiteDir)
         while (true) {
             val inicio = System.nanoTime()
-            if (congelado.value) {
-                snapshotFlow { congelado.value }.first { !it }
+            if (congelado.value || segurando) {
+                snapshotFlow { congelado.value || segurando }.first { !it }
                 continue
             }
             val dt = 1f / FPS
 
-            piscada += dt
-            tempoNaAnim += dt
+            tempos.piscada += dt
+            tempos.naAnim += dt
 
             when (anim) {
                 Anim.PARADO -> {
@@ -276,7 +341,7 @@ fun PetDoAstra(
                     if (espera <= 0f) {
                         alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
                         anim = Anim.ANDANDO
-                        tempoNaAnim = 0f
+                        zerarAnimacao()
                     }
                 }
 
@@ -286,7 +351,7 @@ fun PetDoAstra(
                     if (abs(dx) <= v) {
                         x = alvoX
                         anim = Anim.PARADO
-                        tempoNaAnim = 0f
+                        zerarAnimacao()
                         espera = 4f + Random.nextFloat() * 9f
                     } else {
                         olhandoPraDireita = dx > 0f
@@ -296,26 +361,31 @@ fun PetDoAstra(
 
                 Anim.CARINHO, Anim.FESTA, Anim.RECOLHE, Anim.ATAQUE -> {
                     val c = pet.passos[anim]
-                    if (c == null || tempoNaAnim >= c.quadros.toFloat() / c.fps) {
+                    if (c == null || tempos.naAnim >= c.quadros.toFloat() / c.fps) {
                         val recolhido = anim == Anim.RECOLHE
                         anim = Anim.PARADO
-                        tempoNaAnim = 0f
+                        zerarAnimacao()
                         espera = if (recolhido) 5f + Random.nextFloat() * 3f
                         else 2f + Random.nextFloat() * 2.5f
                     }
                 }
 
             }
+            val passoAtual = pet.passos[anim]
+            quadroDaFolha = if (passoAtual == null) 0 else (tempos.naAnim * passoAtual.fps).toInt() % passoAtual.quadros
+            olhoFechado = (tempos.piscada % 4.2f) < 0.13f
+            if (folhas?.get(anim) == null) passoDoVetor = tempos.naAnim * 7f
             esperarPeloTeto(FPS, inicio)
         }
     }
 
+    val posicionado by remember { derivedStateOf { x >= 0f } }
     Box(
         Modifier
             .fillMaxSize()
             .onGloballyPositioned { origem = it.positionInWindow() },
     ) {
-        if (piso.width <= larguraPx || x < 0f) return@Box
+        if (piso.width <= larguraPx || !posicionado) return@Box
         val y = piso.top
 
         val sobHover = remember { MutableInteractionSource() }
@@ -332,7 +402,7 @@ fun PetDoAstra(
                     if (anim != Anim.PARADO && anim != Anim.ANDANDO) {
                         val tocando = pet.passos[anim]
                         if (tocando != null &&
-                            tempoNaAnim < tocando.quadros.toFloat() / tocando.fps
+                            tempos.naAnim < tocando.quadros.toFloat() / tocando.fps
                         ) return@clickable
                     }
 
@@ -343,7 +413,7 @@ fun PetDoAstra(
                     if (caricias >= LIMITE_DE_CARINHO) {
                         deMalAte = agora + 6000
                         caricias = 0
-                        tempoNaAnim = 0f
+                        zerarAnimacao()
 
                         val recolhe = pet.passos[Anim.RECOLHE]
                         if (recolhe != null) {
@@ -355,14 +425,62 @@ fun PetDoAstra(
                     } else {
                         val escada = pet.escadaDeCarinho
                         anim = escada.getOrNull(caricias - 1) ?: escada.lastOrNull() ?: Anim.CARINHO
-                        tempoNaAnim = 0f
+                        zerarAnimacao()
                         Sfx.carinho()
+                    }
+                }
+                .pointerInput(mult) {
+                    try {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { ponto ->
+                                mao = Offset(x - larguraPx / 2f, pisoAtual.top - pesPx) + ponto
+                                segurando = true
+                            },
+                            onDrag = { mudanca, passo ->
+                                mudanca.consume()
+                                mao += passo
+                            },
+                            onDragEnd = {
+                                segurando = false
+                                val rodape = PisoDoPet.caixa.translate(-origem.x, -origem.y)
+                                val campo = PisoDoPet.campo?.translate(-origem.x, -origem.y)
+                                val destino = poleiroSob(mao, rodape, campo, FOLGA_DO_POUSO.toPx(), larguraPx)
+                                val novoPiso = when (destino) {
+                                    true -> campo
+                                    false -> rodape
+                                    null -> null
+                                }
+                                if (destino != null && novoPiso != null) {
+                                    x = mao.x.coerceIn(novoPiso.left + larguraPx / 2f, novoPiso.right - larguraPx / 2f)
+                                    alvoX = x
+                                    anim = Anim.PARADO
+                                    zerarAnimacao()
+                                    espera = 2f + Random.nextFloat() * 2f
+                                    if (destino != moraNoCampo) {
+                                        moraNoCampo = destino
+                                        mudarDeLugar(destino)
+                                    }
+                                }
+                            },
+                            onDragCancel = { segurando = false },
+                        )
+                    } finally {
+                        segurando = false
                     }
                 }
                 .semantics { contentDescription = if (nome.isBlank()) "Companheiro do Astra" else nome },
         )
 
         Canvas(Modifier.fillMaxSize()) {
+            if (segurando) {
+                val rodape = PisoDoPet.caixa.translate(-origem.x, -origem.y)
+                val campo = PisoDoPet.campo?.translate(-origem.x, -origem.y)
+                val alvo = poleiroSob(mao, rodape, campo, FOLGA_DO_POUSO.toPx(), larguraPx)
+                contornarPoleiro(rodape, RAIO_DO_RODAPE.toPx(), alvo == false)
+                campo?.let { contornarPoleiro(it, RAIO_DO_CAMPO.toPx(), alvo == true) }
+                desenharCabecaDoGato(cabeca, mult.toFloat(), mao)
+                return@Canvas
+            }
             val folha = folhas?.get(anim)
             if (folha == null) {
                 translate(x, y) {
@@ -370,8 +488,8 @@ fun PetDoAstra(
                         esc = LARGURA_VETOR.toPx() / 34f,
                         paraDireita = olhandoPraDireita,
                         andando = anim == Anim.ANDANDO,
-                        passo = tempoNaAnim * 7f,
-                        olhoFechado = (piscada % 4.2f) < 0.13f,
+                        passo = passoDoVetor,
+                        olhoFechado = olhoFechado,
                         animacaoDeEvento = 0f,
                         pelo = Obsidian.text2,
                         detalhe = Obsidian.accent,
@@ -381,7 +499,7 @@ fun PetDoAstra(
             }
 
             val passo = pet.passos[anim] ?: return@Canvas
-            val i = (tempoNaAnim * passo.fps).toInt() % passo.quadros
+            val i = quadroDaFolha % passo.quadros
             val esq = (x - larguraPx / 2f).roundToInt()
             val topo = (y - pesPx).roundToInt()
 

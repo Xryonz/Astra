@@ -29,6 +29,24 @@ object Arranque {
     var acabouDeCair: Boolean = false
         private set
 
+    var quedasSeguidas: Int = 0
+        private set
+
+    val desistiuDaPlaca: Boolean get() = modoSeguro && quedasSeguidas >= QUEDAS_PARA_DESISTIR
+
+    private data class Marca(val quedas: Int, val seguro: Boolean)
+
+    private fun lerMarca(): Marca? {
+        if (!marcaSegura.exists()) return null
+        val partes = marcaSegura.readText().trim().split(' ')
+        val quedas = partes.getOrNull(0)?.toIntOrNull() ?: return Marca(1, seguro = true)
+        return Marca(quedas, seguro = partes.getOrNull(1) != ESTADO_TENTAR)
+    }
+
+    private fun gravarMarca(marca: Marca) {
+        marcaSegura.writeText("${marca.quedas} ${if (marca.seguro) ESTADO_SEGURO else ESTADO_TENTAR}\n")
+    }
+
     fun comecar(versao: String) = runCatching {
         val trilha = if (arquivo.exists()) arquivo.readText() else null
         if (trilha != null) {
@@ -37,10 +55,16 @@ object Arranque {
                 !trilha.contains(MARCO_ESCONDIDO)
             anterior.writeText(trilha)
         }
-        modoSeguro = acabouDeCair || marcaSegura.exists()
+        var marca = lerMarca()
+        if (acabouDeCair) {
+            marca = Marca((marca?.quedas ?: 0) + 1, seguro = true)
+            gravarMarca(marca)
+        }
+        modoSeguro = marca?.seguro == true
+        quedasSeguidas = marca?.quedas ?: 0
         arquivo.writeText("Astra $versao — por onde o arranque passou\n")
         if (acabouDeCair) marcar("a abertura anterior criou a janela e NÃO desenhou")
-        if (modoSeguro) marcar("MODO SEGURO ligado — desenho por CPU e janela opaca")
+        if (modoSeguro) marcar("MODO SEGURO ligado — desenho por CPU e janela opaca ($quedasSeguidas queda(s) seguida(s))")
         marcar("main")
     }
 
@@ -54,7 +78,17 @@ object Arranque {
 
     fun desenhou() {
         marcar(MARCO_DESENHOU)
-        if (modoSeguro) runCatching { marcaSegura.writeText("desenhou em modo seguro\n") }
+        runCatching {
+            val marca = lerMarca() ?: return@runCatching
+            when {
+                !modoSeguro -> marcaSegura.delete()
+                marca.quedas < QUEDAS_PARA_DESISTIR -> {
+                    gravarMarca(marca.copy(seguro = false))
+                    marcar("a próxima abertura tenta a placa de vídeo de novo")
+                }
+                else -> marcar("a placa falhou $QUEDAS_PARA_DESISTIR vezes seguidas — fica no modo seguro")
+            }
+        }
     }
 
     fun nasceuEscondido() = marcar(MARCO_ESCONDIDO)
@@ -70,7 +104,16 @@ object Arranque {
         )
     }
 
-    fun armarModoSeguro() = runCatching { marcaSegura.writeText("armado pelo vigia\n") }
+    fun armarModoSeguro() = runCatching {
+        gravarMarca(Marca(lerMarca()?.quedas ?: 0, seguro = true))
+    }
 
-    fun sairDoModoSeguro() = runCatching { marcaSegura.delete() }.getOrDefault(false)
+    fun sairDoModoSeguro() = runCatching {
+        gravarMarca(Marca(lerMarca()?.quedas ?: 0, seguro = false))
+        true
+    }.getOrDefault(false)
+
+    private const val QUEDAS_PARA_DESISTIR = 2
+    private const val ESTADO_SEGURO = "seguro"
+    private const val ESTADO_TENTAR = "tentar"
 }

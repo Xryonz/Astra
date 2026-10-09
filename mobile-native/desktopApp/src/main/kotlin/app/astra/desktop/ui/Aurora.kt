@@ -1,7 +1,10 @@
 package app.astra.desktop.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -11,14 +14,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import app.astra.desktop.ui.theme.Obsidian
+import kotlin.math.ceil
 import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Shader
+import org.jetbrains.skia.Surface
 
 private fun fbmSigmaRel(octaves: Int): Double {
     var sumSq = 0.0
@@ -179,7 +193,11 @@ private const val AURORA_LOOP = 62.831853f
 private const val AURORA_STILL = 12f
 
 @Composable
-fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
+fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier =
+    if (DesenhoDaJanela.peloProcessador) auroraPeloProcessador(pulse) else auroraNaPlaca(pulse)
+
+@Composable
+private fun Modifier.auroraNaPlaca(pulse: () -> Float): Modifier {
     val render = LocalRenderPrefs.current
     val accent = Obsidian.accent
     val voidC = Obsidian.void
@@ -241,6 +259,111 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         lastShader[0] = shader
         paint.shader = shader
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
+        }
+    }
+}
+
+private const val FATOR_NO_PROCESSADOR = 2f
+private const val INTERVALO_NO_PROCESSADOR_MS = 83L
+
+@Composable
+private fun Modifier.auroraPeloProcessador(pulse: () -> Float): Modifier {
+    val oitavas = LocalRenderPrefs.current.auroraOctaves
+    val accent = Obsidian.accent
+    val voidC = Obsidian.void
+    val parado = rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
+    val pulso = rememberUpdatedState(pulse)
+    val tamanho = remember { mutableStateOf(IntSize.Zero) }
+    val relogio = remember { floatArrayOf(0f) }
+    val quadro = remember { mutableStateOf<Image?>(null) }
+
+    LaunchedEffect(oitavas, accent, voidC) {
+        val efeito = runCatching { RuntimeEffect.makeForShader(auroraSksl(oitavas).trimIndent()) }.getOrNull()
+            ?: return@LaunchedEffect
+        val construtor = RuntimeShaderBuilder(efeito)
+        val pintor = Paint()
+        var superficie: Surface? = null
+        var desenhadoEm = IntSize.Zero
+        try {
+            var anterior = System.nanoTime()
+            while (true) {
+                val tam = tamanho.value
+                if (tam.width <= 0 || tam.height <= 0) {
+                    snapshotFlow { tamanho.value }.first { it.width > 0 && it.height > 0 }
+                    continue
+                }
+                if (parado.value && desenhadoEm == tam) {
+                    snapshotFlow { !parado.value || tamanho.value != tam }.first { it }
+                    anterior = System.nanoTime()
+                    continue
+                }
+                val inicio = System.nanoTime()
+                if (!parado.value) {
+                    relogio[0] = (relogio[0] + ((inicio - anterior) / 1_000_000_000f).coerceAtMost(0.25f)) % AURORA_LOOP
+                }
+                anterior = inicio
+                val largura = ceil(tam.width / FATOR_NO_PROCESSADOR).toInt()
+                val altura = ceil(tam.height / FATOR_NO_PROCESSADOR).toInt()
+                val alvo = superficie?.takeIf { it.width == largura && it.height == altura }
+                    ?: Surface.makeRasterN32Premul(largura, altura).also {
+                        superficie?.close()
+                        superficie = it
+                    }
+                val boost = 1f + 0.15f * pulso.value().coerceIn(0f, 1f)
+                construtor.uniform("uTime", relogio[0])
+                construtor.uniform("uSize", largura.toFloat(), altura.toFloat())
+                construtor.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
+                construtor.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
+                val imagem = withContext(NonCancellable + Dispatchers.Default) {
+                    Quadros.cronometrar("aurora") {
+                        val shader = construtor.makeShader()
+                        pintor.shader = shader
+                        alvo.canvas.drawRect(Rect.makeWH(largura.toFloat(), altura.toFloat()), pintor)
+                        pintor.shader = null
+                        shader.close()
+                        alvo.makeImageSnapshot()
+                    }
+                }
+                if (!isActive) {
+                    imagem.close()
+                    break
+                }
+                quadro.value?.close()
+                quadro.value = imagem
+                desenhadoEm = tam
+                if (!parado.value) {
+                    delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
+                }
+            }
+        } finally {
+            pintor.close()
+            superficie?.close()
+            construtor.close()
+            efeito.close()
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            quadro.value?.close()
+            quadro.value = null
+        }
+    }
+    return onSizeChanged { tamanho.value = it }.drawBehind {
+        Quadros.marcar()
+        val imagem = quadro.value
+        if (imagem == null) {
+            drawRect(voidC)
+            return@drawBehind
+        }
+        drawIntoCanvas {
+            it.nativeCanvas.drawImageRect(
+                imagem,
+                Rect.makeWH(imagem.width.toFloat(), imagem.height.toFloat()),
+                Rect.makeWH(size.width, size.height),
+                SamplingMode.LINEAR,
+                null,
+                true,
+            )
         }
     }
 }

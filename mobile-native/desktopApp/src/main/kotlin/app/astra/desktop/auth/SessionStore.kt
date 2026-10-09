@@ -9,6 +9,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class Session(
     val accessToken: String,
@@ -115,30 +117,60 @@ class SessionStore {
     }
 
     private val uiFile = File(dir, "ui.properties")
-
-    fun uiPref(key: String): String? {
-        if (!uiFile.exists()) return null
-        return runCatching {
-            Properties().apply { uiFile.inputStream().use { load(it) } }.getProperty(key)
-        }.getOrNull()
+    private val uiLock = Any()
+    private val escritaLock = Any()
+    private var uiProps: Properties? = null
+    private val gravacaoPendente = AtomicBoolean(false)
+    private val gravador = Executors.newSingleThreadExecutor { tarefa ->
+        Thread(tarefa, "astra-ui-prefs").apply { isDaemon = true }
     }
 
-    fun todasUiPrefs(): Map<String, String> {
-        if (!uiFile.exists()) return emptyMap()
-        return runCatching {
-            val p = Properties().apply { uiFile.inputStream().use { load(it) } }
-            p.stringPropertyNames().associateWith { p.getProperty(it) }
-        }.getOrDefault(emptyMap())
+    init {
+        Runtime.getRuntime().addShutdownHook(Thread { gravarPendencias() })
+    }
+
+    private fun uiPropsLocked(): Properties {
+        uiProps?.let { return it }
+        val lidas = Properties()
+        val leu = !uiFile.exists() || runCatching { uiFile.inputStream().use { lidas.load(it) } }.isSuccess
+        if (leu) uiProps = lidas
+        return lidas
+    }
+
+    fun uiPref(key: String): String? = synchronized(uiLock) { uiPropsLocked().getProperty(key) }
+
+    fun todasUiPrefs(): Map<String, String> = synchronized(uiLock) {
+        val p = uiPropsLocked()
+        p.stringPropertyNames().associateWith { p.getProperty(it) }
     }
 
     fun setUiPref(key: String, value: String?) = setUiPrefs(mapOf(key to value))
 
     fun setUiPrefs(valores: Map<String, String?>) {
         if (valores.isEmpty()) return
-        dir.mkdirs()
-        val p = Properties().apply { if (uiFile.exists()) runCatching { uiFile.inputStream().use { load(it) } } }
-        valores.forEach { (key, value) -> if (value == null) p.remove(key) else p.setProperty(key, value) }
-        runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
+        synchronized(uiLock) {
+            val p = uiPropsLocked()
+            valores.forEach { (key, value) -> if (value == null) p.remove(key) else p.setProperty(key, value) }
+        }
+        if (gravacaoPendente.compareAndSet(false, true)) gravador.execute { gravarUiPrefs() }
+    }
+
+    fun gravarPendencias() {
+        if (gravacaoPendente.get()) gravarUiPrefs() else synchronized(escritaLock) { }
+    }
+
+    private fun gravarUiPrefs() {
+        synchronized(escritaLock) {
+            gravacaoPendente.set(false)
+            val copia = synchronized(uiLock) { uiProps?.let { lidas -> Properties().apply { putAll(lidas) } } }
+                ?: return
+            runCatching {
+                dir.mkdirs()
+                val tmp = File(dir, "ui.properties.tmp")
+                tmp.outputStream().use { copia.store(it, "Astra ui prefs") }
+                Files.move(tmp.toPath(), uiFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            }
+        }
     }
 
     fun deviceId(): String = synchronized(lock) {

@@ -22,7 +22,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.LaunchedEffect
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
@@ -62,7 +66,9 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -86,6 +92,7 @@ fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.96f,
     formaDoFoco: Shape = RoundedCornerShape(8.dp),
+    folgaDoFoco: Dp = 0.dp,
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
@@ -124,10 +131,14 @@ fun Modifier.clickScale(
             drawContent()
             if (!focado || modoDeEntrada.inputMode != InputMode.Keyboard) return@drawWithContent
             val traco = Stroke(width = 2.dp.toPx())
-            when (val contorno = formaDoFoco.createOutline(size, layoutDirection, this)) {
-                is Outline.Rectangle -> drawRect(corDoFoco, style = traco)
-                is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
-                is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
+            val folga = folgaDoFoco.toPx()
+            val area = Size(size.width + folga * 2, size.height + folga * 2)
+            translate(-folga, -folga) {
+                when (val contorno = formaDoFoco.createOutline(area, layoutDirection, this)) {
+                    is Outline.Rectangle -> drawRect(corDoFoco, size = area, style = traco)
+                    is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
+                    is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
+                }
             }
         }
 }
@@ -169,10 +180,15 @@ fun LIcon(
 }
 
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false) {
+    val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !fotoSabidamenteParada(url) &&
+        !LocalReduceMotion.current
+    val sobre = remember { MutableInteractionSource() }
+    val comOMouse by sobre.collectIsHoveredAsState()
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
+            .then(if (podeAnimar) Modifier.hoverable(sobre) else Modifier)
             .pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
     ) {
@@ -181,13 +197,19 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
             contentAlignment = Alignment.Center,
         ) {
             if (!url.isNullOrBlank() && !imagemMorreu(url)) {
+                val quadros = if (podeAnimar && (animar || comOMouse)) {
+                    lembrarQuadrosDaFoto(url, with(LocalDensity.current) { sizeDp.dp.roundToPx() })
+                } else {
+                    null
+                }
                 AsyncImage(
                     model = url,
-                    contentDescription = name,
-                    modifier = Modifier.fillMaxSize(),
+                    contentDescription = if (quadros == null) name else null,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (quadros == null) 1f else 0f },
                     contentScale = ContentScale.Crop,
                     onState = { lembrarQueMorreu(url, it) },
                 )
+                if (quadros != null) FotoAnimada(quadros, name, Modifier.fillMaxSize())
             } else {
                 Text(
                     text = name.take(1).uppercase(),
@@ -210,6 +232,12 @@ class MencaoClicavel {
 }
 val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
 
+class AcoesDoPerfil(
+    val chamar: (usuario: String, titulo: String) -> Unit = { _, _ -> },
+    val editarPerfil: () -> Unit = {},
+)
+val LocalAcoesDoPerfil = staticCompositionLocalOf { AcoesDoPerfil() }
+
 class PuloParaMensagem {
     var estaCarregada: (messageId: String) -> Boolean = { false }
     var pular: (messageId: String) -> Unit = {}
@@ -218,7 +246,47 @@ val LocalPuloParaMensagem = staticCompositionLocalOf { PuloParaMensagem() }
 
 val LocalWindowActive = compositionLocalOf { true }
 
+@Composable
+internal fun pulsoBreve(id: String, chave: Any?, piso: Float, meiaVoltaMs: Int): State<Float> {
+    val brilho = remember { Animatable(1f) }
+    val quietoAgora = LocalReduceMotion.current || !LocalWindowActive.current
+    val quieto by rememberUpdatedState(quietoAgora)
+    LaunchedEffect(quietoAgora) { if (quietoAgora) brilho.snapTo(1f) }
+    LaunchedEffect(id, chave) {
+        if (PulsosJaDados.registrar(id, chave)) return@LaunchedEffect
+        if (quieto) {
+            brilho.snapTo(1f)
+            return@LaunchedEffect
+        }
+        repeat(PULSOS_DO_AVISO) {
+            brilho.animateTo(piso, tween(meiaVoltaMs, easing = EaseOutSoft))
+            brilho.animateTo(1f, tween(meiaVoltaMs, easing = EaseOutSoft))
+        }
+    }
+    return brilho.asState()
+}
+
+internal object PulsosJaDados {
+    private val ultimo = HashMap<String, Any?>()
+
+    fun registrar(id: String, chave: Any?): Boolean {
+        if (ultimo.containsKey(id) && ultimo[id] == chave) return true
+        ultimo[id] = chave
+        return false
+    }
+
+    fun esquecerOsLidos(naoLidos: Set<String>) {
+        ultimo.keys.removeAll { it.startsWith(PREFIXO_DO_NAO_LIDO) && it.removePrefix(PREFIXO_DO_NAO_LIDO) !in naoLidos }
+    }
+}
+
+internal const val PREFIXO_DO_NAO_LIDO = "naoLido:"
+
+private const val PULSOS_DO_AVISO = 3
+
 val LocalJanelaNaTela = compositionLocalOf { true }
+
+val LocalFundoLiso = staticCompositionLocalOf { false }
 
 data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
 val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }

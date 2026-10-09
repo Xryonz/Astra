@@ -7,7 +7,7 @@ import { serverSounds } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
-import { removeAttachment } from '../lib/storage'
+import { removerSeNinguemUsa } from '../lib/arquivoCompartilhado'
 
 export function createSoundsRouter(io: SocketServer) {
   const router = Router()
@@ -81,7 +81,7 @@ export function createSoundsRouter(io: SocketServer) {
       .returning({ url: serverSounds.url })
     if (!removido) return res.status(404).json({ error: 'Som não encontrado' })
 
-    await removeAttachment(removido.url)
+    await removerSeNinguemUsa(removido.url)
     res.json({ ok: true })
   }))
 

@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,7 +119,7 @@ private fun NavGraphBuilder.tela(
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entrada ->
     val cena = this
-    Box(Modifier.fillMaxSize().background(astraColors.void)) { cena.content(entrada) }
+    CosmicBackdrop(interactive = true) { cena.content(entrada) }
 }
 
 private object Routes {
@@ -674,16 +675,17 @@ fun AstraApp() {
         }
         if (splashVisible) {
             SplashScreen(
-                textAlpha = splashEnter.value * (1f - splashExit.value),
-                textScale = 0.92f + 0.08f * splashEnter.value + 0.06f * splashExit.value,
-                overlayAlpha = 1f - splashExit.value,
+                textAlpha = { splashEnter.value * (1f - splashExit.value) },
+                textScale = { 0.92f + 0.08f * splashEnter.value + 0.06f * splashExit.value },
+                overlayAlpha = { 1f - splashExit.value },
             )
         }
     }
 }
 
 @Composable
-private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float) {
+private fun SplashScreen(textAlpha: () -> Float, textScale: () -> Float, overlayAlpha: () -> Float) {
+    val constelacaoVisivel by remember { derivedStateOf { textAlpha() > 0.01f } }
 
     val inf = rememberInfiniteTransition(label = "splash")
     val pulseAnim by inf.animateFloat(
@@ -696,14 +698,14 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { alpha = overlayAlpha }
+            .graphicsLayer { alpha = overlayAlpha() }
             .background(astraColors.void),
         contentAlignment = Alignment.Center,
     ) {
-        if (textAlpha > 0.01f) {
+        if (constelacaoVisivel) {
             ConstellationGraphic(
                 modifier = Modifier.graphicsLayer {
-                    alpha = textAlpha * 0.45f
+                    alpha = textAlpha() * 0.45f
                     scaleX = 1.85f
                     scaleY = 1.85f
                 },
@@ -722,9 +724,9 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
                 ),
             ),
             modifier = Modifier.graphicsLayer {
-                alpha = textAlpha
-                scaleX = textScale
-                scaleY = textScale
+                alpha = textAlpha()
+                scaleX = textScale()
+                scaleY = textScale()
             },
         )
     }

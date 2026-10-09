@@ -366,11 +366,6 @@ npm run db:migrate   # migrations Drizzle
 # API workspace
 npm test -w apps/api          # vitest
 npm run db:studio -w apps/api # Drizzle Studio
-
-# Imagens (rodar de dentro de apps/api)
-npm run img:diag              # só LÊ: conta o estado de cada imagem do banco
-npm run img:encolher          # SIMULA o backfill da versão de exibição
-npm run img:encolher -- --vai # executa de verdade
 ```
 
 ---

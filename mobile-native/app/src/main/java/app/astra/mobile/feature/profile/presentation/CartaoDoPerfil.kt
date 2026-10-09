@@ -158,7 +158,7 @@ fun CabecaDoPerfil(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    AstraAvatar(p.avatar, p.nome, size = LADO_DA_FOTO.value.toInt())
+                    AstraAvatar(p.avatar, p.nome, size = LADO_DA_FOTO.value.toInt(), animar = true)
                     p.status?.let { status ->
                         StatusDot(
                             status = status,
@@ -255,7 +255,7 @@ fun FaixaDoPerfil(p: PerfilVisivel, modifier: Modifier = Modifier) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AstraAvatar(p.avatar, p.nome, size = 40)
+        AstraAvatar(p.avatar, p.nome, size = 40, animar = true)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(

@@ -51,7 +51,7 @@ fun RelatosSection() {
         "falhas que os apps enviaram sozinhos: travamentos e atualizações que não se completaram. " +
             "nomes de usuário do Windows chegam mascarados. clique num relato para ver o diário.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 520.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(16.dp))
 
@@ -74,13 +74,12 @@ private fun CartaoDoRelato(r: RelatoDto) {
     Column(
         Modifier
             .fillMaxWidth()
-            .widthIn(max = 520.dp)
             .clickScale(fonte, pressedScale = 0.99f)
             .clip(forma)
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, forma)
             .clickable(interactionSource = fonte, indication = null) { aberto = !aberto }
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+            .padding(horizontal = 18.dp, vertical = 15.dp),
     ) {
         Text(
             listOfNotNull(

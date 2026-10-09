@@ -175,8 +175,7 @@ fun ColunaDeOrbitas(
     Box(
         modifier
             .width(LARGURA_DA_COLUNA)
-            .fillMaxHeight()
-            .background(astraColors.void),
+            .fillMaxHeight(),
     ) {
         LazyColumn(
             state = estado,

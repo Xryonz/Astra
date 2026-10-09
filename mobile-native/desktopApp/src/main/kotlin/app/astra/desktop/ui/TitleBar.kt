@@ -6,11 +6,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
@@ -264,15 +260,7 @@ private fun PontoDeAtualizacao(updater: UpdateService) {
                 }
             }
         }
-        val reduzir = LocalReduceMotion.current
-        val brilho = if (reduzir || aberto) 1f else {
-            val t = rememberInfiniteTransition(label = "updDot")
-            t.animateFloat(
-                0.45f, 1f,
-                infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                label = "updDotAlpha",
-            ).value
-        }
+        val brilho = pulsoBreve("atualizacao", chave = st is UpdateState.Ready, piso = 0.45f, meiaVoltaMs = 1300)
         val fonteDeInteracao = remember { MutableInteractionSource() }
         Box(
             Modifier
@@ -288,8 +276,9 @@ private fun PontoDeAtualizacao(updater: UpdateService) {
             Box(
                 Modifier
                     .size(7.dp)
+                    .graphicsLayer { alpha = if (aberto) 1f else brilho.value }
                     .clip(CircleShape)
-                    .background(Obsidian.accent.copy(alpha = brilho)),
+                    .background(Obsidian.accent),
             )
         }
     }

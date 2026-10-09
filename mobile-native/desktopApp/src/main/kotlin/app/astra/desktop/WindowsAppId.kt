@@ -38,6 +38,15 @@ object WindowsAppId {
         }
     }
 
+    fun esquecer() {
+        if (!noWindows()) return
+        runCatching {
+            if (Advapi32Util.registryKeyExists(WinReg.HKEY_CURRENT_USER, CHAVE)) {
+                Advapi32Util.registryDeleteKey(WinReg.HKEY_CURRENT_USER, CHAVE)
+            }
+        }
+    }
+
     private fun gravarNoRegistro() {
         val raiz = WinReg.HKEY_CURRENT_USER
         Advapi32Util.registryCreateKey(raiz, CHAVE)

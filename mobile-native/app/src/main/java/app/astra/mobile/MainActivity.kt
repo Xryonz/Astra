@@ -40,6 +40,7 @@ import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.ui.AstraApp
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.Afundar
+import app.astra.mobile.ui.components.ProvedorDoCeu
 import app.astra.mobile.ui.theme.AstraTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -83,7 +84,7 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { CrashReporter.clear(this@MainActivity); crash = null },
                             )
                         } else {
-                            AstraApp()
+                            ProvedorDoCeu { AstraApp() }
                         }
                         ToastHost(
                             hostState = toastState,

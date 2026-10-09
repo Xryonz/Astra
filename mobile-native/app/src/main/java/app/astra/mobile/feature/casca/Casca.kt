@@ -166,7 +166,6 @@ fun Casca(
     Column(
         Modifier
             .fillMaxSize()
-            .background(astraColors.void)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {

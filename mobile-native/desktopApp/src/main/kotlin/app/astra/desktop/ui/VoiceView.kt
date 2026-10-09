@@ -153,17 +153,7 @@ fun VoiceView(
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        val inicio by call.inicio.collectAsState()
-        val tempo by lembrarTempoDeCall(inicio)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = TextStyle(color = color, fontSize = 11.sp))
-            if (tempo.isNotEmpty()) {
-                Text(
-                    "  ·  $tempo",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
-                )
-            }
-        }
+        EstadoDaCall(label, color, call.inicio)
         Spacer(Modifier.height(14.dp))
 
         FaixaDoFirewall()
@@ -491,6 +481,21 @@ fun VoiceView(
 }
 
 @Composable
+private fun EstadoDaCall(label: String, cor: Color, inicioDaCall: StateFlow<Long?>) {
+    val inicio by inicioDaCall.collectAsState()
+    val tempo by lembrarTempoDeCall(inicio)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = TextStyle(color = cor, fontSize = 11.sp))
+        if (tempo.isNotEmpty()) {
+            Text(
+                "  ·  $tempo",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+            )
+        }
+    }
+}
+
+@Composable
 private fun CallSettingsPanel(
     microfones: List<AparelhoDeAudio>,
     saidas: List<AparelhoDeAudio>,
@@ -614,41 +619,9 @@ private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit
 private fun PanelHeader(text: String) {
     Text(
         text.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+        style = Tipo.secao,
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
     )
-}
-
-@Composable
-private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPick: (T) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.base)
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        options.forEach { (label, value) ->
-            val on = value == selected
-            val bg by animateColorAsState(
-                if (on) Obsidian.accent.copy(alpha = 0.16f) else Obsidian.base.copy(alpha = 0f),
-                tween(140),
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(bg)
-                    .border(1.dp, if (on) Obsidian.accent.copy(alpha = 0.5f) else Obsidian.borderDim.copy(alpha = 0f), RoundedCornerShape(6.dp))
-                    .clickable { onPick(value) }
-                    .padding(vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text2, fontSize = 12.sp))
-            }
-        }
-    }
 }
 
 private const val FIREWALL_DISPENSADO = "firewall:dispensado"

@@ -260,7 +260,7 @@ private fun RecenteResult(r: Recente, onClick: () -> Unit) = ResultRow(onClick) 
 private fun SectionLabel(t: String) {
     Text(
         t.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.8.sp),
+        style = Tipo.secao,
         modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
     )
 }

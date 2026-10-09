@@ -63,6 +63,8 @@ object Tipo {
     val descricao get() = TextStyle(color = Obsidian.text3, fontSize = 12.sp)
     val nota get() = TextStyle(color = Obsidian.text3, fontSize = 10.sp)
     val erro get() = TextStyle(color = Obsidian.danger, fontSize = 12.sp)
+    val secao get() = TextStyle(color = Obsidian.text2, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)
+    val subsecao get() = TextStyle(color = Obsidian.text3, fontSize = 10.5.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.8.sp)
 }
 
 private val BaseStyle = TextStyle(fontFamily = DmSans)

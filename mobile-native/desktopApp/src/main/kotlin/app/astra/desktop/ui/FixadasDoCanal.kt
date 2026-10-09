@@ -123,8 +123,8 @@ private fun ListaDeFixadas(fixadas: List<ChannelMessageDto>?, aoEscolher: () -> 
             .padding(vertical = 8.dp),
     ) {
         Text(
-            "mensagens fixadas",
-            style = Tipo.nota,
+            "MENSAGENS FIXADAS",
+            style = Tipo.secao,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         )
         Spacer(Modifier.height(4.dp))

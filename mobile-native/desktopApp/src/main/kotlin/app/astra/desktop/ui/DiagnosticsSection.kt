@@ -136,7 +136,11 @@ internal fun DiagnosticsSection() {
         Spacer(Modifier.height(18.dp))
         DiagTitle("app")
         DiagRow("versão", System.getProperty("astra.version") ?: "dev", ok = true)
-        DiagRow("desenho", org.jetbrains.skiko.SkikoProperties.renderApi.toString(), ok = true)
+        DiagRow(
+            "desenho",
+            (DesenhoDaJanela.api ?: org.jetbrains.skiko.SkikoProperties.renderApi).toString(),
+            ok = !DesenhoDaJanela.peloProcessador,
+        )
         DiagRow("memória (heap)", "$heapMb MB de $heapMax MB", ok = true)
         DiagRow("quadro", Quadros.resumo(), ok = Quadros.p95Ms < 20.0 || Quadros.amostras == 0)
         DiagRow(
@@ -303,7 +307,7 @@ private fun ModoSeguroBloco() {
 private fun DiagTitle(text: String) {
     Text(
         text.uppercase(),
-        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+        style = Tipo.secao,
     )
     Spacer(Modifier.height(6.dp))
 }
@@ -342,7 +346,7 @@ private fun buildReport(
     appendLine("Astra — diagnóstico")
     appendLine("versão : ${System.getProperty("astra.version") ?: "dev"}")
     appendLine("SO     : ${System.getProperty("os.name")} ${System.getProperty("os.version")}")
-    appendLine("desenho: ${org.jetbrains.skiko.SkikoProperties.renderApi}")
+    appendLine("desenho: ${DesenhoDaJanela.api ?: org.jetbrains.skiko.SkikoProperties.renderApi}")
     appendLine("heap   : ${heapMb}MB de ${heapMax}MB")
     appendLine("socket : ${if (connected) "conectado" else "DESCONECTADO"}")
     appendLine("salas  : ${servers.size} constelações, ${channels.size} órbitas, ${dms.size} sussurros")

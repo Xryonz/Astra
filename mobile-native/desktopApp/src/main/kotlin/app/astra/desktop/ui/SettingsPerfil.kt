@@ -61,6 +61,7 @@ import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.RecortarFotoRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
@@ -85,7 +86,6 @@ internal fun ProfileSection(
     acoesDoCartao: AcoesDoCartao,
 ) {
     val scope = rememberCoroutineScope()
-    var busyAvatar by remember { mutableStateOf(false) }
     var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var cropAvatar by remember { mutableStateOf<CropSource?>(null) }
@@ -93,27 +93,14 @@ internal fun ProfileSection(
 
     fun escolherAvatar() {
         val file = AvatarPicker.choose() ?: return
-        busyAvatar = true
         msg = null
-        scope.launch {
-            val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
-            if (!animated) {
-                busyAvatar = false
-                cropAvatar = CropSource.Local(file)
-                return@launch
-            }
-            val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
-            busyAvatar = false
-            r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
-                .onFailure { msg = "não foi possível ler essa imagem" to false }
-        }
+        cropAvatar = CropSource.Local(file)
     }
 
-    if (busyAvatar || busyBanner) {
+    if (busyBanner) {
         Text(
             "lendo a imagem…",
             style = Tipo.rotulo,
-            modifier = Modifier.widthIn(max = 460.dp),
         )
     }
     SideEffect {
@@ -121,7 +108,7 @@ internal fun ProfileSection(
             val atual = draft.avatarUrl
             buildList {
                 add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
-                if (atual != null && !ImageCrop.isAnimated(atual)) {
+                if (atual != null) {
                     add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
                         cropAvatar = CropSource.Remote(atual)
                     })
@@ -215,6 +202,10 @@ internal fun ProfileSection(
             outW = ImageCrop.AVATAR_OUT_W,
             onApply = { onChange(draft.copy(avatarUrl = it)) },
             onClose = { cropAvatar = null },
+            recortarNoServidor = { imagem, recorte ->
+                GlobalContext.get().get<UserApi>().recortarFoto(RecortarFotoRequest(imagem, recorte)).data?.url
+                    ?: error("o servidor não devolveu a foto recortada")
+            },
         )
     }
     cropBanner?.let { src ->
@@ -237,7 +228,7 @@ internal fun ProfileSection(
     Text(
         "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 420.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
 
     SettingsDivider()
@@ -246,7 +237,7 @@ internal fun ProfileSection(
 
     SettingsDivider()
     FieldLabel("recado")
-    Row(Modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         StatusEmojiButton(draft.statusEmoji) { onChange(draft.copy(statusEmoji = it)) }
         Spacer(Modifier.width(8.dp))
         Box(
@@ -318,7 +309,7 @@ private const val ZOOM_MAX = 300
 @Composable
 internal fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) {
     Row(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -370,7 +361,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     val faixa = (ZOOM_MAX - ZOOM_MIN).toFloat()
     val pct = ((scale - ZOOM_MIN) / faixa).coerceIn(0f, 1f)
     Row(
-        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
@@ -458,7 +449,7 @@ private fun ResizeBannerDialog(
                     )
                     Column(Modifier.padding(horizontal = 16.dp)) {
                         Box(Modifier.offset(y = (-30).dp)) {
-                            DesktopAvatar(draft.avatarUrl, name, 72)
+                            DesktopAvatar(draft.avatarUrl, name, 72, animar = true)
                         }
                         Column(Modifier.offset(y = (-8).dp)) {
                             Text(
@@ -496,7 +487,6 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
     Box {
         Row(
             Modifier
-                .widthIn(max = 420.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
@@ -622,7 +612,7 @@ private fun colorLabel(css: String?): String {
 @Composable
 private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
     Column(
-        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         BANNER_GRADIENTS.chunked(6).forEach { row ->
@@ -659,7 +649,6 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     Box {
         Row(
             Modifier
-                .widthIn(max = 420.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
@@ -748,7 +737,6 @@ internal fun ProfileField(
     FieldLabel(label)
     Box(
         Modifier
-            .widthIn(max = 420.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised)

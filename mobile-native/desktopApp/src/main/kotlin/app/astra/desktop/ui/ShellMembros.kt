@@ -146,10 +146,12 @@ private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
             Spacer(Modifier.width(6.dp))
         }
         Text(
-            text = "$label — $count",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.6.sp),
+            text = label,
+            style = Tipo.secao,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        Text(text = " — $count", style = Tipo.secao, maxLines = 1)
     }
 }
 
@@ -191,12 +193,14 @@ private fun MemberRow(
             )
         }
         ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles, entraPelaDireita = true) {
+            val linha = remember { MutableInteractionSource() }
+            val linhaComOMouse by linha.collectIsHoveredAsState()
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                modifier = Modifier.fillMaxWidth().hoverable(linha).padding(horizontal = 12.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.graphicsLayer { alpha = avatarAlpha }) {
-                    DesktopAvatar(m.user.avatarUrl, name, 26)
+                    DesktopAvatar(m.user.avatarUrl, name, 26, animar = linhaComOMouse)
                 }
                 Spacer(Modifier.width(9.dp))
                 Column {

@@ -1,7 +1,9 @@
 package app.astra.desktop
 
+import app.astra.desktop.auth.SessionStore
 import java.io.File
 import kotlin.concurrent.thread
+import org.koin.core.context.GlobalContext
 import kotlin.system.exitProcess
 
 object Vigia {
@@ -97,8 +99,9 @@ object Vigia {
         ProcessBuilder("explorer.exe", CrashLog.dataDir().absolutePath).start()
     }
 
-    private fun reabrir(): Boolean = runCatching {
+    fun reabrir(): Boolean = runCatching {
         val exe = System.getProperty("jpackage.app-path") ?: return@runCatching false
+        runCatching { GlobalContext.get().get<SessionStore>().gravarPendencias() }
         SingleInstance.release()
         ProcessBuilder(exe).directory(File(exe).parentFile).start()
         true

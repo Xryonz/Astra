@@ -13,24 +13,57 @@ import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.voice.LigacaoDeSussurro
 import app.astra.mobile.core.translate.Translator
+import android.net.Uri
+import app.astra.mobile.core.upload.FilaDeVideos
 import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
+import app.astra.mobile.feature.dm.domain.model.DmMessage
+import app.astra.mobile.ui.components.ChatRow
+import app.astra.mobile.ui.components.ConversaMontada
+import app.astra.mobile.ui.components.montarConversa
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+private const val ESPERA_PELO_BANCO_MS = 2_000L
+
+private fun DmMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
+    id = id,
+    mine = mine,
+    authorId = authorId,
+    authorName = authorName,
+    authorAvatar = authorAvatar,
+    authorFont = authorFont,
+    content = content,
+    replyAuthor = replyToAuthor,
+    replyContent = replyToContent,
+    attachments = attachments,
+    translation = traducoes[id],
+    criadaEm = createdAt,
+)
 
 @HiltViewModel
 class DmChatViewModel @Inject constructor(
     private val repository: DmRepository,
     private val imageUploader: ImageUploader,
+    private val preparadorDeVideo: PreparadorDeVideo,
     private val translator: Translator,
     private val ligacaoDeSussurro: LigacaoDeSussurro,
     private val friendsApi: FriendsApi,
@@ -43,6 +76,13 @@ class DmChatViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(DmChatUiState())
     val state = _state.asStateFlow()
+
+    val conversa: StateFlow<ConversaMontada> = _state
+        .map { it.messages to it.translations }
+        .distinctUntilChanged { antes, depois -> antes.first === depois.first && antes.second === depois.second }
+        .map { (mensagens, traducoes) -> montarConversa(mensagens.map { it.comoLinha(traducoes) }) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ConversaMontada.VAZIA)
 
     private var otherUserId: String? = null
 
@@ -89,7 +129,12 @@ class DmChatViewModel @Inject constructor(
     private fun loadHistory() {
         viewModelScope.launch {
             repository.messages(conversationId, null)
-                .onSuccess { _state.update { it.copy(loading = false) } }
+                .onSuccess { pagina ->
+                    if (pagina.messages.isNotEmpty()) {
+                        withTimeoutOrNull(ESPERA_PELO_BANCO_MS) { _state.first { it.messages.isNotEmpty() } }
+                    }
+                    _state.update { it.copy(loading = false) }
+                }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
         }
     }
@@ -125,6 +170,23 @@ class DmChatViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
         }
     }
+
+    private val filaDeVideos = FilaDeVideos(
+        escopo = viewModelScope,
+        preparador = preparadorDeVideo,
+        uploader = imageUploader,
+        aoAndar = { andamento -> _state.update { it.copy(videoEmPreparo = andamento) } },
+        aoAnexar = { anexos -> _state.update { it.copy(pendingAttachments = it.pendingAttachments + anexos) } },
+        aoFalhar = { motivo -> _state.update { it.copy(error = motivo) } },
+    )
+
+    fun attachVideos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        _state.update { it.copy(error = null) }
+        filaDeVideos.adicionar(uris)
+    }
+
+    fun cancelarVideo(posicao: Int) = filaDeVideos.cancelar(posicao)
 
     fun translate(messageId: String, content: String) {
         val st = _state.value
@@ -227,7 +289,7 @@ class DmChatViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
 
-                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending + it.pendingAttachments) }
                 }
         }
     }

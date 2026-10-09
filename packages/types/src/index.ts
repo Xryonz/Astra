@@ -60,6 +60,15 @@ export const UpdateProfileSchema = z.object({
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
 })
 
+export const RecortarFotoSchema = z.object({
+  imagem: z.string().startsWith('data:'),
+  recorte: z.object({
+    x:    z.number().int().min(0),
+    y:    z.number().int().min(0),
+    lado: z.number().int().min(1).max(20_000),
+  }),
+})
+
 export const ProfileNoteSchema = z.object({
   content: z.string().min(1, 'Nota vazia').max(120, 'Máx 120 caracteres'),
 })

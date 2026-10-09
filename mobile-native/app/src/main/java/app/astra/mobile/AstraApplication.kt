@@ -5,7 +5,6 @@ import android.app.Application
 import android.os.Build
 import androidx.core.content.getSystemService
 import app.astra.mobile.core.crash.CrashReporter
-import app.astra.mobile.core.upload.DataUriMapper
 import app.astra.mobile.core.upload.ErroGuardadoPorPouco
 import app.astra.mobile.core.upload.RelativeUrlMapper
 import coil3.ImageLoader
@@ -31,7 +30,6 @@ class AstraApplication : Application(), SingletonImageLoader.Factory {
         return ImageLoader.Builder(context)
             .components {
 
-                add(DataUriMapper())
                 add(RelativeUrlMapper(BuildConfig.BASE_URL))
                 add(OkHttpNetworkFetcherFactory(cacheStrategy = { ErroGuardadoPorPouco() }))
 

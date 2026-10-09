@@ -23,11 +23,13 @@ import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.dm.domain.model.MessagesPage
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.dm.domain.model.TypingUser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -199,7 +201,7 @@ class DmRepositoryImpl @Inject constructor(
 
             emitAll(messageDao.observe(conversationId).map { rows -> rows.map { it.toDm(uid, json) } })
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     override fun typingEvents(conversationId: String): Flow<TypingUser> =
         socketManager.dmTyping

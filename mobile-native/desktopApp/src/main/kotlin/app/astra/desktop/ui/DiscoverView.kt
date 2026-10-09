@@ -288,14 +288,11 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val draw = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(reduce) { if (!reduce) draw.animateTo(1f, tween(1700, easing = FastOutSlowInEasing)) }
 
-    val inf = rememberInfiniteTransition(label = "map")
-    val clock by inf.animateFloat(
+    val clock = if (reduce) null else rememberInfiniteTransition(label = "map").animateFloat(
         0f, (2.0 * Math.PI).toFloat(),
         infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
         label = "clock",
     )
-    val t = if (reduce) 0f else clock
-    val pulse = if (reduce) 1f else 0.82f + 0.18f * sin(t * 1.6f)
 
     val route = remember {
         listOf(
@@ -310,6 +307,8 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
 
     Box(Modifier.size(width = width, height = height)) {
         Canvas(Modifier.fillMaxSize()) {
+            val t = clock?.value ?: 0f
+            val pulse = if (clock == null) 1f else 0.82f + 0.18f * sin(t * 1.6f)
             val w = size.width; val h = size.height
             stars.forEach { (sx, sy, ph) ->
                 val a = 0.10f + 0.22f * (0.5f + 0.5f * sin(t + ph))

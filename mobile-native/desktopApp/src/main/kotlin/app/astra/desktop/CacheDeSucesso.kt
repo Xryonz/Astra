@@ -16,11 +16,6 @@ class CacheDeSucesso<K : Any, V : Any>(private val teto: Int = TETO_PADRAO) {
         guardados.remove(chave)
     }
 
-    @Synchronized
-    fun esquecerTudo() {
-        guardados.clear()
-    }
-
     suspend fun obter(chave: K, buscar: suspend () -> V): V? {
         guardado(chave)?.let { return it }
         val veio = runCatching { buscar() }.getOrNull() ?: return null

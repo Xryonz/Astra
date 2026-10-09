@@ -28,6 +28,10 @@ val dadosDaChave = Properties().apply {
     arquivoDaChave?.inputStream()?.use { load(it) }
 }
 
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+}
+
 android {
     namespace = "app.astra.mobile"
     compileSdk = 36
@@ -176,6 +180,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui.compose)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.androidx.room.runtime)

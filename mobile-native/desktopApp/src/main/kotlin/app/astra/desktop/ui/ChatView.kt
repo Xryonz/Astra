@@ -487,6 +487,7 @@ fun ChatView(
             }
         }
 
+        EscopoProprio {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
             val reduzirMovimento = LocalReduceMotion.current
             AnimatedVisibility(
@@ -501,9 +502,9 @@ fun ChatView(
                     Spacer(Modifier.width(6.dp))
                     val names = state.typing.values.toList()
                     val label = when (names.size) {
-                        1 -> "${names[0]} esta digitando…"
+                        1 -> "${names[0]} está digitando…"
                         2 -> "${names[0]} e ${names[1]} estão digitando…"
-                        else -> "varias pessoas estão digitando…"
+                        else -> "várias pessoas estão digitando…"
                     }
                     Text(label, style = Tipo.apoio)
                 }
@@ -526,12 +527,16 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             }
+            state.avisoDoAnexo?.let { aviso ->
+                Text(aviso, style = Tipo.erro)
+                Spacer(Modifier.height(6.dp))
+            }
             if (state.pending.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    state.pending.forEachIndexed { i, pf ->
+                    state.pending.forEach { pf ->
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -547,15 +552,23 @@ fun ChatView(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                pf.file.name,
+                                pf.nome,
                                 style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 180.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(sizeLabel(pf.file.length()), style = Tipo.nota)
+                            val tamanhoDoArquivo = remember(pf.file) { pf.file.length() }
+                            Text(
+                                when {
+                                    pf.comprimindo == null -> sizeLabel(tamanhoDoArquivo)
+                                    pf.comprimindo < 0.01f -> "preparando o vídeo"
+                                    else -> "comprimindo ${(pf.comprimindo * 100).toInt()}%"
+                                },
+                                style = Tipo.nota,
+                            )
                             Spacer(Modifier.width(6.dp))
-                            HoverGlyph(Lucide.X, "remover anexo") { vm.removePending(i) }
+                            HoverGlyph(Lucide.X, "remover anexo") { vm.removePending(pf.id) }
                         }
                     }
                 }
@@ -624,8 +637,10 @@ fun ChatView(
             val prefixosBot = remember(allCommands) {
                 allCommands.map { it.name.substringBefore(' ') }.toSet()
             }
+            val comprimindo = state.pending.any { it.comprimindo != null }
             fun submit() {
                 if (draft.isBlank() && state.pending.isEmpty()) return
+                if (comprimindo) return
                 val texto = draft.trim()
                 val prefixo = prefixosBot.firstOrNull {
                     texto.equals(it, true) || texto.startsWith("$it ", true)
@@ -634,99 +649,102 @@ fun ChatView(
                 else vm.send(draft)
                 draft = ""
             }
-            val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
-            if (candidatos.isNotEmpty() && matches.isEmpty()) {
-                MencaoPalette(candidatos) { escolhido ->
-                    val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
-                    draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+            val canSend = (draft.isNotBlank() || state.pending.isNotEmpty()) && !comprimindo
+            Column(Modifier.fillMaxWidth().then(lugarDoPetNoCampo())) {
+                if (candidatos.isNotEmpty() && matches.isEmpty()) {
+                    MencaoPalette(candidatos) { escolhido ->
+                        val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
+                        draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+                    }
+                    Spacer(Modifier.height(6.dp))
+                } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
+                    EmojiPalette(emojiCandidatos) { escolhido ->
+                        val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
+                        draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
+                    }
+                    Spacer(Modifier.height(6.dp))
                 }
-                Spacer(Modifier.height(6.dp))
-            } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
-                EmojiPalette(emojiCandidatos) { escolhido ->
-                    val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
-                    draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
+                CommandPalette(matches) { picked ->
+                    draft = picked.name.substringBefore(" <") + " "
                 }
-                Spacer(Modifier.height(6.dp))
-            }
-            CommandPalette(matches) { picked ->
-                draft = picked.name.substringBefore(" <") + " "
-            }
-            if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-            val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .marcoDoTour(Marco.ESCREVER)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Obsidian.raised)
-                    .border(
-                        1.dp,
-                        if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
-                        RoundedCornerShape(12.dp),
+                if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .marcoDoTour(Marco.ESCREVER)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Obsidian.raised)
+                        .border(
+                            1.dp,
+                            if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ComposerPlusButton(
+                        onPickFiles = vm::addFiles,
+                        onCriarEnquete = if (isChannel) ({ enqueteAberta = true }) else null,
                     )
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ComposerPlusButton(
-                    onPickFiles = vm::addFiles,
-                    onCriarEnquete = if (isChannel) ({ enqueteAberta = true }) else null,
-                )
-                Spacer(Modifier.width(4.dp))
-                Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
-                    if (draft.isEmpty()) {
-                        Text(
-                            placeholder,
-                            style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
+                        if (draft.isEmpty()) {
+                            Text(
+                                placeholder,
+                                style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        BasicTextField(
+                            value = draft,
+                            onValueChange = {
+                                draft = it.take(4000)
+                                if (it.isNotBlank()) vm.typing()
+                            },
+                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
+                            cursorBrush = SolidColor(Obsidian.accent),
+                            maxLines = 8,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { composerFocused = it.isFocused }
+                                .onPreviewKeyEvent { e ->
+                                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                                        submit(); true
+                                    } else false
+                                },
                         )
                     }
-                    BasicTextField(
-                        value = draft,
-                        onValueChange = {
-                            draft = it.take(4000)
-                            if (it.isNotBlank()) vm.typing()
-                        },
-                        textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
-                        cursorBrush = SolidColor(Obsidian.accent),
-                        maxLines = 8,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { composerFocused = it.isFocused }
-                            .onPreviewKeyEvent { e ->
-                                if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                                    submit(); true
-                                } else false
-                            },
-                    )
-                }
-                if (draft.length > 3600) {
-                    Text(
-                        "${4000 - draft.length}",
-                        style = TextStyle(
-                            color = if (draft.length >= 4000) Obsidian.danger else Obsidian.text3,
-                            fontSize = 11.sp,
-                        ),
-                    )
+                    if (draft.length > 3600) {
+                        Text(
+                            "${4000 - draft.length}",
+                            style = TextStyle(
+                                color = if (draft.length >= 4000) Obsidian.danger else Obsidian.text3,
+                                fontSize = 11.sp,
+                            ),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
                     Spacer(Modifier.width(4.dp))
-                }
-                ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
-                Spacer(Modifier.width(4.dp))
-                if (serverId != null) {
+                    if (serverId != null) {
+                        ComposerPickerButton(
+                            Seletor.FIGURINHA,
+                            serverId = serverId,
+                            onPickSticker = vm::sendSticker,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
                     ComposerPickerButton(
-                        Seletor.FIGURINHA,
-                        serverId = serverId,
-                        onPickSticker = vm::sendSticker,
+                        Seletor.EMOJI,
+                        onPickEmoji = { draft = (draft + it).take(4000) },
+                        emojisDaSala = emojisDaSala.lista,
                     )
                     Spacer(Modifier.width(4.dp))
+                    SendButton(enabled = canSend) { submit() }
                 }
-                ComposerPickerButton(
-                    Seletor.EMOJI,
-                    onPickEmoji = { draft = (draft + it).take(4000) },
-                    emojisDaSala = emojisDaSala.lista,
-                )
-                Spacer(Modifier.width(4.dp))
-                SendButton(enabled = canSend) { submit() }
             }
+        }
         }
     }
 
@@ -757,6 +775,11 @@ fun ChatView(
     }
     }
     }
+}
+
+@Composable
+private fun EscopoProprio(conteudo: @Composable () -> Unit) {
+    conteudo()
 }
 
 @Composable
@@ -906,7 +929,7 @@ private fun MessageRow(
                 }
             } else {
                 ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
+                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34, animar = hovered)
                 }
                 Spacer(Modifier.width(10.dp))
                 PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {

@@ -73,6 +73,8 @@ fun JanelaDeRecorte(
     titulo: String,
     aoAplicar: (Bitmap, Rect) -> Unit,
     aoFechar: () -> Unit,
+    redondo: Boolean = false,
+    aviso: String? = null,
 ) {
     var origem by remember(bytes) { mutableStateOf<Bitmap?>(null) }
     var falhou by remember(bytes) { mutableStateOf(false) }
@@ -125,6 +127,9 @@ fun JanelaDeRecorte(
             style = MaterialTheme.typography.bodySmall,
             color = astraColors.text3,
         )
+        if (aviso != null) {
+            Text(aviso, style = MaterialTheme.typography.bodySmall, color = astraColors.text3)
+        }
         Spacer(Modifier.height(4.dp))
         Box(
             Modifier
@@ -184,7 +189,9 @@ fun JanelaDeRecorte(
                         Offset((size.width - larguraDoFuro) / 2f, (size.height - alturaDoFuro) / 2f),
                         Size(larguraDoFuro, alturaDoFuro),
                     )
-                    val caminhoDoFuro = Path().apply { addRoundRect(RoundRect(furo, CornerRadius(CANTO_DO_FURO.toPx()))) }
+                    val caminhoDoFuro = Path().apply {
+                        if (redondo) addOval(furo) else addRoundRect(RoundRect(furo, CornerRadius(CANTO_DO_FURO.toPx())))
+                    }
                     val caminhoDoPalco = Path().apply { addRect(AreaNaTela(Offset.Zero, size)) }
                     drawPath(Path.combine(PathOperation.Difference, caminhoDoPalco, caminhoDoFuro), veu)
                     drawPath(caminhoDoFuro, contorno, style = Stroke(1.5.dp.toPx()))

@@ -27,8 +27,11 @@ import androidx.compose.ui.draw.drawBehind
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -41,7 +44,7 @@ import org.koin.core.qualifier.named
 import java.util.Base64
 import kotlin.math.roundToInt
 
-private data class AnimatedFrames(
+internal data class AnimatedFrames(
     val frames: List<ImageBitmap>,
     val durationsMs: List<Int>,
     val width: Int,
@@ -72,24 +75,7 @@ fun AstraImage(
 
     val a = anim
     if (a != null && a.frames.isNotEmpty()) {
-        val indice = remember(a) { mutableIntStateOf(0) }
-        if (!reduce && a.frames.size > 1) {
-            LaunchedEffect(a) {
-                var i = 0
-                while (true) {
-                    delay(a.durationsMs[i].coerceAtLeast(20).toLong())
-                    i = (i + 1) % a.frames.size
-                    indice.intValue = i
-                }
-            }
-        }
-        Image(
-            painter = remember(a) { QuadrosPainter(a.frames, indice) },
-            contentDescription = contentDescription,
-            modifier = modifier,
-            alignment = alignment,
-            contentScale = contentScale,
-        )
+        QuadrosAnimados(a, tocar = !reduce, contentDescription, modifier, alignment, contentScale)
     } else {
         val borrao by lembrarBlurhash(blurhash, proporcaoBlur)
         val comBorrao = modifier.drawBehind {
@@ -121,6 +107,57 @@ fun AstraImage(
     }
 }
 
+@Composable
+private fun QuadrosAnimados(
+    a: AnimatedFrames,
+    tocar: Boolean,
+    contentDescription: String?,
+    modifier: Modifier,
+    alignment: Alignment,
+    contentScale: ContentScale,
+) {
+    val indice = remember(a) { mutableIntStateOf(0) }
+    if (tocar && a.frames.size > 1) {
+        LaunchedEffect(a) {
+            var i = 0
+            while (true) {
+                delay(a.durationsMs[i].coerceAtLeast(20).toLong())
+                i = (i + 1) % a.frames.size
+                indice.intValue = i
+            }
+        }
+    }
+    Image(
+        painter = remember(a) { QuadrosPainter(a.frames, indice) },
+        contentDescription = contentDescription,
+        modifier = modifier,
+        alignment = alignment,
+        contentScale = contentScale,
+    )
+}
+
+@Composable
+internal fun lembrarQuadrosDaFoto(url: String, ladoPx: Int): AnimatedFrames? {
+    var quadros by remember(url, ladoPx) {
+        mutableStateOf(AnimatedImageStore.cached(url, ladoPx, cobrir = true))
+    }
+    LaunchedEffect(url, ladoPx) {
+        if (quadros != null) return@LaunchedEffect
+        delay(ESPERA_ANTES_DE_DECODIFICAR_MS)
+        quadros = withContext(Dispatchers.IO) { AnimatedImageStore.loadOrDecode(url, ladoPx, cobrir = true) }
+    }
+    return quadros?.takeIf { it.frames.isNotEmpty() }
+}
+
+@Composable
+internal fun FotoAnimada(quadros: AnimatedFrames, contentDescription: String?, modifier: Modifier) {
+    QuadrosAnimados(quadros, tocar = true, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
+}
+
+internal fun fotoSabidamenteParada(url: String): Boolean = AnimatedImageStore.isKnownStatic(url)
+
+private const val ESPERA_ANTES_DE_DECODIFICAR_MS = 150L
+
 private class QuadrosPainter(
     private val quadros: List<ImageBitmap>,
     private val indice: IntState,
@@ -142,7 +179,7 @@ private class QuadrosPainter(
     }
 }
 
-private fun mightAnimate(url: String): Boolean {
+internal fun mightAnimate(url: String): Boolean {
     if (url.startsWith("data:")) {
         val head = url.substringBefore(',').lowercase()
         return "image/gif" in head || "image/webp" in head
@@ -153,7 +190,12 @@ private fun mightAnimate(url: String): Boolean {
 
 private const val ANIM_MAX_DIM = 1024
 
-private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
+private fun decodeAnimated(
+    bytes: ByteArray,
+    lado: Int,
+    cobrir: Boolean,
+    ativo: () -> Boolean,
+): AnimatedFrames? = runCatching {
     val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
     val count = codec.frameCount
     if (count <= 1) return null
@@ -161,7 +203,8 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val w = info.width
     val h = info.height
     if (w <= 0 || h <= 0) return null
-    val scale = minOf(1f, ANIM_MAX_DIM.toFloat() / maxOf(w, h))
+    val ladoDeReferencia = if (cobrir) minOf(w, h) else maxOf(w, h)
+    val scale = minOf(1f, lado.toFloat() / ladoDeReferencia)
     val tw = (w * scale).toInt().coerceAtLeast(1)
     val th = (h * scale).toInt().coerceAtLeast(1)
     val perFrame = tw.toLong() * th * 4
@@ -172,28 +215,34 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val bmp = Bitmap().apply { allocPixels(info) }
     val out = ArrayList<ImageBitmap>(n)
     val durs = ArrayList<Int>(n)
-    for (i in 0 until n) {
-        codec.readPixels(bmp, i)
-        val full = SkiaImage.makeFromBitmap(bmp)
-        if (scale < 1f) {
-            out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
-            runCatching { full.close() }
-        } else {
-            out += full.toComposeImageBitmap()
+    try {
+        for (i in 0 until n) {
+            if (!ativo()) throw CancellationException()
+            codec.readPixels(bmp, i)
+            val full = SkiaImage.makeFromBitmap(bmp)
+            if (scale < 1f) {
+                out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
+                runCatching { full.close() }
+            } else {
+                out += full.toComposeImageBitmap()
+            }
+            val d = fi.getOrNull(i)?.duration ?: 100
+            durs += if (d <= 0) 100 else d
         }
-        val d = fi.getOrNull(i)?.duration ?: 100
-        durs += if (d <= 0) 100 else d
+    } finally {
+        runCatching { bmp.close() }
     }
-    runCatching { bmp.close() }
     AnimatedFrames(out, durs, tw, th)
-}.getOrNull()
+}.getOrElse { if (it is CancellationException) throw it else null }
 
 private const val ANIM_CACHE_BYTES = 48L * 1024 * 1024
 
 private object AnimatedImageStore {
     private val lock = Any()
 
-    private val cache = LinkedHashMap<String, AnimatedFrames>(16, 0.75f, true)
+    private data class Chave(val url: String, val lado: Int, val cobrir: Boolean)
+
+    private val cache = LinkedHashMap<Chave, AnimatedFrames>(16, 0.75f, true)
     private var cacheBytes = 0L
 
     private fun trimLocked() {
@@ -210,21 +259,32 @@ private object AnimatedImageStore {
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
 
-    fun cached(url: String): AnimatedFrames? = synchronized(lock) { cache[url] }
+    private fun guardavel(chave: Chave) = !(chave.cobrir && chave.url.startsWith("data:"))
+
+    fun cached(url: String, lado: Int = ANIM_MAX_DIM, cobrir: Boolean = false): AnimatedFrames? {
+        val chave = Chave(url, lado, cobrir)
+        if (!guardavel(chave)) return null
+        return synchronized(lock) { cache[chave] }
+    }
+
     fun isKnownStatic(url: String): Boolean = synchronized(lock) { staticKeys.containsKey(url) }
 
-    suspend fun loadOrDecode(url: String): AnimatedFrames? {
+    suspend fun loadOrDecode(url: String, lado: Int = ANIM_MAX_DIM, cobrir: Boolean = false): AnimatedFrames? {
+        val chave = Chave(url, lado, cobrir)
+        val guardar = guardavel(chave)
         synchronized(lock) {
-            cache[url]?.let { return it }
+            if (guardar) cache[chave]?.let { return it }
             if (staticKeys.containsKey(url)) return null
         }
         val bytes = fetchBytes(url) ?: return null
-        val frames = decodeAnimated(bytes)
+        val contexto = currentCoroutineContext()
+        val frames = decodeAnimated(bytes, lado, cobrir) { contexto.isActive }
+        if (!guardar) return frames
         synchronized(lock) {
             if (frames == null) {
                 staticKeys[url] = true
             } else {
-                cache.put(url, frames)?.let { cacheBytes -= it.bytes }
+                cache.put(chave, frames)?.let { cacheBytes -= it.bytes }
                 cacheBytes += frames.bytes
                 trimLocked()
             }

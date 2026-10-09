@@ -46,15 +46,6 @@ fun lerCorDoNome(cru: String?): CorDoNome? {
     }
 }
 
-fun escreverCorDoNome(cor: CorDoNome?): String? = when (cor) {
-    null -> null
-    is CorDoNome.Lisa -> emHex(cor.solida)
-    is CorDoNome.Degrade -> "gradient:${cor.graus}:${emHex(cor.solida)}:${emHex(cor.fim)}"
-    is CorDoNome.Animada.ArcoIris -> "anim:arcoiris:${emHex(cor.solida)}"
-    is CorDoNome.Animada.Varredura -> "anim:varredura:${emHex(cor.solida)}:${emHex(cor.fim)}"
-    is CorDoNome.Animada.Pulso -> "anim:pulso:${emHex(cor.solida)}"
-}
-
 fun emHex(cor: Color): String {
     val r = (cor.red * 255).toInt().coerceIn(0, 255)
     val g = (cor.green * 255).toInt().coerceIn(0, 255)

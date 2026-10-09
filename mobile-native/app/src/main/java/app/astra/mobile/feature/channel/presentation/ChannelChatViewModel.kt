@@ -10,18 +10,39 @@ import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.translate.Translator
+import android.net.Uri
+import app.astra.mobile.core.upload.AndamentoDoVideo
+import app.astra.mobile.core.upload.FilaDeVideos
 import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.PreparadorDeVideo
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
+import app.astra.mobile.ui.components.ChatRow
+import app.astra.mobile.ui.components.ConversaMontada
+import app.astra.mobile.ui.components.PollOptionUi
+import app.astra.mobile.ui.components.PollUi
+import app.astra.mobile.ui.components.ReactionChip
+import app.astra.mobile.ui.components.montarConversa
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+private const val ESPERA_PELO_BANCO_MS = 2_000L
 
 data class ChannelChatUiState(
     val loading: Boolean = true,
@@ -42,6 +63,7 @@ data class ChannelChatUiState(
 
     val pendingAttachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+    val videoEmPreparo: AndamentoDoVideo? = null,
 
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),
@@ -50,10 +72,41 @@ data class ChannelChatUiState(
     val notifMode: String? = null,
 )
 
+private fun ChannelMessage.comoLinha(traducoes: Map<String, String>) = ChatRow(
+    id = id,
+    mine = mine,
+    authorId = authorId,
+    authorName = authorName,
+    authorAvatar = authorAvatar,
+    authorColor = authorColor,
+    authorFont = authorFont,
+    content = content,
+    edited = edited,
+    pinned = pinned,
+    reactions = reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
+    replyAuthor = replyToAuthor,
+    replyContent = replyToContent,
+    attachments = attachments,
+    translation = traducoes[id],
+    kind = kind,
+    criadaEm = createdAt,
+    mencionaVoce = mencionaVoce,
+    poll = poll?.let { p ->
+        PollUi(
+            question = p.question,
+            options = p.options.map { o -> PollOptionUi(o.id, o.text, o.votes, o.mine) },
+            allowMultiple = p.allowMultiple,
+            expiresAt = p.expiresAt,
+            closed = p.closed,
+        )
+    },
+)
+
 @HiltViewModel
 class ChannelChatViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val imageUploader: ImageUploader,
+    private val preparadorDeVideo: PreparadorDeVideo,
     private val translator: Translator,
     private val notificationsApi: NotificationsApi,
     savedStateHandle: SavedStateHandle,
@@ -65,6 +118,13 @@ class ChannelChatViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(ChannelChatUiState())
     val state = _state.asStateFlow()
+
+    val conversa: StateFlow<ConversaMontada> = _state
+        .map { it.messages to it.translations }
+        .distinctUntilChanged { antes, depois -> antes.first === depois.first && antes.second === depois.second }
+        .map { (mensagens, traducoes) -> montarConversa(mensagens.map { it.comoLinha(traducoes) }) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ConversaMontada.VAZIA)
 
     init {
         repository.joinChannel(channelId)
@@ -109,7 +169,12 @@ class ChannelChatViewModel @Inject constructor(
     private fun loadHistory() {
         viewModelScope.launch {
             repository.messages(channelId, null)
-                .onSuccess { _state.update { it.copy(loading = false) } }
+                .onSuccess { pagina ->
+                    if (pagina.messages.isNotEmpty()) {
+                        withTimeoutOrNull(ESPERA_PELO_BANCO_MS) { _state.first { it.messages.isNotEmpty() } }
+                    }
+                    _state.update { it.copy(loading = false) }
+                }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
         }
     }
@@ -185,6 +250,23 @@ class ChannelChatViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
         }
     }
+
+    private val filaDeVideos = FilaDeVideos(
+        escopo = viewModelScope,
+        preparador = preparadorDeVideo,
+        uploader = imageUploader,
+        aoAndar = { andamento -> _state.update { it.copy(videoEmPreparo = andamento) } },
+        aoAnexar = { anexos -> _state.update { it.copy(pendingAttachments = it.pendingAttachments + anexos) } },
+        aoFalhar = { motivo -> _state.update { it.copy(error = motivo) } },
+    )
+
+    fun attachVideos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        _state.update { it.copy(error = null) }
+        filaDeVideos.adicionar(uris)
+    }
+
+    fun cancelarVideo(posicao: Int) = filaDeVideos.cancelar(posicao)
 
     fun translate(messageId: String, content: String) {
         val st = _state.value
@@ -289,7 +371,7 @@ class ChannelChatViewModel @Inject constructor(
             repository.send(channelId, text, replyId, pending)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending + it.pendingAttachments) }
                 }
         }
     }

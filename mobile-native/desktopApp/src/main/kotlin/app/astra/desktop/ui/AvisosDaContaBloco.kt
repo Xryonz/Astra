@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.AvisosDaConta
@@ -41,22 +40,19 @@ internal fun BlocoDeAjustes(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised.copy(alpha = 0.22f))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Text(
             titulo.uppercase(),
-            style = TextStyle(
-                color = Obsidian.text2, fontSize = 10.sp,
-                letterSpacing = 1.sp, fontWeight = FontWeight.Medium,
-            ),
+            style = Tipo.secao,
         )
         Spacer(Modifier.height(3.dp))
         Text(
             explicacao,
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         conteudo()
     }
 }

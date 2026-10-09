@@ -189,7 +189,7 @@ private fun LinhaPermissao(
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.void.copy(alpha = 0.35f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(11.dp),
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(

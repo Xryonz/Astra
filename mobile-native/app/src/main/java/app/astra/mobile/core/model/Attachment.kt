@@ -24,6 +24,9 @@ val Attachment.isImage: Boolean
 val Attachment.isAudio: Boolean
     get() = type?.startsWith("audio/") == true
 
+val Attachment.isVideo: Boolean
+    get() = type?.startsWith("video/") == true
+
 fun AttachmentDto.toModel() = Attachment(
     url = url,
     type = type,

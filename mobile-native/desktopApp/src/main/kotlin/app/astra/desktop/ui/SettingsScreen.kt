@@ -112,6 +112,9 @@ private val abasVisiveis: List<SettingsTab> =
     }
 
 private val LARGURA_DA_PREVIA = 470.dp
+private val LARGURA_DA_COLUNA_DE_CONFIG = 640.dp
+private val RECUO_DA_COLUNA_DE_CONFIG = 28.dp
+internal val LARGURA_DO_TEXTO_DE_CONFIG = 520.dp
 private val ESPACO_PARA_A_BARRA = 78.dp
 private const val VIDA_DA_CONFIRMACAO_MS = 2_600L
 private const val RECUSA_DO_ARRANQUE =
@@ -266,12 +269,15 @@ fun SettingsScreen(
             val larguraPrevia = LARGURA_DA_PREVIA
             val pinned = maxWidth > larguraPrevia + 280.dp
             val acoesDoCartao = remember { AcoesDoCartao() }
-            val contentMax =
-                if (pinned) minOf(720.dp, (maxWidth - larguraPrevia - 76.dp).coerceAtLeast(280.dp)) else 720.dp
+            val areaDoConteudo =
+                if (pinned && temPrevia(tabAtiva)) (maxWidth - larguraPrevia - 60.dp).coerceAtLeast(280.dp)
+                else maxWidth
+            Box(Modifier.align(Alignment.TopStart).width(areaDoConteudo).fillMaxHeight()) {
             Column(
-                Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
+                Modifier.align(Alignment.TopCenter)
+                    .widthIn(max = LARGURA_DA_COLUNA_DE_CONFIG + RECUO_DA_COLUNA_DE_CONFIG * 2).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(horizontal = 28.dp, vertical = 22.dp),
+                    .padding(horizontal = RECUO_DA_COLUNA_DE_CONFIG, vertical = 22.dp),
             ) {
                 AnimatedContent(
                     targetState = tab,
@@ -326,14 +332,14 @@ fun SettingsScreen(
                                 Text(
                                     "os avisos aparecem na bandeja só com a janela fechada ou minimizada.",
                                     style = Tipo.apoio,
-                                    modifier = Modifier.widthIn(max = 460.dp),
+                                    modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Text(
                                     "o aviso sem conteúdo serve para transmitir a tela: o balão do Windows " +
                                         "aparece por cima de tudo, e o que estiver escrito nele entra na gravação.",
                                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-                                    modifier = Modifier.widthIn(max = 460.dp),
+                                    modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
                                 )
                             }
                             Spacer(Modifier.height(14.dp))
@@ -356,6 +362,7 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(ESPACO_PARA_A_BARRA))
+            }
             }
                 if (pinned) {
                     Column(

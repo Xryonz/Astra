@@ -5,6 +5,8 @@ import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.FotoPerdidaDto
+import app.astra.mobile.core.network.dto.FotoRecortadaDto
+import app.astra.mobile.core.network.dto.RecortarFotoRequest
 import app.astra.mobile.core.network.dto.PreferenciasRequest
 import app.astra.mobile.core.network.dto.PreferenciasWrapper
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
@@ -32,6 +34,9 @@ interface UserApi {
 
     @GET("api/profile/me/foto-perdida")
     suspend fun fotoPerdida(): ApiEnvelope<FotoPerdidaDto>
+
+    @POST("api/profile/foto")
+    suspend fun recortarFoto(@Body body: RecortarFotoRequest): ApiEnvelope<FotoRecortadaDto>
 
     @POST("api/auth/password")
     suspend fun changePassword(@Body body: ChangePasswordRequest)

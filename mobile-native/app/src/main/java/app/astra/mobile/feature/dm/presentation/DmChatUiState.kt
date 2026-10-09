@@ -1,6 +1,7 @@
 package app.astra.mobile.feature.dm.presentation
 
 import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.upload.AndamentoDoVideo
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.friends.domain.model.Presence
 
@@ -18,6 +19,7 @@ data class DmChatUiState(
 
     val pendingAttachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+    val videoEmPreparo: AndamentoDoVideo? = null,
 
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),

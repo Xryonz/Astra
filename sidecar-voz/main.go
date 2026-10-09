@@ -17,6 +17,9 @@ import (
 var marcaDeOrdem = []byte{0xEF, 0xBB, 0xBF}
 
 func main() {
+	if len(os.Args) > 1 {
+		os.Exit(rodarFerramenta(os.Args[1:]))
+	}
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer parar()

@@ -1,7 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -13,17 +12,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +35,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -67,19 +61,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Cinzel
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
-import com.composables.icons.lucide.ArrowUp
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import zed.rainxch.rikkaui.components.ui.progress.Progress
-import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -392,113 +379,5 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
                 },
         )
         Canvas(Modifier.size(diameter)) { drawRing(front = true) }
-    }
-}
-
-@Composable
-private fun PillButton(label: String, accent: Boolean, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    Text(
-        label,
-        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text3, fontSize = 12.sp),
-        modifier = Modifier
-            .clickScale(src)
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-}
-
-private val LARGURA_AVISO = 240.dp
-
-@Composable
-fun BoxScope.UpdateBanner(updater: UpdateService) {
-    val st by updater.state.collectAsState()
-    val scope = rememberCoroutineScope()
-    var dismissed by remember { mutableStateOf(false) }
-    val show = !dismissed && (
-        st is UpdateState.Available || st is UpdateState.Downloading || st is UpdateState.Ready
-    )
-    AnimatedVisibility(
-        visible = show,
-        enter = slideInVertically(tween(240, easing = EaseOutStd)) { it } + fadeIn(tween(220)),
-        exit = slideOutVertically(tween(180, easing = EaseOutStd)) { it } + fadeOut(tween(160)),
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp),
-    ) {
-        Column(
-            Modifier
-                .width(LARGURA_AVISO)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Obsidian.overlay)
-                .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            when (val s = st) {
-                is UpdateState.Available -> {
-                    TituloDoAviso("Astra ${s.version} disponível", onClose = { dismissed = true })
-                    Spacer(Modifier.height(10.dp))
-                    AcaoDoAviso("atualizar") { scope.launch { updater.downloadAndStage(s) } }
-                }
-                is UpdateState.Downloading -> {
-                    TituloDoAviso("baixando ${s.version} · ${(s.progress * 100).toInt()}%", onClose = null)
-                    Spacer(Modifier.height(10.dp))
-                    Progress(
-                        s.progress,
-                        Modifier.fillMaxWidth(),
-                        Obsidian.accent,
-                        Obsidian.overlay,
-                        5.dp,
-                        ProgressAnimation.Spring,
-                    )
-                }
-                is UpdateState.Ready -> {
-                    TituloDoAviso("${s.version} pronto — reinicie para aplicar", onClose = null)
-                    Spacer(Modifier.height(10.dp))
-                    AcaoDoAviso("reiniciar") { scope.launch { updater.restartToInstall() } }
-                }
-                else -> {}
-            }
-        }
-    }
-}
-
-@Composable
-private fun TituloDoAviso(texto: String, onClose: (() -> Unit)?) {
-    Row(verticalAlignment = Alignment.Top) {
-        LIcon(Lucide.ArrowUp, tint = Obsidian.accent, size = 15.dp)
-        Spacer(Modifier.width(9.dp))
-        Text(
-            texto,
-            style = TextStyle(color = Obsidian.text1, fontSize = 12.5.sp, lineHeight = 17.sp),
-            modifier = Modifier.weight(1f),
-        )
-        if (onClose != null) {
-            Spacer(Modifier.width(4.dp))
-            BannerClose(onClose)
-        }
-    }
-}
-
-@Composable
-private fun AcaoDoAviso(rotulo: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth()) {
-        Spacer(Modifier.weight(1f))
-        PillButton(rotulo, accent = true, onClick = onClick)
-    }
-}
-
-@Composable
-private fun BannerClose(onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .size(26.dp)
-            .clickScale(src)
-            .clip(RoundedCornerShape(7.dp))
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(Lucide.X, tint = Obsidian.text3, size = 14.dp, rotulo = "dispensar")
     }
 }

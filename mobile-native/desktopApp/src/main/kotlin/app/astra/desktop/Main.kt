@@ -66,10 +66,12 @@ import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
+import app.astra.desktop.ui.DesenhoDaJanela
 import app.astra.desktop.ui.Quadros
 import app.astra.desktop.ui.contandoQuadros
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
+import app.astra.desktop.ui.LocalFundoLiso
 import app.astra.desktop.ui.LocalReduceMotion
 import app.astra.desktop.ui.LocalRenderPrefs
 import app.astra.desktop.ui.LocalJanelaNaTela
@@ -196,6 +198,16 @@ private fun lembrarFocoDoApp(): Boolean {
     return foco
 }
 
+private fun placaQueDesenha(componente: java.awt.Component): String? {
+    if (componente is org.jetbrains.skiko.SkiaLayer) {
+        return componente.renderInfo.lines()
+            .firstOrNull { it.startsWith("Video card:") || it.startsWith("Model:") }
+            ?.substringAfter(':')?.trim()
+    }
+    if (componente !is java.awt.Container) return null
+    return componente.components.firstNotNullOfOrNull { placaQueDesenha(it) }
+}
+
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
     val dir = CrashLog.dataDir()
@@ -210,7 +222,8 @@ private fun writeDiagnostics() = runCatching {
             appendLine("MODO SEGURO  : ligado — janela opaca, desenho por CPU e conversa com o Windows desligada")
             appendLine("   ^ sem bateria, sem placas, sem atividade, sem foco e sem identidade na barra")
             appendLine("   ^ ligado porque uma abertura criou a janela e não desenhou.")
-            appendLine("     Segue ligado até ser desligado em Configurações > Diagnóstico.")
+            appendLine("     A próxima abertura tenta a placa de novo; depois de 2 quedas seguidas, segue ligado")
+            appendLine("     até a pessoa usar o botão do aviso na tela inicial.")
             appendLine("     arranque-anterior.txt guarda a trilha que falhou.")
         }
         appendLine("transparência: ${if (janelaAceitaTransparencia) "aceita" else "NÃO aceita — janela opaca"}")
@@ -471,6 +484,9 @@ fun main(args: Array<String>) {
     if (Arranque.modoSeguro) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
     }
+    if (System.getProperty("skiko.gpu.priority") == null) {
+        System.setProperty("skiko.gpu.priority", "discrete")
+    }
     Vigia.vigiar(nascerEscondido)
     Arranque.marcar("vigia armado")
     val identidade = thread(isDaemon = true, name = "astra-identidade-windows") {
@@ -668,6 +684,10 @@ fun main(args: Array<String>) {
                 Arranque.marcar("composição da janela pronta")
                 withFrameNanos { }
                 Arranque.desenhou()
+                DesenhoDaJanela.api = window.renderApi
+                window.onRenderApiChanged { DesenhoDaJanela.api = window.renderApi }
+                Arranque.marcar("desenho: ${window.renderApi}")
+                placaQueDesenha(window)?.let { Arranque.marcar("placa que desenha: $it") }
                 Vigia.apareceu(window)
                 SingleInstance.aJanelaRespondeu()
             }
@@ -716,7 +736,7 @@ fun main(args: Array<String>) {
 
             val koin = GlobalContext.get()
             val windowInfo = LocalWindowInfo.current
-            val janelaComFoco = lembrarFocoDoApp()
+            val janelaComFoco = lembrarFocoDoApp() || Quadros.medindo
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
@@ -741,7 +761,14 @@ fun main(args: Array<String>) {
             val rounded = transparentWindow && state.placement == WindowPlacement.Floating
             val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
 
-            CompositionLocalProvider(LocalContextMenuRepresentation provides AstraTextContextMenu) {
+            val naTela = windowVisible && !state.isMinimized
+            val transmitindo by Transmitindo.ativo.collectAsState()
+            CompositionLocalProvider(
+                LocalContextMenuRepresentation provides AstraTextContextMenu,
+                LocalWindowActive provides (naTela && janelaComFoco),
+                LocalReduceMotion provides (prefState.reduceMotionEff || !janelaComFoco || transmitindo),
+                LocalFundoLiso provides (!prefState.auroraOn && !prefState.starsOn),
+            ) {
             RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
                     Modifier
@@ -766,7 +793,6 @@ fun main(args: Array<String>) {
                         atualizacao = updater,
                     )
                     ServidorAcordandoStrip()
-                    val naTela = windowVisible && !state.isMinimized
                     LaunchedEffect(naTela) { JanelaVisivel.marcar(naTela) }
                     CompositionLocalProvider(
                         LocalWindowActive provides (naTela && janelaComFoco),
@@ -777,9 +803,12 @@ fun main(args: Array<String>) {
                     LaunchedEffect(Unit) { Quadros.medirParaArquivo(this) }
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
-                    val transmitindo by Transmitindo.ativo.collectAsState()
                     val alguemFala by QuemFala.alguem.collectAsState()
-                    LaunchedEffect(alguemFala, prefState.reduceMotionEff) {
+                    LaunchedEffect(alguemFala, prefState.reduceMotionEff, prefState.auroraOn) {
+                        if (!prefState.auroraOn) {
+                            auroraPulse.snapTo(0f)
+                            return@LaunchedEffect
+                        }
                         if (prefState.reduceMotionEff) return@LaunchedEffect
                         if (alguemFala) auroraPulse.animateTo(1f, tween(240, easing = EaseOutStd))
                         else auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
@@ -792,8 +821,6 @@ fun main(args: Array<String>) {
                     ) {
                         if (prefState.auroraOn) {
                             Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
-                        } else {
-                            Box(Modifier.fillMaxSize().background(Obsidian.void))
                         }
                         if (prefState.starsOn) StarField(Modifier.fillMaxSize())
                     }
@@ -818,7 +845,7 @@ fun main(args: Array<String>) {
                                 LoginScreen(repo = authRepo, onLoggedIn = { sess, isNew ->
                                     session = sess
                                     if (isNew) needsOnboarding = true
-                                    pulseScope.launch {
+                                    if (prefState.auroraOn && !prefState.reduceMotionEff) pulseScope.launch {
                                         auroraPulse.snapTo(1f)
                                         auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
                                     }

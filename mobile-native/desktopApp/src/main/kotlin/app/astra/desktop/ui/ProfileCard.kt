@@ -8,10 +8,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -39,9 +39,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
@@ -55,7 +59,6 @@ import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Users
-import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
@@ -70,8 +73,6 @@ enum class CardVariante {
 }
 
 val LARGURA_CARTAO_COMPLETO = 330.dp
-
-val LARGURA_CARTAO_NORMAL = LARGURA_CARTAO_COMPLETO
 
 data class DadosDoCartao(
     val nome: String,
@@ -118,8 +119,6 @@ fun ProfileCard(
     servidoresEmComum: List<MutualServerDto> = emptyList(),
     amigosEmComum: Int = 0,
     cargos: List<MemberRoleDto> = emptyList(),
-    aoFechar: (() -> Unit)? = null,
-    acoesNoBanner: (@Composable RowScope.() -> Unit)? = null,
     animar: Boolean = true,
     acoesDaFoto: (() -> List<MenuEntry>)? = null,
     acoesDoBanner: (() -> List<MenuEntry>)? = null,
@@ -128,12 +127,16 @@ fun ProfileCard(
     val completo = variante == CardVariante.COMPLETO
     val recuoH = if (completo) 20.dp else 16.dp
     val aspectoBanner = ProfileBannerAspect
+    val peDoCartao: (@Composable () -> Unit)? = rodape?.takeIf { !completo }?.let { conteudo ->
+        { Column(Modifier.padding(start = recuoH, end = recuoH, bottom = 16.dp)) { conteudo() } }
+    }
 
-    Column(
+    ComPeNoFundo(
         modifier
             .clip(RoundedCornerShape(if (completo) 16.dp else 12.dp))
             .profileCardBackdrop(dados.bannerColor, aspectoBanner)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(if (completo) 16.dp else 12.dp)),
+        pe = peDoCartao,
     ) {
         Box {
             ProfileBanner(
@@ -156,39 +159,52 @@ fun ProfileCard(
                     modifier = Modifier.fillMaxWidth().aspectRatio(aspectoBanner),
                 ) {  }
             }
-            if (aoFechar != null || acoesNoBanner != null) {
-                Row(
-                    Modifier.align(Alignment.TopEnd).padding(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    acoesNoBanner?.invoke(this)
-                    if (aoFechar != null) {
-                        val fecharSrc = remember { MutableInteractionSource() }
-                        Box(
-                            Modifier
-                                .clickScale(fecharSrc, formaDoFoco = FormaDeBotao)
-                                .clip(FormaDeBotao)
-                                .background(Obsidian.void.copy(alpha = 0.5f))
-                                .clickable(interactionSource = fecharSrc, indication = null) { aoFechar() },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "Fechar", modifier = Modifier.padding(5.dp))
-                        }
-                    }
-                }
-            }
         }
 
         Column(Modifier.padding(horizontal = recuoH)) {
             AvatarDoCartao(dados, completo, acoesDaFoto)
-            Column(Modifier.offset(y = if (completo) (-24).dp else (-40).dp)) {
+            Column(if (completo) Modifier.offset(y = (-24).dp) else Modifier.subir(40.dp)) {
                 if (completo) CorpoCompleto(dados, servidoresEmComum, animar, rodape)
-                else CorpoCompacto(dados, amigosEmComum, servidoresEmComum, cargos, rodape)
-                Spacer(Modifier.height(if (completo) 20.dp else 12.dp))
+                else CorpoCompacto(dados, amigosEmComum, servidoresEmComum, cargos)
+                Spacer(Modifier.height(if (completo) 20.dp else 14.dp))
             }
         }
     }
+}
+
+@Composable
+private fun ComPeNoFundo(
+    modifier: Modifier,
+    pe: (@Composable () -> Unit)?,
+    corpo: @Composable ColumnScope.() -> Unit,
+) {
+    if (pe == null) {
+        Column(modifier, content = corpo)
+        return
+    }
+    Layout(
+        content = {
+            Column(content = corpo)
+            pe()
+        },
+        modifier = modifier,
+    ) { partes, limites ->
+        val livres = limites.copy(minHeight = 0)
+        val medidoCorpo = partes[0].measure(livres)
+        val medidoPe = partes[1].measure(livres)
+        val altura = maxOf(limites.minHeight, medidoCorpo.height + medidoPe.height)
+            .coerceAtMost(limites.maxHeight)
+        layout(limites.constrainWidth(maxOf(medidoCorpo.width, medidoPe.width)), altura) {
+            medidoCorpo.place(0, 0)
+            medidoPe.place(0, maxOf(medidoCorpo.height, altura - medidoPe.height))
+        }
+    }
+}
+
+private fun Modifier.subir(quanto: Dp) = layout { medivel, limites ->
+    val medido = medivel.measure(limites)
+    val px = quanto.roundToPx()
+    layout(medido.width, (medido.height - px).coerceAtLeast(0)) { medido.place(0, -px) }
 }
 
 @Composable
@@ -213,10 +229,10 @@ private fun AvatarDoCartao(
                 acoes = acoesDaFoto,
                 modifier = Modifier.size(px.dp),
             ) { aceso ->
-                DesktopAvatar(dados.avatarUrl, dados.nome, px)
+                DesktopAvatar(dados.avatarUrl, dados.nome, px, animar = true)
             }
         } else {
-            DesktopAvatar(dados.avatarUrl, dados.nome, px)
+            DesktopAvatar(dados.avatarUrl, dados.nome, px, animar = true)
         }
     }
 }
@@ -228,7 +244,6 @@ private fun CorpoCompacto(
     amigosEmComum: Int,
     servidoresEmComum: List<MutualServerDto>,
     cargos: List<MemberRoleDto>,
-    rodape: @Composable (() -> Unit)?,
 ) {
     NomeELinha(dados, tamanhoNome = 19, tamanhoPonto = 10)
 
@@ -313,7 +328,7 @@ private fun CorpoCompacto(
         ) {
             Text(
                 "CARGOS",
-                style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+                style = Tipo.secao,
             )
             Spacer(Modifier.height(7.dp))
             FlowRow(
@@ -332,11 +347,6 @@ private fun CorpoCompacto(
             style = Tipo.apoio,
             maxLines = 1,
         )
-    }
-
-    if (rodape != null) {
-        Spacer(Modifier.height(12.dp))
-        rodape()
     }
 }
 
@@ -470,7 +480,7 @@ private fun Secao(titulo: String, conteudo: @Composable () -> Unit) {
     CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(horizontal = 11.dp, vertical = 9.dp)) {
         Text(
             titulo.uppercase(),
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+            style = Tipo.secao,
         )
         Spacer(Modifier.height(6.dp))
         conteudo()

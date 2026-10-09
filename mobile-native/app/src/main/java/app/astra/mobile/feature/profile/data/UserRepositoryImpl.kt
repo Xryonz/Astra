@@ -8,6 +8,8 @@ import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.RecortarFotoRequest
+import app.astra.mobile.core.network.dto.RecorteDaFotoDto
 import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import app.astra.mobile.core.network.dto.UserDto
@@ -103,6 +105,18 @@ class UserRepositoryImpl @Inject constructor(
             val p = data.user.toDomain()
             cached = p
             Result.success(p)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(mapError(e))
+        }
+    }
+
+    override suspend fun recortarFoto(imagem: String, x: Int, y: Int, lado: Int): Result<String> {
+        return try {
+            val url = api.recortarFoto(RecortarFotoRequest(imagem, RecorteDaFotoDto(x, y, lado))).data?.url
+                ?: return Result.failure(ApiException("Resposta vazia do servidor"))
+            Result.success(url)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

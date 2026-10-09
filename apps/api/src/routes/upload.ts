@@ -9,7 +9,8 @@ import { encode as encodeBlurhash } from 'blurhash'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { uploadLimiter } from '../middleware/rateLimiter'
-import { putAttachment, storageMode } from '../lib/storage'
+import { guardarSeNovo, storageMode } from '../lib/storage'
+import { env } from '../lib/env'
 
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads')
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
@@ -49,6 +50,8 @@ function extForMime(mime: string): string {
 
 const MAX_FILE_SIZE  = 25 * 1024 * 1024
 const MAX_PER_REQUEST = 10
+
+const CHAVE_DOS_NOMES = crypto.createHmac('sha256', env.JWT_REFRESH_SECRET).update('nome-de-anexo').digest()
 
 const memoryStorage = multer.memoryStorage()
 
@@ -151,12 +154,12 @@ router.post(
 
     const attachments = await Promise.all(files.map(async (f) => {
       const processed = await maybeTranscode(f)
-      const id = crypto.randomBytes(16).toString('hex')
+      const id = crypto.createHmac('sha256', CHAVE_DOS_NOMES).update(processed.buffer).digest('hex')
       const filename = `${id}${processed.ext}`
       const [url, thumbUrl] = await Promise.all([
-        putAttachment(filename, processed.buffer, processed.mime),
+        guardarSeNovo(filename, processed.buffer, processed.mime),
         processed.thumb
-          ? putAttachment(`${id}_t.webp`, processed.thumb, 'image/webp')
+          ? guardarSeNovo(`${id}_t.webp`, processed.thumb, 'image/webp')
           : Promise.resolve(undefined),
       ])
       return {

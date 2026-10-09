@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -73,12 +74,11 @@ internal fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
 
     Column(
         Modifier
-            .widthIn(max = 560.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .padding(vertical = 4.dp),
+            .padding(vertical = 8.dp),
     ) {
         val usuario = usuarioAgora ?: me?.username
         val email = emailAgora ?: me?.email
@@ -159,7 +159,7 @@ private fun LinhaDaConta(
     aoAgir: () -> Unit = {},
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -175,7 +175,7 @@ private fun LinhaDaConta(
                 style = Tipo.corpo,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 240.dp),
+                modifier = Modifier.widthIn(max = 340.dp),
             )
         }
         if (acao != null) {
@@ -215,7 +215,7 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     Text(
         "acaba na hora e não tem volta.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(12.dp))
 
@@ -229,11 +229,11 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         "o que você escreveu fica, assinado “conta apagada” — a conversa é de duas " +
             "pessoas, e sua saída não deveria abrir buracos no que a outra leu.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(12.dp))
 
-    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
         ProfileField("digite @$arroba para confirmar", confirmacao, "@$arroba", max = 40) { confirmacao = it }
         if (temSenha) {
             Spacer(Modifier.height(10.dp))
@@ -246,6 +246,7 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
                 "você ainda é dono de: ${presas.joinToString(", ")}. transfira ou exclua " +
                     "antes — constelação com gente dentro não some junto com a sua conta.",
                 style = TextStyle(color = Obsidian.danger, fontSize = 11.sp, lineHeight = 16.sp),
+                modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
             )
         } else erro?.let {
             Spacer(Modifier.height(10.dp))
@@ -305,7 +306,7 @@ internal fun SessionsSection() {
     Text(
         "cada linha é um acesso ativo na sua conta. não reconhece algum? derrube.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(14.dp))
 
@@ -318,14 +319,14 @@ internal fun SessionsSection() {
     when {
         list == null -> Text("carregando…", style = Tipo.descricao)
         list.isEmpty() -> Text("nenhuma sessão ativa.", style = Tipo.descricao)
-        else -> Column(Modifier.widthIn(max = 460.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        else -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             list.forEach { s ->
                 Row(
                     Modifier.fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .background(Obsidian.raised.copy(alpha = 0.5f))
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                        .padding(horizontal = 18.dp, vertical = 15.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {

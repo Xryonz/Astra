@@ -65,7 +65,6 @@ import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
-import app.astra.mobile.ui.components.ReactionChip
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
@@ -79,8 +78,6 @@ import app.astra.mobile.ui.components.LinhaDeEspera
 import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.PinnedMessagesDialog
 import app.astra.mobile.ui.components.PollComposer
-import app.astra.mobile.ui.components.PollOptionUi
-import app.astra.mobile.ui.components.PollUi
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TopBarAction
@@ -101,6 +98,7 @@ fun ChannelChatScreen(
     viewModel: ChannelChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val conversa by viewModel.conversa.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var pinnedOpen by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
@@ -114,8 +112,12 @@ fun ChannelChatScreen(
         ActivityResultContracts.PickMultipleVisualMedia(10),
     ) { uris ->
         if (uris.isNotEmpty()) scope.launch {
+            val (videos, fotos) = withContext(Dispatchers.IO) {
+                uris.partition { context.contentResolver.getType(it)?.startsWith("video/") == true }
+            }
+            viewModel.attachVideos(videos)
             val files = withContext(Dispatchers.IO) {
-                uris.mapNotNull { uri ->
+                fotos.mapNotNull { uri ->
                     readImageBytes(context, uri)?.let { (b, m, n) -> UploadFile(b, m, n) }
                 }
             }
@@ -146,48 +148,14 @@ fun ChannelChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.loading && state.messages.isEmpty() -> EsperaDaConversa(carregando = true)
-                    state.messages.isEmpty() -> EmptyState(
+                    state.messages.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio nesta órbita",
                         hint = "solte a primeira transmissão",
                     )
+                    state.messages.isEmpty() || conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {
-
-                        val rows = remember(state.messages, state.translations) {
-                            state.messages.map { m ->
-                                ChatRow(
-                                    id = m.id,
-                                    mine = m.mine,
-                                    authorId = m.authorId,
-                                    authorName = m.authorName,
-                                    authorAvatar = m.authorAvatar,
-                                    authorColor = m.authorColor,
-                                    authorFont = m.authorFont,
-                                    content = m.content,
-                                    edited = m.edited,
-                                    pinned = m.pinned,
-                                    reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
-                                    replyAuthor = m.replyToAuthor,
-                                    replyContent = m.replyToContent,
-                                    attachments = m.attachments,
-                                    translation = state.translations[m.id],
-                                    kind = m.kind,
-                                    criadaEm = m.createdAt,
-                                    mencionaVoce = m.mencionaVoce,
-                                    poll = m.poll?.let { p ->
-                                        PollUi(
-                                            question = p.question,
-                                            options = p.options.map { o -> PollOptionUi(o.id, o.text, o.votes, o.mine) },
-                                            allowMultiple = p.allowMultiple,
-                                            expiresAt = p.expiresAt,
-                                            closed = p.closed,
-                                        )
-                                    },
-                                )
-                            }
-                        }
                         ChatMessageList(
-                            rows = rows,
+                            conversa = conversa,
                             vivo = !state.loading,
                             modifier = Modifier.fillMaxSize(),
                             canReact = true,
@@ -232,6 +200,8 @@ fun ChannelChatScreen(
             PendingAttachmentsBar(
                 attachments = state.pendingAttachments,
                 onRemove = viewModel::removeAttachment,
+                videoEmPreparo = state.videoEmPreparo,
+                aoCancelarVideo = viewModel::cancelarVideo,
             )
 
             ChatInputBar(
@@ -241,12 +211,13 @@ fun ChannelChatScreen(
                 sending = state.sending,
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
-                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                 onGif = { folhaAberta = AbaDeExpressao.GIFS },
                 onPoll = { pollOpen = true },
                 onEmoji = { folhaAberta = AbaDeExpressao.EMOJIS },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+                placeholder = viewModel.channelName.takeIf { it.isNotBlank() }?.let { "Conversar em #$it" } ?: "Mensagem",
             )
         }
 

@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -87,6 +88,7 @@ import app.astra.mobile.core.voice.TipoDeSaida
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.BotaoDeTexto
+import app.astra.mobile.ui.components.CobrirOCeu
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.ItemDeMenu
 import app.astra.mobile.ui.components.SemEscurecerODialogo
@@ -131,6 +133,8 @@ fun CallScreen(
     val estado by viewModel.state.collectAsState()
     val contexto = LocalContext.current
     val folha = rememberEstadoDaFolha(aoEncolher)
+    val cobreOCeu by remember { derivedStateOf { folha.y == 0f } }
+    CobrirOCeu(cobreOCeu)
     var telaCheia by rememberSaveable { mutableStateOf<String?>(null) }
     var escolhida by rememberSaveable { mutableStateOf<String?>(null) }
 

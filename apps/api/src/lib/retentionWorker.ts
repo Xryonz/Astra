@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { servers, channels, messages, notifications } from '../db/schema'
-import { removeAttachment } from './storage'
+import { removerSeNinguemUsa } from './arquivoCompartilhado'
 import { logger } from './logger'
 
 const NOTIFICATION_TTL_DAYS = 30
@@ -32,17 +32,20 @@ export function startRetentionWorker() {
 
         if (stale.length === 0) continue
 
+        const ids = stale.map((m) => m.id)
+        const arquivos = new Set<string>()
         for (const m of stale) {
           try {
             const arr = JSON.parse(m.attachments || '[]') as Array<{ url: string; thumbUrl?: string }>
             for (const a of arr) {
-              await removeAttachment(a.url)
-              await removeAttachment(a.thumbUrl)
+              if (a.url) arquivos.add(a.url)
+              if (a.thumbUrl) arquivos.add(a.thumbUrl)
             }
           } catch {}
         }
-
-        const ids = stale.map((m) => m.id)
+        for (const url of arquivos) {
+          try { await removerSeNinguemUsa(url, ids) } catch {}
+        }
 
         await db.delete(messages).where(inArray(messages.id, ids))
         logger.info('Retention', `server=${s.id} apagou ${ids.length} mensagens (cutoff ${cutoff.toISOString()})`)

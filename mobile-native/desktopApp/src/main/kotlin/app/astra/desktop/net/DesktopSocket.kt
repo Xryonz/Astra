@@ -350,11 +350,6 @@ class DesktopSocket(
         socket?.emit("join_dm", id)
     }
 
-    fun leaveDm(id: String) {
-        dms.remove(id)
-        socket?.emit("leave_dm", id)
-    }
-
     fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
     fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
     fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }

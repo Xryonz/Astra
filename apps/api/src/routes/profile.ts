@@ -7,9 +7,10 @@ import { users, servers, serverMembers, profileNotes, friendships, messages } fr
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
+import { UpdateProfileSchema, ProfileNoteSchema, RecortarFotoSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
 import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
+import { recortarFoto, AnimacaoGrandeDemais } from '../lib/recorteDeFoto'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
@@ -76,6 +77,30 @@ router.get(
       .orderBy(desc(messages.createdAt))
       .limit(1)
     res.json({ data: { endereco: ultima?.endereco ?? null } })
+  })
+)
+
+router.post(
+  '/foto',
+  requireAuth,
+  validate(RecortarFotoSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { imagem, recorte } = req.body
+    if (isDataUriTooLarge(imagem)) {
+      return res.status(413).json({ error: 'Imagem muito grande. Escolha uma de até 9 MB.' })
+    }
+    let foto: string | null
+    try {
+      foto = await recortarFoto(imagem, recorte)
+    } catch (e) {
+      if (e instanceof AnimacaoGrandeDemais) {
+        return res.status(413).json({ error: 'Animação longa demais para foto de perfil. Escolha um GIF mais curto ou menor.' })
+      }
+      return res.status(422).json({ error: 'Não foi possível ler essa imagem.' })
+    }
+    if (!foto) return res.status(422).json({ error: 'O enquadramento ficou fora da imagem.' })
+    const { url } = await persistImagemDeExibicao(foto)
+    res.json({ data: { url } })
   })
 )
 

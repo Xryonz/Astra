@@ -76,7 +76,7 @@ fun BotsSection() {
         "a Sparkle e a Sparxie dividem uma conta só e trocam de turno: a Sparxie cobre sexta e sábado. " +
             "o que você mexer aqui vale em todas as constelações.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 520.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(16.dp))
 
@@ -124,7 +124,6 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .widthIn(max = 520.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),

@@ -27,6 +27,7 @@ import { xpPorMensagem } from '../lib/xp'
 import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
 import { autorComoEra, fotoViva, identidadeParaGuardar } from '../lib/autorDaMensagem'
+import { semAnexosPerdidos } from '../lib/anexosPerdidos'
 
 interface CursorPayload {
   createdAt: Date
@@ -55,7 +56,7 @@ function parseCursor(cursor?: string): CursorPayload | null {
 
 function safeParseAttachments(raw: unknown): any[] {
   if (!raw || typeof raw !== 'string') return []
-  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : [] } catch { return [] }
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? semAnexosPerdidos(v) : [] } catch { return [] }
 }
 
 function mentionsArray(raw: unknown): string[] {

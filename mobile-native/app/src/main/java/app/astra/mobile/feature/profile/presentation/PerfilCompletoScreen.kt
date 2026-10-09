@@ -1,6 +1,5 @@
 package app.astra.mobile.feature.profile.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +57,7 @@ fun PerfilCompletoScreen(
     }
 
     val v = estado.view
-    FundoDoTema(v?.profile?.profileTheme, Modifier.fillMaxSize().background(astraColors.void)) {
+    FundoDoTema(v?.profile?.profileTheme, Modifier.fillMaxSize()) {
         if (v == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (estado.loading) {

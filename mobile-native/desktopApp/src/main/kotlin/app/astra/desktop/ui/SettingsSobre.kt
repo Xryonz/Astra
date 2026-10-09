@@ -1,6 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,9 +14,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,15 +39,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.Desinstalador
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
@@ -51,8 +67,12 @@ import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.RefreshCw
+import com.composables.icons.lucide.Trash2
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.system.exitProcess
 import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
@@ -70,7 +90,7 @@ internal fun AboutSection() {
         Text(
             "atualizações automáticas só no app instalado (isto é um build de dev).",
             style = Tipo.descricao,
-            modifier = Modifier.widthIn(max = 460.dp),
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
         return
     }
@@ -80,7 +100,7 @@ internal fun AboutSection() {
     Text(
         "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
         style = Tipo.apoio,
-        modifier = Modifier.widthIn(max = 460.dp),
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(14.dp))
 
@@ -99,7 +119,7 @@ internal fun AboutSection() {
             Spacer(Modifier.height(10.dp))
             Progress(
                 s.progress,
-                Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 Obsidian.accent,
                 Obsidian.overlay,
                 6.dp,
@@ -125,6 +145,135 @@ internal fun AboutSection() {
 
     Spacer(Modifier.height(16.dp))
     BotaoProcurarAtualizacao { updater.check() }
+
+    if (Desinstalador.disponivel) BlocoDeDesinstalar()
+}
+
+private const val TEMPO_MINIMO_DA_ETAPA_MS = 450L
+
+@Composable
+private fun BlocoDeDesinstalar() {
+    var confirmar by remember { mutableStateOf(false) }
+    var desinstalando by remember { mutableStateOf(false) }
+    SettingsDivider()
+    Text("desinstalar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "apaga o Astra deste computador: o programa, as versões guardadas, os atalhos, o login e as " +
+            "preferências. as regras de rede que o Windows criou para o Astra não são apagadas.",
+        style = Tipo.apoio,
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
+    )
+    Spacer(Modifier.height(14.dp))
+    BotaoDePerigo("desinstalar o Astra", Lucide.Trash2) { confirmar = true }
+    if (confirmar) {
+        ConfirmPopup(
+            message = "desinstalar o Astra? o login e as preferências deste computador também saem.",
+            confirmLabel = "desinstalar",
+            onConfirm = {
+                confirmar = false
+                desinstalando = true
+            },
+            onDismiss = { confirmar = false },
+            posicao = CenterInWindow,
+        )
+    }
+    if (desinstalando) TelaDeDesinstalacao()
+}
+
+private object JanelaInteira : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset.Zero
+}
+
+@Composable
+private fun TelaDeDesinstalacao() {
+    val etapas = remember { Desinstalador.etapas() }
+    var atual by remember { mutableIntStateOf(0) }
+    var falhou by remember { mutableStateOf(false) }
+    val reduzMovimento = LocalReduceMotion.current
+    val progresso = remember { Animatable(0f) }
+    val partes = etapas.size + 1
+
+    LaunchedEffect(Unit) {
+        suspend fun avancar(alvo: Float) {
+            if (reduzMovimento) progresso.snapTo(alvo)
+            else progresso.animateTo(alvo, tween(260, easing = EaseOutStd))
+        }
+        etapas.forEachIndexed { i, etapa ->
+            atual = i
+            val inicio = System.currentTimeMillis()
+            withContext(Dispatchers.IO) { runCatching { etapa.trabalho() } }
+            val resto = TEMPO_MINIMO_DA_ETAPA_MS - (System.currentTimeMillis() - inicio)
+            if (resto > 0) delay(resto)
+            avancar((i + 1f) / partes)
+        }
+        atual = etapas.size
+        if (!withContext(Dispatchers.IO) { Desinstalador.concluir() }) {
+            falhou = true
+            return@LaunchedEffect
+        }
+        avancar(1f)
+        delay(TEMPO_MINIMO_DA_ETAPA_MS)
+        exitProcess(0)
+    }
+
+    Popup(popupPositionProvider = JanelaInteira, properties = PopupProperties(focusable = true)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Obsidian.void.copy(alpha = 0.82f))
+                .pointerInput(Unit) { detectTapGestures { } },
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .width(360.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Obsidian.raised)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                    .padding(22.dp),
+            ) {
+                Text(
+                    "desinstalando o Astra",
+                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when {
+                        falhou -> "não foi possível terminar a remoção"
+                        atual < etapas.size -> etapas[atual].rotulo + "…"
+                        else -> "fechando o Astra…"
+                    },
+                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                )
+                Spacer(Modifier.height(16.dp))
+                Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+                    val raio = CornerRadius(size.height / 2f)
+                    drawRoundRect(Obsidian.borderDim, cornerRadius = raio)
+                    drawRoundRect(
+                        if (falhou) Obsidian.danger else Obsidian.accent,
+                        size = Size(size.width * progresso.value, size.height),
+                        cornerRadius = raio,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    if (falhou) "feche o Astra e apague à mão a pasta do programa e a pasta Astra dentro de %APPDATA%."
+                    else "o Astra fecha sozinho no fim, e os arquivos do programa somem logo depois.",
+                    style = Tipo.apoio,
+                )
+                if (falhou) {
+                    Spacer(Modifier.height(14.dp))
+                    AboutButton("fechar o Astra", accent = false) { exitProcess(0) }
+                }
+            }
+        }
+    }
 }
 
 private const val PISO_DA_BUSCA = 1_800L
@@ -209,11 +358,13 @@ private fun AboutStatus(text: String) {
 @Composable
 internal fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
     val cor = if (accent) Obsidian.accent else Obsidian.text2
+    val src = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
+            .clickScale(src)
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

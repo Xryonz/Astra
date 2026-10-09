@@ -12,6 +12,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +22,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -50,6 +50,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.AvisosNaTela
 import app.astra.desktop.EscopoSupervisionado
@@ -344,11 +345,18 @@ fun ShellScreen(
 
     val emSegundoPlano = !LocalWindowActive.current
     val cores = remember(state.members) { coresDeCargo(state.members) }
+    val acoesDoPerfil = remember(vm) {
+        AcoesDoPerfil(
+            chamar = vm::chamarNoSussurro,
+            editarPerfil = { settingsTab = SettingsTab.PROFILE; settingsOpen = true },
+        )
+    }
     CompositionLocalProvider(
         LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
         LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
         LocalCoresDeCargo provides cores,
+        LocalAcoesDoPerfil provides acoesDoPerfil,
     ) {
     Box(
         Modifier
@@ -371,17 +379,26 @@ fun ShellScreen(
                 checklistActive = false
             }
         }
-        val firstSteps: (@Composable () -> Unit)? = if (checklistActive) {
+        var avisoDeDesenhoDispensado by remember { mutableStateOf(false) }
+        val avisarDoDesenho = DesenhoDaJanela.peloProcessador && !avisoDeDesenhoDispensado
+        val firstSteps: (@Composable () -> Unit)? = if (checklistActive || avisarDoDesenho) {
             {
-                FirstStepsCard(
-                    hasServer = state.servers.isNotEmpty(),
-                    hasDm = state.dms.isNotEmpty(),
-                    hasAvatar = state.me?.avatarUrl != null,
-                    onDismiss = {
-                        onbStore.setUiPref("checklist:${session.userId}", "0")
-                        checklistActive = false
-                    },
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (avisarDoDesenho) {
+                        AvisoDeDesenhoPeloProcessador(aoDispensar = { avisoDeDesenhoDispensado = true })
+                    }
+                    if (checklistActive) {
+                        FirstStepsCard(
+                            hasServer = state.servers.isNotEmpty(),
+                            hasDm = state.dms.isNotEmpty(),
+                            hasAvatar = state.me?.avatarUrl != null,
+                            onDismiss = {
+                                onbStore.setUiPref("checklist:${session.userId}", "0")
+                                checklistActive = false
+                            },
+                        )
+                    }
+                }
             }
         } else {
             null
@@ -421,7 +438,8 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
-        Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
+        LaunchedEffect(state.unread) { PulsosJaDados.esquecerOsLidos(state.unread) }
+        Column(Modifier.larguraDaColunaDasOrbitas().fillMaxHeight()) {
         Row(Modifier.weight(1f)) {
         Rail(
             servers = state.servers,
@@ -473,7 +491,7 @@ fun ShellScreen(
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
-            silenciada = state::orbitaSilenciada,
+            silenciada = remember(vm) { { id: String -> vm.state.value.orbitaSilenciada(id) } },
             onToggleChannelMute = vm::toggleChannelMute,
             onToggleChannelBot = vm::setChannelBot,
             onToggleChannelKeepBot = vm::setChannelKeepBot,
@@ -568,10 +586,10 @@ fun ShellScreen(
             ensurdecido = voice.ensurdecido,
             onAlternarMudo = voice::alternarMudo,
             onAlternarEnsurdecer = voice::alternarEnsurdecer,
-            caminho = caminhoDaChamada,
+            caminho = { caminhoDaChamada },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .width(LARGURA_RAIL + LARGURA_SIDEBAR)
+                .larguraDaColunaDasOrbitas()
                 .height(ALTURA_DO_RODAPE)
                 .marcoDoTour(Marco.VOZ),
         )
@@ -584,6 +602,8 @@ fun ShellScreen(
             petId = prefs.state.value.petTipo,
             pelagem = prefs.state.value.petPelagem,
             nome = prefs.state.value.petNome,
+            noCampo = prefs.state.value.petNoCampo,
+            aoMudarDeLugar = prefs::setPetNoCampo,
         )
 
         val cfgServer = state.selectedServer
@@ -727,14 +747,33 @@ fun ShellScreen(
     }
 }
 
-private const val USUARIO_DA_BOT = "astra_bot"
+internal const val USUARIO_DA_BOT = "astra_bot"
 
 internal val LARGURA_RAIL = 72.dp
-internal val LARGURA_SIDEBAR = 260.dp
+private val LARGURA_SIDEBAR = 260.dp
+private val LARGURA_SIDEBAR_MAXIMA = 320.dp
+private val ONDE_A_SIDEBAR_COMECA_A_CRESCER = 1280.dp
+private const val CRESCIMENTO_DA_SIDEBAR = 0.15f
 private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
 private val ALTURA_DO_RODAPE = 62.dp
 
+@Composable
 internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
-    this.background(bg.copy(alpha = alpha))
+    if (LocalFundoLiso.current) this.background(sobreOFundoLiso(bg, alpha, Obsidian.void))
+    else this.background(bg.copy(alpha = alpha))
+
+private fun sobreOFundoLiso(cor: Color, alfa: Float, fundo: Color) = Color(
+    red = fundo.red + (cor.red - fundo.red) * alfa,
+    green = fundo.green + (cor.green - fundo.green) * alfa,
+    blue = fundo.blue + (cor.blue - fundo.blue) * alfa,
+)
+
+private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
+    val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)
+        .coerceIn(LARGURA_SIDEBAR, LARGURA_SIDEBAR_MAXIMA)
+    val largura = (LARGURA_RAIL + sidebar).roundToPx().coerceIn(limites.minWidth, limites.maxWidth)
+    val medido = medivel.measure(limites.copy(minWidth = largura, maxWidth = largura))
+    layout(medido.width, medido.height) { medido.place(0, 0) }
+}
 

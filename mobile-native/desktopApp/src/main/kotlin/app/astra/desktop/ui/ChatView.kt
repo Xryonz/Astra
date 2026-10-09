@@ -60,6 +60,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -316,6 +317,12 @@ fun ChatView(
         }
     }
 
+    var vistaNoPresente by remember(target.id) { mutableStateOf<Instant?>(null) }
+    LaunchedEffect(target.id, noPresente, state.messages.lastOrNull()?.id) {
+        if (noPresente) vistaNoPresente = instanteDaMaisRecente(state.messages)
+    }
+    val novas = remember(state.messages, vistaNoPresente) { contarNovas(state.messages, vistaNoPresente) }
+
     var ultimaVista by remember(target.id) { mutableStateOf<String?>(null) }
     var pousouNoFim by remember(target.id) { mutableStateOf(false) }
     LaunchedEffect(state.messages.lastOrNull()?.id) {
@@ -481,6 +488,7 @@ fun ChatView(
 
             VoltarAoPresente(
                 visivel = !noPresente && state.messages.isNotEmpty(),
+                novas = novas,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 12.dp),
             ) {
                 scope.launch { if (linhas.isNotEmpty()) listState.animateScrollToItem(linhas.lastIndex) }
@@ -1793,10 +1801,14 @@ private fun MarcaDeNovasMensagens() {
 @Composable
 private fun VoltarAoPresente(
     visivel: Boolean,
+    novas: Int,
     modifier: Modifier = Modifier,
     aoTocar: () -> Unit,
 ) {
     val reduzir = LocalReduceMotion.current
+    var congelada by remember { mutableIntStateOf(novas) }
+    LaunchedEffect(visivel, novas) { if (visivel) congelada = novas }
+    val exibidas = if (visivel) novas else congelada
     AnimatedVisibility(
         visible = visivel,
         enter = fadeIn(tween(if (reduzir) 0 else 120)) +
@@ -1817,11 +1829,37 @@ private fun VoltarAoPresente(
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LIcon(Lucide.ChevronDown, tint = Obsidian.text2, size = 14.dp)
+            LIcon(Lucide.ChevronDown, tint = if (exibidas > 0) Obsidian.accent else Obsidian.text2, size = 14.dp)
             Spacer(Modifier.width(6.dp))
-            Text("voltar ao presente", style = Tipo.rotulo)
+            Text(
+                when (exibidas) {
+                    0 -> "voltar ao presente"
+                    1 -> "1 nova mensagem"
+                    else -> "$exibidas novas mensagens"
+                },
+                style = Tipo.rotulo,
+            )
         }
     }
+}
+
+private fun instanteDe(m: ChatMessage): Instant? =
+    m.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+
+private fun instanteDaMaisRecente(mensagens: List<ChatMessage>): Instant? =
+    mensagens.lastOrNull { !it.pending && !it.failed }?.let(::instanteDe)
+
+private fun contarNovas(mensagens: List<ChatMessage>, vista: Instant?): Int {
+    if (vista == null) return 0
+    var novas = 0
+    for (i in mensagens.indices.reversed()) {
+        val m = mensagens[i]
+        if (m.pending || m.failed) continue
+        val quando = instanteDe(m) ?: continue
+        if (!quando.isAfter(vista)) break
+        if (!m.mine && m.kind != KIND_PASSAGEM_DE_TURNO) novas++
+    }
+    return novas
 }
 
 @Composable

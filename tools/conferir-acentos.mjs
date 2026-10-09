@@ -71,6 +71,7 @@ const PERDOADAS = new Set([
   'nao',
   'nasceu escondido na bandeja — sem quadro por decisao',
   'voce@exemplo.com',
+  'Video card:',
   'prime video',
   'media player',
   'audio/',

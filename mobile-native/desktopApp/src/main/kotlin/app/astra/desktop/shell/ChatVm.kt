@@ -521,7 +521,7 @@ class ChatVm(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                VoiceLog.nota("[video] a preparação de ${pf.file.name} falhou: ${e.message}")
+                VoiceLog.nota("[vídeo] a preparação de ${pf.file.name} falhou: ${e.message}")
                 if (pf.file.length() <= MAX_FILE_BYTES) PreparoDoVideo.Pronto(pf.file)
                 else PreparoDoVideo.Recusado("${pf.file.name} não pôde ser comprimido. Envie um vídeo de até 25 MB.")
             }

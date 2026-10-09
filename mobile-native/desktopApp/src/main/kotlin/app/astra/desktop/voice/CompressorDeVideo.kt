@@ -119,7 +119,7 @@ object CompressorDeVideo {
             when (linha["ev"]?.jsonPrimitive?.content) {
                 "andamento" -> linha["fracao"]?.jsonPrimitive?.floatOrNull?.let(andamento)
                 "pronto" -> pronto = true
-                "erro" -> VoiceLog.nota("[video] não comprimiu ${entrada.name}: ${linha["msg"]?.jsonPrimitive?.content}")
+                "erro" -> VoiceLog.nota("[vídeo] não comprimiu ${entrada.name}: ${linha["msg"]?.jsonPrimitive?.content}")
             }
         }
         return pronto
@@ -146,7 +146,7 @@ object CompressorDeVideo {
                     }
                 }
             } catch (e: IOException) {
-                VoiceLog.nota("[video] a leitura do astra-voz parou: ${e.message}")
+                VoiceLog.nota("[vídeo] a leitura do astra-voz parou: ${e.message}")
             } finally {
                 vigia.cancel()
                 processo.destroyForcibly().waitFor()

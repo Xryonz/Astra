@@ -95,7 +95,7 @@ private fun intervaloDaTelaMaisRapidaNs(): Long {
         GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.maxOf { it.displayMode.refreshRate }
     }
         .getOrNull()
-        ?.takeIf { it > 0 }
+        ?.takeIf { it > 1 }
         ?: TAXA_PADRAO_HZ
     return 1_000_000_000L / hz
 }

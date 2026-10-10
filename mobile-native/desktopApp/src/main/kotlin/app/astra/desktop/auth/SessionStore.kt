@@ -11,6 +11,9 @@ import java.nio.file.StandardCopyOption
 import java.util.Properties
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class Session(
     val accessToken: String,
@@ -37,6 +40,9 @@ class SessionStore {
     @Volatile
     private var loaded = false
 
+    private val _vencida = MutableStateFlow(false)
+    val vencida: StateFlow<Boolean> = _vencida.asStateFlow()
+
     fun load(): Session? {
         if (loaded) return cache
         synchronized(lock) {
@@ -52,6 +58,7 @@ class SessionStore {
         synchronized(lock) {
             cache = s
             loaded = true
+            _vencida.value = false
             runCatching {
                 dir.mkdirs()
                 val p = Properties()
@@ -79,6 +86,13 @@ class SessionStore {
             loaded = true
             file.delete()
             legacyFile.delete()
+        }
+    }
+
+    fun encerrarVencida() {
+        synchronized(lock) {
+            clear()
+            _vencida.value = true
         }
     }
 

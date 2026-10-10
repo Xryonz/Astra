@@ -115,6 +115,7 @@ private fun signupRules(email: String, username: String, displayName: String, pa
 @Composable
 fun LoginScreen(
     repo: AuthRepository,
+    aviso: String? = null,
     onLoggedIn: (Session, isNew: Boolean) -> Unit,
 ) {
     val store = remember { GlobalContext.get().get<SessionStore>() }
@@ -125,7 +126,7 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var googleLoading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf(aviso) }
     var showPassword by remember { mutableStateOf(false) }
     var capsOn by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()

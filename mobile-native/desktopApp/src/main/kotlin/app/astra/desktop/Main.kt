@@ -746,6 +746,14 @@ fun main(args: Array<String>) {
             var desejosOpen by remember { mutableStateOf(false) }
             var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
+            val sessaoVencida by store.vencida.collectAsState()
+            LaunchedEffect(sessaoVencida) {
+                if (sessaoVencida && session != null) {
+                    authRepo.logout(escopoDaJanela)
+                    session = null
+                    notifUnread = 0
+                }
+            }
             val painelDeMissoes by remember { GlobalContext.get().get<MissoesStore>() }.painel.collectAsState()
             val missoesProntas = painelDeMissoes?.quantasProntas() ?: 0
 
@@ -842,14 +850,18 @@ fun main(args: Array<String>) {
                             label = "entrada",
                         ) { s ->
                             if (s == null) {
-                                LoginScreen(repo = authRepo, onLoggedIn = { sess, isNew ->
-                                    session = sess
-                                    if (isNew) needsOnboarding = true
-                                    if (prefState.auroraOn && !prefState.reduceMotionEff) pulseScope.launch {
-                                        auroraPulse.snapTo(1f)
-                                        auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
-                                    }
-                                })
+                                LoginScreen(
+                                    repo = authRepo,
+                                    aviso = if (sessaoVencida) "Sua sessão expirou. Entre de novo." else null,
+                                    onLoggedIn = { sess, isNew ->
+                                        session = sess
+                                        if (isNew) needsOnboarding = true
+                                        if (prefState.auroraOn && !prefState.reduceMotionEff) pulseScope.launch {
+                                            auroraPulse.snapTo(1f)
+                                            auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
+                                        }
+                                    },
+                                )
                             } else {
                                 Crossfade(
                                     targetState = needsOnboarding,

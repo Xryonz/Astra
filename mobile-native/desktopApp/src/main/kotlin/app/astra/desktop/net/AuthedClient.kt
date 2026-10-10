@@ -65,7 +65,7 @@ class DesktopTokenAuthenticator(
                 try {
                     refreshApi.value.refresh("Bearer ${session.refreshToken}").data
                 } catch (e: HttpException) {
-                    if (e.code() == 401 || e.code() == 403) store.clear()
+                    if (e.code() == 401 || e.code() == 403) store.encerrarVencida()
                     null
                 } catch (e: Exception) {
                     null

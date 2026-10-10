@@ -3,28 +3,36 @@ package app.astra.desktop.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntSize
 import app.astra.desktop.ui.theme.Obsidian
-import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.sqrt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.jetbrains.skia.ColorFilter
+import org.jetbrains.skia.ColorMatrix
+import org.jetbrains.skia.FilterTileMode
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -33,6 +41,8 @@ import org.jetbrains.skia.RuntimeShaderBuilder
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Shader
 import org.jetbrains.skia.Surface
+
+private const val ESCALA_DO_QUADRO = 0.35f
 
 private fun fbmSigmaRel(octaves: Int): Double {
     var sumSq = 0.0
@@ -53,8 +63,6 @@ private fun auroraSksl(octaves: Int): String {
     return """
 uniform float uTime;
 uniform float2 uSize;
-uniform float3 uAccent;
-uniform float3 uVoid;
 
 float hashn(float2 p) {
     return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
@@ -156,7 +164,7 @@ half4 main(float2 fragCoord) {
     // extra de baixa frequencia (5 chamadas fbm no total).
     float wf = fbm(uv * float2(1.3, 2.0) + flow1 * 0.35 + float2(7.7, 3.3));
     aur *= 0.88 + 0.24 * wf;
-    float3 acc = uAccent * mix(float3(0.94, 0.99, 1.05), float3(1.06, 1.00, 0.94), wf);
+    float3 tom = mix(float3(0.94, 0.99, 1.05), float3(1.06, 1.00, 0.94), wf);
 
     // CORTE 5 (iluminacao "sem padrao"): o teto era min(aur, 0.30) — duro. Como
     // aur chega a ~1.0 no pico (cortinas ~2.4 * 0.22, depois feixes *1.72 e o
@@ -168,7 +176,7 @@ half4 main(float2 fragCoord) {
     float ceiling = 0.30;
     float over = max(aur - knee, 0.0);
     float lum = min(aur, knee) + (ceiling - knee) * (1.0 - exp(-over / (ceiling - knee)));
-    float3 col = uVoid + acc * lum;
+    float3 col = tom * lum / $ESCALA_DO_QUADRO;
 
     // CORTE 7 (banding): com fundo PRETO PURO a aurora inteira vive entre 0 e
     // ~0.25, ou seja nos 64 primeiros valores de 256 de um display de 8 bits. Um
@@ -188,182 +196,346 @@ half4 main(float2 fragCoord) {
 """
 }
 
+private const val TOCADOR_SKSL = """
+uniform shader quadroA;
+uniform shader quadroB;
+uniform float uMistura;
+uniform float3 uTom;
+uniform float3 uVoid;
+uniform float2 uEscala;
+
+float hashn(float2 p) {
+    return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
+}
+
+half4 main(float2 p) {
+    float2 q = p * uEscala;
+    float3 a = float3(quadroA.eval(q).rgb);
+    float3 b = float3(quadroB.eval(q).rgb);
+    float3 c = uVoid + uTom * mix(a, b, uMistura);
+    c += (hashn(p) - 0.5) / 255.0;
+    return half4(half3(c), 1.0);
+}
+"""
+
 private const val AURORA_LOOP = 62.831853f
 
 private const val AURORA_STILL = 12f
 
-@Composable
-fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier =
-    if (DesenhoDaJanela.peloProcessador) auroraPeloProcessador(pulse) else auroraNaPlaca(pulse)
+private const val QUADROS_DA_VOLTA = 128
 
-@Composable
-private fun Modifier.auroraNaPlaca(pulse: () -> Float): Modifier {
-    val render = LocalRenderPrefs.current
-    val accent = Obsidian.accent
-    val voidC = Obsidian.void
-    val effect = remember(render.auroraOctaves) {
-        runCatching { RuntimeEffect.makeForShader(auroraSksl(render.auroraOctaves).trimIndent()) }.getOrNull()
-    } ?: return this.drawBehind { drawRect(voidC) }
-    val builder = remember(effect) { RuntimeShaderBuilder(effect) }
-    val reduceMotion = LocalReduceMotion.current
-    val active = rememberUpdatedState(LocalWindowActive.current)
-    val fpsCap = rememberUpdatedState(render.fpsCap)
-    val timeSec by produceState(0f, reduceMotion) {
-        if (reduceMotion) {
-            value = AURORA_STILL
-            return@produceState
-        }
-        var acc = 0f
-        while (true) {
-            snapshotFlow { active.value }.first { it }
-            var last = withFrameNanos { it }
-            while (active.value) {
-                val inicioDoQuadro = System.nanoTime()
-                withFrameNanos { now ->
-                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
-                    acc += dt
-                    if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
-                    last = now
-                    value = acc
-                }
-                esperarPeloTeto(fpsCap.value, inicioDoQuadro)
-            }
-        }
-    }
-    val paint = remember { Paint() }
-    val chave = remember { FloatArray(8) { Float.NaN } }
-    val lastShader = remember { arrayOfNulls<Shader>(1) }
-    return drawBehind {
-        Quadros.marcar()
-        Quadros.cronometrar("aurora") {
-        if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@cronometrar }
-        val boost = 1f + 0.15f * pulse().coerceIn(0f, 1f)
+private const val QUADROS_DA_POSE = 2
 
-        val mesmo = chave[0] == timeSec && chave[1] == size.width && chave[2] == size.height &&
-            chave[3] == boost && chave[4] == accent.red && chave[5] == accent.green &&
-            chave[6] == accent.blue && chave[7] == voidC.red
-        if (mesmo && lastShader[0] != null) {
-            paint.shader = lastShader[0]
-            drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
-            return@cronometrar
-        }
-        chave[0] = timeSec; chave[1] = size.width; chave[2] = size.height; chave[3] = boost
-        chave[4] = accent.red; chave[5] = accent.green; chave[6] = accent.blue; chave[7] = voidC.red
+private const val LARGURA_DO_QUADRO = 320
 
-        builder.uniform("uTime", timeSec)
-        builder.uniform("uSize", size.width, size.height)
-        builder.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
-        builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
-        lastShader[0]?.close()
-        val shader = builder.makeShader()
-        lastShader[0] = shader
-        paint.shader = shader
-        drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
-        }
-    }
-}
+private const val ALTURA_DO_QUADRO = 180
 
-private const val FATOR_NO_PROCESSADOR = 2f
+private const val PASSO_MAXIMO_S = 0.25f
+
 private const val INTERVALO_NO_PROCESSADOR_MS = 83L
 
-@Composable
-private fun Modifier.auroraPeloProcessador(pulse: () -> Float): Modifier {
-    val oitavas = LocalRenderPrefs.current.auroraOctaves
-    val accent = Obsidian.accent
-    val voidC = Obsidian.void
-    val parado = rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
-    val pulso = rememberUpdatedState(pulse)
-    val tamanho = remember { mutableStateOf(IntSize.Zero) }
-    val relogio = remember { floatArrayOf(0f) }
-    val quadro = remember { mutableStateOf<Image?>(null) }
+private const val PULSO_MAXIMO = 0.15f
 
-    LaunchedEffect(oitavas, accent, voidC) {
-        val efeito = runCatching { RuntimeEffect.makeForShader(auroraSksl(oitavas).trimIndent()) }.getOrNull()
-            ?: return@LaunchedEffect
+private class ClipeDaAurora {
+    private val quadros = arrayOfNulls<Image>(QUADROS_DA_VOLTA)
+    private val amostradores = arrayOfNulls<Shader>(QUADROS_DA_VOLTA)
+    private var fechado = false
+
+    var paradoPronto by mutableStateOf(false)
+        private set
+
+    var pronto by mutableStateOf(false)
+        private set
+
+    var geracao by mutableIntStateOf(0)
+        private set
+
+    fun quadro(i: Int): Image? = quadros[i]
+
+    fun amostrador(i: Int): Shader? {
+        amostradores[i]?.let { return it }
+        val imagem = quadros[i] ?: return null
+        return imagem.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, SamplingMode.LINEAR, null)
+            .also { amostradores[i] = it }
+    }
+
+    suspend fun preparar(oitavas: Int, primeiro: Int, naTela: () -> Boolean, emMovimento: () -> Boolean) {
+        snapshotFlow { naTela() }.first { it }
+        val efeito = foraDaTela {
+            runCatching { RuntimeEffect.makeForShader(auroraSksl(oitavas).trimIndent()) }.getOrNull()
+        } ?: return
+        if (!currentCoroutineContext().isActive || fechado) {
+            efeito.close()
+            return
+        }
         val construtor = RuntimeShaderBuilder(efeito)
         val pintor = Paint()
-        var superficie: Surface? = null
-        var desenhadoEm = IntSize.Zero
+        val superficie = Surface.makeRasterN32Premul(LARGURA_DO_QUADRO, ALTURA_DO_QUADRO)
         try {
-            var anterior = System.nanoTime()
-            while (true) {
-                val tam = tamanho.value
-                if (tam.width <= 0 || tam.height <= 0) {
-                    snapshotFlow { tamanho.value }.first { it.width > 0 && it.height > 0 }
-                    continue
-                }
-                if (parado.value && desenhadoEm == tam) {
-                    snapshotFlow { !parado.value || tamanho.value != tam }.first { it }
-                    anterior = System.nanoTime()
-                    continue
-                }
-                val inicio = System.nanoTime()
-                if (!parado.value) {
-                    relogio[0] = (relogio[0] + ((inicio - anterior) / 1_000_000_000f).coerceAtMost(0.25f)) % AURORA_LOOP
-                }
-                anterior = inicio
-                val largura = ceil(tam.width / FATOR_NO_PROCESSADOR).toInt()
-                val altura = ceil(tam.height / FATOR_NO_PROCESSADOR).toInt()
-                val alvo = superficie?.takeIf { it.width == largura && it.height == altura }
-                    ?: Surface.makeRasterN32Premul(largura, altura).also {
-                        superficie?.close()
-                        superficie = it
-                    }
-                val boost = 1f + 0.15f * pulso.value().coerceIn(0f, 1f)
-                construtor.uniform("uTime", relogio[0])
-                construtor.uniform("uSize", largura.toFloat(), altura.toFloat())
-                construtor.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
-                construtor.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
-                val imagem = withContext(NonCancellable + Dispatchers.Default) {
-                    Quadros.cronometrar("aurora") {
-                        val shader = construtor.makeShader()
-                        pintor.shader = shader
-                        alvo.canvas.drawRect(Rect.makeWH(largura.toFloat(), altura.toFloat()), pintor)
-                        pintor.shader = null
-                        shader.close()
-                        alvo.makeImageSnapshot()
-                    }
-                }
-                if (!isActive) {
+            for (passo in 0 until QUADROS_DA_VOLTA) {
+                if (passo >= QUADROS_DA_POSE) snapshotFlow { naTela() && emMovimento() }.first { it }
+                if (!currentCoroutineContext().isActive || fechado) return
+                val i = (primeiro + passo) % QUADROS_DA_VOLTA
+                val imagem = foraDaTela {
+                    desenharQuadro(construtor, pintor, superficie, i * AURORA_LOOP / QUADROS_DA_VOLTA)
+                } ?: return
+                if (!currentCoroutineContext().isActive || fechado) {
                     imagem.close()
-                    break
+                    return
                 }
-                quadro.value?.close()
-                quadro.value = imagem
-                desenhadoEm = tam
-                if (!parado.value) {
-                    delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
+                trocar(i, imagem)
+                if (passo == QUADROS_DA_POSE - 1) {
+                    paradoPronto = true
+                    geracao++
                 }
             }
+            pronto = true
+            geracao++
         } finally {
+            superficie.close()
             pintor.close()
-            superficie?.close()
             construtor.close()
             efeito.close()
         }
     }
-    DisposableEffect(Unit) {
-        onDispose {
-            quadro.value?.close()
-            quadro.value = null
-        }
+
+    private fun trocar(i: Int, imagem: Image) {
+        amostradores[i]?.close()
+        amostradores[i] = null
+        quadros[i]?.close()
+        quadros[i] = imagem
     }
-    return onSizeChanged { tamanho.value = it }.drawBehind {
-        Quadros.marcar()
-        val imagem = quadro.value
-        if (imagem == null) {
-            drawRect(voidC)
-            return@drawBehind
-        }
-        drawIntoCanvas {
-            it.nativeCanvas.drawImageRect(
-                imagem,
-                Rect.makeWH(imagem.width.toFloat(), imagem.height.toFloat()),
-                Rect.makeWH(size.width, size.height),
-                SamplingMode.LINEAR,
-                null,
-                true,
-            )
+
+    fun fechar() {
+        fechado = true
+        for (i in 0 until QUADROS_DA_VOLTA) {
+            amostradores[i]?.close()
+            amostradores[i] = null
+            quadros[i]?.close()
+            quadros[i] = null
         }
     }
 }
+
+private suspend fun <T : AutoCloseable> foraDaTela(calculo: () -> T?): T? {
+    var feito: T? = null
+    try {
+        return withContext(NonCancellable + Dispatchers.Default) { calculo().also { feito = it } }
+    } catch (e: CancellationException) {
+        feito?.close()
+        throw e
+    }
+}
+
+private fun desenharQuadro(construtor: RuntimeShaderBuilder, pintor: Paint, superficie: Surface, tempo: Float): Image {
+    construtor.uniform("uTime", tempo)
+    construtor.uniform("uSize", LARGURA_DO_QUADRO.toFloat(), ALTURA_DO_QUADRO.toFloat())
+    val shader = construtor.makeShader()
+    pintor.shader = shader
+    superficie.canvas.drawRect(Rect.makeWH(LARGURA_DO_QUADRO.toFloat(), ALTURA_DO_QUADRO.toFloat()), pintor)
+    pintor.shader = null
+    shader.close()
+    return superficie.makeImageSnapshot()
+}
+
+private fun posicaoNaVolta(tempo: Float): Float = tempo / AURORA_LOOP * QUADROS_DA_VOLTA
+
+private fun indiceDoTempo(tempo: Float): Int = floor(posicaoNaVolta(tempo)).toInt().mod(QUADROS_DA_VOLTA)
+
+@Composable
+fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
+    val oitavas = LocalRenderPrefs.current.auroraOctaves
+    val accent = Obsidian.accent
+    val voidC = Obsidian.void
+    val relogio = remember { floatArrayOf(AURORA_STILL) }
+    val clipe = remember { ClipeDaAurora() }
+    val naTela = rememberUpdatedState(LocalJanelaNaTela.current)
+    val emMovimento = rememberUpdatedState(!LocalReduceMotion.current)
+    LaunchedEffect(oitavas) {
+        clipe.preparar(oitavas, indiceDoTempo(relogio[0]), { naTela.value }, { emMovimento.value })
+    }
+    DisposableEffect(clipe) { onDispose { clipe.fechar() } }
+    val peloProcessador = DesenhoDaJanela.peloProcessador
+    val tempo = relogioDaAurora(relogio, clipe.pronto, peloProcessador)
+    return if (peloProcessador) auroraPeloProcessador(clipe, tempo, pulse, accent, voidC)
+    else auroraNaPlaca(clipe, tempo, pulse, accent, voidC)
+}
+
+@Composable
+private fun relogioDaAurora(relogio: FloatArray, pronto: Boolean, peloProcessador: Boolean): State<Float> {
+    val parado = LocalReduceMotion.current
+    val ativa = rememberUpdatedState(LocalWindowActive.current)
+    val teto = rememberUpdatedState(LocalRenderPrefs.current.fpsCap)
+    return produceState(relogio[0], parado, pronto, peloProcessador) {
+        value = relogio[0]
+        if (parado || !pronto) return@produceState
+        while (true) {
+            snapshotFlow { ativa.value }.first { it }
+            var anterior = withFrameNanos { it }
+            while (ativa.value) {
+                val inicio = System.nanoTime()
+                withFrameNanos { agora ->
+                    val passo = ((agora - anterior) / 1_000_000_000f).coerceAtMost(PASSO_MAXIMO_S)
+                    relogio[0] = (relogio[0] + passo) % AURORA_LOOP
+                    anterior = agora
+                    value = relogio[0]
+                }
+                if (peloProcessador) {
+                    delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
+                } else {
+                    esperarPeloTeto(teto.value, inicio)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Modifier.auroraNaPlaca(
+    clipe: ClipeDaAurora,
+    tempo: State<Float>,
+    pulse: () -> Float,
+    accent: Color,
+    voidC: Color,
+): Modifier {
+    val efeito = remember { runCatching { RuntimeEffect.makeForShader(TOCADOR_SKSL.trimIndent()) }.getOrNull() }
+        ?: return this.drawBehind { drawRect(voidC) }
+    val construtor = remember(efeito) { RuntimeShaderBuilder(efeito) }
+    val pintor = remember { Paint() }
+    val ultimo = remember { arrayOfNulls<Shader>(1) }
+    val usados = remember(accent, voidC) { arrayOfNulls<Shader>(2) }
+    val chave = remember(accent, voidC) { FloatArray(5) { Float.NaN } }
+    DisposableEffect(construtor) {
+        onDispose {
+            ultimo[0]?.close()
+            ultimo[0] = null
+            pintor.close()
+            construtor.close()
+            efeito.close()
+        }
+    }
+    return drawBehind {
+        Quadros.marcar()
+        Quadros.cronometrar("aurora") {
+            if (size.width <= 0f || size.height <= 0f || !clipe.paradoPronto) {
+                drawRect(voidC)
+                return@cronometrar
+            }
+            val posicao = posicaoNaVolta(tempo.value)
+            val atual = floor(posicao).toInt().mod(QUADROS_DA_VOLTA)
+            val quadroA = clipe.amostrador(atual)
+            val quadroB = clipe.amostrador((atual + 1) % QUADROS_DA_VOLTA) ?: quadroA
+            if (quadroA == null || quadroB == null) {
+                drawRect(voidC)
+                return@cronometrar
+            }
+            val mistura = posicao - floor(posicao)
+            val brilho = 1f + PULSO_MAXIMO * pulse().coerceIn(0f, 1f)
+            val geracao = clipe.geracao.toFloat()
+            val mesmo = ultimo[0] != null && usados[0] === quadroA && usados[1] === quadroB &&
+                chave[0] == geracao && chave[1] == mistura && chave[2] == brilho &&
+                chave[3] == size.width && chave[4] == size.height
+            if (!mesmo) {
+                usados[0] = quadroA; usados[1] = quadroB
+                chave[0] = geracao; chave[1] = mistura; chave[2] = brilho
+                chave[3] = size.width; chave[4] = size.height
+                val tom = brilho * ESCALA_DO_QUADRO
+                construtor.child("quadroA", quadroA)
+                construtor.child("quadroB", quadroB)
+                construtor.uniform("uMistura", mistura)
+                construtor.uniform("uTom", accent.red * tom, accent.green * tom, accent.blue * tom)
+                construtor.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
+                construtor.uniform("uEscala", LARGURA_DO_QUADRO / size.width, ALTURA_DO_QUADRO / size.height)
+                ultimo[0]?.close()
+                ultimo[0] = construtor.makeShader()
+            }
+            pintor.shader = ultimo[0]
+            drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), pintor) }
+        }
+    }
+}
+
+@Composable
+private fun Modifier.auroraPeloProcessador(
+    clipe: ClipeDaAurora,
+    tempo: State<Float>,
+    pulse: () -> Float,
+    accent: Color,
+    voidC: Color,
+): Modifier {
+    val pequena = remember { Surface.makeRasterN32Premul(LARGURA_DO_QUADRO, ALTURA_DO_QUADRO) }
+    val misturador = remember { Paint() }
+    val pintor = remember { Paint().apply { isDither = true } }
+    val mistura = remember { arrayOfNulls<Image>(1) }
+    val chave = remember { FloatArray(3) { Float.NaN } }
+    val filtro = remember(accent, voidC) { arrayOfNulls<ColorFilter>(1) }
+    val brilhoDoFiltro = remember(accent, voidC) { floatArrayOf(Float.NaN) }
+    DisposableEffect(Unit) {
+        onDispose {
+            mistura[0]?.close()
+            mistura[0] = null
+            misturador.close()
+            pintor.close()
+            pequena.close()
+        }
+    }
+    DisposableEffect(filtro) { onDispose { filtro[0]?.close() } }
+    return drawBehind {
+        Quadros.marcar()
+        Quadros.cronometrar("aurora") {
+            if (size.width <= 0f || size.height <= 0f || !clipe.paradoPronto) {
+                drawRect(voidC)
+                return@cronometrar
+            }
+            val posicao = posicaoNaVolta(tempo.value)
+            val atual = floor(posicao).toInt().mod(QUADROS_DA_VOLTA)
+            val quadroA = clipe.quadro(atual)
+            if (quadroA == null) {
+                drawRect(voidC)
+                return@cronometrar
+            }
+            val quadroB = clipe.quadro((atual + 1) % QUADROS_DA_VOLTA) ?: quadroA
+            val fracao = posicao - floor(posicao)
+            val geracao = clipe.geracao.toFloat()
+            val mesma = mistura[0] != null && chave[0] == geracao && chave[1] == atual.toFloat() && chave[2] == fracao
+            if (!mesma) {
+                chave[0] = geracao; chave[1] = atual.toFloat(); chave[2] = fracao
+                misturador.setAlphaf(1f)
+                pequena.canvas.drawImage(quadroA, 0f, 0f, misturador)
+                misturador.setAlphaf(fracao)
+                pequena.canvas.drawImage(quadroB, 0f, 0f, misturador)
+                mistura[0]?.close()
+                mistura[0] = pequena.makeImageSnapshot()
+            }
+            val brilho = 1f + PULSO_MAXIMO * Snapshot.withoutReadObservation { pulse() }.coerceIn(0f, 1f)
+            if (brilho != brilhoDoFiltro[0]) {
+                val antigo = filtro[0]
+                filtro[0] = filtroDeCor(accent, voidC, brilho * ESCALA_DO_QUADRO)
+                pintor.colorFilter = filtro[0]
+                antigo?.close()
+                brilhoDoFiltro[0] = brilho
+            }
+            val pronta = mistura[0] ?: return@cronometrar
+            drawIntoCanvas {
+                it.nativeCanvas.drawImageRect(
+                    pronta,
+                    Rect.makeWH(LARGURA_DO_QUADRO.toFloat(), ALTURA_DO_QUADRO.toFloat()),
+                    Rect.makeWH(size.width, size.height),
+                    SamplingMode.LINEAR,
+                    pintor,
+                    true,
+                )
+            }
+        }
+    }
+}
+
+private fun filtroDeCor(accent: Color, voidC: Color, tom: Float): ColorFilter =
+    ColorFilter.makeMatrix(
+        ColorMatrix(
+            accent.red * tom, 0f, 0f, 0f, voidC.red,
+            0f, accent.green * tom, 0f, 0f, voidC.green,
+            0f, 0f, accent.blue * tom, 0f, voidC.blue,
+            0f, 0f, 0f, 1f, 0f,
+        ),
+    )

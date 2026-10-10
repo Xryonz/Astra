@@ -642,7 +642,7 @@ private fun CostBar(label: String, value: Float) {
 private fun gpuCost(p: DesktopPrefs.Prefs): Float {
     if (p.performanceMode) return 0.08f
     var c = 0.06f
-    if (p.auroraOn) c += 0.18f + p.auroraQuality.octaves * 0.09f
+    if (p.auroraOn) c += 0.08f
     if (p.starsOn) c += 0.14f
     if (p.windowTransparent) c += 0.08f
     val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }

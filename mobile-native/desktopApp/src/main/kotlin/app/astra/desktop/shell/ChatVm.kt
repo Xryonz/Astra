@@ -55,6 +55,7 @@ import retrofit2.HttpException
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 sealed interface ChatTarget {
     val id: String
@@ -162,9 +163,12 @@ class ChatVm(
     private val compressoes = ConcurrentHashMap<String, Job>()
     private val comprimidos: MutableSet<File> = ConcurrentHashMap.newKeySet()
     private val enviadasDaqui: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val enquetesEmEnvio = AtomicInteger(0)
 
     fun foiEnviadaDaqui(m: ChatMessage): Boolean =
-        m.id in enviadasDaqui || m.clientNonce?.let { it in enviadasDaqui } == true
+        m.id in enviadasDaqui ||
+            m.clientNonce?.let { it in enviadasDaqui } == true ||
+            (m.mine && m.poll != null && enquetesEmEnvio.get() > 0)
 
     private fun novoRecibo(): String = java.util.UUID.randomUUID().toString().also { enviadasDaqui += it }
 
@@ -730,23 +734,28 @@ class ChatVm(
         val limpas = options.map { it.trim() }.filter { it.isNotBlank() }
         if (question.isBlank() || limpas.size < 2) return
         _state.update { it.copy(sending = true, error = null) }
+        enquetesEmEnvio.incrementAndGet()
         scope.launch {
-            runCatching {
-                channelApi.createPoll(
-                    channelId,
-                    CreatePollRequest(question.trim(), limpas, allowMultiple, durationHours),
-                ).data?.toChat()
-            }
-                .onSuccess { msg ->
-                    _state.update { it.copy(sending = false) }
-                    if (msg != null) {
-                        enviadasDaqui += msg.id
-                        append(msg)
+            try {
+                runCatching {
+                    channelApi.createPoll(
+                        channelId,
+                        CreatePollRequest(question.trim(), limpas, allowMultiple, durationHours),
+                    ).data?.toChat()
+                }
+                    .onSuccess { msg ->
+                        _state.update { it.copy(sending = false) }
+                        if (msg != null) {
+                            enviadasDaqui += msg.id
+                            append(msg)
+                        }
                     }
-                }
-                .onFailure { t ->
-                    _state.update { it.copy(sending = false, error = sendError(t, "Enquete não criada")) }
-                }
+                    .onFailure { t ->
+                        _state.update { it.copy(sending = false, error = sendError(t, "Enquete não criada")) }
+                    }
+            } finally {
+                enquetesEmEnvio.decrementAndGet()
+            }
         }
     }
 

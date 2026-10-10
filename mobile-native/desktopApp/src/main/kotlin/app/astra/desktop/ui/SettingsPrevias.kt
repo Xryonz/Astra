@@ -642,21 +642,21 @@ private fun CostBar(label: String, value: Float) {
 private fun gpuCost(p: DesktopPrefs.Prefs): Float {
     if (p.performanceMode) return 0.08f
     var c = 0.06f
-    if (p.auroraOn) c += 0.08f
     if (p.starsOn) c += 0.14f
     if (p.windowTransparent) c += 0.08f
     val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
-    return (0.06f + (c - 0.06f) * mul).coerceIn(0.05f, 1f)
+    val aurora = if (p.auroraOn) 0.08f * 0.6f else 0f
+    return (0.06f + (c - 0.06f) * mul + aurora).coerceIn(0.05f, 1f)
 }
 
 private fun cpuCost(p: DesktopPrefs.Prefs): Float {
     if (p.performanceMode) return 0.06f
     var c = 0.05f
-    if (p.auroraOn) c += 0.08f
     if (p.starsOn) c += 0.07f
     if (!p.reduceMotionEff) c += 0.05f
     val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
-    return (0.05f + (c - 0.05f) * mul).coerceIn(0.04f, 1f)
+    val aurora = if (p.auroraOn) 0.08f * 0.65f else 0f
+    return (0.05f + (c - 0.05f) * mul + aurora).coerceIn(0.04f, 1f)
 }
 
 private fun costWord(v: Float) = when {

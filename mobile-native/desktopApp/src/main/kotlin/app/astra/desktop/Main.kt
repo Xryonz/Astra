@@ -752,6 +752,10 @@ fun main(args: Array<String>) {
                     authRepo.logout(escopoDaJanela)
                     session = null
                     notifUnread = 0
+                    searchOpen = false
+                    notifOpen = false
+                    desejosOpen = false
+                    missoesOpen = false
                 }
             }
             val painelDeMissoes by remember { GlobalContext.get().get<MissoesStore>() }.painel.collectAsState()

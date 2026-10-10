@@ -19,6 +19,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -678,6 +679,7 @@ fun main(args: Array<String>) {
             transparent = transparentWindow,
         ) {
             marcoDoArranque(Arranque.MARCO_JANELA)
+            MaximizadaDentroDaAreaUtil()
             remember { Vigia.janelaCriada() }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
@@ -746,16 +748,20 @@ fun main(args: Array<String>) {
             var desejosOpen by remember { mutableStateOf(false) }
             var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
+            var sinoAteABorda by remember { mutableFloatStateOf(Float.NaN) }
+            fun fecharPaineisDoTopo() {
+                searchOpen = false
+                notifOpen = false
+                desejosOpen = false
+                missoesOpen = false
+            }
             val sessaoVencida by store.vencida.collectAsState()
             LaunchedEffect(sessaoVencida) {
                 if (sessaoVencida && session != null) {
                     authRepo.logout(escopoDaJanela)
                     session = null
                     notifUnread = 0
-                    searchOpen = false
-                    notifOpen = false
-                    desejosOpen = false
-                    missoesOpen = false
+                    fecharPaineisDoTopo()
                 }
             }
             val painelDeMissoes by remember { GlobalContext.get().get<MissoesStore>() }.painel.collectAsState()
@@ -797,11 +803,12 @@ fun main(args: Array<String>) {
                         onClose = onCloseApp,
                         showActions = session != null && !needsOnboarding,
                         notifUnread = notifUnread,
-                        onOpenSearch = { searchOpen = true },
-                        onOpenNotifications = { notifOpen = !notifOpen },
-                        onOpenMissions = { missoesOpen = !missoesOpen },
+                        onOpenSearch = { fecharPaineisDoTopo(); searchOpen = true },
+                        onOpenNotifications = { val abrir = !notifOpen; fecharPaineisDoTopo(); notifOpen = abrir },
+                        onOpenMissions = { val abrir = !missoesOpen; fecharPaineisDoTopo(); missoesOpen = abrir },
                         missoesProntas = missoesProntas,
-                        onOpenDesejos = { desejosOpen = !desejosOpen },
+                        onOpenDesejos = { val abrir = !desejosOpen; fecharPaineisDoTopo(); desejosOpen = abrir },
+                        aoMedirOSino = { sinoAteABorda = it },
                         atualizacao = updater,
                     )
                     ServidorAcordandoStrip()
@@ -908,11 +915,12 @@ fun main(args: Array<String>) {
                                             searchOpen = searchOpen,
                                             onCloseSearch = { searchOpen = false },
                                             notifOpen = notifOpen,
+                                            sinoAteABorda = { sinoAteABorda },
                                             onCloseNotif = { notifOpen = false },
                                             desejosOpen = desejosOpen,
                                             onCloseDesejos = { desejosOpen = false },
                                             missoesOpen = missoesOpen,
-                                            onAbrirMissoes = { missoesOpen = true },
+                                            onAbrirMissoes = { fecharPaineisDoTopo(); missoesOpen = true },
                                             onCloseMissoes = { missoesOpen = false },
                                             onNotifUnread = { notifUnread = it },
                                         )

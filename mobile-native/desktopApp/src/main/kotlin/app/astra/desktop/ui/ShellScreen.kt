@@ -109,6 +109,7 @@ fun ShellScreen(
     searchOpen: Boolean = false,
     onCloseSearch: () -> Unit = {},
     notifOpen: Boolean = false,
+    sinoAteABorda: () -> Float = { Float.NaN },
     onCloseNotif: () -> Unit = {},
     desejosOpen: Boolean = false,
     onCloseDesejos: () -> Unit = {},
@@ -145,6 +146,11 @@ fun ShellScreen(
     var paletteOpen by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+    var rascunhoDoDesejo by remember { mutableStateOf("") }
+    var campoDoDesejoComFoco by remember { mutableStateOf(false) }
+    LaunchedEffect(desejosOpen) {
+        if (!desejosOpen && campoDoDesejoComFoco) runCatching { rootFocus.requestFocus() }
+    }
 
     LaunchedEffect(Unit) { socket.connect() }
 
@@ -364,9 +370,14 @@ fun ShellScreen(
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { e ->
-                if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.K) {
-                    paletteOpen = true; true
-                } else false
+                when {
+                    e.type != KeyEventType.KeyDown -> false
+                    e.isCtrlPressed && e.key == Key.K -> { paletteOpen = true; true }
+                    e.key == Key.Escape && notifOpen -> { onCloseNotif(); true }
+                    e.key == Key.Escape && missoesOpen -> { onCloseMissoes(); true }
+                    e.key == Key.Escape && desejosOpen -> { onCloseDesejos(); true }
+                    else -> false
+                }
             },
     ) {
         val onbStore = remember { GlobalContext.get().get<SessionStore>() }
@@ -697,6 +708,7 @@ fun ShellScreen(
             exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
             NotifPanel(
+                sinoAteABorda = sinoAteABorda,
                 onClose = onCloseNotif,
                 onOpenChannel = { sid, cid, name ->
                     vm.select(Selection.Server(sid))
@@ -716,7 +728,12 @@ fun ShellScreen(
             enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
             exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
-            DesejosPanel(onClose = onCloseDesejos)
+            DesejosPanel(
+                rascunho = rascunhoDoDesejo,
+                aoMudarRascunho = { rascunhoDoDesejo = it },
+                aoMudarFocoDoCampo = { campoDoDesejoComFoco = it },
+                onClose = onCloseDesejos,
+            )
         }
 
         AnimatedVisibility(

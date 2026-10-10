@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -52,14 +53,18 @@ import java.time.Instant
 import app.astra.desktop.ui.theme.Tipo
 
 @Composable
-fun DesejosPanel(onClose: () -> Unit) {
+fun DesejosPanel(
+    rascunho: String,
+    aoMudarRascunho: (String) -> Unit,
+    aoMudarFocoDoCampo: (Boolean) -> Unit,
+    onClose: () -> Unit,
+) {
     val api = remember { GlobalContext.get().get<WishApi>() }
     var itens by remember { mutableStateOf<List<WishDto>>(emptyList()) }
     var cursor by remember { mutableStateOf<String?>(null) }
     var carregando by remember { mutableStateOf(true) }
     var acabou by remember { mutableStateOf(false) }
     var erro by remember { mutableStateOf(false) }
-    var rascunho by remember { mutableStateOf("") }
     var enviando by remember { mutableStateOf(false) }
     var erroAoEnviar by remember { mutableStateOf<String?>(null) }
     val lista = rememberLazyListState()
@@ -142,7 +147,8 @@ fun DesejosPanel(onClose: () -> Unit) {
             CampoDeDesejo(
                 texto = rascunho,
                 enviando = enviando,
-                aoDigitar = { rascunho = it; erroAoEnviar = null },
+                aoMudarFoco = aoMudarFocoDoCampo,
+                aoDigitar = { aoMudarRascunho(it); erroAoEnviar = null },
                 aoEnviar = {
                     val desejo = rascunho.trim()
                     enviando = true
@@ -151,7 +157,7 @@ fun DesejosPanel(onClose: () -> Unit) {
                         val r = runCatching { api.publicar(PostWishRequest(desejo)) }
                         enviando = false
                         if (r.isSuccess) {
-                            rascunho = ""
+                            aoMudarRascunho("")
                             carregando = true
                             buscar(null)
                             if (itens.isNotEmpty()) lista.scrollToItem(0)
@@ -181,6 +187,7 @@ private const val DESEJO_MAXIMO = 500
 private fun CampoDeDesejo(
     texto: String,
     enviando: Boolean,
+    aoMudarFoco: (Boolean) -> Unit,
     aoDigitar: (String) -> Unit,
     aoEnviar: () -> Unit,
 ) {
@@ -212,7 +219,10 @@ private fun CampoDeDesejo(
                     interno()
                 }
             },
-            modifier = Modifier.weight(1f).heightIn(max = 96.dp),
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(max = 96.dp)
+                .onFocusChanged { aoMudarFoco(it.isFocused) },
         )
         Spacer(Modifier.width(8.dp))
         DialogButton(

@@ -31,9 +31,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +83,7 @@ private data class NotifPayload(
 
 @Composable
 fun NotifPanel(
+    sinoAteABorda: () -> Float,
     onClose: () -> Unit,
     onOpenChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onOpenDm: (convId: String, title: String) -> Unit,
@@ -137,17 +143,21 @@ fun NotifPanel(
         }
     }
 
+    var areaAteABorda by remember { mutableFloatStateOf(Float.NaN) }
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(Obsidian.void.copy(alpha = 0.55f))
+            .onGloballyPositioned { areaAteABorda = distanciaAteABordaDireita(it) }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
             .semCursorDeClique(),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.TopEnd,
     ) {
         Column(
             Modifier
-                .popupReveal(originX = 0.5f, originY = 0.5f)
+                .padding(top = 6.dp)
+                .offset { IntOffset(-recuoAteOSino(sinoAteABorda(), areaAteABorda, RECUO_SEM_SINO.roundToPx()), 0) }
+                .popupReveal(originX = 1f, originY = 0f)
                 .width(520.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
@@ -216,6 +226,12 @@ fun NotifPanel(
         }
     }
 }
+
+private val RECUO_SEM_SINO = 12.dp
+
+private fun recuoAteOSino(sinoAteABorda: Float, areaAteABorda: Float, reserva: Int): Int =
+    if (sinoAteABorda.isNaN() || areaAteABorda.isNaN()) reserva
+    else (sinoAteABorda - areaAteABorda).coerceAtLeast(0f).roundToInt()
 
 @Composable
 private fun DayLabel(t: String) {

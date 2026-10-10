@@ -233,7 +233,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
     Spacer(Modifier.height(6.dp))
 
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparência") {
+        LabeledControl("Qualidade da aurora", "mais detalhe = preparo mais longo ao abrir; escolha o fundo em Aparência") {
             SegmentedRow(
                 listOf("Alta" to AuroraQuality.HIGH, "Média" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
                 p.auroraQuality, prefs::setAuroraQuality,

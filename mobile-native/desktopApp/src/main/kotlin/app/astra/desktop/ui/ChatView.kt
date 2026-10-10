@@ -329,7 +329,7 @@ fun ChatView(
         if (ultima.id == ultimaVista) return@LaunchedEffect
         val primeiraCarga = ultimaVista == null
         ultimaVista = ultima.id
-        if (primeiraCarga || noPresente || ultima.authorId == vm.myId) {
+        if (primeiraCarga || noPresente || vm.foiEnviadaDaqui(ultima)) {
             if (linhas.isNotEmpty()) listState.scrollToItem(linhas.lastIndex)
         }
         pousouNoFim = true

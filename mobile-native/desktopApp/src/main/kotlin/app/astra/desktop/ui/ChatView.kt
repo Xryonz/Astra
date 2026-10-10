@@ -49,7 +49,6 @@ import com.composables.icons.lucide.Video
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
@@ -265,7 +264,7 @@ fun ChatView(
     lidoAte: String? = null,
 ) {
     val state by vm.state.collectAsState()
-    val listState = rememberLazyListState()
+    val listState = lembrarListaQueSeAdianta()
     val scope = rememberCoroutineScope()
     val isChannel = target is ChatTarget.Channel
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }

@@ -239,7 +239,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
-        LabeledControl("FPS das animações", "teto de quadros do fundo (livre segue o monitor)") {
+        LabeledControl("FPS das animações", "teto de quadros das estrelas; a aurora fica em até 30") {
             SegmentedRow(
                 listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
                 p.uiFps, prefs::setUiFps,

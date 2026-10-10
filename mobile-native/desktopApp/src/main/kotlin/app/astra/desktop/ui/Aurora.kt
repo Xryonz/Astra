@@ -236,6 +236,8 @@ private const val INTERVALO_NO_PROCESSADOR_MS = 83L
 
 private const val PULSO_MAXIMO = 0.15f
 
+private const val TETO_DA_AURORA_QPS = 30
+
 private class ClipeDaAurora {
     private val quadros = arrayOfNulls<Image>(QUADROS_DA_VOLTA)
     private val amostradores = arrayOfNulls<Shader>(QUADROS_DA_VOLTA)
@@ -338,6 +340,9 @@ private fun desenharQuadro(construtor: RuntimeShaderBuilder, pintor: Paint, supe
     return superficie.makeImageSnapshot()
 }
 
+private fun tetoDaAurora(tetoDaInterface: Int): Int =
+    if (tetoDaInterface in 1..TETO_DA_AURORA_QPS) tetoDaInterface else TETO_DA_AURORA_QPS
+
 private fun posicaoNaVolta(tempo: Float): Float = tempo / AURORA_LOOP * QUADROS_DA_VOLTA
 
 private fun indiceDoTempo(tempo: Float): Int = floor(posicaoNaVolta(tempo)).toInt().mod(QUADROS_DA_VOLTA)
@@ -383,7 +388,7 @@ private fun relogioDaAurora(relogio: FloatArray, pronto: Boolean, peloProcessado
                 if (peloProcessador) {
                     delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
                 } else {
-                    esperarPeloTeto(teto.value, inicio)
+                    esperarPeloTeto(tetoDaAurora(teto.value), inicio)
                 }
             }
         }

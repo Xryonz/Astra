@@ -1,8 +1,11 @@
 versao 2.0.16
-Ao escolher o banner da constelação ou do perfil, abre uma janela de recorte: arraste para enquadrar e aproxime com dois dedos ou pela barra.
-GIFs entram inteiros, já ajustados para cobrir o espaço do banner.
-O banner do perfil segue a proporção do desktop e começa abaixo da barra do sistema.
-Reduzir animações passa a valer também para janelas, avisos, carregamentos, o menu lateral e o deslizar para responder.
-Nas listas de opções, tocar em qualquer ponto da linha liga ou desliga a chave.
-Uma imagem que não carregou volta a tentar sozinha, inclusive quando a internet volta.
-No Wi-Fi, fotos das pessoas das suas listas e ícones e banners das suas constelações são baixados em segundo plano, para abrir na hora.
+Descrições e dicas viraram texto normal, que quebra linha em vez de sair cortado.
+Relógio e bateria aparecem também com o sistema no modo claro.
+Mensagens enviadas aparecem na hora, e as antigas chegam sozinhas ao rolar para cima.
+Um botão leva de volta ao presente e conta as mensagens novas.
+A barra de escrever virou uma pílula só.
+Vídeos anexados são comprimidos no aparelho e tocam na própria conversa.
+Foto de perfil e banners passam por uma janela de recorte, e GIFs continuam animados.
+Aurora e estrelas voltaram para trás de todas as telas.
+Imagens que falham tentam de novo sozinhas, inclusive quando a internet volta.
+Reduzir animações passa a valer também para janelas, avisos e o menu lateral.

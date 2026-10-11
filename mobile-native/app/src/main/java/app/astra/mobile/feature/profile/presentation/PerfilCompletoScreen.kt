@@ -38,7 +38,7 @@ import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraButtonVariant
 import app.astra.mobile.ui.components.BotaoDeTexto
 import app.astra.mobile.ui.components.CosmicSpinner
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -207,6 +207,6 @@ private fun CartaoDoNivel(p: ProgressoDto) {
         Spacer(Modifier.height(2.dp))
         BarraDeProgresso({ cheio }, concluida = false, altura = 5.dp)
         Spacer(Modifier.height(6.dp))
-        MarginaliaLabel("${p.noNivel} de ${p.paraOProximo} de brilho para o próximo nível")
+        TextoDeApoio("${p.noNivel} de ${p.paraOProximo} de brilho para o próximo nível")
     }
 }

@@ -37,7 +37,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
@@ -62,7 +62,7 @@ fun ServerBansScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Banimentos",
-                marginalia = "${state.bans.size} banida${if (state.bans.size == 1) "" else "s"}",
+                subtitulo = "${state.bans.size} banida${if (state.bans.size == 1) "" else "s"}",
                 onBack = onBack,
             )
 
@@ -71,7 +71,7 @@ fun ServerBansScreen(
                 state.error != null -> Box(Modifier.padding(20.dp)) { AuthErrorBox(state.error!!) }
                 state.bans.isEmpty() -> EmptyState(
                     line = "Ninguém banido",
-                    hint = "estrelas banidas aparecem aqui",
+                    hint = "Estrelas banidas aparecem aqui.",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                     items(state.bans, key = { it.userId }) { b ->
@@ -91,7 +91,7 @@ fun ServerBansScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                MarginaliaLabel(b.reason?.takeIf { it.isNotBlank() } ?: "@${b.username}")
+                                TextoDeApoio(b.reason?.takeIf { it.isNotBlank() } ?: "@${b.username}", maxLines = 2)
                             }
                             val shape = RoundedCornerShape(10.dp)
                             Text(
@@ -118,6 +118,6 @@ fun ServerBansScreen(
         confirmText = "Desbanir",
         onConfirm = { unbanTarget?.let { viewModel.unban(it.userId) }; unbanTarget = null },
     ) {
-        MarginaliaLabel("volta a poder entrar com um convite")
+        TextoDeApoio("Volta a poder entrar com um convite.")
     }
 }

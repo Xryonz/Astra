@@ -47,7 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.ConstellationGraphic
 import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSpring
@@ -68,7 +68,7 @@ private data class OnboardSlide(
 private val SLIDES = listOf(
     OnboardSlide(Lucide.Sparkles, "Constelações", "Comunidades onde vocês orbitam juntos. Forje a sua ou entre por convite."),
     OnboardSlide(Lucide.Orbit, "Órbitas", "Cada constelação tem órbitas: canais de conversa e salas de voz."),
-    OnboardSlide(Lucide.Star, "Estrelas", "Seus amigos. Adicione pelo @username e acompanhem o brilho um do outro."),
+    OnboardSlide(Lucide.Star, "Estrelas", "Seus amigos. Adicione pelo @usuário e acompanhem o brilho um do outro."),
     OnboardSlide(Lucide.MessageCircle, "Sussurros", "Conversas diretas, só entre vocês. Texto, voz e chamada."),
     OnboardSlide(Lucide.Rocket, "Você é o cometa", "Pronto para riscar o céu. Boa viagem."),
 )
@@ -183,8 +183,8 @@ fun OnboardingScreen(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MarginaliaLabel(
-                    "pular",
+                Rotulo(
+                    "Pular",
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { finish() }

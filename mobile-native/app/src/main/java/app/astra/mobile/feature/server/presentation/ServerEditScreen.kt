@@ -61,7 +61,8 @@ import app.astra.mobile.ui.components.JanelaDeRecorte
 import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DA_ORBITA
 import app.astra.mobile.ui.components.QuebraDeCapitulo
 import app.astra.mobile.ui.components.comVibracaoDeChave
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.ehGif
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.DmSerif
@@ -99,7 +100,7 @@ fun ServerEditScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Visão geral", marginalia = "identidade e convite", onBack = onBack)
+            EditorialTopBar(title = "Visão geral", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -160,25 +161,25 @@ fun ServerEditScreen(
                         .clickable { iconPicker.launch(imageRequest) }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 )
-                MarginaliaLabel("PNG, JPG, GIF ou WebP · 5MB · GIF anima")
+                TextoDeApoio("PNG, JPG, GIF ou WebP, até 5 MB. GIF fica animado.")
 
                 Spacer(Modifier.height(24.dp))
                 EditorialField(
                     value = state.name, onValue = viewModel::onName,
-                    label = "nome da constelação", placeholder = "minha constelação",
+                    label = "Nome da constelação", placeholder = "minha constelação",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
                 )
 
                 Spacer(Modifier.height(16.dp))
                 EditorialField(
                     value = state.description, onValue = viewModel::onDescription,
-                    label = "descrição (aparece no Descobrir)", placeholder = "sobre o que é essa constelação",
+                    label = "Descrição (aparece no Descobrir)", placeholder = "sobre o que é essa constelação",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
                 )
 
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("banner")
+                    Rotulo("Banner")
                     Spacer(Modifier.weight(1f))
                     if (state.bannerUrl.isNotBlank()) {
                         Text(
@@ -207,7 +208,7 @@ fun ServerEditScreen(
                     if (state.bannerUrl.isNotBlank()) {
                         ImagemDoBanner(state.bannerUrl, state.bannerPositionY, state.bannerScale)
                     } else {
-                        MarginaliaLabel("toque para escolher · 8MB · GIF anima")
+                        TextoDeApoio("Toque para escolher. Até 8 MB; GIF fica animado.")
                     }
                     if (state.uploadingBanner) {
                         Box(
@@ -234,7 +235,7 @@ fun ServerEditScreen(
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Constelação pública", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
-                        MarginaliaLabel("aparece no Descobrir; qualquer um entra sem convite")
+                        TextoDeApoio("Aparece no Descobrir; qualquer pessoa entra sem convite.")
                     }
                     Spacer(Modifier.width(12.dp))
                     AstraSwitch(
@@ -244,7 +245,7 @@ fun ServerEditScreen(
                 }
 
                 Spacer(Modifier.height(22.dp))
-                MarginaliaLabel("apagar mensagens antigas", Modifier.fillMaxWidth())
+                Rotulo("Apagar mensagens antigas", Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     RETENTION_PRESETS.forEach { (days, label) ->
@@ -286,7 +287,7 @@ fun ServerEditScreen(
                     )
                     if (state.saved) {
                         Spacer(Modifier.width(12.dp))
-                        MarginaliaLabel("salvo ✓", color = astraColors.success)
+                        TextoDeApoio("Salvo ✓", color = astraColors.success)
                     }
                 }
 
@@ -295,7 +296,7 @@ fun ServerEditScreen(
                     Spacer(Modifier.height(28.dp))
                     QuebraDeCapitulo()
                     Spacer(Modifier.height(16.dp))
-                    MarginaliaLabel("convite", Modifier.fillMaxWidth())
+                    Rotulo("Convite", Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
                     val fieldShape = RoundedCornerShape(12.dp)
@@ -323,7 +324,7 @@ fun ServerEditScreen(
                             if (!state.regenerating) regenOpen = true
                         }
                     }
-                    MarginaliaLabel("regenerar invalida o link antigo", Modifier.padding(top = 8.dp))
+                    TextoDeApoio("Regenerar invalida o link antigo.", Modifier.padding(top = 8.dp))
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -338,7 +339,7 @@ fun ServerEditScreen(
         confirmText = "Regenerar",
         onConfirm = { regenOpen = false; viewModel.regenerateInvite() },
     ) {
-        MarginaliaLabel("o link atual para de funcionar na hora")
+        TextoDeApoio("O link atual para de funcionar na hora.")
     }
 
     paraRecortar?.let { bytes ->

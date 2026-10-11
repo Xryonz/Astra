@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -517,7 +518,7 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
                 .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
-            Text("escrever…", style = TextStyle(color = Obsidian.text3, fontSize = (13 * s).sp))
+            Text("escrever…", style = TextStyle(color = Obsidian.text3, fontSize = 15.sp))
         }
     }
 }
@@ -534,8 +535,8 @@ private fun SampleMsg(name: String, text: String, scale: Float) {
         }
         Spacer(Modifier.width(9.dp))
         Column {
-            Text(name, style = TextStyle(color = c, fontSize = (12 * scale).sp, fontFamily = DmSerif))
-            Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (18 * scale).sp))
+            Text(name, style = TextStyle(color = c, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = DmSerif))
+            Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (15 * scale).sp, lineHeight = (22 * scale).sp))
         }
     }
 }
@@ -641,21 +642,21 @@ private fun CostBar(label: String, value: Float) {
 private fun gpuCost(p: DesktopPrefs.Prefs): Float {
     if (p.performanceMode) return 0.08f
     var c = 0.06f
-    if (p.auroraOn) c += 0.18f + p.auroraQuality.octaves * 0.09f
     if (p.starsOn) c += 0.14f
     if (p.windowTransparent) c += 0.08f
     val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
-    return (0.06f + (c - 0.06f) * mul).coerceIn(0.05f, 1f)
+    val aurora = if (p.auroraOn) 0.08f * 0.6f else 0f
+    return (0.06f + (c - 0.06f) * mul + aurora).coerceIn(0.05f, 1f)
 }
 
 private fun cpuCost(p: DesktopPrefs.Prefs): Float {
     if (p.performanceMode) return 0.06f
     var c = 0.05f
-    if (p.auroraOn) c += 0.08f
     if (p.starsOn) c += 0.07f
     if (!p.reduceMotionEff) c += 0.05f
     val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
-    return (0.05f + (c - 0.05f) * mul).coerceIn(0.04f, 1f)
+    val aurora = if (p.auroraOn) 0.08f * 0.65f else 0f
+    return (0.05f + (c - 0.05f) * mul + aurora).coerceIn(0.04f, 1f)
 }
 
 private fun costWord(v: Float) = when {

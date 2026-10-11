@@ -34,13 +34,13 @@ import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.home.CartaoDeAtualizacao
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Search
-import com.composables.icons.lucide.UserPlus
+import com.composables.icons.lucide.Users
 import java.time.Duration
 import java.time.OffsetDateTime
 import app.astra.mobile.ui.components.ItemDeMenu
@@ -75,14 +75,14 @@ fun PainelDeSussurros(
                 modifier = Modifier.weight(1f),
             )
             BotaoRedondo(icone = Lucide.Search, rotulo = "Buscar", aoTocar = aoBuscar)
-            BotaoRedondo(icone = Lucide.UserPlus, rotulo = "Estrelas", aoTocar = aoAbrirAmigos, marca = pedidos)
+            BotaoRedondo(icone = Lucide.Users, rotulo = "Estrelas", aoTocar = aoAbrirAmigos, marca = pedidos)
             BotaoRedondo(icone = Lucide.Plus, rotulo = "Novo sussurro", aoTocar = aoNovoSussurro)
         }
 
         CartaoDeAtualizacao(Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 6.dp))
 
         if (sussurros.isEmpty()) {
-            EmptyState(line = "Nenhum sussurro ainda", hint = "chame alguém pelo nome de usuário")
+            EmptyState(line = "Nenhum sussurro ainda", hint = "Chame alguém pelo nome de usuário.")
             return@Column
         }
 
@@ -189,8 +189,8 @@ private fun LinhaDeSussurro(
         border = BorderStroke(1.dp, astraColors.border),
     ) {
         haQuantoTempo(conversa.lastMessageAt).takeIf { it.isNotEmpty() }?.let { quando ->
-            MarginaliaLabel(
-                if (quando == "agora") "última mensagem agora" else "última mensagem há $quando",
+            TextoDeApoio(
+                if (quando == "agora") "Última mensagem agora" else "Última mensagem há $quando",
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
@@ -216,8 +216,8 @@ internal fun haQuantoTempo(instante: String?): String {
     val minutos = Duration.between(quando, OffsetDateTime.now()).toMinutes()
     return when {
         minutos < 1 -> "agora"
-        minutos < 60 -> "${minutos}min"
-        minutos < 60 * 24 -> "${minutos / 60}h"
-        else -> "${minutos / (60 * 24)}d"
+        minutos < 60 -> "$minutos min"
+        minutos < 60 * 24 -> "${minutos / 60} h"
+        else -> (minutos / (60 * 24)).let { dias -> "$dias dia${if (dias == 1L) "" else "s"}" }
     }
 }

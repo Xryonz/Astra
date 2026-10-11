@@ -27,7 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.components.BotaoDeTexto
 import app.astra.mobile.ui.components.ColorGradientPicker
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.components.ProfileGradients
 import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.theme.astraColors
@@ -35,8 +35,8 @@ import app.astra.mobile.ui.theme.astraColors
 private const val AMOSTRAS_POR_LINHA = 6
 
 private fun nomeDaCor(css: String): String = when {
-    css.isBlank() -> "nenhuma"
-    else -> ProfileGradients.firstOrNull { it.second == css }?.first?.lowercase() ?: "própria"
+    css.isBlank() -> "Nenhuma"
+    else -> ProfileGradients.firstOrNull { it.second == css }?.first ?: "Própria"
 }
 
 @Composable
@@ -49,7 +49,7 @@ fun EscolhaDaCorDoPerfil(atual: String, aoEscolher: (String) -> Unit) {
         if (atual != ultimaDoSeletor) propriaAberta = false
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MarginaliaLabel("cor do perfil · ${nomeDaCor(atual)}")
+        Rotulo("Cor do perfil · ${nomeDaCor(atual)}")
         ProfileGradients.chunked(AMOSTRAS_POR_LINHA).forEach { linha ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 linha.forEach { (nome, css) ->

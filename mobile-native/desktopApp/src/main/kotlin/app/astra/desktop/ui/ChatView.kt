@@ -49,7 +49,6 @@ import com.composables.icons.lucide.Video
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
@@ -60,6 +59,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -264,7 +264,7 @@ fun ChatView(
     lidoAte: String? = null,
 ) {
     val state by vm.state.collectAsState()
-    val listState = rememberLazyListState()
+    val listState = lembrarListaQueSeAdianta()
     val scope = rememberCoroutineScope()
     val isChannel = target is ChatTarget.Channel
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
@@ -316,6 +316,12 @@ fun ChatView(
         }
     }
 
+    var vistaNoPresente by remember(target.id) { mutableStateOf<Instant?>(null) }
+    LaunchedEffect(target.id, noPresente, state.messages.lastOrNull()?.id) {
+        if (noPresente) vistaNoPresente = instanteDaMaisRecente(state.messages)
+    }
+    val novas = remember(state.messages, vistaNoPresente) { contarNovas(state.messages, vistaNoPresente) }
+
     var ultimaVista by remember(target.id) { mutableStateOf<String?>(null) }
     var pousouNoFim by remember(target.id) { mutableStateOf(false) }
     LaunchedEffect(state.messages.lastOrNull()?.id) {
@@ -323,7 +329,7 @@ fun ChatView(
         if (ultima.id == ultimaVista) return@LaunchedEffect
         val primeiraCarga = ultimaVista == null
         ultimaVista = ultima.id
-        if (primeiraCarga || noPresente || ultima.authorId == vm.myId) {
+        if (primeiraCarga || noPresente || vm.foiEnviadaDaqui(ultima)) {
             if (linhas.isNotEmpty()) listState.scrollToItem(linhas.lastIndex)
         }
         pousouNoFim = true
@@ -481,6 +487,7 @@ fun ChatView(
 
             VoltarAoPresente(
                 visivel = !noPresente && state.messages.isNotEmpty(),
+                novas = novas,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 12.dp),
             ) {
                 scope.launch { if (linhas.isNotEmpty()) listState.animateScrollToItem(linhas.lastIndex) }
@@ -692,7 +699,7 @@ fun ChatView(
                         if (draft.isEmpty()) {
                             Text(
                                 placeholder,
-                                style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
+                                style = TextStyle(color = Obsidian.text3, fontSize = 15.sp, lineHeight = 22.sp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -702,7 +709,7 @@ fun ChatView(
                                 draft = it.take(4000)
                                 if (it.isNotBlank()) vm.typing()
                             },
-                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
+                            textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp, lineHeight = 22.sp),
                             cursorBrush = SolidColor(Obsidian.accent),
                             maxLines = 8,
                             modifier = Modifier
@@ -941,7 +948,7 @@ private fun MessageRow(
                             texto = msg.authorName,
                             cor = LocalCoresDeCargo.current[msg.authorId],
                             padrao = Obsidian.text1,
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                         )
@@ -1007,8 +1014,8 @@ private fun ContentBlock(
         val emojis = LocalEmojisDaSala.current
         val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
         val fator = if (realce.soEmoji) 2f else 1f
-        val corpo = (13 * scale * fator).sp
-        val linha = ((if (realce.temPersonalizado) 21 else 19) * scale * fator).sp
+        val corpo = (15 * scale * fator).sp
+        val linha = ((if (realce.temPersonalizado) 24 else 22) * scale * fator).sp
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
                 text = remember(msg.content, msg.edited, meuUsuario, emojis) {
@@ -1477,7 +1484,7 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
     BasicTextField(
         value = draft,
         onValueChange = { draft = it },
-        textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 19.sp),
+        textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp, lineHeight = 22.sp),
         cursorBrush = SolidColor(Obsidian.accent),
         modifier = Modifier
             .fillMaxWidth()
@@ -1793,10 +1800,14 @@ private fun MarcaDeNovasMensagens() {
 @Composable
 private fun VoltarAoPresente(
     visivel: Boolean,
+    novas: Int,
     modifier: Modifier = Modifier,
     aoTocar: () -> Unit,
 ) {
     val reduzir = LocalReduceMotion.current
+    var congelada by remember { mutableIntStateOf(novas) }
+    LaunchedEffect(visivel, novas) { if (visivel) congelada = novas }
+    val exibidas = if (visivel) novas else congelada
     AnimatedVisibility(
         visible = visivel,
         enter = fadeIn(tween(if (reduzir) 0 else 120)) +
@@ -1817,11 +1828,37 @@ private fun VoltarAoPresente(
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LIcon(Lucide.ChevronDown, tint = Obsidian.text2, size = 14.dp)
+            LIcon(Lucide.ChevronDown, tint = if (exibidas > 0) Obsidian.accent else Obsidian.text2, size = 14.dp)
             Spacer(Modifier.width(6.dp))
-            Text("voltar ao presente", style = Tipo.rotulo)
+            Text(
+                when (exibidas) {
+                    0 -> "voltar ao presente"
+                    1 -> "1 nova mensagem"
+                    else -> "$exibidas novas mensagens"
+                },
+                style = Tipo.rotulo,
+            )
         }
     }
+}
+
+private fun instanteDe(m: ChatMessage): Instant? =
+    m.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+
+private fun instanteDaMaisRecente(mensagens: List<ChatMessage>): Instant? =
+    mensagens.lastOrNull { !it.pending && !it.failed }?.let(::instanteDe)
+
+private fun contarNovas(mensagens: List<ChatMessage>, vista: Instant?): Int {
+    if (vista == null) return 0
+    var novas = 0
+    for (i in mensagens.indices.reversed()) {
+        val m = mensagens[i]
+        if (m.pending || m.failed) continue
+        val quando = instanteDe(m) ?: continue
+        if (!quando.isAfter(vista)) break
+        if (!m.mine && m.kind != KIND_PASSAGEM_DE_TURNO) novas++
+    }
+    return novas
 }
 
 @Composable

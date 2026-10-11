@@ -34,6 +34,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import app.astra.desktop.limitarMaximizadaAAreaUtil
+import java.awt.Frame
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,6 +79,7 @@ fun WindowScope.AstraTitleBar(
     missoesProntas: Int = 0,
     onOpenDesejos: () -> Unit = {},
     atualizacao: UpdateService? = null,
+    aoMedirOSino: (Float) -> Unit = {},
 ) {
     WindowDraggableArea {
         Row(
@@ -91,7 +98,7 @@ fun WindowScope.AstraTitleBar(
             if (showActions) {
                 atualizacao?.let { PontoDeAtualizacao(it) }
                 TitleBarButton(Lucide.Search, "Buscar", marco = Marco.BUSCA, onClick = onOpenSearch)
-                TitleBarBell(notifUnread, onClick = onOpenNotifications)
+                TitleBarBell(notifUnread, aoMedir = aoMedirOSino, onClick = onOpenNotifications)
                 TitleBarButton(
                     Lucide.Target,
                     if (missoesProntas > 0) "Missões — $missoesProntas para resgatar" else "Missões",
@@ -106,6 +113,7 @@ fun WindowScope.AstraTitleBar(
                 if (maximizada) Lucide.Copy else Lucide.Square,
                 if (maximizada) "Restaurar" else "Maximizar",
             ) {
+                if (!maximizada) (window as? Frame)?.limitarMaximizadaAAreaUtil()
                 state.placement =
                     if (maximizada) WindowPlacement.Floating else WindowPlacement.Maximized
             }
@@ -114,8 +122,11 @@ fun WindowScope.AstraTitleBar(
     }
 }
 
+fun distanciaAteABordaDireita(coordenadas: LayoutCoordinates): Float =
+    coordenadas.findRootCoordinates().size.width - coordenadas.boundsInWindow().right
+
 @Composable
-private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
+private fun TitleBarBell(unread: Int, aoMedir: (Float) -> Unit, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val bg by animateColorAsState(if (hovered) Obsidian.hover else Color.Transparent, tween(120))
@@ -123,6 +134,7 @@ private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
         modifier = Modifier
             .width(46.dp)
             .fillMaxHeight()
+            .onGloballyPositioned { aoMedir(distanciaAteABordaDireita(it)) }
             .marcoDoTour(Marco.SINO)
             .clickScale(interaction)
             .background(bg)

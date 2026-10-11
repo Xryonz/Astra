@@ -139,7 +139,7 @@ fun EmptyState(line: String, hint: String, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(6.dp))
-            MarginaliaLabel(hint)
+            TextoDeApoio(hint, textAlign = TextAlign.Center)
         }
     }
 }

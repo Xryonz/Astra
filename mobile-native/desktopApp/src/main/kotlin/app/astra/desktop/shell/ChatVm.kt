@@ -55,6 +55,7 @@ import retrofit2.HttpException
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 sealed interface ChatTarget {
     val id: String
@@ -161,6 +162,15 @@ class ChatVm(
     private val typingExpiry = mutableMapOf<String, Job>()
     private val compressoes = ConcurrentHashMap<String, Job>()
     private val comprimidos: MutableSet<File> = ConcurrentHashMap.newKeySet()
+    private val enviadasDaqui: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val enquetesEmEnvio = AtomicInteger(0)
+
+    fun foiEnviadaDaqui(m: ChatMessage): Boolean =
+        m.id in enviadasDaqui ||
+            m.clientNonce?.let { it in enviadasDaqui } == true ||
+            (m.mine && m.poll != null && enquetesEmEnvio.get() > 0)
+
+    private fun novoRecibo(): String = java.util.UUID.randomUUID().toString().also { enviadasDaqui += it }
 
     init {
         load()
@@ -264,6 +274,7 @@ class ChatVm(
 
         stopTypingEmit()
         _state.update { it.copy(sending = true, error = null) }
+        val recibo = novoRecibo()
         scope.launch {
             val attachments = if (pending.isEmpty()) emptyList() else {
                 val uploaded = withContext(Dispatchers.IO) {
@@ -288,17 +299,18 @@ class ChatVm(
                     is ChatTarget.Channel ->
                         channelApi.send(
                             target.id,
-                            SendChannelRequest(content, replyToId = replyToId, attachments = attachments),
+                            SendChannelRequest(content, replyToId = replyToId, attachments = attachments, clientNonce = recibo),
                         ).data?.toChat()
                     is ChatTarget.Dm ->
                         dmApi.send(
                             target.id,
-                            SendDmRequest(content, replyToId = replyToId, attachments = attachments),
+                            SendDmRequest(content, replyToId = replyToId, attachments = attachments, clientNonce = recibo),
                         ).data?.toChat()
                 }
             }
             result
                 .onSuccess { msg ->
+                    if (msg != null) enviadasDaqui += msg.id
                     pending.forEach(::apagarSeComprimido)
                     _state.update {
                         it.copy(
@@ -315,7 +327,7 @@ class ChatVm(
     }
 
     private fun optimisticSend(target: ChatTarget, content: String) {
-        val nonce = java.util.UUID.randomUUID().toString()
+        val nonce = novoRecibo()
         val me = myProfile()
         val temp = ChatMessage(
             id = "tmp:$nonce",
@@ -408,6 +420,7 @@ class ChatVm(
         if (_state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
         _state.update { it.copy(sending = true, error = null) }
+        val recibo = novoRecibo()
         scope.launch {
             val att = AttachmentDto(
                 url = gif.full,
@@ -421,16 +434,17 @@ class ChatVm(
                 when (target) {
                     is ChatTarget.Channel -> channelApi.send(
                         target.id,
-                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att)),
+                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att), clientNonce = recibo),
                     ).data?.toChat()
                     is ChatTarget.Dm -> dmApi.send(
                         target.id,
-                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att)),
+                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att), clientNonce = recibo),
                     ).data?.toChat()
                 }
             }
             result
                 .onSuccess { msg ->
+                    if (msg != null) enviadasDaqui += msg.id
                     _state.update {
                         it.copy(
                             sending = false,
@@ -447,6 +461,7 @@ class ChatVm(
         if (_state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
         _state.update { it.copy(sending = true, error = null) }
+        val recibo = novoRecibo()
         scope.launch {
             val ext = fig.url.substringAfterLast('.', "png").substringBefore('?').lowercase()
             val att = AttachmentDto(
@@ -462,16 +477,17 @@ class ChatVm(
                 when (target) {
                     is ChatTarget.Channel -> channelApi.send(
                         target.id,
-                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att)),
+                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att), clientNonce = recibo),
                     ).data?.toChat()
                     is ChatTarget.Dm -> dmApi.send(
                         target.id,
-                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att)),
+                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att), clientNonce = recibo),
                     ).data?.toChat()
                 }
             }
             result
                 .onSuccess { msg ->
+                    if (msg != null) enviadasDaqui += msg.id
                     _state.update {
                         it.copy(
                             sending = false,
@@ -718,20 +734,28 @@ class ChatVm(
         val limpas = options.map { it.trim() }.filter { it.isNotBlank() }
         if (question.isBlank() || limpas.size < 2) return
         _state.update { it.copy(sending = true, error = null) }
+        enquetesEmEnvio.incrementAndGet()
         scope.launch {
-            runCatching {
-                channelApi.createPoll(
-                    channelId,
-                    CreatePollRequest(question.trim(), limpas, allowMultiple, durationHours),
-                ).data?.toChat()
+            try {
+                runCatching {
+                    channelApi.createPoll(
+                        channelId,
+                        CreatePollRequest(question.trim(), limpas, allowMultiple, durationHours),
+                    ).data?.toChat()
+                }
+                    .onSuccess { msg ->
+                        _state.update { it.copy(sending = false) }
+                        if (msg != null) {
+                            enviadasDaqui += msg.id
+                            append(msg)
+                        }
+                    }
+                    .onFailure { t ->
+                        _state.update { it.copy(sending = false, error = sendError(t, "Enquete não criada")) }
+                    }
+            } finally {
+                enquetesEmEnvio.decrementAndGet()
             }
-                .onSuccess { msg ->
-                    _state.update { it.copy(sending = false) }
-                    if (msg != null) append(msg)
-                }
-                .onFailure { t ->
-                    _state.update { it.copy(sending = false, error = sendError(t, "Enquete não criada")) }
-                }
         }
     }
 

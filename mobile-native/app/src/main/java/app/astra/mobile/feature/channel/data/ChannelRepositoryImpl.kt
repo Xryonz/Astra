@@ -76,11 +76,11 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(channelId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<ChannelMessage> = try {
+    override suspend fun send(channelId: String, content: String, replyToId: String?, attachments: List<Attachment>, clientNonce: String?): Result<ChannelMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId, attachments.map { it.toDto() })).data
+        val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId, attachments.map { it.toDto() }, clientNonce)).data
             ?: return Result.failure(ApiException("Resposta inválida do servidor"))
-        messageDao.upsert(dto.toEntity(channelId, json))
+        messageDao.upsert(dto.toEntity(channelId, json).copy(clientNonce = clientNonce ?: dto.clientNonce))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexão com o servidor"))
@@ -326,6 +326,7 @@ private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageE
     pollJson = poll?.let { json.encodeToString(it) },
     kind = kind,
     mencionados = mentions.joinToString(",").ifEmpty { null },
+    clientNonce = clientNonce,
 )
 
 private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
@@ -357,5 +358,6 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
         poll = poll,
         kind = kind,
         mencionaVoce = uid != null && mencionados?.split(',')?.contains(uid) == true,
+        clientNonce = clientNonce,
     )
 }

@@ -34,7 +34,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.input.Input
@@ -50,7 +50,7 @@ fun WishingScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Estrela Cadente", marginalia = "pendure um pedido no céu", onBack = onBack)
+            EditorialTopBar(title = "Estrela Cadente", onBack = onBack)
 
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(8.dp))
@@ -104,13 +104,13 @@ fun WishingScreen(
                 }
 
                 Spacer(Modifier.height(24.dp))
-                MarginaliaLabel("— o céu agora · global", Modifier.padding(start = 22.dp, bottom = 10.dp))
+                Rotulo("O céu agora", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
                 when {
                     state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
                     state.items.isEmpty() -> EmptyState(
                         line = "O céu está vazio",
-                        hint = "seja o primeiro a sonhar",
+                        hint = "Seja o primeiro a sonhar.",
                     )
                     else -> Column(
                         Modifier.padding(horizontal = 18.dp),

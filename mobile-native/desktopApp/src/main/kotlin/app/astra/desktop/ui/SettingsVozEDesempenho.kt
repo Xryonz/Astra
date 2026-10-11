@@ -233,13 +233,13 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
     Spacer(Modifier.height(6.dp))
 
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparência") {
+        LabeledControl("Qualidade da aurora", "mais detalhe = preparo mais longo ao abrir; escolha o fundo em Aparência") {
             SegmentedRow(
                 listOf("Alta" to AuroraQuality.HIGH, "Média" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
-        LabeledControl("FPS das animações", "teto de quadros do fundo (livre segue o monitor)") {
+        LabeledControl("FPS das animações", "teto de quadros das estrelas; a aurora fica em até 30") {
             SegmentedRow(
                 listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
                 p.uiFps, prefs::setUiFps,

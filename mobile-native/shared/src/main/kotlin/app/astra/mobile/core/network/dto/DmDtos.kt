@@ -107,6 +107,7 @@ data class SendDmRequest(
     val content: String,
     val replyToId: String? = null,
     val attachments: List<AttachmentDto> = emptyList(),
+    val clientNonce: String? = null,
 )
 
 @Serializable

@@ -21,6 +21,7 @@ data class ChannelMessage(
     val poll: Poll? = null,
     val kind: String? = null,
     val mencionaVoce: Boolean = false,
+    val clientNonce: String? = null,
 )
 
 data class Poll(

@@ -33,7 +33,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -49,7 +49,7 @@ fun NotificationsFeedScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Notificações", marginalia = "o que aconteceu", onBack = onBack)
+            EditorialTopBar(title = "Notificações", onBack = onBack)
 
             if (state.items.any { it.unread }) {
                 Text(
@@ -75,7 +75,7 @@ fun NotificationsFeedScreen(
                 }
                 state.items.isEmpty() -> EmptyState(
                     line = "Céu quieto por enquanto",
-                    hint = "menções e novidades pousam aqui",
+                    hint = "Menções e novidades pousam aqui.",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.items, key = { it.id }) { n ->
@@ -143,7 +143,7 @@ private fun NotificationRowItem(n: NotificationRow, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                MarginaliaLabel(relative(n.createdAt))
+                TextoDeApoio(relative(n.createdAt), maxLines = 1)
                 if (n.unread) {
                     Box(Modifier.size(9.dp).clip(CircleShape).background(astraColors.accent))
                 }

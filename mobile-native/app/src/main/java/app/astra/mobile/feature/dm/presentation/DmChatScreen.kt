@@ -195,11 +195,11 @@ fun DmChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.messages.isEmpty() && !state.loading -> EmptyState(
+                    state.messages.isEmpty() && state.pendentes.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio cósmico",
-                        hint = "diga oi 👋",
+                        hint = "Envie a primeira mensagem.",
                     )
-                    state.messages.isEmpty() || conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
+                    conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {
                         ChatMessageList(
                             conversa = conversa,
@@ -211,10 +211,14 @@ fun DmChatScreen(
                             onTranslate = { viewModel.translate(it.id, it.content) },
                             onOpenProfile = onOpenProfile,
                             aoAbrirMeuPerfil = aoAbrirMeuPerfil,
+                            cursorDasAntigas = state.cursorAnterior,
+                            aoPedirAntigas = viewModel::carregarAntigas,
+                            onTentarDeNovo = { viewModel.tentarDeNovo(it.nonce) },
+                            onDescartarPendente = { viewModel.descartarPendente(it.nonce) },
                         )
                     }
                 }
-                LinhaDeEspera(state.loading, Modifier.align(Alignment.TopCenter))
+                LinhaDeEspera(state.loading || state.carregandoAntigas, Modifier.align(Alignment.TopCenter))
             }
 
             if (state.error != null) {

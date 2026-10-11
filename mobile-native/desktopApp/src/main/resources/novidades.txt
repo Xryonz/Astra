@@ -1,4 +1,10 @@
-versao 1.0.52
-Uma imagem que não carregou volta a tentar sozinha: depois de alguns minutos e sempre que a conexão volta.
-Fotos das pessoas das suas listas e ícones e banners das suas constelações são baixados em segundo plano, para abrir na hora.
-Banners novos passam a ser guardados num tamanho que carrega mais rápido, sem perder a qualidade na tela.
+versao 1.0.53
+Foto de perfil em GIF anima, e o recorte mantém a animação.
+Vídeos anexados são comprimidos antes de subir, com o andamento no próprio anexo.
+Escolher arquivo abre a janela atual do Windows.
+A letra das conversas ficou maior por padrão.
+O botão de voltar ao presente mostra quantas mensagens novas chegaram.
+A aurora agora é calculada uma vez e tocada como vídeo, e pesa bem menos no computador.
+Maximizar não cobre mais a barra de tarefas, e Esc fecha os painéis do topo, que agora abrem um de cada vez.
+Quando a sessão vence, o app volta ao login com um aviso, em vez de ficar sem conexão.
+Dá para desinstalar o Astra pelas configurações.

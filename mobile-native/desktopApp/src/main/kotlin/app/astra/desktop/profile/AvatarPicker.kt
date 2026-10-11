@@ -1,7 +1,6 @@
 package app.astra.desktop.profile
 
-import java.awt.FileDialog
-import java.awt.Frame
+import app.astra.desktop.JanelaDeArquivo
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -19,13 +18,8 @@ object AvatarPicker {
 
     const val BANNER_DIM = 2560
 
-    fun choose(title: String = "Escolher imagem"): File? {
-        val dlg = FileDialog(null as Frame?, title, FileDialog.LOAD)
-        dlg.isVisible = true
-        val dir = dlg.directory ?: return null
-        val name = dlg.file ?: return null
-        return File(dir, name)
-    }
+    fun choose(title: String = "Escolher imagem"): File? =
+        JanelaDeArquivo.escolher(title, varios = false).firstOrNull()
 
     data class Imagem(val dataUri: String, val largura: Int, val altura: Int)
 

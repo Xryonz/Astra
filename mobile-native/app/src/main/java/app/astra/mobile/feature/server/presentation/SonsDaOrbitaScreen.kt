@@ -41,7 +41,7 @@ import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Play
@@ -73,7 +73,7 @@ fun SonsDaOrbitaScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Sons",
-                marginalia = "${state.sons.size} na constelação",
+                subtitulo = "${state.sons.size} na constelação",
                 onBack = onBack,
             )
 
@@ -85,7 +85,7 @@ fun SonsDaOrbitaScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        MarginaliaLabel("tocam para todos na call")
+                        TextoDeApoio("Tocam para todos na call.")
                         Spacer(Modifier.weight(1f))
                         val forma = RoundedCornerShape(10.dp)
                         Text(
@@ -101,7 +101,7 @@ fun SonsDaOrbitaScreen(
                     }
 
                     if (state.sons.isEmpty()) {
-                        MarginaliaLabel("nenhum som ainda — qualquer formato serve", Modifier.padding(20.dp))
+                        TextoDeApoio("Nenhum som ainda. Qualquer formato serve.", Modifier.padding(20.dp))
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -128,7 +128,7 @@ fun SonsDaOrbitaScreen(
         confirmText = "Apagar",
         onConfirm = { aApagar?.let { viewModel.apagar(it.id) }; aApagar = null },
     ) {
-        MarginaliaLabel("some da lista para toda a constelação")
+        TextoDeApoio("Some da lista para toda a constelação.")
     }
 }
 
@@ -170,7 +170,7 @@ private fun LinhaDeSom(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (som.durationMs > 0) MarginaliaLabel("%.1fs".format(som.durationMs / 1000f))
+            if (som.durationMs > 0) TextoDeApoio("%.1f s".format(som.durationMs / 1000f))
         }
         Spacer(Modifier.width(10.dp))
         Box(

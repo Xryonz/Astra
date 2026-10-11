@@ -22,6 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,7 +36,7 @@ import app.astra.mobile.ui.theme.astraColors
 fun EditorialTopBar(
     title: String,
     modifier: Modifier = Modifier,
-    marginalia: String? = null,
+    subtitulo: String? = null,
     onBack: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     modificadorDoTitulo: Modifier = Modifier,
@@ -54,6 +58,10 @@ fun EditorialTopBar(
                 modifier = Modifier
                     .clip(CircleShape)
                     .clickable(onClick = onBack)
+                    .clearAndSetSemantics {
+                        contentDescription = "Voltar"
+                        role = Role.Button
+                    }
                     .padding(horizontal = 14.dp, vertical = 4.dp),
             )
             Spacer(Modifier.width(4.dp))
@@ -63,10 +71,6 @@ fun EditorialTopBar(
             Spacer(Modifier.width(10.dp))
         }
         Column(Modifier.weight(1f)) {
-            if (marginalia != null) {
-                MarginaliaLabel(marginalia)
-                Spacer(Modifier.height(3.dp))
-            }
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
@@ -75,19 +79,32 @@ fun EditorialTopBar(
                 overflow = TextOverflow.Ellipsis,
                 modifier = modificadorDoTitulo,
             )
+            if (subtitulo != null) {
+                Spacer(Modifier.height(2.dp))
+                TextoDeApoio(subtitulo, maxLines = 1)
+            }
         }
         trailing()
     }
 }
 
 @Composable
-fun TopBarAction(glyph: String, onClick: () -> Unit, color: androidx.compose.ui.graphics.Color = astraColors.accent) {
+fun TopBarAction(
+    glyph: String,
+    rotulo: String,
+    onClick: () -> Unit,
+    color: androidx.compose.ui.graphics.Color = astraColors.accent,
+) {
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
             .border(1.dp, astraColors.borderMid, CircleShape)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = rotulo
+                role = Role.Button
+            },
         contentAlignment = Alignment.Center,
     ) {
         Text(

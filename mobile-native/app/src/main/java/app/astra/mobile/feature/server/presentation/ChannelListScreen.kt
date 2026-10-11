@@ -39,7 +39,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.ListSkeleton
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.BotaoDeTexto
 
@@ -58,7 +58,6 @@ fun ChannelListScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = viewModel.serverName,
-                marginalia = "órbitas",
                 onBack = onBack,
                 trailing = {
                     Icon(
@@ -97,7 +96,7 @@ fun ChannelListScreen(
                 }
                 state.channels.isEmpty() -> EmptyState(
                     line = "Nenhuma órbita visível",
-                    hint = "esta constelação não tem órbitas para você",
+                    hint = "Esta constelação não tem órbitas para você.",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.channels, key = { it.id }) { channel ->
@@ -149,7 +148,7 @@ private fun ChannelRow(channel: Channel, unread: Boolean, onClick: () -> Unit) {
                     .background(astraColors.accent),
             )
         } else if (channel.isVoice) {
-            MarginaliaLabel("voz", color = astraColors.text3)
+            TextoDeApoio("Voz")
         }
     }
 }

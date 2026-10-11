@@ -49,7 +49,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
@@ -80,7 +81,7 @@ fun ServerRolesScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Cargos", marginalia = "papéis e permissões", onBack = onBack)
+            EditorialTopBar(title = "Cargos", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -98,7 +99,7 @@ fun ServerRolesScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("cargos da constelação")
+                    Rotulo("Cargos da constelação")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ novo",
@@ -114,7 +115,7 @@ fun ServerRolesScreen(
                 Spacer(Modifier.height(10.dp))
 
                 if (state.roles.isEmpty()) {
-                    MarginaliaLabel("nenhum cargo ainda — crie o primeiro")
+                    TextoDeApoio("Nenhum cargo ainda. Crie o primeiro.")
                 } else {
                     state.roles.forEach { r ->
                         val shape = RoundedCornerShape(12.dp)
@@ -143,9 +144,9 @@ fun ServerRolesScreen(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            MarginaliaLabel(
-                                if (r.permissions.isEmpty()) "—"
-                                else "${r.permissions.size} perm${if (r.permissions.size == 1) "" else "s"}",
+                            TextoDeApoio(
+                                if (r.permissions.isEmpty()) "Sem permissões"
+                                else "${r.permissions.size} permiss${if (r.permissions.size == 1) "ão" else "ões"}",
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
@@ -190,7 +191,7 @@ fun ServerRolesScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.deleteRole(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("quem tinha ${deleteTarget?.name ?: "esse cargo"} perde as permissões dele")
+        TextoDeApoio("Quem tinha ${deleteTarget?.name ?: "esse cargo"} perde as permissões dele.")
     }
 }
 
@@ -217,7 +218,7 @@ private fun RoleEditorDialog(
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
             EditorialField(
                 value = name, onValue = { name = it.take(50) },
-                label = "nome do cargo", placeholder = "Moderador",
+                label = "Nome do cargo", placeholder = "Moderador",
                 enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
             )
 
@@ -226,7 +227,7 @@ private fun RoleEditorDialog(
                 Modifier.clip(RoundedCornerShape(8.dp)).toggleable(value = hasColor, role = Role.Switch, onValueChange = comVibracaoDeChave { hasColor = it }),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MarginaliaLabel("cor do cargo")
+                Rotulo("Cor do cargo")
                 Spacer(Modifier.weight(1f))
                 AstraSwitch(checked = hasColor)
             }
@@ -252,7 +253,7 @@ private fun RoleEditorDialog(
                 Spacer(Modifier.height(10.dp))
                 EditorialField(
                     value = color, onValue = { color = it.take(7) },
-                    label = "hex", placeholder = "#RRGGBB",
+                    label = "Código da cor", placeholder = "#RRGGBB",
                     enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
                 )
             }
@@ -264,14 +265,14 @@ private fun RoleEditorDialog(
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Separar na lista", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
-                    MarginaliaLabel("mostra este cargo como grupo próprio (hoist)")
+                    TextoDeApoio("Mostra este cargo como grupo próprio na lista de membros.")
                 }
                 Spacer(Modifier.width(12.dp))
                 AstraSwitch(checked = hoist)
             }
 
             Spacer(Modifier.height(18.dp))
-            MarginaliaLabel("permissões")
+            Rotulo("Permissões")
             Spacer(Modifier.height(8.dp))
             PERM_OPTIONS.forEach { (key, label, desc) ->
                 val active = key in perms
@@ -294,7 +295,7 @@ private fun RoleEditorDialog(
                             color = if (active) astraColors.accent else astraColors.text1,
                             fontWeight = FontWeight.Medium,
                         )
-                        MarginaliaLabel(desc)
+                        TextoDeApoio(desc)
                     }
                     if (active) Text("✓", color = astraColors.accent, fontSize = 15.sp)
                 }

@@ -46,7 +46,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
@@ -82,7 +82,7 @@ fun ServerEmojisScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Emojis",
-                marginalia = "${state.emojis.size}/50",
+                subtitulo = "${state.emojis.size} de 50",
                 onBack = onBack,
             )
 
@@ -96,7 +96,7 @@ fun ServerEmojisScreen(
                             .padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        MarginaliaLabel("use no chat como :nome:")
+                        TextoDeApoio("Use no chat como :nome:")
                         Spacer(Modifier.weight(1f))
                         val shape = RoundedCornerShape(10.dp)
                         Text(
@@ -112,7 +112,7 @@ fun ServerEmojisScreen(
                     }
 
                     if (state.emojis.isEmpty()) {
-                        MarginaliaLabel("nenhum emoji ainda — adicione o primeiro", Modifier.padding(20.dp))
+                        TextoDeApoio("Nenhum emoji ainda. Adicione o primeiro.", Modifier.padding(20.dp))
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(90.dp),
@@ -176,7 +176,7 @@ fun ServerEmojisScreen(
             var newName by remember(e.id) { mutableStateOf(e.name) }
             EditorialField(
                 value = newName, onValue = { newName = it.take(32) },
-                label = "renomear", placeholder = "nome",
+                label = "Renomear", placeholder = "nome",
                 enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
             )
             Spacer(Modifier.height(12.dp))
@@ -211,7 +211,7 @@ fun ServerEmojisScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.delete(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("some das mensagens que já usaram")
+        TextoDeApoio("Some das mensagens que já o usaram.")
     }
 }
 
@@ -231,11 +231,11 @@ private fun NameEmojiDialog(
         confirmEnabled = name.trim().length in 2..32,
         onConfirm = { onConfirm(name) },
     ) {
-        MarginaliaLabel("2-32 chars · letras, números e _")
+        TextoDeApoio("De 2 a 32 caracteres: letras, números e _.")
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = name, onValue = { name = it.take(32) },
-            label = "nome (sem os :)", placeholder = "vibe",
+            label = "Nome (sem os dois-pontos)", placeholder = "vibe",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
         )
     }

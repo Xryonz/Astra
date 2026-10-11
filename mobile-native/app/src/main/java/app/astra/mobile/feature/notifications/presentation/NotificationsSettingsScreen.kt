@@ -40,7 +40,8 @@ import app.astra.mobile.core.network.dto.UpdateNotificationPrefsRequest
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import app.astra.mobile.ui.components.ItemDeMenu
@@ -62,7 +63,7 @@ fun NotificationsSettingsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Notificações", marginalia = "o que te acorda", onBack = onBack)
+            EditorialTopBar(title = "Notificações", onBack = onBack)
 
             when {
                 state.loading -> Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
@@ -88,28 +89,28 @@ fun NotificationsSettingsScreen(
                     val p = state.prefs!!
 
                     Spacer(Modifier.height(8.dp))
-                    MarginaliaLabel("tipos", Modifier.padding(start = 22.dp, bottom = 8.dp))
-                    ToggleRow("Menções", "quando te citam numa órbita", p.mentions) { v ->
+                    Rotulo("Tipos", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    ToggleRow("Menções", "Quando mencionam você numa órbita.", p.mentions) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(mentions = v)) { it.copy(mentions = v) }
                     }
-                    ToggleRow("Sussurros", "mensagens diretas novas", p.dms) { v ->
+                    ToggleRow("Sussurros", "Novas mensagens diretas.", p.dms) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(dms = v)) { it.copy(dms = v) }
                     }
-                    ToggleRow("Respostas", "quando respondem sua mensagem", p.replies) { v ->
+                    ToggleRow("Respostas", "Quando respondem à sua mensagem.", p.replies) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(replies = v)) { it.copy(replies = v) }
                     }
-                    ToggleRow("Reações", "quando reagem à sua mensagem", p.reactions) { v ->
+                    ToggleRow("Reações", "Quando reagem à sua mensagem.", p.reactions) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(reactions = v)) { it.copy(reactions = v) }
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("som", Modifier.padding(start = 22.dp, bottom = 8.dp))
-                    ToggleRow("Sons de notificação", "toca ao receber", p.sounds) { v ->
+                    Rotulo("Som", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    ToggleRow("Sons de notificação", "Toca ao receber um aviso.", p.sounds) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(sounds = v)) { it.copy(sounds = v) }
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("horário silencioso", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    Rotulo("Horário silencioso", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     QuietHoursCard(
                         start = p.quietStart,
                         end = p.quietEnd,
@@ -117,7 +118,7 @@ fun NotificationsSettingsScreen(
                     )
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("push", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    Rotulo("Notificação push", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -131,7 +132,7 @@ fun NotificationsSettingsScreen(
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text("Enviar push de teste", style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
-                            MarginaliaLabel("chega no aparelho se o push estiver ativo")
+                            TextoDeApoio("Chega ao aparelho se a notificação push estiver ativa.")
                         }
                     }
 
@@ -163,7 +164,7 @@ private fun ToggleRow(
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
-            MarginaliaLabel(sub)
+            TextoDeApoio(sub)
         }
         AstraSwitch(checked = checked)
     }
@@ -185,12 +186,12 @@ private fun QuietHoursCard(
             .border(1.dp, astraColors.border, shape)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        MarginaliaLabel("sem push entre esses horários")
+        TextoDeApoio("Sem notificação push entre estes horários.")
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            HourPicker("início", start) { onChange(it, end) }
+            HourPicker("Início", start) { onChange(it, end) }
             Spacer(Modifier.width(14.dp))
-            HourPicker("fim", end) { onChange(start, it) }
+            HourPicker("Fim", end) { onChange(start, it) }
             Spacer(Modifier.weight(1f))
             if (start != null && end != null) {
                 Text(
@@ -211,7 +212,7 @@ private fun QuietHoursCard(
 private fun HourPicker(label: String, value: Int?, onPick: (Int?) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column {
-        MarginaliaLabel(label)
+        Rotulo(label)
         Spacer(Modifier.height(4.dp))
         Box {
             Text(

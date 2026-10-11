@@ -35,7 +35,7 @@ import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
@@ -61,7 +61,7 @@ fun BotDaOrbitaScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Bot",
-                marginalia = "${state.comandos.size - state.desligados.size} de ${state.comandos.size} ligados",
+                subtitulo = "${state.comandos.size - state.desligados.size} de ${state.comandos.size} ligados",
                 onBack = onBack,
             )
 
@@ -82,7 +82,7 @@ fun BotDaOrbitaScreen(
                     }
                     porCategoria.forEach { (categoria, itens) ->
                         item(key = "titulo-$categoria") {
-                            MarginaliaLabel(categoria.ifBlank { "comandos" }, Modifier.padding(start = 4.dp, bottom = 6.dp))
+                            Rotulo(categoria.ifBlank { "comandos" }.replaceFirstChar { it.titlecase() }, Modifier.padding(start = 4.dp, bottom = 6.dp))
                         }
                         item(key = "grupo-$categoria") {
                             val forma = RoundedCornerShape(12.dp)

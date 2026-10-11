@@ -51,7 +51,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
@@ -74,7 +75,7 @@ fun ServerChannelsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Órbitas", marginalia = "renomear, privar e apagar", onBack = onBack)
+            EditorialTopBar(title = "Órbitas", onBack = onBack)
 
             when {
                 state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -102,7 +103,7 @@ fun ServerChannelsScreen(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            if (c.isPrivate) MarginaliaLabel("privada", color = astraColors.accent)
+                            if (c.isPrivate) TextoDeApoio("Privada", color = astraColors.accent)
                             Spacer(Modifier.width(8.dp))
                             Text("›", color = astraColors.text3, fontSize = 18.sp)
                         }
@@ -135,7 +136,7 @@ fun ServerChannelsScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTarget?.let { viewModel.delete(it.id) }; deleteTarget = null },
     ) {
-        MarginaliaLabel("todas as mensagens dessa órbita se perdem — sem volta")
+        TextoDeApoio("Todas as mensagens desta órbita se perdem, sem volta.")
     }
 }
 
@@ -162,7 +163,7 @@ private fun ChannelManageDialog(
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
             EditorialField(
                 value = name, onValue = { name = it.take(50) },
-                label = "nome da órbita", placeholder = "geral",
+                label = "Nome da órbita", placeholder = "geral",
                 enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
             )
             Spacer(Modifier.height(8.dp))
@@ -200,7 +201,7 @@ private fun ChannelManageDialog(
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Órbita privada", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
-                    MarginaliaLabel("só os cargos marcados veem (o dono sempre vê)")
+                    TextoDeApoio("Só os cargos marcados veem; o dono sempre vê.")
                 }
                 Spacer(Modifier.width(12.dp))
                 AstraSwitch(
@@ -211,12 +212,12 @@ private fun ChannelManageDialog(
 
             if (editing.isPrivate) {
                 Spacer(Modifier.height(14.dp))
-                MarginaliaLabel("cargos com acesso")
+                Rotulo("Cargos com acesso")
                 Spacer(Modifier.height(8.dp))
                 if (editing.loadingVisibility) {
-                    MarginaliaLabel("carregando...")
+                    TextoDeApoio("Carregando…")
                 } else if (roles.isEmpty()) {
-                    MarginaliaLabel("nenhum cargo criado — crie em Cargos")
+                    TextoDeApoio("Nenhum cargo criado. Crie um em Cargos.")
                 } else {
                     roles.forEach { r ->
                         val active = r.id in editing.roleIds

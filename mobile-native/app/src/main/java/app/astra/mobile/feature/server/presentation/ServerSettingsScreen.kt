@@ -36,14 +36,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.SETTINGS_ROW_STAGGER_MS
 import app.astra.mobile.ui.components.SettingsGroup
 import app.astra.mobile.ui.components.SettingsRow
@@ -87,7 +87,7 @@ fun ServerSettingsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Configurar constelação", marginalia = "gestão", onBack = onBack)
+            EditorialTopBar(title = "Configurar constelação", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 80.dp), contentAlignment = Alignment.Center) {
@@ -136,7 +136,7 @@ fun ServerSettingsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    MarginaliaLabel(if (state.isGroup) "grupo" else "constelação")
+                    TextoDeApoio(if (state.isGroup) "Grupo" else "Constelação")
                 }
             }
 
@@ -148,31 +148,31 @@ fun ServerSettingsScreen(
 
             val geralRows = buildList<@Composable () -> Unit> {
                 if (state.canManageServer) {
-                    add { SettingsRow("Visão geral", subtitle = "ícone, nome, banner e convite", onClick = onOpenOverview) }
+                    add { SettingsRow("Visão geral", subtitle = "Ícone, nome, banner e convite", onClick = onOpenOverview) }
                 }
                 if (state.canManageChannels) {
-                    add { SettingsRow("Órbitas", subtitle = "renomear, privar e apagar canais", onClick = onOpenChannels) }
-                    add { SettingsRow("Emojis", subtitle = "emojis custom da constelação", onClick = onOpenEmojis) }
-                    add { SettingsRow("Sons", subtitle = "o que toca durante a call", onClick = onOpenSons) }
-                    add { SettingsRow("Figurinhas", subtitle = "as imagens que viram recado", onClick = onOpenFigurinhas) }
+                    add { SettingsRow("Órbitas", subtitle = "Renomear, tornar privadas e apagar", onClick = onOpenChannels) }
+                    add { SettingsRow("Emojis", subtitle = "Emojis próprios da constelação", onClick = onOpenEmojis) }
+                    add { SettingsRow("Sons", subtitle = "O que toca durante a call", onClick = onOpenSons) }
+                    add { SettingsRow("Figurinhas", subtitle = "As imagens que viram recado", onClick = onOpenFigurinhas) }
                 }
             }
             if (geralRows.isNotEmpty()) {
-                SettingsGroup(label = "geral", rows = geralRows)
+                SettingsGroup(label = "Geral", rows = geralRows)
                 Spacer(Modifier.height(20.dp))
             }
 
             val comunidadeRows = buildList<@Composable () -> Unit> {
-                add { SettingsRow("Membros", subtitle = "estrelas desta constelação", onClick = onOpenMembers) }
-                if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "papéis e permissões", onClick = onOpenRoles) }
+                add { SettingsRow("Membros", subtitle = "Estrelas desta constelação", onClick = onOpenMembers) }
+                if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "Papéis e permissões", onClick = onOpenRoles) }
                 if (state.canManageServer) {
-                    add { SettingsRow("Insígnias", subtitle = "crie e conceda", onClick = onOpenBadges) }
-                    add { SettingsRow("Bot", subtitle = "quais comandos ficam de fora", onClick = onOpenBot) }
+                    add { SettingsRow("Insígnias", subtitle = "Crie e conceda", onClick = onOpenBadges) }
+                    add { SettingsRow("Bot", subtitle = "Quais comandos ficam de fora", onClick = onOpenBot) }
                 }
-                if (state.canBan) add { SettingsRow("Banimentos", subtitle = "quem não pode voltar", onClick = onOpenBans) }
+                if (state.canBan) add { SettingsRow("Banimentos", subtitle = "Quem não pode voltar", onClick = onOpenBans) }
             }
             SettingsGroup(
-                label = "comunidade",
+                label = "Comunidade",
                 delayStartMs = geralRows.size * SETTINGS_ROW_STAGGER_MS,
                 rows = comunidadeRows,
             )
@@ -201,7 +201,7 @@ fun ServerSettingsScreen(
         confirmText = "Sair",
         onConfirm = { leaveOpen = false; viewModel.leave() },
     ) {
-        MarginaliaLabel("você sai de ${state.name}; pode voltar com um convite")
+        TextoDeApoio("Você sai de ${state.name} e pode voltar com um convite.")
     }
 
     AstraDialog(
@@ -211,6 +211,6 @@ fun ServerSettingsScreen(
         confirmText = "Excluir",
         onConfirm = { deleteOpen = false; viewModel.deleteServer() },
     ) {
-        MarginaliaLabel("apaga ${state.name} para todo mundo — órbitas, mensagens, tudo. Sem volta.")
+        TextoDeApoio("Apaga ${state.name} para todo mundo: órbitas, mensagens, tudo. Sem volta.")
     }
 }

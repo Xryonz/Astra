@@ -274,7 +274,7 @@ fun SettingsScreen(
                 else maxWidth
             Box(Modifier.align(Alignment.TopStart).width(areaDoConteudo).fillMaxHeight()) {
             Column(
-                Modifier.align(Alignment.TopCenter)
+                Modifier.align(Alignment.TopStart)
                     .widthIn(max = LARGURA_DA_COLUNA_DE_CONFIG + RECUO_DA_COLUNA_DE_CONFIG * 2).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = RECUO_DA_COLUNA_DE_CONFIG, vertical = 22.dp),

@@ -3,6 +3,12 @@ package app.astra.mobile.feature.profile.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +45,7 @@ import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.FlowRowCompat
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.AccentOption
 import app.astra.mobile.ui.theme.AccentOptions
 import app.astra.mobile.ui.theme.BgOption
@@ -59,14 +65,14 @@ fun AppearanceSection(
 
     Column(Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("previa", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Prévia", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PreviewBubbles(prefs.fontSize, prefs.density)
 
             FamiliaDeTema.entries.forEach { familia ->
                 val daFamilia = ThemePresets.filter { it.familia == familia }
                 if (daFamilia.isEmpty()) return@forEach
                 Spacer(Modifier.height(22.dp))
-                MarginaliaLabel("temas ${familia.titulo}", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                Rotulo("Temas ${familia.titulo}", Modifier.padding(start = 22.dp, bottom = 8.dp))
                 PresetGrid(
                     presets = daFamilia,
                     selectedAccent = prefs.accentId,
@@ -76,15 +82,15 @@ fun AppearanceSection(
             }
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("cor de destaque", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Cor de destaque", Modifier.padding(start = 22.dp, bottom = 8.dp))
             AccentRow(selected = prefs.accentId, onSelect = viewModel::setAccent)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("fundo", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Fundo", Modifier.padding(start = 22.dp, bottom = 8.dp))
             BgList(selected = prefs.bgId, onSelect = viewModel::setBg)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("tamanho da fonte", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Tamanho da fonte", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SegmentedRow(
                 options = FontSizePref.entries,
                 selected = prefs.fontSize,
@@ -93,7 +99,7 @@ fun AppearanceSection(
             )
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("densidade das mensagens", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Densidade das mensagens", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SegmentedRow(
                 options = DensityPref.entries,
                 selected = prefs.density,
@@ -234,7 +240,12 @@ private fun AccentSwatch(opt: AccentOption, active: Boolean, onClick: () -> Unit
                 color = if (active) astraColors.text1 else Color.White.copy(alpha = 0.12f),
                 shape = shape,
             )
-            .clickable(onClick = onClick),
+            .selectable(selected = active, role = Role.RadioButton, onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = "Cor de destaque ${opt.label}"
+                selected = active
+                role = Role.RadioButton
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (active) Text("✓", color = checkColor, fontSize = 15.sp)

@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.ui.components.AstraAvatar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.Bell
@@ -127,10 +127,10 @@ fun BarraPessoal(
                 overflow = TextOverflow.Ellipsis,
             )
             val apoio = listOfNotNull(
-                "nível $nivel".takeIf { nivel > 0 },
+                "Nível $nivel".takeIf { nivel > 0 },
                 recado?.takeIf { it.isNotBlank() },
             ).joinToString(" · ")
-            if (apoio.isNotBlank()) MarginaliaLabel(apoio)
+            if (apoio.isNotBlank()) TextoDeApoio(apoio, maxLines = 1)
         }
         Box(
             modifier = Modifier

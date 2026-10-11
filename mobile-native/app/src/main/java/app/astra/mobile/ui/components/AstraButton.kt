@@ -59,7 +59,7 @@ fun AstraButton(
                 color = fg,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
-                letterSpacing = 0.12.em,
+                letterSpacing = if (text == text.uppercase()) 0.12.em else 0.em,
             )
         }
     }

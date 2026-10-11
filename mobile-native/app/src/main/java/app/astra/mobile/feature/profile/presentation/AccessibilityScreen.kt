@@ -30,7 +30,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -43,53 +44,53 @@ fun AccessibilityScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Acessibilidade", marginalia = "movimento e vibração", onBack = onBack)
+            EditorialTopBar(title = "Acessibilidade", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("movimento", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Movimento", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
                 title = "Reduzir animações",
-                sub = "Desliga TODAS de uma vez (mestre)",
+                sub = "Desliga todas as animações de uma vez.",
                 checked = prefs.reduceMotion,
                 onCheckedChange = viewModel::setReduceMotion,
             )
 
             if (!prefs.reduceMotion) {
                 Spacer(Modifier.height(16.dp))
-                MarginaliaLabel("efeitos específicos", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                Rotulo("Efeitos específicos", Modifier.padding(start = 22.dp, bottom = 8.dp))
                 ToggleRow(
                     title = "Aurora do fundo",
-                    sub = "Brilho GPU atrás do app (o mais pesado)",
+                    sub = "Brilho atrás do app; é o efeito mais pesado.",
                     checked = prefs.animAurora,
                     onCheckedChange = viewModel::setAnimAurora,
                 )
                 ToggleRow(
                     title = "Estrelas e meteoros",
-                    sub = "Fundo animado; off deixa estático",
+                    sub = "Fundo animado; desligado, fica parado.",
                     checked = prefs.animStars,
                     onCheckedChange = viewModel::setAnimStars,
                 )
                 if (prefs.animAurora) {
                     ToggleRow(
                         title = "Toque no céu",
-                        sub = "Brilho + anel ao tocar no fundo vazio",
+                        sub = "Brilho e anel ao tocar no fundo vazio.",
                         checked = prefs.animSkyTouch,
                         onCheckedChange = viewModel::setAnimSkyTouch,
                     )
                 }
                 ToggleRow(
                     title = "Transições entre telas",
-                    sub = "Deslizar ao navegar; off vira fade curto",
+                    sub = "Deslizar ao trocar de tela; desligado, vira um esmaecer curto.",
                     checked = prefs.animTransitions,
                     onCheckedChange = viewModel::setAnimTransitions,
                 )
             }
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("toque", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Toque", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
                 title = "Vibração",
-                sub = "Resposta tátil em gestos e ações",
+                sub = "Resposta tátil em gestos e ações.",
                 checked = prefs.haptics,
                 onCheckedChange = {
                     if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -122,7 +123,7 @@ private fun ToggleRow(
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
-            MarginaliaLabel(sub)
+            TextoDeApoio(sub)
         }
         AstraSwitch(checked = checked)
     }

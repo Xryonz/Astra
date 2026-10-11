@@ -50,9 +50,8 @@ import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.HairlineRule
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.Reveal
-import app.astra.mobile.ui.components.RomanNumeral
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.AstraTheme
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -123,16 +122,6 @@ private fun LoginContent(
 
             Spacer(Modifier.height(44.dp))
 
-            Reveal(delayMillis = 90) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    RomanNumeral("I.", fontSize = 22.sp)
-                    Spacer(Modifier.width(10.dp))
-                    MarginaliaLabel("entrar", Modifier.padding(bottom = 4.dp))
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
             Reveal(delayMillis = 140) {
                 Text(
                     text = "Bem-vindo de volta",
@@ -159,7 +148,7 @@ private fun LoginContent(
                 EditorialField(
                     value = state.email,
                     onValue = onEmail,
-                    label = "e-mail",
+                    label = "E-mail",
                     placeholder = "voce@exemplo.com",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Email,
@@ -173,7 +162,7 @@ private fun LoginContent(
                 EditorialField(
                     value = state.password,
                     onValue = onPassword,
-                    label = "senha",
+                    label = "Senha",
                     placeholder = "••••••••",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Password,
@@ -272,7 +261,7 @@ private fun LoginContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MarginaliaLabel("não tem conta?")
+                    TextoDeApoio("Não tem conta?")
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Criar conta",

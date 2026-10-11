@@ -72,7 +72,6 @@ import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.EsperaDaConversa
 import app.astra.mobile.ui.components.LinhaDeEspera
 import app.astra.mobile.ui.components.PendingAttachmentsBar
@@ -148,11 +147,11 @@ fun ChannelChatScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
 
-                    state.messages.isEmpty() && !state.loading -> EmptyState(
+                    state.messages.isEmpty() && state.pendentes.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio nesta órbita",
-                        hint = "solte a primeira transmissão",
+                        hint = "Solte a primeira transmissão.",
                     )
-                    state.messages.isEmpty() || conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
+                    conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {
                         ChatMessageList(
                             conversa = conversa,
@@ -171,10 +170,14 @@ fun ChannelChatScreen(
                             onClosePoll = { viewModel.closePoll(it.id) },
                             onOpenProfile = onOpenProfile,
                             aoAbrirMeuPerfil = aoAbrirMeuPerfil,
+                            cursorDasAntigas = state.cursorAnterior,
+                            aoPedirAntigas = viewModel::carregarAntigas,
+                            onTentarDeNovo = { viewModel.tentarDeNovo(it.nonce) },
+                            onDescartarPendente = { viewModel.descartarPendente(it.nonce) },
                         )
                     }
                 }
-                LinhaDeEspera(state.loading, Modifier.align(Alignment.TopCenter))
+                LinhaDeEspera(state.loading || state.carregandoAntigas, Modifier.align(Alignment.TopCenter))
             }
 
             if (state.error != null) {

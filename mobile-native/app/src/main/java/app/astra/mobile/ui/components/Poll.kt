@@ -243,7 +243,7 @@ fun PollComposer(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MarginaliaLabel("nova enquete", color = astraColors.accent)
+                Rotulo("Nova enquete", color = astraColors.accent)
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = "×",

@@ -48,7 +48,7 @@ import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraButtonVariant
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,10 +65,10 @@ fun TelaSobre(onBack: () -> Unit) {
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Sobre", marginalia = "versão e atualizações", onBack = onBack)
+            EditorialTopBar(title = "Sobre", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("versão", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Versão", Modifier.padding(start = 22.dp, bottom = 8.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -89,7 +89,7 @@ fun TelaSobre(onBack: () -> Unit) {
             }
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("atualizações", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Atualizações", Modifier.padding(start = 22.dp, bottom = 8.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -435,6 +435,19 @@ A licença dos companheiros viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada
 folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
 
+### Animações
+
+Feitas por animadores e publicadas no [LottieFiles](https://lottiefiles.com) sob a
+Lottie Simple License, que permite uso comercial e não exige crédito — o crédito aqui
+é a regra da casa. Os arquivos ficam sem alteração em
+`mobile-native/desktopApp/src/main/resources/animacoes/`, com o texto da licença ao
+lado; a cor do tema é aplicada na hora de tocar, pela biblioteca
+[Compottie](https://github.com/alexzhirkevich/compottie) (MIT).
+
+| O quê | Autor | Origem |
+| --- | --- | --- |
+| Brilho da estrela de enviar | **Cristina Loreto V H** (variação de "stars points") | [star shine](https://lottiefiles.com/animations/star-shine-eA7UrOTpO9) |
+
 ### Tipografia
 
 | Fonte | Autor | Licença |

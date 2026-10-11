@@ -52,6 +52,10 @@ benchmark = "1.5.0-alpha06"
 uiautomator = "2.3.0"
 testExtJunit = "1.2.1"
 profileinstaller = "1.4.1"
+# Lottie (animacoes de artistas) no Compose. A linha 2.2.x e a feita para o CMP
+# 1.11; a 2.3 ja pede o 1.12. "lite" = sem motor de expressoes, que os arquivos
+# do Astra nao usam.
+compottie = "2.2.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -113,6 +117,7 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+compottie-lite = { group = "io.github.alexzhirkevich", name = "compottie-lite", version.ref = "compottie" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,7 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -9,6 +8,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -109,7 +110,14 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -136,7 +144,6 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Pin
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Reply
-import com.composables.icons.lucide.ArrowUp
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.X
@@ -615,6 +622,7 @@ fun ChatView(
             }
             var draft by remember(target.id) { mutableStateOf("") }
             var composerFocused by remember(target.id) { mutableStateOf(false) }
+            var envios by remember(target.id) { mutableIntStateOf(0) }
             val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
             val mencaoAlvo = remember(draft, membros) {
@@ -655,6 +663,7 @@ fun ChatView(
                 if (prefixo != null && serverId != null) vm.sendBotCommand(serverId, texto)
                 else vm.send(draft)
                 draft = ""
+                envios++
             }
             val canSend = (draft.isNotBlank() || state.pending.isNotEmpty()) && !comprimindo
             Column(Modifier.fillMaxWidth().then(lugarDoPetNoCampo())) {
@@ -675,13 +684,12 @@ fun ChatView(
                     draft = picked.name.substringBefore(" <") + " "
                 }
                 if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
+                val placeholder = if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .marcoDoTour(Marco.ESCREVER)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Obsidian.raised)
+                        .background(Obsidian.raised, RoundedCornerShape(12.dp))
                         .border(
                             1.dp,
                             if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
@@ -699,7 +707,13 @@ fun ChatView(
                         if (draft.isEmpty()) {
                             Text(
                                 placeholder,
-                                style = TextStyle(color = Obsidian.text3, fontSize = 15.sp, lineHeight = 22.sp),
+                                style = TextStyle(
+                                    color = Obsidian.text3,
+                                    fontSize = 17.sp,
+                                    lineHeight = 22.sp,
+                                    fontFamily = DmSerif,
+                                    fontStyle = FontStyle.Italic,
+                                ),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -748,7 +762,7 @@ fun ChatView(
                         emojisDaSala = emojisDaSala.lista,
                     )
                     Spacer(Modifier.width(4.dp))
-                    SendButton(enabled = canSend) { submit() }
+                    EstrelaDeEnviar(acesa = canSend, envios = envios) { submit() }
                 }
             }
         }
@@ -1734,29 +1748,57 @@ private fun HoverGlyph(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
+private fun EstrelaDeEnviar(acesa: Boolean, envios: Int, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
-    val bg by animateColorAsState(
-        if (enabled) Obsidian.text1 else Color.Transparent,
-        tween(170), label = "sendBg",
+    val reduzir = LocalReduceMotion.current
+    val luz by animateFloatAsState(
+        if (acesa) 1f else 0f,
+        if (reduzir) snap() else tween(TROCA_DA_ESTRELA_MS, easing = EaseOutStd),
+        label = "estrelaDeEnviar",
     )
-    val fg by animateColorAsState(
-        if (enabled) Obsidian.void else Obsidian.text3,
-        tween(170), label = "sendFg",
-    )
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(CircleShape)
-            .background(if (enabled) bg else if (hov) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(Lucide.ArrowUp, tint = fg, size = 17.dp)
+    val apagada = Obsidian.text3
+    val cor = Obsidian.accent
+    Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clickScale(src, formaDoFoco = CircleShape)
+                .clip(CircleShape)
+                .background(if (hov && acesa) Obsidian.hover else Color.Transparent)
+                .hoverable(src)
+                .clickable(interactionSource = src, indication = null, enabled = acesa, onClick = onClick)
+                .semantics { contentDescription = "enviar" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(18.dp)) {
+                val r = size.minDimension / 2f
+                if (luz < 1f) {
+                    drawPath(
+                        estrelaDeQuatroPontas(center, r * 0.86f),
+                        apagada.copy(alpha = apagada.alpha * (1f - luz)),
+                        style = Stroke(width = 1.4.dp.toPx(), join = StrokeJoin.Round),
+                    )
+                }
+                if (luz > 0f) {
+                    drawPath(estrelaDeQuatroPontas(center, r * (0.8f + 0.2f * luz)), cor.copy(alpha = cor.alpha * luz))
+                }
+            }
+        }
+        AnimacaoDeArtista(
+            arquivo = "brilho-de-envio",
+            vez = envios,
+            luz = cor,
+            modifier = Modifier.requiredSize(40.dp),
+            quadros = 0..QUADRO_FINAL_DO_BRILHO,
+            velocidade = VELOCIDADE_DO_BRILHO,
+        )
     }
 }
+
+private const val TROCA_DA_ESTRELA_MS = 180
+private const val QUADRO_FINAL_DO_BRILHO = 23
+private const val VELOCIDADE_DO_BRILHO = 2.5f
 
 @Composable
 private fun Center(text: String) {

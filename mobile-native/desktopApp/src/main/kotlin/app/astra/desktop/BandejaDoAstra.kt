@@ -227,7 +227,7 @@ private fun LinhaDaBandeja(item: ItemDaBandeja, fechar: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         item.estado?.let {
-            StatusDot(status = it, size = 10.dp, cutoutColor = fundo)
+            StatusDot(status = it, size = 14.dp, cutoutColor = fundo)
             Spacer(Modifier.width(9.dp))
         }
         Text(item.rotulo, style = TextStyle(color = cor, fontSize = 13.sp))

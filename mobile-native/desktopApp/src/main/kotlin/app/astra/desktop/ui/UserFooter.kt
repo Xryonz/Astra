@@ -367,7 +367,7 @@ private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StatusDot(status = s, size = 11.dp, cutoutColor = bg)
+                StatusDot(status = s, size = 16.dp, cutoutColor = bg)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     statusLabel(s),

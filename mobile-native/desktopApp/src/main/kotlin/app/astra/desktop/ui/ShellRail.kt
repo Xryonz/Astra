@@ -777,7 +777,7 @@ internal fun FaixaDaConstelacao(
             )
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(5.dp).clip(CircleShape).background(Obsidian.success))
+                StatusDot(UserStatus.ONLINE, size = 8.dp)
                 Spacer(Modifier.width(5.dp))
                 Text(
                     "$online/$membros " + (if (membros == 1) "membro" else "membros") + " online",

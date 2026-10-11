@@ -46,7 +46,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
@@ -80,7 +80,7 @@ fun FigurinhasDaOrbitaScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Figurinhas",
-                marginalia = "${state.figurinhas.size} na constelação",
+                subtitulo = "${state.figurinhas.size} na constelação",
                 onBack = onBack,
             )
 
@@ -92,7 +92,7 @@ fun FigurinhasDaOrbitaScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        MarginaliaLabel("vão inteiras, sem recompressão")
+                        TextoDeApoio("Vão inteiras, sem recompressão.")
                         Spacer(Modifier.weight(1f))
                         val forma = RoundedCornerShape(10.dp)
                         Text(
@@ -112,7 +112,7 @@ fun FigurinhasDaOrbitaScreen(
                     }
 
                     if (state.figurinhas.isEmpty()) {
-                        MarginaliaLabel("nenhuma figurinha ainda — suba a primeira", Modifier.padding(20.dp))
+                        TextoDeApoio("Nenhuma figurinha ainda. Envie a primeira.", Modifier.padding(20.dp))
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(104.dp),
@@ -166,12 +166,12 @@ fun FigurinhasDaOrbitaScreen(
                 escolhida = null
             },
         ) {
-            MarginaliaLabel("é assim que ela aparece na lista")
+            TextoDeApoio("É assim que ela aparece na lista.")
             Spacer(Modifier.height(12.dp))
             EditorialField(
                 value = nome,
                 onValue = { nome = it.take(40) },
-                label = "nome",
+                label = "Nome",
                 placeholder = "pensativo",
                 enabled = true,
                 keyboardType = KeyboardType.Text,
@@ -187,6 +187,6 @@ fun FigurinhasDaOrbitaScreen(
         confirmText = "Apagar",
         onConfirm = { aApagar?.let { viewModel.apagar(it.id) }; aApagar = null },
     ) {
-        MarginaliaLabel("some da lista para toda a constelação")
+        TextoDeApoio("Some da lista para toda a constelação.")
     }
 }

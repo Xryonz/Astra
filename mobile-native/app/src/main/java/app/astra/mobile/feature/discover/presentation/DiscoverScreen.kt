@@ -33,7 +33,7 @@ import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -54,7 +54,7 @@ fun DiscoverScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().edgeSwipeBack(onBack)) {
-            EditorialTopBar(title = "Descobrir", marginalia = "constelações públicas", onBack = onBack)
+            EditorialTopBar(title = "Descobrir", onBack = onBack)
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
                 Input(
@@ -73,7 +73,7 @@ fun DiscoverScreen(
                     s.error != null -> Center(s.error!!)
                     s.servers.isEmpty() -> EmptyState(
                         line = "Nenhuma constelação pública",
-                        hint = "seja o primeiro a fundar uma",
+                        hint = "Seja o primeiro a fundar uma.",
                     )
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -136,7 +136,7 @@ private fun DiscoverCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            MarginaliaLabel("${server.members} estrelas")
+            TextoDeApoio("${server.members} estrela${if (server.members == 1) "" else "s"}")
         }
         Spacer(Modifier.width(10.dp))
         val pill = RoundedCornerShape(12.dp)

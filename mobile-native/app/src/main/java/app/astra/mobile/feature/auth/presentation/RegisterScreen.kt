@@ -43,9 +43,8 @@ import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.HairlineRule
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.Reveal
-import app.astra.mobile.ui.components.RomanNumeral
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.AstraTheme
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -108,16 +107,6 @@ private fun RegisterContent(
 
             Spacer(Modifier.height(34.dp))
 
-            Reveal(delayMillis = 90) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    RomanNumeral("II.", fontSize = 22.sp)
-                    Spacer(Modifier.width(10.dp))
-                    MarginaliaLabel("criar conta", Modifier.padding(bottom = 4.dp))
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
             Reveal(delayMillis = 140) {
                 Text(
                     text = "Criar sua conta",
@@ -144,7 +133,7 @@ private fun RegisterContent(
                 EditorialField(
                     value = state.displayName,
                     onValue = onDisplayName,
-                    label = "nome",
+                    label = "Nome",
                     placeholder = "Como te chamam",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Text,
@@ -158,7 +147,7 @@ private fun RegisterContent(
                 EditorialField(
                     value = state.username,
                     onValue = onUsername,
-                    label = "username",
+                    label = "Usuário",
                     placeholder = "minusculas_e_numeros",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Ascii,
@@ -172,7 +161,7 @@ private fun RegisterContent(
                 EditorialField(
                     value = state.email,
                     onValue = onEmail,
-                    label = "e-mail",
+                    label = "E-mail",
                     placeholder = "voce@exemplo.com",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Email,
@@ -186,7 +175,7 @@ private fun RegisterContent(
                 EditorialField(
                     value = state.password,
                     onValue = onPassword,
-                    label = "senha",
+                    label = "Senha",
                     placeholder = "8+ com maiúscula e número",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Password,
@@ -240,7 +229,7 @@ private fun RegisterContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MarginaliaLabel("já tem conta?")
+                    TextoDeApoio("Já tem conta?")
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Entrar",

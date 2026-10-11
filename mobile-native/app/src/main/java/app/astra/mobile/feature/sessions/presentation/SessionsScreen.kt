@@ -39,7 +39,8 @@ import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -53,10 +54,10 @@ fun SessionsScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Sessões", marginalia = "dispositivos conectados", onBack = onBack)
+            EditorialTopBar(title = "Sessões", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("sessões ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
+            Rotulo("Sessões ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
             when {
                 state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -193,7 +194,7 @@ private fun SessionCard(s: SessionRow, revoking: Boolean, onRevoke: () -> Unit) 
                     )
                 }
             }
-            MarginaliaLabel(
+            TextoDeApoio(
                 buildString {
                     append(s.ip ?: "IP desconhecido")
                     val rel = relTime(s.lastUsed)

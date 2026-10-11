@@ -35,7 +35,8 @@ import app.astra.mobile.core.data.QualidadeAoTransmitir
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
@@ -49,10 +50,10 @@ fun VozScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Voz", marginalia = "qualidade da imagem", onBack = onBack)
+            EditorialTopBar(title = "Voz", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("ao assistir a uma transmissão", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Ao assistir a uma transmissão", Modifier.padding(start = 22.dp, bottom = 8.dp))
             CartaoDeEscolhas(
                 opcoes = QualidadeAoAssistir.entries,
                 escolhida = prefs.aoAssistir,
@@ -62,12 +63,12 @@ fun VozScreen(
             )
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("ao transmitir a sua tela", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            Rotulo("Ao transmitir a sua tela", Modifier.padding(start = 22.dp, bottom = 8.dp))
             CartaoDeEscolhas(
                 opcoes = QualidadeAoTransmitir.entries,
                 escolhida = prefs.aoTransmitir,
                 titulo = { it.rotulo },
-                apoio = { "cerca de ${it.kbps / 1_000} Mbps" },
+                apoio = { "Cerca de ${it.kbps / 1_000} Mbps" },
                 aoEscolher = viewModel::setAoTransmitir,
             )
             Spacer(Modifier.height(14.dp))
@@ -120,7 +121,7 @@ private fun <T> CartaoDeEscolhas(
                         style = MaterialTheme.typography.titleMedium,
                         color = if (esta) astraColors.text1 else astraColors.text2,
                     )
-                    MarginaliaLabel(apoio(opcao))
+                    TextoDeApoio(apoio(opcao))
                 }
                 if (esta) {
                     Spacer(Modifier.width(12.dp))

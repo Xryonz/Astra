@@ -13,17 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
-import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.tween
 import app.astra.mobile.ui.LocalAppPrefs
-import app.astra.mobile.ui.theme.DmMono
-import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.delay
@@ -53,37 +49,35 @@ fun Reveal(
 }
 
 @Composable
-fun MarginaliaLabel(
-    text: String,
+fun Rotulo(
+    texto: String,
     modifier: Modifier = Modifier,
     color: Color = astraColors.text3,
 ) {
     Text(
-        text = text.uppercase(),
+        text = texto,
         modifier = modifier,
+        style = MaterialTheme.typography.labelLarge,
         color = color,
-        fontFamily = DmMono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        letterSpacing = 0.22.em,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
 }
 
 @Composable
-fun RomanNumeral(
-    text: String,
+fun TextoDeApoio(
+    texto: String,
     modifier: Modifier = Modifier,
-    fontSize: androidx.compose.ui.unit.TextUnit = 20.sp,
+    color: Color = astraColors.text3,
+    maxLines: Int = Int.MAX_VALUE,
+    textAlign: TextAlign? = null,
 ) {
     Text(
-        text = text,
+        text = texto,
         modifier = modifier,
-        color = astraColors.accent,
-        fontFamily = DmSerif,
-        fontStyle = FontStyle.Italic,
-        fontSize = fontSize,
+        style = MaterialTheme.typography.bodySmall,
+        color = color,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
     )
 }
 

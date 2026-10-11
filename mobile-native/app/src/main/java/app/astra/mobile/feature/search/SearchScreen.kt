@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,7 +53,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
@@ -71,8 +73,8 @@ fun SearchScreen(
     LaunchedEffect(Unit) { focus.requestFocus() }
 
     CosmicBackground {
-        Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Buscar", marginalia = "em tudo", onBack = onBack)
+        Column(Modifier.fillMaxSize().imePadding()) {
+            EditorialTopBar(title = "Buscar", onBack = onBack)
 
             TextField(
                 value = state.query,
@@ -99,11 +101,11 @@ fun SearchScreen(
                 state.loading && state.empty -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
                 state.query.trim().length < 2 -> EmptyState(
                     line = "Busca em toda a Astra",
-                    hint = "digite 2+ letras para achar mensagens, órbitas, estrelas e constelações",
+                    hint = "Digite ao menos duas letras para buscar mensagens, órbitas, estrelas e constelações.",
                 )
                 state.empty -> EmptyState(
                     line = "Nada encontrado",
-                    hint = "tenta outro termo",
+                    hint = "Tente outro termo.",
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize(),
@@ -158,8 +160,8 @@ fun SearchScreen(
 
 @Composable
 private fun SectionHeader(text: String) {
-    MarginaliaLabel(
-        "— ${text.lowercase()}",
+    Rotulo(
+        text,
         Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp),
     )
 }
@@ -200,7 +202,7 @@ private fun ServerResult(s: SearchServerDto, onClick: () -> Unit) = RowCard(onCl
         s.name, style = MaterialTheme.typography.titleMedium, color = astraColors.text1,
         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
     )
-    MarginaliaLabel(if (s.isGroup) "grupo" else "constelação")
+    TextoDeApoio(if (s.isGroup) "Grupo" else "Constelação")
 }
 
 @Composable
@@ -208,7 +210,7 @@ private fun ChannelResult(c: SearchChannelDto, onClick: () -> Unit) = RowCard(on
     Text(if (c.type == "VOICE") "🔊" else "#", color = astraColors.text3, fontSize = 16.sp, modifier = Modifier.width(28.dp))
     Column(Modifier.weight(1f)) {
         Text(c.name, style = MaterialTheme.typography.titleMedium, color = astraColors.text1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        MarginaliaLabel(c.serverName)
+        TextoDeApoio(c.serverName, maxLines = 1)
     }
 }
 
@@ -218,7 +220,7 @@ private fun UserResult(u: SearchUserDto, onClick: () -> Unit) = RowCard(onClick)
     Spacer(Modifier.width(12.dp))
     Column(Modifier.weight(1f)) {
         Text(u.displayName ?: u.username, style = MaterialTheme.typography.titleMedium, color = astraColors.text1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        MarginaliaLabel("@${u.username}")
+        TextoDeApoio("@${u.username}", maxLines = 1)
     }
 }
 
@@ -234,7 +236,7 @@ private fun MessageResult(m: SearchMessageDto, onClick: () -> Unit) = RowCard(on
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.width(8.dp))
-            MarginaliaLabel("#${m.channelName}")
+            TextoDeApoio("#${m.channelName}", maxLines = 1)
         }
         Text(
             m.content, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2,

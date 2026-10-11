@@ -28,13 +28,13 @@ data class ServerRolesUiState(
 )
 
 val PERM_OPTIONS: List<Triple<String, String, String>> = listOf(
-    Triple("MANAGE_SERVER", "Gerenciar constelação", "editar nome, ícone, retenção"),
-    Triple("MANAGE_ROLES", "Gerenciar cargos", "criar/editar cargos (sempre pertence ao dono)"),
-    Triple("MANAGE_CHANNELS", "Gerenciar órbitas", "criar, editar, apagar órbitas e emojis"),
-    Triple("KICK_MEMBERS", "Expulsar", "remover estrelas da constelação"),
-    Triple("BAN_MEMBERS", "Banir", "bloqueio permanente"),
-    Triple("MANAGE_MESSAGES", "Gerenciar mensagens", "apagar mensagens de outros, fixar"),
-    Triple("MENTION_EVERYONE", "Mencionar @everyone", "notifica todo mundo"),
+    Triple("MANAGE_SERVER", "Gerenciar constelação", "Editar nome, ícone e retenção."),
+    Triple("MANAGE_ROLES", "Gerenciar cargos", "Criar e editar cargos; o dono sempre pode."),
+    Triple("MANAGE_CHANNELS", "Gerenciar órbitas", "Criar, editar e apagar órbitas e emojis."),
+    Triple("KICK_MEMBERS", "Expulsar", "Remover estrelas da constelação."),
+    Triple("BAN_MEMBERS", "Banir", "Bloqueio permanente."),
+    Triple("MANAGE_MESSAGES", "Gerenciar mensagens", "Apagar mensagens de outros e fixar."),
+    Triple("MENTION_EVERYONE", "Mencionar @everyone", "Avisa todo mundo de uma vez."),
 )
 
 @HiltViewModel

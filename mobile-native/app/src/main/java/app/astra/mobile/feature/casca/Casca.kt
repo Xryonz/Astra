@@ -267,7 +267,7 @@ fun Casca(
                         aoReordenarCategorias = { ids -> viewModel.reordenarCategorias(orbita.id, ids) },
                     )
                 } else if (estado.loading && estado.dms.isEmpty() && estado.servers.isEmpty()) {
-                    EmptyState(line = "Abrindo o céu", hint = "um instante")
+                    EmptyState(line = "Abrindo o céu", hint = "Um instante.")
                 } else {
                     PainelDeSussurros(
                         sussurros = estado.dms,

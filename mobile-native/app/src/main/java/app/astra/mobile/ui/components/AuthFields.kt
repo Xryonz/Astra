@@ -53,7 +53,7 @@ fun EditorialField(
         label = "underline",
     )
     Column(Modifier.fillMaxWidth()) {
-        MarginaliaLabel(label)
+        Rotulo(label)
         Spacer(Modifier.height(6.dp))
         BasicTextField(
             value = value,

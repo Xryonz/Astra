@@ -31,7 +31,7 @@ import app.astra.mobile.ui.components.AstraButtonVariant
 import app.astra.mobile.ui.components.BotaoDeTexto
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.FolhaQueSobe
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.rememberEstadoDaFolha
 import app.astra.mobile.ui.theme.astraColors
 import com.composables.icons.lucide.Lucide
@@ -144,7 +144,7 @@ private fun ConteudoDaFolha(
                 }
 
                 mesPorExtenso(p.createdAt)?.let { desde ->
-                    MarginaliaLabel("nas estrelas desde $desde")
+                    TextoDeApoio("Nas estrelas desde $desde")
                 }
 
                 Row(

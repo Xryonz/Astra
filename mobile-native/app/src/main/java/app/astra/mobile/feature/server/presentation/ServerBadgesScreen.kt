@@ -45,7 +45,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -61,7 +62,7 @@ fun ServerBadgesScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Insígnias", marginalia = "crie e conceda", onBack = onBack)
+            EditorialTopBar(title = "Insígnias", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -75,7 +76,7 @@ fun ServerBadgesScreen(
                     .padding(horizontal = 26.dp, vertical = 18.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("insígnias da constelação")
+                    Rotulo("Insígnias da constelação")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ nova",
@@ -90,7 +91,7 @@ fun ServerBadgesScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 if (state.badges.isEmpty()) {
-                    MarginaliaLabel("nenhuma insígnia ainda — crie a primeira")
+                    TextoDeApoio("Nenhuma insígnia ainda. Crie a primeira.")
                 } else {
                     state.badges.forEach { b ->
                         Row(
@@ -103,7 +104,7 @@ fun ServerBadgesScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text("${b.icon} ${b.name}", style = MaterialTheme.typography.bodyLarge, color = astraColors.text1, modifier = Modifier.weight(1f))
-                            MarginaliaLabel("${b.grantedUserIds.size} estrela${if (b.grantedUserIds.size == 1) "" else "s"}")
+                            TextoDeApoio("${b.grantedUserIds.size} estrela${if (b.grantedUserIds.size == 1) "" else "s"}")
                             Spacer(Modifier.width(12.dp))
                             Text(
                                 text = "✕",
@@ -115,7 +116,7 @@ fun ServerBadgesScreen(
                             )
                         }
                     }
-                    MarginaliaLabel("toque numa insígnia para conceder a membros")
+                    TextoDeApoio("Toque numa insígnia para concedê-la a membros.")
                 }
                 if (state.badgeError != null) {
                     Spacer(Modifier.height(10.dp))
@@ -143,7 +144,7 @@ fun ServerBadgesScreen(
         dismissText = null,
     ) {
         if (state.members.isEmpty()) {
-            MarginaliaLabel("nenhum membro carregado")
+            TextoDeApoio("Nenhum membro carregado.")
         } else {
             Column(
                 Modifier
@@ -181,7 +182,7 @@ fun ServerBadgesScreen(
         confirmText = "Apagar",
         onConfirm = { deleteTargetId?.let(viewModel::deleteBadge); deleteTargetId = null },
     ) {
-        MarginaliaLabel("ela some do perfil de quem recebeu")
+        TextoDeApoio("Ela some do perfil de quem a recebeu.")
     }
 }
 
@@ -205,23 +206,23 @@ private fun CreateBadgeDialog(
     ) {
         EditorialField(
             value = icon, onValue = { icon = it.take(16) },
-            label = "emoji", placeholder = "🔥",
+            label = "Emoji", placeholder = "🔥",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
         )
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = name, onValue = { name = it.take(40) },
-            label = "nome", placeholder = "Lenda",
+            label = "Nome", placeholder = "Lenda",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
         )
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = desc, onValue = { desc = it.take(120) },
-            label = "descrição (opcional)", placeholder = "por que essa insígnia existe",
+            label = "Descrição (opcional)", placeholder = "por que essa insígnia existe",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
         )
         Spacer(Modifier.height(14.dp))
-        MarginaliaLabel("cor da borda")
+        Rotulo("Cor da borda")
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BADGE_COLORS.forEach { hex ->

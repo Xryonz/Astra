@@ -72,7 +72,6 @@ import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.EsperaDaConversa
 import app.astra.mobile.ui.components.LinhaDeEspera
 import app.astra.mobile.ui.components.PendingAttachmentsBar
@@ -150,7 +149,7 @@ fun ChannelChatScreen(
 
                     state.messages.isEmpty() && state.pendentes.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio nesta órbita",
-                        hint = "solte a primeira transmissão",
+                        hint = "Solte a primeira transmissão.",
                     )
                     conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {

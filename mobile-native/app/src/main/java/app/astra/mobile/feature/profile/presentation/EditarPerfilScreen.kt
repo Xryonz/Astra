@@ -81,7 +81,8 @@ import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.FolhaQueSobe
 import app.astra.mobile.ui.components.JanelaDeRecorte
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.PROPORCAO_DO_BANNER_DO_PERFIL
 import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.ehGif
@@ -222,20 +223,20 @@ fun EditarPerfilScreen(
                 Spacer(Modifier.height(8.dp))
                 EditorialField(
                     value = state.customStatus, onValue = viewModel::onCustomStatus,
-                    label = "recado", placeholder = "No que você está pensando?",
+                    label = "Recado", placeholder = "No que você está pensando?",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
                     modificadorDoCampo = Modifier.focusRequester(focoDoRecado),
                 )
                 Spacer(Modifier.height(16.dp))
                 EditorialField(
                     value = state.pronouns, onValue = viewModel::onPronouns,
-                    label = "pronomes", placeholder = "ele/dele",
+                    label = "Pronomes", placeholder = "ele/dele",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
                 )
                 Spacer(Modifier.height(16.dp))
                 EditorialField(
                     value = state.bio, onValue = viewModel::onBio,
-                    label = "bio", placeholder = "Fale de você",
+                    label = "Bio", placeholder = "Fale de você",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Default,
                     singleLine = false,
                 )
@@ -325,7 +326,7 @@ private fun Enviando(modifier: Modifier) {
 @Composable
 private fun EscolhaDaFonte(atual: String, aoEscolher: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MarginaliaLabel("fonte do nome")
+        Rotulo("Fonte do nome")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DisplayFontOptions.forEach { (id, label) ->
                 val ativa = atual == id
@@ -450,7 +451,7 @@ private fun FolhaDoBanner(
             AcaoDaFolha(Lucide.Image, "Trocar imagem", astraColors.text1) { folha.fechar { aoFechar(); aoTrocar() } }
             AcaoDaFolha(Lucide.Trash2, "Remover imagem", astraColors.danger) { folha.fechar { aoFechar(); aoRemover() } }
             Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 18.dp)) {
-                MarginaliaLabel("zoom")
+                Rotulo("Zoom")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Slider(
                         value = escala.toFloat().coerceIn(ZOOM_MINIMO_DO_BANNER, ZOOM_MAXIMO_DO_BANNER),
@@ -466,7 +467,7 @@ private fun FolhaDoBanner(
                     Spacer(Modifier.width(10.dp))
                     Text("$escala%", style = MaterialTheme.typography.labelMedium, color = astraColors.text3)
                 }
-                MarginaliaLabel("arraste o banner para reposicionar")
+                TextoDeApoio("Arraste o banner para reposicionar.")
             }
         }
     }

@@ -29,7 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
@@ -56,14 +56,14 @@ fun VerifyEmailScreen(
                 color = astraColors.text1,
             )
             Spacer(Modifier.height(6.dp))
-            MarginaliaLabel(
-                if (state.email.isBlank()) "mandamos um código de 6 dígitos para o seu e-mail"
-                else "mandamos um código de 6 dígitos para ${state.email}",
+            TextoDeApoio(
+                if (state.email.isBlank()) "Mandamos um código de 6 dígitos para o seu e-mail."
+                else "Mandamos um código de 6 dígitos para ${state.email}.",
             )
             Spacer(Modifier.height(20.dp))
             EditorialField(
                 value = state.code, onValue = viewModel::onCode,
-                label = "código", placeholder = "000000",
+                label = "Código", placeholder = "000000",
                 enabled = !state.checking, keyboardType = KeyboardType.Number, imeAction = ImeAction.Done,
                 onIme = viewModel::verify,
             )
@@ -101,7 +101,7 @@ fun VerifyEmailScreen(
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                if (state.resent) MarginaliaLabel("enviado ✓", color = astraColors.success)
+                if (state.resent) TextoDeApoio("Enviado ✓", color = astraColors.success)
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = "sair da conta",

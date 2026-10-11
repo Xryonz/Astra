@@ -64,9 +64,8 @@ fun DmListScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Sussurros",
-                marginalia = "mensagens diretas",
                 onBack = onBack,
-                trailing = { TopBarAction("+", onClick = { showDialog = true }) },
+                trailing = { TopBarAction("+", rotulo = "Novo sussurro", onClick = { showDialog = true }) },
             )
             when {
                 state.loading -> ListSkeleton(avatar = true)
@@ -80,7 +79,7 @@ fun DmListScreen(
                 }
                 state.conversations.isEmpty() -> EmptyState(
                     line = AstraCopy.Empties.noDMs.title,
-                    hint = "toque em + para iniciar um sussurro",
+                    hint = "Toque em + para iniciar um sussurro.",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.conversations, key = { it.id }) { conv ->
@@ -164,7 +163,7 @@ private fun NewConversationDialog(
             onValueChange = { username = it },
             singleLine = true,
             enabled = !opening,
-            label = { Text("@username") },
+            label = { Text("@usuário") },
             modifier = Modifier.fillMaxWidth(),
         )
         if (error != null) {

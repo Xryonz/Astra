@@ -87,7 +87,7 @@ fun ColorGradientPicker(
         Spacer(Modifier.height(10.dp))
         EditorialField(
             value = hexA, onValue = { hexA = it; emit() },
-            label = if (mode == PickMode.SOLID) "cor (hex)" else "início (hex)",
+            label = if (mode == PickMode.SOLID) "Código da cor" else "Cor inicial",
             placeholder = "#c9a96e",
             enabled = true, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next,
         )
@@ -96,14 +96,14 @@ fun ColorGradientPicker(
             Spacer(Modifier.height(10.dp))
             EditorialField(
                 value = hexB, onValue = { hexB = it; emit() },
-                label = "fim (hex)", placeholder = "#6aaeca",
+                label = "Cor final", placeholder = "#6aaeca",
                 enabled = true, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done,
             )
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MarginaliaLabel("ângulo")
+                Rotulo("Ângulo")
                 Slider(
                     value = angle.toFloat(),
                     onValueChange = { angle = it.toInt(); emit() },

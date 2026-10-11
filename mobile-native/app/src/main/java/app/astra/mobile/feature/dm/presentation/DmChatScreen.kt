@@ -197,7 +197,7 @@ fun DmChatScreen(
 
                     state.messages.isEmpty() && state.pendentes.isEmpty() && !state.loading -> EmptyState(
                         line = "Silêncio cósmico",
-                        hint = "diga oi 👋",
+                        hint = "Envie a primeira mensagem.",
                     )
                     conversa.rows.isEmpty() -> EsperaDaConversa(carregando = true)
                     else -> {

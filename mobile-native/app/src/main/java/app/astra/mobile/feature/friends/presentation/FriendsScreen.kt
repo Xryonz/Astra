@@ -46,7 +46,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.ListSkeleton
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.BotaoDeTexto
@@ -77,9 +78,8 @@ fun FriendsScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Estrelas",
-                marginalia = "sua constelação de amigos",
                 onBack = onBack,
-                trailing = { TopBarAction("+", onClick = { showAdd = true }) },
+                trailing = { TopBarAction("+", rotulo = "Adicionar estrela", onClick = { showAdd = true }) },
             )
 
             val emOrbita = remember(state.friends) {
@@ -120,7 +120,7 @@ fun FriendsScreen(
                 ) { pagina -> when (FriendsTab.entries[pagina]) {
                     FriendsTab.EM_ORBITA ->
                         if (emOrbita.isEmpty()) {
-                            EmptyState("Ninguém em órbita", "quem estiver online aparece aqui")
+                            EmptyState("Ninguém em órbita", "Quem estiver online aparece aqui.")
                         } else {
                             LazyColumn(Modifier.fillMaxSize()) {
                                 items(emOrbita, key = { it.friendshipId }) { f ->
@@ -134,7 +134,7 @@ fun FriendsScreen(
                         }
 
                     FriendsTab.AMIGOS ->
-                        if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "toque em + para alinhar uma estrela")
+                        if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "Toque em + para alinhar uma estrela.")
                         else LazyColumn(Modifier.fillMaxSize()) {
                             items(state.friends, key = { it.friendshipId }) { f ->
                                 FriendRow(
@@ -147,13 +147,13 @@ fun FriendsScreen(
 
                     FriendsTab.PEDIDOS ->
                         if (state.incoming.isEmpty() && state.outgoing.isEmpty()) {
-                            EmptyState("Nenhum pedido", "convites recebidos e enviados aparecem aqui")
+                            EmptyState("Nenhum pedido", "Convites recebidos e enviados aparecem aqui.")
                         } else {
                             LazyColumn(Modifier.fillMaxSize()) {
                                 if (state.incoming.isNotEmpty()) {
                                     item(key = "recebidos") {
-                                        MarginaliaLabel(
-                                            "recebidos",
+                                        Rotulo(
+                                            "Recebidos",
                                             Modifier.padding(start = 22.dp, top = 10.dp, bottom = 6.dp),
                                         )
                                     }
@@ -168,8 +168,8 @@ fun FriendsScreen(
                                 }
                                 if (state.outgoing.isNotEmpty()) {
                                     item(key = "enviados") {
-                                        MarginaliaLabel(
-                                            "enviados",
+                                        Rotulo(
+                                            "Enviados",
                                             Modifier.padding(start = 22.dp, top = 16.dp, bottom = 6.dp),
                                         )
                                     }
@@ -252,7 +252,7 @@ private fun RequestRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            MarginaliaLabel("@${r.username}")
+            TextoDeApoio("@${r.username}", maxLines = 1)
         }
         if (primaryLabel != null) {
             Pill(primaryLabel, accent = true, onClick = onPrimary)
@@ -320,7 +320,7 @@ private fun AddFriendDialog(
         confirmEnabled = username.isNotBlank() && !adding,
     ) {
         Text(
-            "Alinhe uma estrela pelo @username (ou pela coordenada Astra).",
+            "Alinhe uma estrela pelo @usuário (ou pela coordenada Astra).",
             style = MaterialTheme.typography.bodySmall,
             color = astraColors.text2,
         )
@@ -329,7 +329,7 @@ private fun AddFriendDialog(
             onValueChange = { username = it },
             singleLine = true,
             enabled = !adding,
-            label = { Text("@username") },
+            label = { Text("@usuário") },
             modifier = Modifier.fillMaxWidth(),
         )
         if (error != null) {

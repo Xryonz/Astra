@@ -1147,7 +1147,7 @@ fun EditingBanner(onCancel: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MarginaliaLabel("editando mensagem", color = astraColors.accent)
+        TextoDeApoio("Editando mensagem", color = astraColors.accent, maxLines = 1)
         Spacer(Modifier.weight(1f))
         Text(
             text = "cancelar",
@@ -1165,7 +1165,7 @@ fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            MarginaliaLabel("respondendo a $author", color = astraColors.accent)
+            TextoDeApoio("Respondendo a $author", color = astraColors.accent, maxLines = 1)
             Text(
                 text = preview,
                 style = MaterialTheme.typography.bodySmall,

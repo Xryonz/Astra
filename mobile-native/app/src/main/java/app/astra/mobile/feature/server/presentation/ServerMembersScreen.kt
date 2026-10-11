@@ -46,7 +46,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.ItemDeMenu
 
@@ -75,7 +75,7 @@ fun ServerMembersScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Membros",
-                marginalia = "${state.members.size} estrela${if (state.members.size == 1) "" else "s"}",
+                subtitulo = "${state.members.size} estrela${if (state.members.size == 1) "" else "s"}",
                 onBack = onBack,
             )
 
@@ -123,11 +123,11 @@ fun ServerMembersScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                MarginaliaLabel("@${m.username}")
+                                TextoDeApoio("@${m.username}", maxLines = 1)
                             }
                             when (m.role) {
-                                "OWNER" -> MarginaliaLabel("dono", color = astraColors.accent)
-                                "ADMIN" -> MarginaliaLabel("admin")
+                                "OWNER" -> TextoDeApoio("Dono", color = astraColors.accent)
+                                "ADMIN" -> TextoDeApoio("Admin")
                             }
                         }
 
@@ -181,7 +181,7 @@ fun ServerMembersScreen(
         confirmText = "Expulsar",
         onConfirm = { kickTarget?.let { viewModel.kick(it.memberId) }; kickTarget = null },
     ) {
-        MarginaliaLabel("pode voltar com um convite")
+        TextoDeApoio("Pode voltar com um convite.")
     }
 
     BanDialog(
@@ -205,11 +205,11 @@ private fun BanDialog(
         confirmText = "Banir",
         onConfirm = { target?.let { onConfirm(it.userId, reason) } },
     ) {
-        MarginaliaLabel("não entra mais nem com convite; dá para revogar depois")
+        TextoDeApoio("Não entra mais nem com convite; dá para revogar depois.")
         Spacer(Modifier.height(12.dp))
         EditorialField(
             value = reason, onValue = { reason = it.take(500) },
-            label = "motivo (opcional)", placeholder = "por que essa estrela foi banida",
+            label = "Motivo (opcional)", placeholder = "por que essa estrela foi banida",
             enabled = true, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
         )
     }

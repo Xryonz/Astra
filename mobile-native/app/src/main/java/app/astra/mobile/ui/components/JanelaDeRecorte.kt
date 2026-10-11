@@ -199,7 +199,7 @@ fun JanelaDeRecorte(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MarginaliaLabel("zoom")
+            Rotulo("Zoom")
             Slider(
                 value = zoom,
                 onValueChange = {

@@ -31,7 +31,7 @@ import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.BotaoDeTexto
 
@@ -51,7 +51,6 @@ fun JoinServerScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = AstraCopy.Action.joinServer,
-                marginalia = "convite",
                 onBack = onBack,
             )
 
@@ -107,7 +106,7 @@ fun JoinServerScreen(
                             color = astraColors.text1,
                             textAlign = TextAlign.Center,
                         )
-                        MarginaliaLabel("${preview.memberCount} ${if (preview.memberCount == 1) AstraCopy.Noun.person else AstraCopy.Noun.personPl}")
+                        TextoDeApoio("${preview.memberCount} ${if (preview.memberCount == 1) AstraCopy.Noun.person else AstraCopy.Noun.personPl}")
 
                         Spacer(Modifier.height(6.dp))
                         if (preview.isGroup) {

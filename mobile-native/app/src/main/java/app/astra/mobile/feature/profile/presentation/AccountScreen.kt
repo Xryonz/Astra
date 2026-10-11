@@ -41,7 +41,8 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.components.BotaoCheio
@@ -55,7 +56,7 @@ fun AccountScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Conta", marginalia = "sua identidade", onBack = onBack)
+            EditorialTopBar(title = "Conta", onBack = onBack)
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -73,7 +74,7 @@ fun AccountScreen(
                     EditorialField(
                         value = state.displayName,
                         onValue = viewModel::onDisplayName,
-                        label = "nome de exibição",
+                        label = "Nome de exibição",
                         placeholder = "Como te chamam",
                         enabled = !state.saving,
                         keyboardType = KeyboardType.Text,
@@ -83,7 +84,7 @@ fun AccountScreen(
                     EditorialField(
                         value = state.username,
                         onValue = viewModel::onUsername,
-                        label = "usuário",
+                        label = "Usuário",
                         placeholder = "letras minúsculas e números",
                         enabled = !state.saving,
                         keyboardType = KeyboardType.Ascii,
@@ -117,17 +118,17 @@ fun AccountScreen(
                         }
                         if (state.saved) {
                             Spacer(Modifier.width(12.dp))
-                            MarginaliaLabel("salvo ✓", color = astraColors.success)
+                            TextoDeApoio("Salvo ✓", color = astraColors.success)
                         }
                     }
                 }
 
                 CartaoDaConta {
-                    ReadOnlyField("e-mail", state.email)
+                    ReadOnlyField("E-mail", state.email)
 
                     Spacer(Modifier.height(22.dp))
 
-                    MarginaliaLabel("senha")
+                    Rotulo("Senha")
                     Spacer(Modifier.height(8.dp))
                     when {
                         !state.hasPassword -> Text(
@@ -139,20 +140,20 @@ fun AccountScreen(
                             PillButton("Trocar senha", onClick = viewModel::togglePw)
                             if (state.pwDone) {
                                 Spacer(Modifier.height(8.dp))
-                                MarginaliaLabel("senha alterada ✓", color = astraColors.success)
+                                TextoDeApoio("Senha alterada ✓", color = astraColors.success)
                             }
                         }
                         else -> {
                             EditorialField(
                                 value = state.curPw, onValue = viewModel::onCurPw,
-                                label = "senha atual", placeholder = "••••••••",
+                                label = "Senha atual", placeholder = "••••••••",
                                 enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Next,
                                 password = true,
                             )
                             Spacer(Modifier.height(16.dp))
                             EditorialField(
                                 value = state.newPw, onValue = viewModel::onNewPw,
-                                label = "nova senha", placeholder = "8+ caracteres",
+                                label = "Nova senha", placeholder = "8+ caracteres",
                                 enabled = !state.pwSaving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done,
                                 onIme = viewModel::changePassword, password = true,
                             )
@@ -210,7 +211,7 @@ private fun CartaoDaConta(conteudo: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun ReadOnlyField(label: String, value: String, mono: Boolean = false) {
     Column {
-        MarginaliaLabel(label)
+        Rotulo(label)
         Spacer(Modifier.height(6.dp))
         Text(
             text = value,

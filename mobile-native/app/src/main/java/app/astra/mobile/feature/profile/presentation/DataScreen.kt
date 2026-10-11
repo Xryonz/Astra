@@ -22,24 +22,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
 fun DataScreen(onBack: () -> Unit) {
     CosmicBackground {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Dados e privacidade", marginalia = "seus dados, suas regras", onBack = onBack)
+            EditorialTopBar(title = "Dados e privacidade", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("seus dados", Modifier.padding(start = 22.dp, bottom = 10.dp))
+            Rotulo("Seus dados", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
             Column(
                 Modifier.padding(horizontal = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                DataRow("Exportar meus dados", "baixe tudo que o Astra guarda sobre você", danger = false)
-                DataRow("Apagar minha conta", "remove permanentemente sua conta e dados", danger = true)
+                DataRow("Exportar meus dados", "Baixe tudo o que o Astra guarda sobre você.", danger = false)
+                DataRow("Apagar minha conta", "Remove de vez a sua conta e os seus dados.", danger = true)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -72,7 +73,7 @@ private fun DataRow(title: String, sub: String, danger: Boolean) {
                 style = MaterialTheme.typography.titleMedium,
                 color = if (danger) astraColors.danger.copy(alpha = 0.7f) else astraColors.text3,
             )
-            MarginaliaLabel(sub)
+            TextoDeApoio(sub)
         }
         Text(
             text = "em breve",

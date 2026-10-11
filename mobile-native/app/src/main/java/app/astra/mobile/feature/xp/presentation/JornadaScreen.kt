@@ -52,7 +52,8 @@ import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Rotulo
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
@@ -73,7 +74,7 @@ fun JornadaScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
-            EditorialTopBar(title = "Sua jornada", marginalia = "missões e brilho", onBack = onBack)
+            EditorialTopBar(title = "Sua jornada", onBack = onBack)
             val p = painel
             if (p == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
@@ -94,14 +95,14 @@ fun JornadaScreen(
                 }
 
                 val agora = agoraQuePassa()
-                Grupo("hoje", faltando(p.diarias.renovaEm, agora)) {
+                Grupo("Hoje", faltando(p.diarias.renovaEm, agora)) {
                     p.diarias.itens.forEach { LinhaDeMissao(it, false, viewModel::resgatar) }
                     if (p.diarias.bonus.id.isNotBlank()) LinhaDeMissao(p.diarias.bonus, false, viewModel::resgatar)
                 }
-                Grupo("esta semana", faltando(p.semanais.renovaEm, agora)) {
+                Grupo("Esta semana", faltando(p.semanais.renovaEm, agora)) {
                     p.semanais.itens.forEach { LinhaDeMissao(it, false, viewModel::resgatar) }
                 }
-                Grupo("conquistas", "não expiram") {
+                Grupo("Conquistas", "não expiram") {
                     p.conquistas.itens.forEach { LinhaDeMissao(it, true, viewModel::resgatar) }
                 }
                 Spacer(Modifier.height(28.dp))
@@ -162,7 +163,7 @@ private fun CartaoDoBrilho(p: ProgressoDto) {
         val cheio = if (p.paraOProximo <= 0) 0f else (p.noNivel.toFloat() / p.paraOProximo).coerceIn(0f, 1f)
         BarraDeProgresso({ cheio }, concluida = false, altura = 5.dp)
         Spacer(Modifier.height(8.dp))
-        MarginaliaLabel("${p.noNivel} de ${p.paraOProximo} de brilho para o próximo nível")
+        TextoDeApoio("${p.noNivel} de ${p.paraOProximo} de brilho para o próximo nível")
     }
 }
 
@@ -208,7 +209,7 @@ private fun FaixaDeResgate(quantas: Int, ocupado: Boolean, aoResgatarTudo: () ->
 private fun Grupo(titulo: String, apoio: String, conteudo: @Composable ColumnScope.() -> Unit) {
     Spacer(Modifier.height(22.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        MarginaliaLabel(titulo)
+        Rotulo(titulo)
         if (apoio.isNotBlank()) {
             Spacer(Modifier.width(8.dp))
             Text(apoio, fontFamily = DmMono, fontSize = 11.sp, color = astraColors.text3)

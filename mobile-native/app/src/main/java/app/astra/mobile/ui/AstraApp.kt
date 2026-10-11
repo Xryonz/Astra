@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.components.LocalCena
 import app.astra.mobile.ui.components.LocalPalco
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.GreatVibes
 import app.astra.mobile.ui.theme.astraColors

@@ -36,7 +36,6 @@ import app.astra.mobile.core.update.CuidadorDeAtualizacao
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraButtonVariant
-import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -86,7 +85,6 @@ fun CartaoDeAtualizacao(modifier: Modifier = Modifier) {
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            MarginaliaLabel("atualizações")
             Text(titulo, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
             Text(texto, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
             Row(

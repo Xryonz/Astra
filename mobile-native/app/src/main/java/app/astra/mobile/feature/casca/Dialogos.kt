@@ -30,7 +30,7 @@ import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackdrop
 import app.astra.mobile.ui.components.EditorialField
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
@@ -60,7 +60,7 @@ fun DialogoDeForjar(
         EditorialField(
             value = nome,
             onValue = { nome = it },
-            label = if (grupo) "nome do aglomerado" else "nome da constelação",
+            label = if (grupo) "Nome do aglomerado" else "Nome da constelação",
             placeholder = if (grupo) "como vão chamar o grupo?" else "como vão chamar a constelação?",
             enabled = !criando,
             keyboardType = KeyboardType.Text,
@@ -98,8 +98,8 @@ fun DialogoDeNovoSussurro(
         EditorialField(
             value = usuario,
             onValue = { usuario = it },
-            label = "estrela",
-            placeholder = "@username",
+            label = "Estrela",
+            placeholder = "@usuário",
             enabled = !abrindo,
             keyboardType = KeyboardType.Text,
             imeAction = ImeAction.Done,
@@ -134,20 +134,20 @@ fun PortaoDeSenha(
                 color = astraColors.text1,
             )
             Spacer(Modifier.height(6.dp))
-            MarginaliaLabel(
-                "sua conta entrou com o Google e ainda não tem senha — crie uma para garantir o acesso",
+            TextoDeApoio(
+                "Sua conta entrou com o Google e ainda não tem senha. Crie uma para garantir o acesso.",
             )
             Spacer(Modifier.height(20.dp))
             EditorialField(
                 value = senha, onValue = { senha = it },
-                label = "nova senha", placeholder = "8+ caracteres, 1 maiúscula, 1 número",
+                label = "Nova senha", placeholder = "8+ caracteres, 1 maiúscula, 1 número",
                 enabled = !salvando, keyboardType = KeyboardType.Password, imeAction = ImeAction.Next,
                 password = true,
             )
             Spacer(Modifier.height(14.dp))
             EditorialField(
                 value = confirmacao, onValue = { confirmacao = it },
-                label = "confirmar senha", placeholder = "••••••••",
+                label = "Confirmar senha", placeholder = "••••••••",
                 enabled = !salvando, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done,
                 onIme = { aoEnviar(senha, confirmacao) }, password = true,
             )

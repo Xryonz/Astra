@@ -42,7 +42,7 @@ import app.astra.mobile.ui.components.ColorGradientPicker
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 
@@ -125,7 +125,7 @@ private fun ServerColorCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                MarginaliaLabel(if (server.isGroup) "grupo" else "servidor")
+                TextoDeApoio(if (server.isGroup) "Grupo" else "Constelação")
             }
             if (applied != null) {
                 Box(

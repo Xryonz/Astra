@@ -44,7 +44,7 @@ fun SettingsGroup(
     val cascata = entrance && !LocalAppPrefs.current.reduceMotion
     Column(modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         if (label != null) {
-            MarginaliaLabel("$label", Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Rotulo(label, Modifier.padding(start = 4.dp, bottom = 8.dp))
         }
         val shape = RoundedCornerShape(16.dp)
         Column(
@@ -109,7 +109,7 @@ fun SettingsRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (subtitle != null) MarginaliaLabel(subtitle)
+            if (subtitle != null) TextoDeApoio(subtitle)
         }
         trailing?.invoke(this)
     }

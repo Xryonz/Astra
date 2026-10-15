@@ -447,6 +447,7 @@ lado; a cor do tema é aplicada na hora de tocar, pela biblioteca
 | O quê | Autor | Origem |
 | --- | --- | --- |
 | Brilho da estrela de enviar | **Cristina Loreto V H** (variação de "stars points") | [star shine](https://lottiefiles.com/animations/star-shine-eA7UrOTpO9) |
+| Constelação que se forma (coluna e Descobrir) | **Abdul Latif** | [Constellation icon animation](https://lottiefiles.com/animations/constellation-icon-animation-qjz6quYgLl) |
 
 ### Tipografia
 

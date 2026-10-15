@@ -3,6 +3,9 @@ Animações desta pasta, baixadas do LottieFiles sem alteração (a cor do tema 
 brilho-de-envio.json — "star shine", variação de "stars points", de Cristina Loreto V H
   https://lottiefiles.com/animations/star-shine-eA7UrOTpO9
 
+constelacao.json — "Constellation icon animation", de Abdul Latif
+  https://lottiefiles.com/animations/constellation-icon-animation-qjz6quYgLl
+
 ---
 
 Lottie Simple License (FL 9.13.21)

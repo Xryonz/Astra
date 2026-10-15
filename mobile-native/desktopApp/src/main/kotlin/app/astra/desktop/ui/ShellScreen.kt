@@ -450,6 +450,14 @@ fun ShellScreen(
             serverSettingsOpen = true
         }
         LaunchedEffect(state.unread) { PulsosJaDados.esquecerOsLidos(state.unread) }
+        val constelacoesComNovidade = remember(state.servers, state.unread, state.mutedServers, state.mutedChannels) {
+            state.servers
+                .filter { s ->
+                    s.id !in state.mutedServers &&
+                        s.channels.any { it.id in state.unread && it.id !in state.mutedChannels }
+                }
+                .mapTo(HashSet()) { it.id }
+        }
         Column(Modifier.larguraDaColunaDasOrbitas().fillMaxHeight()) {
         Row(Modifier.weight(1f)) {
         Rail(
@@ -458,6 +466,8 @@ fun ShellScreen(
             myId = session.userId,
             mutedServers = state.mutedServers,
             sussurroNaoLido = state.dms.any { it.id in state.unread },
+            constelacoesComNovidade = constelacoesComNovidade,
+            carregado = !state.loading && state.error == null,
             canManageSelected = podeConfigurar,
             onOpenServerSettings = abrirConfigDaConstelacao,
             onSelect = vm::select,

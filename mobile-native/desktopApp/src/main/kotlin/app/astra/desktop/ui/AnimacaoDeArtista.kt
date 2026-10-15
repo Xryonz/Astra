@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -34,11 +35,13 @@ fun AnimacaoDeArtista(
     vez: Int,
     luz: Color,
     modifier: Modifier = Modifier,
+    apagaJunto: Modifier = Modifier,
     fundo: Color = Color.Transparent,
     cores: (Color, Color, Color) -> Color = ::tudoNaLuz,
     quadros: IntRange? = null,
     velocidade: Float = 1f,
     ficaNoFim: Boolean = false,
+    aoTerminar: () -> Unit = {},
 ) {
     val reduzir = LocalReduceMotion.current
     if (vez == 0 || (reduzir && !ficaNoFim)) return
@@ -52,7 +55,7 @@ fun AnimacaoDeArtista(
         }
     }
     if (reduzir) {
-        Quadro(composicao, propriedades, modifier) {
+        Quadro(composicao, propriedades, modifier.then(apagaJunto)) {
             val c = composicao ?: return@Quadro 0f
             ((quadros?.last?.toFloat() ?: c.endFrame) / c.endFrame).coerceIn(0f, 1f)
         }
@@ -67,7 +70,7 @@ fun AnimacaoDeArtista(
             iterations = 1,
         )
         if (ficaNoFim) {
-            Quadro(composicao, propriedades, modifier) { estado.progress }
+            Quadro(composicao, propriedades, modifier.then(apagaJunto)) { estado.progress }
         } else if (!estado.isAtEnd) {
             Quadro(
                 composicao,
@@ -78,8 +81,11 @@ fun AnimacaoDeArtista(
                     val fim = (quadros?.last?.toFloat() ?: c.endFrame) / c.endFrame
                     val andado = ((estado.progress - inicio) / (fim - inicio).coerceAtLeast(0.0001f)).coerceIn(0f, 1f)
                     alpha = ((1f - andado) / TRECHO_DO_APAGAR).coerceIn(0f, 1f)
-                },
+                }.then(apagaJunto),
             ) { estado.progress }
+        }
+        if (!ficaNoFim && estado.composition != null && estado.isAtEnd) {
+            LaunchedEffect(Unit) { aoTerminar() }
         }
     }
 }

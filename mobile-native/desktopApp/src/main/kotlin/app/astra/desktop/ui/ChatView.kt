@@ -75,8 +75,11 @@ import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -113,9 +116,11 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
@@ -433,6 +438,7 @@ fun ChatView(
                 onClose = { perfilDaMencao = null },
             )
         }
+    val meuId = LocalMinhaConta.current.id
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
         Box(Modifier.weight(1f)) {
@@ -450,14 +456,19 @@ fun ChatView(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
-                    for (linha in linhas) when (linha) {
+                    linhas.forEachIndexed { i, linha -> when (linha) {
                         is LinhaDoChat.Dia -> item(key = "dia:${linha.chave}", contentType = "dia") {
                             SeparadorDoChat(linha.rotulo)
                         }
                         is LinhaDoChat.Passagem -> item(key = linha.id, contentType = "dia") {
                             SeparadorDoChat(linha.texto)
                         }
-                        is LinhaDoChat.Fala -> item(
+                        is LinhaDoChat.Fala -> {
+                            val anterior = linhas.getOrNull(i - 1) as? LinhaDoChat.Fala
+                            val proxima = linhas.getOrNull(i + 1) as? LinhaDoChat.Fala
+                            val abre = abreUmCartao(linha, anterior, primeiraNaoLida, meuId)
+                            val fecha = proxima == null || abreUmCartao(proxima, linha, primeiraNaoLida, meuId)
+                            item(
                             key = linha.msg.id,
                             contentType = when {
                                 linha.msg.poll != null -> "enquete"
@@ -469,7 +480,8 @@ fun ChatView(
                             if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
                             MessageRow(
                                 msg = msg,
-                                grouped = linha.agrupada,
+                                abreOCartao = abre,
+                                fechaOCartao = fecha,
                                 isChannel = isChannel,
                                 highlighted = msg.id == highlightId,
                                 editing = msg.id == editingId,
@@ -488,7 +500,8 @@ fun ChatView(
                                 onStartDm = onStartDm,
                             )
                         }
-                    }
+                        }
+                    } }
                 }
             }
 
@@ -803,10 +816,86 @@ private fun EscopoProprio(conteudo: @Composable () -> Unit) {
     conteudo()
 }
 
+private fun mencionaVoce(msg: ChatMessage, meuId: String?): Boolean = meuId != null && meuId in msg.mentions
+
+private fun abreUmCartao(
+    fala: LinhaDoChat.Fala,
+    anterior: LinhaDoChat.Fala?,
+    primeiraNaoLida: String?,
+    meuId: String?,
+): Boolean =
+    anterior == null || !fala.agrupada ||
+        fala.msg.call != null || anterior.msg.call != null ||
+        fala.msg.id == primeiraNaoLida ||
+        mencionaVoce(fala.msg, meuId) || mencionaVoce(anterior.msg, meuId)
+
+@Composable
+private fun corDaFala(minha: Boolean): Color =
+    if (LocalFundoLiso.current) {
+        if (minha) Obsidian.overlay else Obsidian.raised
+    } else {
+        (if (minha) Obsidian.hover else Obsidian.overlay).copy(alpha = ALFA_DA_FALA)
+    }
+
+internal val LocalDegrausDaFala = staticCompositionLocalOf { 0 }
+
+@Composable
+internal fun naFala(cor: Color): Color {
+    var c = cor
+    repeat(LocalDegrausDaFala.current) {
+        c = when (c) {
+            Obsidian.void -> Obsidian.base
+            Obsidian.base -> Obsidian.raised
+            Obsidian.raised -> Obsidian.overlay
+            Obsidian.overlay -> Obsidian.hover
+            Obsidian.hover -> Obsidian.active
+            else -> c
+        }
+    }
+    return c
+}
+
+private val estiloDaHora get() = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono)
+
+private val InicioDaHora = VerticalAlignmentLine { a, b -> minOf(a, b) }
+
+@Composable
+private fun LinhaDoNome(hora: String, nome: @Composable () -> Unit) {
+    Layout(contents = listOf(nome, { Text(hora, style = estiloDaHora) })) { (medidosNome, medidosHora), constraints ->
+        val horaMedida = medidosHora.first().measure(Constraints())
+        val xDaHora = (constraints.maxWidth - horaMedida.width).coerceAtLeast(0)
+        val nomeMedido = medidosNome.first().measure(
+            Constraints(maxWidth = (xDaHora - RESPIRO_DA_HORA.roundToPx()).coerceAtLeast(0)),
+        )
+        val linhaDoNome = nomeMedido[FirstBaseline]
+        val linhaDaHora = horaMedida[FirstBaseline]
+        val yDaHora = if (linhaDoNome == AlignmentLine.Unspecified || linhaDaHora == AlignmentLine.Unspecified) {
+            (nomeMedido.height - horaMedida.height) / 2
+        } else {
+            linhaDoNome - linhaDaHora
+        }
+        layout(
+            width = nomeMedido.width,
+            height = maxOf(nomeMedido.height, yDaHora + horaMedida.height),
+            alignmentLines = mapOf(InicioDaHora to xDaHora),
+        ) {
+            nomeMedido.place(0, 0)
+            horaMedida.place(xDaHora, yDaHora)
+        }
+    }
+}
+
+private val CANTO_DA_FALA = 12.dp
+private val MARGEM_DA_FALA = 12.dp
+private val RESPIRO_DA_HORA = 8.dp
+private const val ALFA_DA_FALA = 0.62f
+private const val RESPIRO_DA_CARTA = 0.75f
+
 @Composable
 private fun MessageRow(
     msg: ChatMessage,
-    grouped: Boolean,
+    abreOCartao: Boolean,
+    fechaOCartao: Boolean,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -837,7 +926,8 @@ private fun MessageRow(
     var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
-    val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
+    val grouped = !abreOCartao
+    val meMencionou = mencionaVoce(msg, LocalMinhaConta.current.id)
     val opacidade = if (!msg.deleting) 1f else {
         val sumindo = remember { Animatable(1f) }
         LaunchedEffect(Unit) { sumindo.animateTo(0f, tween(FADE_MS)) }
@@ -874,22 +964,41 @@ private fun MessageRow(
             }
         }
     }) {
+    val formaDoCartao = RoundedCornerShape(
+        topStart = if (abreOCartao) CANTO_DA_FALA else 0.dp,
+        topEnd = if (abreOCartao) CANTO_DA_FALA else 0.dp,
+        bottomStart = if (fechaOCartao) CANTO_DA_FALA else 0.dp,
+        bottomEnd = if (fechaOCartao) CANTO_DA_FALA else 0.dp,
+    )
+    val dens = LocalMsgDensity.current
+    val respiroDaCarta = (dens.topDp * RESPIRO_DA_CARTA).dp
+    val espacoEntreCartas = (dens.groupedTopDp * 2).dp
+    val fundoDoCartao = corDaFala(msg.mine)
+    val cartaApagando = if (abreOCartao && fechaOCartao) opacidade else 1f
     Box(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = MARGEM_DA_FALA)
+            .padding(top = if (abreOCartao) espacoEntreCartas else 0.dp)
+            .background(fundoDoCartao.copy(alpha = fundoDoCartao.alpha * cartaApagando), formaDoCartao)
+            .then(
+                if (meMencionou) Modifier.border(1.dp, Obsidian.accent.copy(alpha = 0.55f * cartaApagando), formaDoCartao)
+                else Modifier,
+            )
+            .drawBehind {
+                if (realce > 0f) {
+                    val aceso = Obsidian.accentDim
+                    drawOutline(
+                        formaDoCartao.createOutline(size, layoutDirection, this),
+                        aceso.copy(alpha = aceso.alpha * realce),
+                    )
+                }
+            }
             .graphicsLayer {
                 alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
-            .drawBehind {
-                val aceso = Obsidian.accentDim
-                if (realce > 0f) drawRect(aceso.copy(alpha = aceso.alpha * realce))
-                if (meMencionou) {
-                    drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
-                }
-            }
             .hoverable(interaction),
     ) {
-        val dens = LocalMsgDensity.current
         val showPill = (hovered || pillHovered || pickerOpen || confirmDelete) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
@@ -931,17 +1040,21 @@ private fun MessageRow(
                 }
             }
         }
+        CompositionLocalProvider(LocalDegrausDaFala provides if (msg.mine) 2 else 1) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp)
-                .padding(top = if (grouped) dens.groupedTopDp.dp else dens.topDp.dp, bottom = 2.dp),
+                .padding(horizontal = 12.dp)
+                .padding(
+                    top = if (grouped) dens.groupedTopDp.dp else respiroDaCarta,
+                    bottom = if (fechaOCartao) respiroDaCarta else 2.dp,
+                ),
             verticalAlignment = Alignment.Top,
         ) {
             if (grouped) {
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
                     if (hovered) {
-                        Text(hhmm(msg.createdAt), style = Tipo.nota)
+                        Text(hhmm(msg.createdAt), style = estiloDaHora)
                     }
                 }
                 Spacer(Modifier.width(10.dp))
@@ -957,22 +1070,24 @@ private fun MessageRow(
                     msg.replyTo?.let { ref ->
                         ReplyRef(ref, onJumpTo)
                     }
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    LinhaDoNome(hora = hhmm(msg.createdAt)) {
+                        val fonte = profileFontFamily(msg.authorFont)
                         NomeColorido(
                             texto = msg.authorName,
                             cor = LocalCoresDeCargo.current[msg.authorId],
                             padrao = Obsidian.text1,
-                            fontSize = 15.sp,
+                            fontSize = if (fonte == DmSerif) 17.sp else 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            fontFamily = msg.authorFont?.let { profileFontFamily(it) },
+                            fontFamily = fonte,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(hhmm(msg.createdAt), style = Tipo.nota)
                     }
                     Spacer(Modifier.height(2.dp))
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             }
+        }
         }
 
     }
@@ -1027,14 +1142,15 @@ private fun ContentBlock(
         val aoClicarNaMencao = LocalMencaoClicavel.current
         val emojis = LocalEmojisDaSala.current
         val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
+        val fundoDoCodigo = naFala(Obsidian.base)
         val fator = if (realce.soEmoji) 2f else 1f
         val corpo = (15 * scale * fator).sp
         val linha = ((if (realce.temPersonalizado) 24 else 22) * scale * fator).sp
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
-                text = remember(msg.content, msg.edited, meuUsuario, emojis) {
+                text = remember(msg.content, msg.edited, meuUsuario, emojis, fundoDoCodigo) {
                     buildAnnotatedString {
-                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao, emojis)
+                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao, emojis, fundoDoCodigo)
                         if (msg.edited) {
                             withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
                         }
@@ -1048,8 +1164,8 @@ private fun ContentBlock(
                 if (i > 0) Spacer(Modifier.height(4.dp))
                 when (seg) {
                     is Seg.Txt -> Text(
-                        text = remember(seg.s, meuUsuario, emojis) {
-                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao, emojis) }
+                        text = remember(seg.s, meuUsuario, emojis, fundoDoCodigo) {
+                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao, emojis, fundoDoCodigo) }
                         },
                         style = TextStyle(color = Obsidian.text2, fontSize = corpo, lineHeight = linha),
                         inlineContent = emojis.inline,
@@ -1185,7 +1301,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (hov) Obsidian.hover else Obsidian.raised)
+                .background(naFala(if (hov) Obsidian.hover else Obsidian.raised))
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
                 .hoverable(src)
                 .clickable(interactionSource = src, indication = null) { openAttachment(att.url) }
@@ -1241,7 +1357,7 @@ private fun PreviaDeLink(url: String) {
             .widthIn(max = 420.dp)
             .clickScale(fonte)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (hover) Obsidian.hover else Obsidian.base)
+            .background(naFala(if (hover) Obsidian.hover else Obsidian.base))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .hoverable(fonte)
             .clickable(interactionSource = fonte, indication = null) { openAttachment(c.url) }
@@ -1315,6 +1431,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
     meuUsuario: String? = null,
     aoClicar: MencaoClicavel,
     emojis: EmojisDaSala,
+    fundoDoCodigo: Color,
 ) {
     var i = 0
     while (true) {
@@ -1325,7 +1442,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
             return
         }
         appendComMencoes(s.substring(i, a), meuUsuario, aoClicar, emojis)
-        withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
+        withStyle(SpanStyle(fontFamily = DmMono, background = fundoDoCodigo, fontSize = 12.sp)) {
             append(s.substring(a + 1, b))
         }
         i = b + 1
@@ -1456,7 +1573,7 @@ private fun CodeBox(code: Seg.Code) {
     Box(
         Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.base)
+            .background(naFala(Obsidian.base))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
     ) {
         SelectionContainer {
@@ -1503,7 +1620,7 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Obsidian.raised)
+            .background(naFala(Obsidian.raised))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(6.dp))
             .padding(horizontal = 8.dp, vertical = 6.dp)
             .focusRequester(focus)
@@ -1537,7 +1654,7 @@ private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Un
         modifier = Modifier
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .clip(RoundedCornerShape(999.dp))
-            .background(if (mine) Obsidian.active else Obsidian.raised)
+            .background(naFala(if (mine) Obsidian.active else Obsidian.raised))
             .border(1.dp, if (mine) Obsidian.borderMid else Obsidian.borderDim, RoundedCornerShape(999.dp))
             .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 7.dp, vertical = 3.dp),
@@ -1597,11 +1714,13 @@ private fun PilulaJuntoDoTexto(
         val conteudoMedido = medidosConteudo.first().measure(constraints.copy(minWidth = 0))
         val pilulaMedida = medidosPilula.firstOrNull()?.measure(Constraints())
         val largura = constraints.maxWidth
+        val inicioDaHora = conteudoMedido[InicioDaHora]
+        val limite = if (inicioDaHora == AlignmentLine.Unspecified) largura else inicioDaHora - respiro
         layout(largura, conteudoMedido.height) {
             conteudoMedido.place(0, 0)
             if (pilulaMedida != null) {
                 val x = (conteudoMedido.width + respiro)
-                    .coerceAtMost(largura - pilulaMedida.width)
+                    .coerceAtMost(limite - pilulaMedida.width)
                     .coerceAtLeast(0)
                 pilulaMedida.place(x, -subida)
             }

@@ -64,7 +64,7 @@ fun PollBlock(
         Modifier
             .widthIn(max = 420.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.raised)
+            .background(naFala(Obsidian.raised))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .padding(13.dp),
     ) {
@@ -150,7 +150,7 @@ private fun PollOptionRow(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.overlay)
+            .background(naFala(Obsidian.overlay))
             .border(1.dp, borda, RoundedCornerShape(8.dp))
             .then(
                 if (travada) Modifier

@@ -886,7 +886,7 @@ private fun LinhaDoNome(hora: String, nome: @Composable () -> Unit) {
 }
 
 private val CANTO_DA_FALA = 12.dp
-private val MARGEM_DA_FALA = 12.dp
+private val MARGEM_DA_FALA = 14.dp
 private val RESPIRO_DA_HORA = 8.dp
 private const val ALFA_DA_FALA = 0.62f
 private const val RESPIRO_DA_CARTA = 0.75f
@@ -1142,7 +1142,7 @@ private fun ContentBlock(
         val aoClicarNaMencao = LocalMencaoClicavel.current
         val emojis = LocalEmojisDaSala.current
         val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
-        val fundoDoCodigo = naFala(Obsidian.base)
+        val fundoDoCodigo = naFala(Obsidian.raised)
         val fator = if (realce.soEmoji) 2f else 1f
         val corpo = (15 * scale * fator).sp
         val linha = ((if (realce.temPersonalizado) 24 else 22) * scale * fator).sp
@@ -1357,7 +1357,7 @@ private fun PreviaDeLink(url: String) {
             .widthIn(max = 420.dp)
             .clickScale(fonte)
             .clip(RoundedCornerShape(8.dp))
-            .background(naFala(if (hover) Obsidian.hover else Obsidian.base))
+            .background(naFala(if (hover) Obsidian.hover else Obsidian.raised))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .hoverable(fonte)
             .clickable(interactionSource = fonte, indication = null) { openAttachment(c.url) }
@@ -1573,7 +1573,7 @@ private fun CodeBox(code: Seg.Code) {
     Box(
         Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(naFala(Obsidian.base))
+            .background(naFala(Obsidian.raised))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
     ) {
         SelectionContainer {

@@ -80,7 +80,7 @@ fun AnimacaoDeArtista(
                     val inicio = (quadros?.first?.toFloat() ?: 0f) / c.endFrame
                     val fim = (quadros?.last?.toFloat() ?: c.endFrame) / c.endFrame
                     val andado = ((estado.progress - inicio) / (fim - inicio).coerceAtLeast(0.0001f)).coerceIn(0f, 1f)
-                    alpha = ((1f - andado) / TRECHO_DO_APAGAR).coerceIn(0f, 1f)
+                    alpha = minOf(andado / TRECHO_DO_ACENDER, (1f - andado) / TRECHO_DO_APAGAR).coerceIn(0f, 1f)
                 }.then(apagaJunto),
             ) { estado.progress }
         }
@@ -111,6 +111,7 @@ private object AnimacoesDoAstra {
             .use { it.readText() }
 }
 
+private const val TRECHO_DO_ACENDER = 0.15f
 private const val TRECHO_DO_APAGAR = 0.25f
 private const val LIMIAR_DO_CLARO = 0.85f
 private const val LIMIAR_DO_ESCURO = 0.08f

@@ -675,6 +675,7 @@ private fun EstrelaDaRail(
     )
     val formaDoCartao = RoundedCornerShape(CANTO_DO_CARTAO)
     val formaDaEstrela = RoundedCornerShape(CANTO_DA_ESTRELA)
+    val acendendo = aberta || formando
     Box(Modifier.size(LADO_DO_CARTAO), contentAlignment = Alignment.Center) {
         if (aceso > 0f) {
             Box(
@@ -682,7 +683,7 @@ private fun EstrelaDaRail(
                     .matchParentSize()
                     .graphicsLayer {
                         alpha = aceso
-                        val escala = ESCALA_INICIAL + (1f - ESCALA_INICIAL) * aceso
+                        val escala = if (acendendo) ESCALA_INICIAL + (1f - ESCALA_INICIAL) * aceso else 1f
                         scaleX = escala
                         scaleY = escala
                     }

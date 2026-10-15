@@ -674,6 +674,7 @@ private fun EstrelaDaRail(
         tween(140),
     )
     val formaDoCartao = RoundedCornerShape(CANTO_DO_CARTAO)
+    val formaDaEstrela = RoundedCornerShape(CANTO_DA_ESTRELA)
     Box(Modifier.size(LADO_DO_CARTAO), contentAlignment = Alignment.Center) {
         if (aceso > 0f) {
             Box(
@@ -710,8 +711,8 @@ private fun EstrelaDaRail(
                     scaleX = escala
                     scaleY = escala
                 }
-                .clickScale(interaction, formaDoFoco = CircleShape)
-                .clip(CircleShape)
+                .clickScale(interaction, formaDoFoco = formaDaEstrela)
+                .clip(formaDaEstrela)
                 .background(
                     when {
                         aberta -> Obsidian.hover
@@ -719,7 +720,7 @@ private fun EstrelaDaRail(
                         else -> Obsidian.raised
                     },
                 )
-                .border(1.dp, borda, CircleShape)
+                .border(1.dp, borda, formaDaEstrela)
                 .hoverable(interaction)
                 .clickable(interactionSource = interaction, indication = null, onClick = aoTocar)
                 .semantics { if (nomeAcessivel != null) contentDescription = nomeAcessivel },
@@ -763,6 +764,7 @@ private val LADO_DO_CARTAO = 52.dp
 private val LADO_DA_ESTRELA = 42.dp
 private val LADO_DO_DESENHO = 46.dp
 private val CANTO_DO_CARTAO = 14.dp
+private val CANTO_DA_ESTRELA = 8.dp
 private val TRACO_DO_FIO = 3.dp
 private val VAO_DO_FIO = 4.dp
 private const val ALFA_DO_FIO_TRACEJADO = 0.7f

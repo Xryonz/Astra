@@ -6,6 +6,9 @@ brilho-de-envio.json — "star shine", variação de "stars points", de Cristina
 constelacao.json — "Constellation icon animation", de Abdul Latif
   https://lottiefiles.com/animations/constellation-icon-animation-qjz6quYgLl
 
+eclipse.json — "eclipse loading", de Anh Nguyen Duc
+  https://lottiefiles.com/animations/eclipse-loading-Jqdd4oWTcm
+
 ---
 
 Lottie Simple License (FL 9.13.21)

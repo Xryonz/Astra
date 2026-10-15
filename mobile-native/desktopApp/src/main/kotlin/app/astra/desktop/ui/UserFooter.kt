@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -143,6 +144,7 @@ fun UserFooter(
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
+    var eclipses by remember { mutableIntStateOf(0) }
     val xpStore = remember { GlobalContext.get().get<XpStore>() }
     val progresso by xpStore.progresso.collectAsState()
     val visualXp = rememberVisualDeXp(xpStore)
@@ -156,10 +158,14 @@ fun UserFooter(
 
     val pickStatus: (UserStatus) -> Unit = { picked ->
         statusOpen = false
+        val entraEmEclipse = picked == UserStatus.DND && status != UserStatus.DND
         scope.launch {
             runCatching {
                 GlobalContext.get().get<UserApi>().setStatus(SetStatusRequest(picked.name))
-            }.onSuccess { onEdited() }
+            }.onSuccess {
+                onEdited()
+                if (entraEmEclipse) eclipses++
+            }
         }
     }
 
@@ -223,6 +229,16 @@ fun UserFooter(
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30)
                 MoedasDeXp(xpStore)
+                AnimacaoDeArtista(
+                    arquivo = "eclipse",
+                    vez = eclipses,
+                    luz = Obsidian.text1,
+                    fundo = Obsidian.void,
+                    cores = ::escuroViraFundo,
+                    quadros = 0..QUADRO_DO_ECLIPSE_TOTAL,
+                    modifier = Modifier.size(30.dp),
+                    apagaJunto = Modifier.background(Obsidian.void, CircleShape),
+                )
             }
             StatusDot(
                 status = status,
@@ -592,6 +608,8 @@ private fun EditField(label: String, value: String, single: Boolean, onChange: (
         )
     }
 }
+
+private const val QUADRO_DO_ECLIPSE_TOTAL = 36
 
 private fun forcaDoSinal(c: LeituraDoCaminho): Int = when {
     c.perda >= 8 || c.ida >= 300 || c.tremor >= 60 -> 1

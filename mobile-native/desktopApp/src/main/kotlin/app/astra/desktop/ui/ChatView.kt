@@ -90,7 +90,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -165,6 +167,7 @@ import app.astra.shared.AstraShared
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import app.astra.desktop.AreaDeTransferencia
 import java.awt.Desktop
 import java.awt.datatransfer.DataFlavor
 import java.io.File
@@ -738,9 +741,15 @@ fun ChatView(
                                 .fillMaxWidth()
                                 .onFocusChanged { composerFocused = it.isFocused }
                                 .onPreviewKeyEvent { e ->
-                                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                                        submit(); true
-                                    } else false
+                                    when {
+                                        e.type != KeyEventType.KeyDown -> false
+                                        e.key == Key.Enter && !e.isShiftPressed -> { submit(); true }
+                                        ehColar(e) && AreaDeTransferencia.temAlgoParaAnexar() -> {
+                                            scope.launch { vm.addFiles(AreaDeTransferencia.anexosColados()) }
+                                            true
+                                        }
+                                        else -> false
+                                    }
                                 },
                         )
                     }
@@ -810,6 +819,9 @@ fun ChatView(
 private fun EscopoProprio(conteudo: @Composable () -> Unit) {
     conteudo()
 }
+
+private fun ehColar(e: KeyEvent): Boolean =
+    (e.isCtrlPressed && e.key == Key.V) || (e.isShiftPressed && e.key == Key.Insert)
 
 private fun mencionaVoce(msg: ChatMessage, meuId: String?): Boolean = meuId != null && meuId in msg.mentions
 

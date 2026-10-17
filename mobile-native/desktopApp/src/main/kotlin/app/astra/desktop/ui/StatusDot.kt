@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
@@ -43,12 +45,16 @@ fun StatusDot(
         when (status) {
             UserStatus.ONLINE -> drawPath(estrelaDeQuatroPontas(c, r), luz)
             UserStatus.IDLE -> {
-                drawPath(estrelaDeQuatroPontas(c, r), luz)
-                drawCircle(
-                    cutoutColor,
-                    r * RAIO_DA_SOMBRA,
-                    Offset(c.x + r * DESVIO_DA_SOMBRA, c.y - r * DESVIO_DA_SOMBRA),
-                )
+                drawCircle(LARANJA_DA_LUA, r * RAIO_DA_LUZ_DA_LUA, c)
+                val escala = r / RAIO_DA_LUA_NO_DESENHO
+                withTransform({
+                    translate(c.x, c.y)
+                    rotate(GIRO_DA_LUA, pivot = Offset.Zero)
+                    scale(escala, escala, pivot = Offset.Zero)
+                    translate(-CENTRO_DA_LUA_NO_DESENHO, -CENTRO_DA_LUA_NO_DESENHO)
+                }) {
+                    drawPath(LuaDaMyna.caminho, COBRE_DA_LUA)
+                }
             }
             UserStatus.DND -> {
                 drawCircle(luz, r * RAIO_DO_ECLIPSE, c)
@@ -78,9 +84,24 @@ fun estrelaDeQuatroPontas(centro: Offset, raio: Float): Path {
     }
 }
 
+private object LuaDaMyna {
+    val caminho: Path by lazy {
+        val svg = checkNotNull(javaClass.getResourceAsStream("/icones/lua-eclipse.svg")) { "ícone da lua ausente" }
+            .bufferedReader(Charsets.UTF_8)
+            .use { it.readText() }
+        val desenho = checkNotNull(Regex("""\sd="([^"]+)"""").find(svg)) { "ícone da lua sem desenho" }.groupValues[1]
+        PathParser().parsePathString(desenho).toPath()
+    }
+}
+
+internal val COBRE_DA_LUA = Color(0xFFB8442B)
+internal val LARANJA_DA_LUA = Color(0xFFF48C3C)
+
 private const val PINCA_DA_ESTRELA = 0.26f
-private const val RAIO_DA_SOMBRA = 0.62f
-private const val DESVIO_DA_SOMBRA = 0.42f
+private const val RAIO_DA_LUZ_DA_LUA = 0.92f
+private const val RAIO_DA_LUA_NO_DESENHO = 9.75f
+private const val CENTRO_DA_LUA_NO_DESENHO = 12f
+private const val GIRO_DA_LUA = 180f
 private const val ESCALA_CONTORNO = 0.90f
 private const val ESPESSURA_DO_CONTORNO = 0.32f
 private val ESPESSURA_MINIMA = 1.15.dp

@@ -28,6 +28,9 @@ fun claroViraFundo(origem: Color, luz: Color, fundo: Color): Color =
 fun escuroViraFundo(origem: Color, luz: Color, fundo: Color): Color =
     if (origem.luminance() < LIMIAR_DO_ESCURO) fundo else luz
 
+fun claroNaLuzEscuroNoFundo(origem: Color, luz: Color, fundo: Color): Color =
+    if (origem.luminance() > LIMIAR_DO_MEIO) luz else fundo
+
 @OptIn(ExperimentalCompottieApi::class)
 @Composable
 fun AnimacaoDeArtista(
@@ -115,3 +118,4 @@ private const val TRECHO_DO_ACENDER = 0.15f
 private const val TRECHO_DO_APAGAR = 0.25f
 private const val LIMIAR_DO_CLARO = 0.85f
 private const val LIMIAR_DO_ESCURO = 0.08f
+private const val LIMIAR_DO_MEIO = 0.5f

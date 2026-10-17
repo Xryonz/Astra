@@ -9,6 +9,9 @@ constelacao.json — "Constellation icon animation", de Abdul Latif
 eclipse.json — "eclipse loading", de Anh Nguyen Duc
   https://lottiefiles.com/animations/eclipse-loading-Jqdd4oWTcm
 
+lua-de-sangue.json — "moon-phases-edited", de can kankaya, edição de "phase of the moon", de Moyu
+  https://lottiefiles.com/animations/moon-phases-edited-KkHBa9ixJ2
+
 ---
 
 Lottie Simple License (FL 9.13.21)

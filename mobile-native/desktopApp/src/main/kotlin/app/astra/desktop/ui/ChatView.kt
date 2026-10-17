@@ -61,6 +61,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -116,6 +118,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.semantics.contentDescription
@@ -437,6 +440,8 @@ fun ChatView(
             )
         }
     val meuId = LocalMinhaConta.current.id
+    val falas = remember(linhas, primeiraNaoLida, meuId) { falasPorMensagem(linhas, primeiraNaoLida, meuId) }
+    val alturas = remember(target.id) { mutableStateMapOf<String, Int>() }
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
         Box(Modifier.weight(1f)) {
@@ -480,6 +485,9 @@ fun ChatView(
                                 msg = msg,
                                 abreOCartao = abre,
                                 fechaOCartao = fecha,
+                                idsDaFala = falas[msg.id].orEmpty(),
+                                alturas = alturas,
+                                aoMedir = { altura -> if (alturas[msg.id] != altura) alturas[msg.id] = altura },
                                 isChannel = isChannel,
                                 highlighted = msg.id == highlightId,
                                 editing = msg.id == editingId,
@@ -836,17 +844,58 @@ private fun abreUmCartao(
         fala.msg.id == primeiraNaoLida ||
         mencionaVoce(fala.msg, meuId) || mencionaVoce(anterior.msg, meuId)
 
-private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color) {
+private fun falasPorMensagem(
+    linhas: List<LinhaDoChat>,
+    primeiraNaoLida: String?,
+    meuId: String?,
+): Map<String, List<String>> {
+    val porMensagem = HashMap<String, List<String>>()
+    var atual = ArrayList<String>()
+    linhas.forEachIndexed { i, linha ->
+        if (linha !is LinhaDoChat.Fala) return@forEachIndexed
+        if (abreUmCartao(linha, linhas.getOrNull(i - 1) as? LinhaDoChat.Fala, primeiraNaoLida, meuId)) atual = ArrayList()
+        atual += linha.msg.id
+        porMensagem[linha.msg.id] = atual
+    }
+    return porMensagem
+}
+
+private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean)
+
+private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>): MedidaDaFala {
+    var acima = 0f
+    var acimaCompleto = true
+    var abaixo = 0f
+    var abaixoCompleto = true
+    var passou = false
+    for (id in ids) {
+        if (id == eu) {
+            passou = true
+            continue
+        }
+        val altura = alturas[id]
+        when {
+            altura == null && passou -> abaixoCompleto = false
+            altura == null -> acimaCompleto = false
+            passou -> abaixo += altura
+            else -> acima += altura
+        }
+    }
+    return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
+}
+
+private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala) {
     val traco = 1.dp.toPx()
     val meio = traco / 2f
     val raio = CANTO_DA_SEMIBORDA.toPx()
+    val alto = size.height
     val deitada = maxOf(size.width * PONTA_DEITADA, raio)
-    val emPe = maxOf(size.height * PONTA_EM_PE, raio)
+    val emPe = ((fala.acima + alto + fala.abaixo) * PONTA_EM_PE).coerceIn(raio, maxOf(raio, PONTA_EM_PE_MAXIMA.toPx()))
     val estilo = Stroke(width = traco, cap = StrokeCap.Round)
     if (abre) {
         drawPath(
             Path().apply {
-                moveTo(meio, meio + emPe)
+                moveTo(meio, minOf(meio + emPe, alto))
                 lineTo(meio, meio + raio)
                 quadraticTo(meio, meio, meio + raio, meio)
                 lineTo(meio + deitada, meio)
@@ -854,13 +903,17 @@ private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color) {
             cor,
             style = estilo,
         )
+    } else if (fala.acimaCompleto) {
+        val de = (raio - fala.acima).coerceAtLeast(0f)
+        val ate = (emPe - fala.acima).coerceAtMost(alto)
+        if (ate > de) drawLine(cor, Offset(meio, de), Offset(meio, ate), traco)
     }
+    val x = size.width - meio
     if (fecha) {
-        val x = size.width - meio
-        val y = size.height - meio
+        val y = alto - meio
         drawPath(
             Path().apply {
-                moveTo(x, y - emPe)
+                moveTo(x, maxOf(y - emPe, 0f))
                 lineTo(x, y - raio)
                 quadraticTo(x, y, x - raio, y)
                 lineTo(x - deitada, y)
@@ -868,11 +921,17 @@ private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color) {
             cor,
             style = estilo,
         )
+    } else if (fala.abaixoCompleto) {
+        val fundo = alto + fala.abaixo
+        val de = (fundo - emPe).coerceAtLeast(0f)
+        val ate = (fundo - raio).coerceAtMost(alto)
+        if (ate > de) drawLine(cor, Offset(x, de), Offset(x, ate), traco)
     }
 }
 
 private val CANTO_DA_SEMIBORDA = 8.dp
 private val MARGEM_DA_FALA = 14.dp
+private val PONTA_EM_PE_MAXIMA = 120.dp
 private const val PONTA_DEITADA = 0.25f
 private const val PONTA_EM_PE = 0.5f
 private const val ALFA_DA_MENCAO = 0.7f
@@ -883,6 +942,9 @@ private fun MessageRow(
     msg: ChatMessage,
     abreOCartao: Boolean,
     fechaOCartao: Boolean,
+    idsDaFala: List<String>,
+    alturas: Map<String, Int>,
+    aoMedir: (Int) -> Unit,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -959,20 +1021,30 @@ private fun MessageRow(
         msg.mine -> Obsidian.borderMid
         else -> Obsidian.borderDim
     }
+    val formaDoRealce = RoundedCornerShape(
+        topStart = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        topEnd = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        bottomStart = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        bottomEnd = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+    )
     Box(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = MARGEM_DA_FALA)
             .padding(top = if (abreOCartao) espacoEntreCartas else 0.dp)
+            .onSizeChanged { aoMedir(it.height) }
             .graphicsLayer {
                 alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
                 if (realce > 0f) {
                     val aceso = Obsidian.accentDim
-                    drawRect(aceso.copy(alpha = aceso.alpha * realce))
+                    drawOutline(
+                        formaDoRealce.createOutline(size, layoutDirection, this),
+                        aceso.copy(alpha = aceso.alpha * realce),
+                    )
                 }
-                semibordas(abreOCartao, fechaOCartao, corDaSemiborda)
+                semibordas(abreOCartao, fechaOCartao, corDaSemiborda, medirFala(idsDaFala, msg.id, alturas))
             }
             .hoverable(interaction),
     ) {
@@ -1055,7 +1127,7 @@ private fun MessageRow(
                             fontSize = if (fonte == DmSerif) 17.sp else 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = fonte,
-                            modifier = Modifier.alignByBaseline(),
+                            modifier = Modifier.alignByBaseline().weight(1f, fill = false),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

@@ -3,6 +3,7 @@ package app.astra.desktop.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -10,6 +11,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,9 @@ fun StatusDot(
 ) {
     val luz = Obsidian.text1
     val apagada = Obsidian.text3
+    val cobre = remember(bordered, borderColor, cutoutColor) {
+        cobreLegivelSobre(if (bordered) borderColor else cutoutColor)
+    }
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val c = Offset(s / 2f, s / 2f)
@@ -53,7 +59,7 @@ fun StatusDot(
                     scale(escala, escala, pivot = Offset.Zero)
                     translate(-CENTRO_DA_LUA_NO_DESENHO, -CENTRO_DA_LUA_NO_DESENHO)
                 }) {
-                    drawPath(LuaDaMyna.caminho, COBRE_DA_LUA)
+                    drawPath(LuaDaMyna.caminho, cobre)
                 }
             }
             UserStatus.DND -> {
@@ -94,6 +100,17 @@ private object LuaDaMyna {
     }
 }
 
+private fun cobreLegivelSobre(fundo: Color): Color {
+    val luzDoFundo = fundo.luminance()
+    for (passo in 0..PASSOS_ATE_O_LARANJA) {
+        val cobre = lerp(COBRE_DA_LUA, LARANJA_DA_LUA, passo / PASSOS_ATE_O_LARANJA.toFloat())
+        if (contraste(cobre.luminance(), luzDoFundo) >= CONTRASTE_MINIMO_DA_LUA) return cobre
+    }
+    return LARANJA_DA_LUA
+}
+
+private fun contraste(a: Float, b: Float): Float = (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
+
 internal val COBRE_DA_LUA = Color(0xFFB8442B)
 internal val LARANJA_DA_LUA = Color(0xFFF48C3C)
 
@@ -102,6 +119,8 @@ private const val RAIO_DA_LUZ_DA_LUA = 0.92f
 private const val RAIO_DA_LUA_NO_DESENHO = 9.75f
 private const val CENTRO_DA_LUA_NO_DESENHO = 12f
 private const val GIRO_DA_LUA = 180f
+private const val PASSOS_ATE_O_LARANJA = 20
+private const val CONTRASTE_MINIMO_DA_LUA = 3f
 private const val ESCALA_CONTORNO = 0.90f
 private const val ESPESSURA_DO_CONTORNO = 0.32f
 private val ESPESSURA_MINIMA = 1.15.dp

@@ -860,7 +860,9 @@ private fun falasPorMensagem(
     return porMensagem
 }
 
-private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean)
+private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean) {
+    val inteira: Boolean get() = acimaCompleto && abaixoCompleto
+}
 
 private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>): MedidaDaFala {
     var acima = 0f
@@ -890,7 +892,10 @@ private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala
     val raio = CANTO_DA_SEMIBORDA.toPx()
     val alto = size.height
     val deitada = maxOf(size.width * PONTA_DEITADA, raio)
-    val emPe = ((fala.acima + alto + fala.abaixo) * PONTA_EM_PE).coerceIn(raio, maxOf(raio, PONTA_EM_PE_MAXIMA.toPx()))
+    val tetoEmPe = maxOf(raio, PONTA_EM_PE_MAXIMA.toPx())
+    val emPeSemTeto = (fala.acima + alto + fala.abaixo) * PONTA_EM_PE
+    if (emPeSemTeto < tetoEmPe && !fala.inteira) return
+    val emPe = emPeSemTeto.coerceIn(raio, tetoEmPe)
     val estilo = Stroke(width = traco, cap = StrokeCap.Round)
     if (abre) {
         drawPath(

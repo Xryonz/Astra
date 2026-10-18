@@ -1,11 +1,11 @@
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import type { Request, Response } from 'express'
 
 function userOrIpKey(req: Request, _res: Response): string {
   const userId = (req as any).userId
   if (userId) return `u:${userId}`
 
-  return `ip:${req.ip ?? 'unknown'}`
+  return `ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`
 }
 
 export const authLimiter = rateLimit({

@@ -154,7 +154,6 @@ private const val TEMPO_MINIMO_DA_ETAPA_MS = 450L
 @Composable
 private fun BlocoDeDesinstalar() {
     var confirmar by remember { mutableStateOf(false) }
-    var desinstalando by remember { mutableStateOf(false) }
     SettingsDivider()
     Text("desinstalar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
@@ -166,19 +165,23 @@ private fun BlocoDeDesinstalar() {
     )
     Spacer(Modifier.height(14.dp))
     BotaoDePerigo("desinstalar o Astra", Lucide.Trash2) { confirmar = true }
-    if (confirmar) {
+    if (confirmar) PedidoDeDesinstalar(aoDesistir = { confirmar = false })
+}
+
+@Composable
+internal fun PedidoDeDesinstalar(aoDesistir: () -> Unit) {
+    var desinstalando by remember { mutableStateOf(false) }
+    if (desinstalando) {
+        TelaDeDesinstalacao()
+    } else {
         ConfirmPopup(
             message = "desinstalar o Astra? o login e as preferências deste computador também saem.",
             confirmLabel = "desinstalar",
-            onConfirm = {
-                confirmar = false
-                desinstalando = true
-            },
-            onDismiss = { confirmar = false },
+            onConfirm = { desinstalando = true },
+            onDismiss = aoDesistir,
             posicao = CenterInWindow,
         )
     }
-    if (desinstalando) TelaDeDesinstalacao()
 }
 
 private object JanelaInteira : PopupPositionProvider {

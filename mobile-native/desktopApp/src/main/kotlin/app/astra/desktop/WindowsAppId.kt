@@ -16,6 +16,7 @@ object WindowsAppId {
     private const val ATALHO = "Microsoft\\Windows\\Start Menu\\Programs\\Astra.lnk"
     private const val CHAVE_DA_LISTA = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Astra"
     private const val PUBLICADOR = "Xryonz"
+    private const val CHAVE_DO_PROTOCOLO = "Software\\Classes\\astra"
 
     private interface Shell32 : StdCallLibrary {
         fun SetCurrentProcessExplicitAppUserModelID(appID: WString): Int
@@ -38,18 +39,34 @@ object WindowsAppId {
             runCatching { gravarNoRegistro() }
             runCatching { garantirAtalhoNoIniciar() }
             runCatching { entrarNaListaDeProgramas() }
+            runCatching { registrarProtocolo() }
         }
     }
 
     fun esquecer() {
         if (!noWindows()) return
-        for (chave in listOf(CHAVE, CHAVE_DA_LISTA)) {
-            runCatching {
-                if (Advapi32Util.registryKeyExists(WinReg.HKEY_CURRENT_USER, chave)) {
-                    Advapi32Util.registryDeleteKey(WinReg.HKEY_CURRENT_USER, chave)
-                }
-            }
-        }
+        for (chave in listOf(CHAVE, CHAVE_DA_LISTA, CHAVE_DO_PROTOCOLO)) runCatching { apagarComFilhas(chave) }
+    }
+
+    private fun apagarComFilhas(chave: String) {
+        val raiz = WinReg.HKEY_CURRENT_USER
+        if (!Advapi32Util.registryKeyExists(raiz, chave)) return
+        Advapi32Util.registryGetKeys(raiz, chave).forEach { apagarComFilhas("$chave\\$it") }
+        Advapi32Util.registryDeleteKey(raiz, chave)
+    }
+
+    private fun registrarProtocolo() {
+        if (!Desinstalador.disponivel) return
+        val exe = Instalacao.exe ?: return
+        val raiz = WinReg.HKEY_CURRENT_USER
+        val comando = "$CHAVE_DO_PROTOCOLO\\shell\\open\\command"
+        val icone = "$CHAVE_DO_PROTOCOLO\\DefaultIcon"
+        Advapi32Util.registryCreateKey(raiz, comando)
+        Advapi32Util.registryCreateKey(raiz, icone)
+        Advapi32Util.registrySetStringValue(raiz, CHAVE_DO_PROTOCOLO, "", "URL:$NOME_VISIVEL")
+        Advapi32Util.registrySetStringValue(raiz, CHAVE_DO_PROTOCOLO, "URL Protocol", "")
+        Advapi32Util.registrySetStringValue(raiz, icone, "", (Instalacao.icone() ?: exe).absolutePath)
+        Advapi32Util.registrySetStringValue(raiz, comando, "", "\"${exe.absolutePath}\" \"%1\"")
     }
 
     private fun entrarNaListaDeProgramas() {

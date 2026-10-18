@@ -473,7 +473,7 @@ private fun proximaManha(): Long {
 
 fun main(args: Array<String>) {
     if (Trocador.executarSePedido(args)) return
-    if (args.any { it == ARG_DESINSTALAR }) PedidoDeFora.deixar(PedidoDeFora.DESINSTALAR)
+    PedidoDeFora.lerArgumentos(args)
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO || it.startsWith("$ARG_POS_ATUALIZACAO=") }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     if (!SingleInstance.acquireOrSignal()) {
@@ -741,7 +741,11 @@ fun main(args: Array<String>) {
             LaunchedEffect(Unit) { WindowsAppId.registrarIdentidade() }
             var pedeDesinstalar by remember { mutableStateOf(false) }
             LaunchedEffect(activate) {
-                if (PedidoDeFora.pegar() == PedidoDeFora.DESINSTALAR && Desinstalador.disponivel) pedeDesinstalar = true
+                when (val pedido = PedidoDeFora.pegar()) {
+                    null -> Unit
+                    PedidoDeFora.DESINSTALAR -> if (Desinstalador.disponivel) pedeDesinstalar = true
+                    else -> PedidoDeFora.conviteDo(pedido)?.let { PedidoDeFora.convite.value = it }
+                }
             }
 
             val koin = GlobalContext.get()

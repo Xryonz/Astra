@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +81,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
+import app.astra.desktop.PedidoDeFora
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.ui.theme.DmMono
@@ -502,6 +504,14 @@ private fun CreateServerButton(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var joinOpen by remember { mutableStateOf(false) }
+    var conviteDeFora by remember { mutableStateOf("") }
+    val pedidoDeConvite by PedidoDeFora.convite.collectAsState()
+    LaunchedEffect(pedidoDeConvite) {
+        val codigo = pedidoDeConvite ?: return@LaunchedEffect
+        PedidoDeFora.convite.value = null
+        conviteDeFora = codigo
+        joinOpen = true
+    }
     var criando by remember { mutableStateOf(false) }
     Box {
         EstrelaDaRail(
@@ -539,7 +549,16 @@ private fun CreateServerButton(
         }
     }
     if (joinOpen) {
-        JoinByInviteDialog(onJoin = onJoinInvite, onClose = { joinOpen = false })
+        key(conviteDeFora) {
+            JoinByInviteDialog(
+                onJoin = onJoinInvite,
+                onClose = {
+                    joinOpen = false
+                    conviteDeFora = ""
+                },
+                codigoInicial = conviteDeFora,
+            )
+        }
     }
     if (criando) {
         EditorialInputDialog(

@@ -215,7 +215,7 @@ Não é item de backlog aqui — é regra de aceite para tela nova:
 
 ## Setup local
 
-Requer Node 20+, PostgreSQL e Redis. Para o desktop, JDK 21.
+Requer Node 24, PostgreSQL e Redis. Para o desktop, JDK 21.
 
 ```bash
 # 1. Instalar deps

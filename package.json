@@ -15,6 +15,6 @@
     "db:migrate": "npm run db:migrate -w apps/api"
   },
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   }
 }

@@ -127,6 +127,7 @@ func (m *Motor) Ligar(ctx context.Context) error {
 
 func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	defer PrenderNaThread()()
+	defer EntrarNoAgendadorDeAudio()()
 	if err := abrirCOM(); err != nil {
 		m.reclamar("iniciar COM na captura", err)
 		return
@@ -326,6 +327,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 
 func (m *Motor) laçoDeSaida(ctx context.Context) {
 	defer PrenderNaThread()()
+	defer EntrarNoAgendadorDeAudio()()
 	if err := abrirCOM(); err != nil {
 		m.reclamar("iniciar COM na saída", err)
 		return

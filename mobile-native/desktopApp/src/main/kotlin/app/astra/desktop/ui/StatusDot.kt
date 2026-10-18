@@ -45,7 +45,7 @@ fun StatusDot(
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val c = Offset(s / 2f, s / 2f)
-        val anel = if (bordered) s * 0.16f else 0f
+        val anel = if (bordered) s * ESPESSURA_DO_ARO else 0f
         if (bordered) drawCircle(borderColor, s / 2f, c)
         val r = s / 2f - anel
         when (status) {
@@ -77,6 +77,8 @@ fun StatusDot(
         }
     }
 }
+
+fun tamanhoComAro(ponto: Dp): Dp = ponto / (1f - 2 * ESPESSURA_DO_ARO)
 
 fun estrelaDeQuatroPontas(centro: Offset, raio: Float): Path {
     val p = raio * PINCA_DA_ESTRELA
@@ -115,6 +117,7 @@ internal val COBRE_DA_LUA = Color(0xFFB8442B)
 internal val LARANJA_DA_LUA = Color(0xFFF48C3C)
 
 private const val PINCA_DA_ESTRELA = 0.26f
+private const val ESPESSURA_DO_ARO = 0.16f
 private const val RAIO_DA_LUZ_DA_LUA = 0.92f
 private const val RAIO_DA_LUA_NO_DESENHO = 9.75f
 private const val CENTRO_DA_LUA_NO_DESENHO = 12f

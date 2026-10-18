@@ -449,11 +449,15 @@ private fun NomeELinha(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.width(6.dp))
+            val ponto = tamanhoPonto.dp
+            val caixa = tamanhoComAro(ponto)
+            Spacer(Modifier.width(6.dp - (caixa - ponto) / 2))
             StatusDot(
                 status = userStatus(dados.status),
-                size = tamanhoPonto.dp,
-                cutoutColor = Obsidian.raised,
+                size = caixa,
+                bordered = true,
+                borderColor = Obsidian.void,
+                cutoutColor = Obsidian.void,
             )
         }
     }

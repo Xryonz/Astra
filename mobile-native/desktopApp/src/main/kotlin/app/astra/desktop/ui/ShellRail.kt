@@ -130,6 +130,13 @@ internal fun Rail(
 ) {
     val clipboard = LocalClipboardManager.current
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
+    var convite by remember { mutableStateOf<String?>(null) }
+    val pedidoDeConvite by PedidoDeFora.convite.collectAsState()
+    LaunchedEffect(pedidoDeConvite) {
+        val codigo = pedidoDeConvite ?: return@LaunchedEffect
+        PedidoDeFora.convite.value = null
+        convite = codigo
+    }
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
     var ordem by remember { mutableStateOf(prefs.ordemDasConstelacoes()) }
     val naOrdem = remember(servers, ordem) { naOrdemEscolhida(servers, ordem) }
@@ -400,7 +407,7 @@ internal fun Rail(
                 }
                 }
             }
-            item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
+            item(key = "create-server") { CreateServerButton(onCreateServer, onOpenJoin = { convite = "" }) }
             item(key = "descobrir") {
                 EstrelaDaRail(
                     rotulo = "descobrir",
@@ -425,6 +432,11 @@ internal fun Rail(
             onAdd = { username, onResult -> onAddMember(srv.id, username, onResult) },
             onClose = { inviteFor = null },
         )
+    }
+    convite?.let { codigo ->
+        key(codigo) {
+            JoinByInviteDialog(onJoin = onJoinInvite, onClose = { convite = null }, codigoInicial = codigo)
+        }
     }
 }
 
@@ -500,18 +512,9 @@ private fun Modifier.arrastoDaRail(
 @Composable
 private fun CreateServerButton(
     onCreateServer: (name: String) -> Unit,
-    onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
+    onOpenJoin: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    var joinOpen by remember { mutableStateOf(false) }
-    var conviteDeFora by remember { mutableStateOf("") }
-    val pedidoDeConvite by PedidoDeFora.convite.collectAsState()
-    LaunchedEffect(pedidoDeConvite) {
-        val codigo = pedidoDeConvite ?: return@LaunchedEffect
-        PedidoDeFora.convite.value = null
-        conviteDeFora = codigo
-        joinOpen = true
-    }
     var criando by remember { mutableStateOf(false) }
     Box {
         EstrelaDaRail(
@@ -543,21 +546,9 @@ private fun CreateServerButton(
                         .padding(4.dp),
                 ) {
                     CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; criando = true }
-                    CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; joinOpen = true }
+                    CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; onOpenJoin() }
                 }
             }
-        }
-    }
-    if (joinOpen) {
-        key(conviteDeFora) {
-            JoinByInviteDialog(
-                onJoin = onJoinInvite,
-                onClose = {
-                    joinOpen = false
-                    conviteDeFora = ""
-                },
-                codigoInicial = conviteDeFora,
-            )
         }
     }
     if (criando) {

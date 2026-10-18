@@ -6,7 +6,7 @@ import { users, dmConversations, directMessages, channels, messages, serverMembe
 import { notify, resumoDaMensagem } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity, redis, vozKeys, VOZ_TTL_SEGUNDOS } from '../lib/redis'
-import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
+import { trackMessage, isUserMuted, muteUser, getMuteExpiry, duracaoDoSilencio } from '../lib/spamDetector'
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
@@ -243,7 +243,7 @@ export function setupSocket(io: Server) {
           await muteUser(userId, serverId, botId)
           const botMsg = {
             id: `bot-mute-${randomUUID()}`,
-            content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
+            content: `🔇 **@${socket.data.username}** foi silenciado por **${duracaoDoSilencio()}** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
 
             authorId: botId,

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { mutedMembers } from '../db/schema'
 import { redis } from './redis'
+import { contarNaJanela } from './contagemNaJanela'
 
 const WINDOW_SECONDS = 10
 const MAX_MESSAGES = 15
@@ -13,14 +14,18 @@ const spamKey = (userId: string, channelId: string) =>
 const muteKey = (userId: string, serverId: string) =>
   `muted:${userId}:${serverId}`
 
+export function duracaoDoSilencio(): string {
+  const minutos = Math.max(1, Math.round(MUTE_SECONDS / 60))
+  return minutos === 1 ? '1 minuto' : `${minutos} minutos`
+}
+
 export async function trackMessage(
   userId: string,
   channelId: string
 ): Promise<{ spamDetected: boolean; messageCount: number }> {
   const key = spamKey(userId, channelId)
   try {
-    const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, WINDOW_SECONDS)
+    const count = await contarNaJanela(key, WINDOW_SECONDS)
     return { spamDetected: count > MAX_MESSAGES, messageCount: count }
   } catch {
     return { spamDetected: false, messageCount: 0 }

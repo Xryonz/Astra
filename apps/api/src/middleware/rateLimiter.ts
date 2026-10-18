@@ -17,6 +17,15 @@ export const authLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 })
 
+export const unfurlLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Muitas prévias de link. Aguarde um momento.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+})
+
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,

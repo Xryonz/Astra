@@ -320,9 +320,10 @@ private const val ESPERA_DA_PREVIA_MS = 350L
 fun JoinByInviteDialog(
     onJoin: (raw: String, onResult: (String?) -> Unit) -> Unit,
     onClose: () -> Unit,
+    codigoInicial: String = "",
 ) {
     val api = remember { GlobalContext.get().get<InviteApi>() }
-    var raw by remember { mutableStateOf("") }
+    var raw by remember { mutableStateOf(codigoInicial) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
     var previa by remember { mutableStateOf<InvitePreviewDto?>(null) }

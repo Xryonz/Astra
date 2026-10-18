@@ -1,11 +1,13 @@
 import { Router, Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { eq, or, and, isNull, gt } from 'drizzle-orm'
 import passport from '../config/passport'
 import { db } from '../db'
 import { users, refreshTokens } from '../db/schema'
 import { blacklistToken } from '../lib/redis'
+import { contarNaJanela } from '../lib/contagemNaJanela'
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -53,9 +55,27 @@ const userSafeColumns = {
 }
 
 const EMAIL_CODE_TTL_MS = 15 * 60 * 1000
+const TENTATIVAS_POR_CODIGO = 5
+const MUITAS_TENTATIVAS = 'Muitas tentativas erradas. Peça um código novo.'
 
 function newEmailCode() {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(crypto.randomInt(100000, 1000000))
+}
+
+function mesmoCodigo(guardado: string, digitado: string): boolean {
+  const a = Buffer.from(guardado)
+  const b = Buffer.from(digitado)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+async function esgotouAsTentativas(userId: string, finalidade: string, expiraEm: Date): Promise<boolean> {
+  const segundos = Math.max(1, Math.ceil((expiraEm.getTime() - Date.now()) / 1000))
+  try {
+    const erros = await contarNaJanela(`codigo:erros:${finalidade}:${userId}:${expiraEm.getTime()}`, segundos)
+    return erros >= TENTATIVAS_POR_CODIGO
+  } catch {
+    return false
+  }
 }
 
 function extractRefreshToken(req: Request): string | undefined {
@@ -328,7 +348,13 @@ router.post(
     if (!user.pendingEmailExpiresAt || user.pendingEmailExpiresAt.getTime() < Date.now()) {
       return res.status(400).json({ error: 'O código expirou. Peça outro.' })
     }
-    if (code !== user.pendingEmailCode) {
+    if (!mesmoCodigo(user.pendingEmailCode, code)) {
+      if (await esgotouAsTentativas(req.userId!, 'trocar', user.pendingEmailExpiresAt)) {
+        await db.update(users)
+          .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
+          .where(eq(users.id, req.userId!))
+        return res.status(400).json({ error: MUITAS_TENTATIVAS })
+      }
       return res.status(400).json({ error: 'Código incorreto' })
     }
 
@@ -401,7 +427,14 @@ router.post(
     }).from(users).where(eq(users.id, req.userId!)).limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
     if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
-    if (!user.emailCode || user.emailCode !== code) {
+    if (!user.emailCode || !mesmoCodigo(user.emailCode, code)) {
+      if (user.emailCode && user.emailCodeExpiresAt
+        && await esgotouAsTentativas(req.userId!, 'verificar', user.emailCodeExpiresAt)) {
+        await db.update(users)
+          .set({ emailCode: null, emailCodeExpiresAt: null })
+          .where(eq(users.id, req.userId!))
+        return res.status(400).json({ error: MUITAS_TENTATIVAS })
+      }
       return res.status(400).json({ error: 'Código incorreto' })
     }
     if (!user.emailCodeExpiresAt || user.emailCodeExpiresAt < new Date()) {

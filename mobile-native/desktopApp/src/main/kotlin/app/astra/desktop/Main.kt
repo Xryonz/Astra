@@ -81,6 +81,7 @@ import app.astra.desktop.ui.RenderPrefs
 import app.astra.desktop.ui.ServidorAcordandoStrip
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.OnboardingScreen
+import app.astra.desktop.ui.PedidoDeDesinstalar
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.StarField
 import app.astra.desktop.ui.UserStatus
@@ -447,6 +448,8 @@ const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
 const val ARG_MINIMIZADO = "--minimizado"
 
+const val ARG_DESINSTALAR = "--desinstalar"
+
 private const val PRAZO_DA_IDENTIDADE_MS = 2_000L
 
 private const val UMA_HORA_MS = 60 * 60 * 1000L
@@ -470,6 +473,7 @@ private fun proximaManha(): Long {
 
 fun main(args: Array<String>) {
     if (Trocador.executarSePedido(args)) return
+    PedidoDeFora.lerArgumentos(args)
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO || it.startsWith("$ARG_POS_ATUALIZACAO=") }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     if (!SingleInstance.acquireOrSignal()) {
@@ -735,6 +739,14 @@ fun main(args: Array<String>) {
             LaunchedEffect(Unit) { DesktopShortcut.ensureWindows() }
             LaunchedEffect(Unit) { InicioComWindows.realinhar() }
             LaunchedEffect(Unit) { WindowsAppId.registrarIdentidade() }
+            var pedeDesinstalar by remember { mutableStateOf(false) }
+            LaunchedEffect(activate) {
+                when (val pedido = PedidoDeFora.pegar()) {
+                    null -> Unit
+                    PedidoDeFora.DESINSTALAR -> if (Desinstalador.disponivel) pedeDesinstalar = true
+                    else -> PedidoDeFora.conviteDo(pedido)?.let { PedidoDeFora.convite.value = it }
+                }
+            }
 
             val koin = GlobalContext.get()
             val windowInfo = LocalWindowInfo.current
@@ -812,6 +824,7 @@ fun main(args: Array<String>) {
                         atualizacao = updater,
                     )
                     ServidorAcordandoStrip()
+                    if (pedeDesinstalar) PedidoDeDesinstalar(aoDesistir = { pedeDesinstalar = false })
                     LaunchedEffect(naTela) { JanelaVisivel.marcar(naTela) }
                     CompositionLocalProvider(
                         LocalWindowActive provides (naTela && janelaComFoco),

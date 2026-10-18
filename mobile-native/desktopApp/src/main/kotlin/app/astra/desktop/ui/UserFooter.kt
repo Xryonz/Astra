@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
@@ -143,6 +145,8 @@ fun UserFooter(
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
+    var eclipses by remember { mutableIntStateOf(0) }
+    var luas by remember { mutableIntStateOf(0) }
     val xpStore = remember { GlobalContext.get().get<XpStore>() }
     val progresso by xpStore.progresso.collectAsState()
     val visualXp = rememberVisualDeXp(xpStore)
@@ -156,10 +160,16 @@ fun UserFooter(
 
     val pickStatus: (UserStatus) -> Unit = { picked ->
         statusOpen = false
+        val entraEmEclipse = picked == UserStatus.DND && status != UserStatus.DND
+        val entraNaLua = picked == UserStatus.IDLE && status != UserStatus.IDLE
         scope.launch {
             runCatching {
                 GlobalContext.get().get<UserApi>().setStatus(SetStatusRequest(picked.name))
-            }.onSuccess { onEdited() }
+            }.onSuccess {
+                onEdited()
+                if (entraEmEclipse) eclipses++
+                if (entraNaLua) luas++
+            }
         }
     }
 
@@ -223,6 +233,29 @@ fun UserFooter(
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30)
                 MoedasDeXp(xpStore)
+                AnimacaoDeArtista(
+                    arquivo = "eclipse",
+                    vez = eclipses,
+                    luz = Obsidian.text1,
+                    fundo = Obsidian.void,
+                    cores = ::escuroViraFundo,
+                    quadros = 0..QUADRO_DO_ECLIPSE_TOTAL,
+                    modifier = Modifier.size(30.dp),
+                    apagaJunto = Modifier.background(Obsidian.void, CircleShape),
+                )
+                AnimacaoDeArtista(
+                    arquivo = "lua-de-sangue",
+                    vez = luas,
+                    luz = LARANJA_DA_LUA,
+                    fundo = COBRE_DA_LUA,
+                    cores = ::claroNaLuzEscuroNoFundo,
+                    quadros = QUADRO_DA_LUA_CHEIA..QUADRO_DA_LUA_ECLIPSADA,
+                    velocidade = VELOCIDADE_DA_LUA,
+                    modifier = Modifier.matchParentSize().graphicsLayer {
+                        scaleX = ESCALA_DA_LUA
+                        scaleY = ESCALA_DA_LUA
+                    },
+                )
             }
             StatusDot(
                 status = status,
@@ -367,7 +400,7 @@ private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StatusDot(status = s, size = 11.dp, cutoutColor = bg)
+                StatusDot(status = s, size = 16.dp, cutoutColor = bg)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     statusLabel(s),
@@ -592,6 +625,12 @@ private fun EditField(label: String, value: String, single: Boolean, onChange: (
         )
     }
 }
+
+private const val QUADRO_DO_ECLIPSE_TOTAL = 36
+private const val QUADRO_DA_LUA_CHEIA = 60
+private const val QUADRO_DA_LUA_ECLIPSADA = 114
+private const val VELOCIDADE_DA_LUA = 1.5f
+private const val ESCALA_DA_LUA = 700f / 553f
 
 private fun forcaDoSinal(c: LeituraDoCaminho): Int = when {
     c.perda >= 8 || c.ida >= 300 || c.tremor >= 60 -> 1

@@ -1,14 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -41,23 +32,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.cos
-import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -281,87 +265,25 @@ private fun Center(text: String) {
 }
 
 @Composable
-private fun TreasureMapCanvas(width: Dp, height: Dp) {
-    val reduce = LocalReduceMotion.current
-    val accent = Obsidian.accent
-
-    val draw = remember { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(reduce) { if (!reduce) draw.animateTo(1f, tween(1700, easing = FastOutSlowInEasing)) }
-
-    val clock = if (reduce) null else rememberInfiniteTransition(label = "map").animateFloat(
-        0f, (2.0 * Math.PI).toFloat(),
-        infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
-        label = "clock",
+private fun DesenhoDaConstelacao(modifier: Modifier) {
+    AnimacaoDeArtista(
+        arquivo = "constelacao",
+        vez = 1,
+        luz = Obsidian.accent,
+        cores = ::claroViraFundo,
+        quadros = 0..QUADRO_DO_DESENHO_COMPLETO,
+        ficaNoFim = true,
+        modifier = modifier,
     )
-
-    val route = remember {
-        listOf(
-            Offset(0.09f, 0.74f), Offset(0.27f, 0.42f), Offset(0.44f, 0.63f),
-            Offset(0.61f, 0.30f), Offset(0.79f, 0.52f), Offset(0.92f, 0.28f),
-        )
-    }
-    val stars = remember {
-        val r = java.util.Random(7)
-        List(16) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f) }
-    }
-
-    Box(Modifier.size(width = width, height = height)) {
-        Canvas(Modifier.fillMaxSize()) {
-            val t = clock?.value ?: 0f
-            val pulse = if (clock == null) 1f else 0.82f + 0.18f * sin(t * 1.6f)
-            val w = size.width; val h = size.height
-            stars.forEach { (sx, sy, ph) ->
-                val a = 0.10f + 0.22f * (0.5f + 0.5f * sin(t + ph))
-                drawCircle(accent.copy(alpha = a), radius = 1.1f, center = Offset(sx * w, sy * h))
-            }
-            val pts = route.map { Offset(it.x * w, it.y * h) }
-            val lens = pts.zipWithNext().map { (a, b) -> (b - a).getDistance() }
-            val total = lens.sum().coerceAtLeast(1f)
-            val reached = draw.value * total
-            val dash = PathEffect.dashPathEffect(floatArrayOf(5f, 6f), 0f)
-            var remaining = reached
-            for (i in lens.indices) {
-                if (remaining <= 0f) break
-                val a = pts[i]; val b = pts[i + 1]
-                val frac = (remaining / lens[i]).coerceAtMost(1f)
-                val end = Offset(a.x + (b.x - a.x) * frac, a.y + (b.y - a.y) * frac)
-                drawLine(accent.copy(alpha = 0.5f), a, end, strokeWidth = 1.6f, cap = StrokeCap.Round, pathEffect = dash)
-                remaining -= lens[i]
-            }
-            val cum = FloatArray(pts.size)
-            for (i in 1 until pts.size) cum[i] = cum[i - 1] + lens[i - 1]
-            pts.forEachIndexed { i, p ->
-                if (i < pts.lastIndex && cum[i] <= reached) {
-                    drawCircle(accent.copy(alpha = 0.85f), radius = 2.4f, center = p)
-                    drawCircle(accent.copy(alpha = 0.20f), radius = 4.6f, center = p)
-                }
-            }
-            if (draw.value > 0.98f) {
-                val tp = pts.last()
-                drawCircle(accent.copy(alpha = 0.10f), radius = 16f * pulse, center = tp)
-                drawCircle(accent.copy(alpha = 0.18f), radius = 8f * pulse, center = tp)
-                val r = minOf(w, h) * 0.07f * pulse
-                val inner = r * 0.4f
-                val star = Path()
-                for (k in 0 until 8) {
-                    val rad = if (k % 2 == 0) r else inner
-                    val a = (-90.0 + k * 45.0) * Math.PI / 180.0
-                    val px = tp.x + (rad * cos(a)).toFloat()
-                    val py = tp.y + (rad * sin(a)).toFloat()
-                    if (k == 0) star.moveTo(px, py) else star.lineTo(px, py)
-                }
-                star.close()
-                drawPath(star, accent)
-            }
-        }
-    }
 }
+
+private const val QUADRO_DO_DESENHO_COMPLETO = 39
 
 @Composable
 private fun DiscoverEmptyMap(query: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TreasureMapCanvas(width = 280.dp, height = 150.dp)
+            DesenhoDaConstelacao(Modifier.size(width = 280.dp, height = 150.dp))
             Spacer(Modifier.height(20.dp))
             Text(
                 if (query.isBlank()) "o mapa ainda está vazio" else "nada no mapa",
@@ -381,7 +303,7 @@ private fun DiscoverEmptyMap(query: String) {
 internal fun DiscoverSidebarMap() {
     Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TreasureMapCanvas(width = 168.dp, height = 104.dp)
+            DesenhoDaConstelacao(Modifier.size(width = 168.dp, height = 104.dp))
             Spacer(Modifier.height(16.dp))
             Text(
                 "a rota leva ao palco ao lado",

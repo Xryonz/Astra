@@ -1,10 +1,10 @@
-versao 1.0.53
-Foto de perfil em GIF anima, e o recorte mantém a animação.
-Vídeos anexados são comprimidos antes de subir, com o andamento no próprio anexo.
-Escolher arquivo abre a janela atual do Windows.
-A letra das conversas ficou maior por padrão.
-O botão de voltar ao presente mostra quantas mensagens novas chegaram.
-A aurora agora é calculada uma vez e tocada como vídeo, e pesa bem menos no computador.
-Maximizar não cobre mais a barra de tarefas, e Esc fecha os painéis do topo, que agora abrem um de cada vez.
-Quando a sessão vence, o app volta ao login com um aviso, em vez de ficar sem conexão.
-Dá para desinstalar o Astra pelas configurações.
+versao 1.0.54
+Os estados viraram estrela, lua de sangue (ausente) e eclipse (não perturbe).
+Ao escolher ausente ou não perturbe, a lua ou o eclipse passa sobre a sua foto.
+Cada fala na conversa ganha duas semi-bordas finas.
+A coluna virou um fio de estrelas, e a constelação nova se forma ao chegar.
+Enviar virou uma estrela que brilha a cada envio.
+Imagens e arquivos podem ser colados direto no campo de mensagem.
+Na call, o Windows dá prioridade total ao Astra, e a tela não apaga enquanto você transmite ou assiste.
+O Astra aparece em Aplicativos instalados do Windows e pode ser desinstalado por lá.
+Links de convite abrem o Astra com o convite pronto para confirmar.

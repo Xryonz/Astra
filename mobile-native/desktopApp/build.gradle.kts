@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.jna.platform)
     implementation(libs.mp3spi)
     implementation(libs.vorbisspi)
+    implementation(libs.compottie.lite)
 }
 
 val sidecarFonte = project.file("../../sidecar-voz")

@@ -1,7 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -9,6 +8,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -60,6 +61,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -89,7 +92,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -109,7 +114,15 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -136,7 +149,6 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Pin
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Reply
-import com.composables.icons.lucide.ArrowUp
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.X
@@ -158,6 +170,7 @@ import app.astra.shared.AstraShared
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import app.astra.desktop.AreaDeTransferencia
 import java.awt.Desktop
 import java.awt.datatransfer.DataFlavor
 import java.io.File
@@ -426,6 +439,9 @@ fun ChatView(
                 onClose = { perfilDaMencao = null },
             )
         }
+    val meuId = LocalMinhaConta.current.id
+    val falas = remember(linhas, primeiraNaoLida, meuId) { falasPorMensagem(linhas, primeiraNaoLida, meuId) }
+    val alturas = remember(target.id) { mutableStateMapOf<String, Int>() }
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
         Box(Modifier.weight(1f)) {
@@ -443,14 +459,19 @@ fun ChatView(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
-                    for (linha in linhas) when (linha) {
+                    linhas.forEachIndexed { i, linha -> when (linha) {
                         is LinhaDoChat.Dia -> item(key = "dia:${linha.chave}", contentType = "dia") {
                             SeparadorDoChat(linha.rotulo)
                         }
                         is LinhaDoChat.Passagem -> item(key = linha.id, contentType = "dia") {
                             SeparadorDoChat(linha.texto)
                         }
-                        is LinhaDoChat.Fala -> item(
+                        is LinhaDoChat.Fala -> {
+                            val anterior = linhas.getOrNull(i - 1) as? LinhaDoChat.Fala
+                            val proxima = linhas.getOrNull(i + 1) as? LinhaDoChat.Fala
+                            val abre = abreUmCartao(linha, anterior, primeiraNaoLida, meuId)
+                            val fecha = proxima == null || abreUmCartao(proxima, linha, primeiraNaoLida, meuId)
+                            item(
                             key = linha.msg.id,
                             contentType = when {
                                 linha.msg.poll != null -> "enquete"
@@ -462,7 +483,11 @@ fun ChatView(
                             if (msg.id == primeiraNaoLida) MarcaDeNovasMensagens()
                             MessageRow(
                                 msg = msg,
-                                grouped = linha.agrupada,
+                                abreOCartao = abre,
+                                fechaOCartao = fecha,
+                                idsDaFala = falas[msg.id].orEmpty(),
+                                alturas = alturas,
+                                aoMedir = { altura -> if (alturas[msg.id] != altura) alturas[msg.id] = altura },
                                 isChannel = isChannel,
                                 highlighted = msg.id == highlightId,
                                 editing = msg.id == editingId,
@@ -481,7 +506,8 @@ fun ChatView(
                                 onStartDm = onStartDm,
                             )
                         }
-                    }
+                        }
+                    } }
                 }
             }
 
@@ -615,6 +641,7 @@ fun ChatView(
             }
             var draft by remember(target.id) { mutableStateOf("") }
             var composerFocused by remember(target.id) { mutableStateOf(false) }
+            var envios by remember(target.id) { mutableIntStateOf(0) }
             val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
             val mencaoAlvo = remember(draft, membros) {
@@ -655,6 +682,7 @@ fun ChatView(
                 if (prefixo != null && serverId != null) vm.sendBotCommand(serverId, texto)
                 else vm.send(draft)
                 draft = ""
+                envios++
             }
             val canSend = (draft.isNotBlank() || state.pending.isNotEmpty()) && !comprimindo
             Column(Modifier.fillMaxWidth().then(lugarDoPetNoCampo())) {
@@ -675,13 +703,12 @@ fun ChatView(
                     draft = picked.name.substringBefore(" <") + " "
                 }
                 if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
+                val placeholder = if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .marcoDoTour(Marco.ESCREVER)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Obsidian.raised)
+                        .background(Obsidian.raised, RoundedCornerShape(12.dp))
                         .border(
                             1.dp,
                             if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
@@ -699,7 +726,13 @@ fun ChatView(
                         if (draft.isEmpty()) {
                             Text(
                                 placeholder,
-                                style = TextStyle(color = Obsidian.text3, fontSize = 15.sp, lineHeight = 22.sp),
+                                style = TextStyle(
+                                    color = Obsidian.text3,
+                                    fontSize = 17.sp,
+                                    lineHeight = 22.sp,
+                                    fontFamily = DmSerif,
+                                    fontStyle = FontStyle.Italic,
+                                ),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -716,9 +749,15 @@ fun ChatView(
                                 .fillMaxWidth()
                                 .onFocusChanged { composerFocused = it.isFocused }
                                 .onPreviewKeyEvent { e ->
-                                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                                        submit(); true
-                                    } else false
+                                    when {
+                                        e.type != KeyEventType.KeyDown -> false
+                                        e.key == Key.Enter && !e.isShiftPressed -> { submit(); true }
+                                        ehColar(e) && AreaDeTransferencia.temAlgoParaAnexar() -> {
+                                            scope.launch { vm.addFiles(AreaDeTransferencia.anexosColados()) }
+                                            true
+                                        }
+                                        else -> false
+                                    }
                                 },
                         )
                     }
@@ -748,7 +787,7 @@ fun ChatView(
                         emojisDaSala = emojisDaSala.lista,
                     )
                     Spacer(Modifier.width(4.dp))
-                    SendButton(enabled = canSend) { submit() }
+                    EstrelaDeEnviar(acesa = canSend, envios = envios) { submit() }
                 }
             }
         }
@@ -789,10 +828,128 @@ private fun EscopoProprio(conteudo: @Composable () -> Unit) {
     conteudo()
 }
 
+private fun ehColar(e: KeyEvent): Boolean =
+    (e.isCtrlPressed && e.key == Key.V) || (e.isShiftPressed && e.key == Key.Insert)
+
+private fun mencionaVoce(msg: ChatMessage, meuId: String?): Boolean = meuId != null && meuId in msg.mentions
+
+private fun abreUmCartao(
+    fala: LinhaDoChat.Fala,
+    anterior: LinhaDoChat.Fala?,
+    primeiraNaoLida: String?,
+    meuId: String?,
+): Boolean =
+    anterior == null || !fala.agrupada ||
+        fala.msg.call != null || anterior.msg.call != null ||
+        fala.msg.id == primeiraNaoLida ||
+        mencionaVoce(fala.msg, meuId) || mencionaVoce(anterior.msg, meuId)
+
+private fun falasPorMensagem(
+    linhas: List<LinhaDoChat>,
+    primeiraNaoLida: String?,
+    meuId: String?,
+): Map<String, List<String>> {
+    val porMensagem = HashMap<String, List<String>>()
+    var atual = ArrayList<String>()
+    linhas.forEachIndexed { i, linha ->
+        if (linha !is LinhaDoChat.Fala) return@forEachIndexed
+        if (abreUmCartao(linha, linhas.getOrNull(i - 1) as? LinhaDoChat.Fala, primeiraNaoLida, meuId)) atual = ArrayList()
+        atual += linha.msg.id
+        porMensagem[linha.msg.id] = atual
+    }
+    return porMensagem
+}
+
+private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean) {
+    val inteira: Boolean get() = acimaCompleto && abaixoCompleto
+}
+
+private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>): MedidaDaFala {
+    var acima = 0f
+    var acimaCompleto = true
+    var abaixo = 0f
+    var abaixoCompleto = true
+    var passou = false
+    for (id in ids) {
+        if (id == eu) {
+            passou = true
+            continue
+        }
+        val altura = alturas[id]
+        when {
+            altura == null && passou -> abaixoCompleto = false
+            altura == null -> acimaCompleto = false
+            passou -> abaixo += altura
+            else -> acima += altura
+        }
+    }
+    return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
+}
+
+private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala) {
+    val traco = 1.dp.toPx()
+    val meio = traco / 2f
+    val raio = CANTO_DA_SEMIBORDA.toPx()
+    val alto = size.height
+    val deitada = maxOf(size.width * PONTA_DEITADA, raio)
+    val tetoEmPe = maxOf(raio, PONTA_EM_PE_MAXIMA.toPx())
+    val emPeSemTeto = (fala.acima + alto + fala.abaixo) * PONTA_EM_PE
+    if (emPeSemTeto < tetoEmPe && !fala.inteira) return
+    val emPe = emPeSemTeto.coerceIn(raio, tetoEmPe)
+    val estilo = Stroke(width = traco, cap = StrokeCap.Round)
+    if (abre) {
+        drawPath(
+            Path().apply {
+                moveTo(meio, minOf(meio + emPe, alto))
+                lineTo(meio, meio + raio)
+                quadraticTo(meio, meio, meio + raio, meio)
+                lineTo(meio + deitada, meio)
+            },
+            cor,
+            style = estilo,
+        )
+    } else if (fala.acimaCompleto) {
+        val de = (raio - fala.acima).coerceAtLeast(0f)
+        val ate = (emPe - fala.acima).coerceAtMost(alto)
+        if (ate > de) drawLine(cor, Offset(meio, de), Offset(meio, ate), traco)
+    }
+    val x = size.width - meio
+    if (fecha) {
+        val y = alto - meio
+        drawPath(
+            Path().apply {
+                moveTo(x, maxOf(y - emPe, 0f))
+                lineTo(x, y - raio)
+                quadraticTo(x, y, x - raio, y)
+                lineTo(x - deitada, y)
+            },
+            cor,
+            style = estilo,
+        )
+    } else if (fala.abaixoCompleto) {
+        val fundo = alto + fala.abaixo
+        val de = (fundo - emPe).coerceAtLeast(0f)
+        val ate = (fundo - raio).coerceAtMost(alto)
+        if (ate > de) drawLine(cor, Offset(x, de), Offset(x, ate), traco)
+    }
+}
+
+private val CANTO_DA_SEMIBORDA = 8.dp
+private val MARGEM_DA_FALA = 14.dp
+private val PONTA_EM_PE_MAXIMA = 120.dp
+private const val PONTA_DEITADA = 0.25f
+private const val PONTA_EM_PE = 0.5f
+private const val ALFA_DA_MENCAO = 0.7f
+private const val RESPIRO_DA_CARTA = 0.75f
+
 @Composable
 private fun MessageRow(
     msg: ChatMessage,
-    grouped: Boolean,
+    abreOCartao: Boolean,
+    fechaOCartao: Boolean,
+    idsDaFala: List<String>,
+    alturas: Map<String, Int>,
+    aoMedir: (Int) -> Unit,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -823,7 +980,8 @@ private fun MessageRow(
     var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
-    val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
+    val grouped = !abreOCartao
+    val meMencionou = mencionaVoce(msg, LocalMinhaConta.current.id)
     val opacidade = if (!msg.deleting) 1f else {
         val sumindo = remember { Animatable(1f) }
         LaunchedEffect(Unit) { sumindo.animateTo(0f, tween(FADE_MS)) }
@@ -860,22 +1018,41 @@ private fun MessageRow(
             }
         }
     }) {
+    val dens = LocalMsgDensity.current
+    val respiroDaCarta = (dens.topDp * RESPIRO_DA_CARTA).dp
+    val espacoEntreCartas = (dens.groupedTopDp * 2).dp
+    val corDaSemiborda = when {
+        meMencionou -> Obsidian.accent.copy(alpha = ALFA_DA_MENCAO)
+        msg.mine -> Obsidian.borderMid
+        else -> Obsidian.borderDim
+    }
+    val formaDoRealce = RoundedCornerShape(
+        topStart = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        topEnd = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        bottomStart = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        bottomEnd = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+    )
     Box(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = MARGEM_DA_FALA)
+            .padding(top = if (abreOCartao) espacoEntreCartas else 0.dp)
+            .onSizeChanged { aoMedir(it.height) }
             .graphicsLayer {
                 alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
-                val aceso = Obsidian.accentDim
-                if (realce > 0f) drawRect(aceso.copy(alpha = aceso.alpha * realce))
-                if (meMencionou) {
-                    drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
+                if (realce > 0f) {
+                    val aceso = Obsidian.accentDim
+                    drawOutline(
+                        formaDoRealce.createOutline(size, layoutDirection, this),
+                        aceso.copy(alpha = aceso.alpha * realce),
+                    )
                 }
+                semibordas(abreOCartao, fechaOCartao, corDaSemiborda, medirFala(idsDaFala, msg.id, alturas))
             }
             .hoverable(interaction),
     ) {
-        val dens = LocalMsgDensity.current
         val showPill = (hovered || pillHovered || pickerOpen || confirmDelete) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
@@ -920,8 +1097,11 @@ private fun MessageRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp)
-                .padding(top = if (grouped) dens.groupedTopDp.dp else dens.topDp.dp, bottom = 2.dp),
+                .padding(horizontal = 12.dp)
+                .padding(
+                    top = if (grouped) dens.groupedTopDp.dp else respiroDaCarta,
+                    bottom = if (fechaOCartao) respiroDaCarta else 2.dp,
+                ),
             verticalAlignment = Alignment.Top,
         ) {
             if (grouped) {
@@ -943,17 +1123,21 @@ private fun MessageRow(
                     msg.replyTo?.let { ref ->
                         ReplyRef(ref, onJumpTo)
                     }
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    Row {
+                        val fonte = profileFontFamily(msg.authorFont)
                         NomeColorido(
                             texto = msg.authorName,
                             cor = LocalCoresDeCargo.current[msg.authorId],
                             padrao = Obsidian.text1,
-                            fontSize = 15.sp,
+                            fontSize = if (fonte == DmSerif) 17.sp else 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            fontFamily = msg.authorFont?.let { profileFontFamily(it) },
+                            fontFamily = fonte,
+                            modifier = Modifier.alignByBaseline().weight(1f, fill = false),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(hhmm(msg.createdAt), style = Tipo.nota)
+                        Text(hhmm(msg.createdAt), style = Tipo.nota, modifier = Modifier.alignByBaseline())
                     }
                     Spacer(Modifier.height(2.dp))
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
@@ -1734,29 +1918,57 @@ private fun HoverGlyph(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
+private fun EstrelaDeEnviar(acesa: Boolean, envios: Int, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
-    val bg by animateColorAsState(
-        if (enabled) Obsidian.text1 else Color.Transparent,
-        tween(170), label = "sendBg",
+    val reduzir = LocalReduceMotion.current
+    val luz by animateFloatAsState(
+        if (acesa) 1f else 0f,
+        if (reduzir) snap() else tween(TROCA_DA_ESTRELA_MS, easing = EaseOutStd),
+        label = "estrelaDeEnviar",
     )
-    val fg by animateColorAsState(
-        if (enabled) Obsidian.void else Obsidian.text3,
-        tween(170), label = "sendFg",
-    )
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(CircleShape)
-            .background(if (enabled) bg else if (hov) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(Lucide.ArrowUp, tint = fg, size = 17.dp)
+    val apagada = Obsidian.text3
+    val cor = Obsidian.accent
+    Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clickScale(src, formaDoFoco = CircleShape)
+                .clip(CircleShape)
+                .background(if (hov && acesa) Obsidian.hover else Color.Transparent)
+                .hoverable(src)
+                .clickable(interactionSource = src, indication = null, enabled = acesa, onClick = onClick)
+                .semantics { contentDescription = "enviar" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(18.dp)) {
+                val r = size.minDimension / 2f
+                if (luz < 1f) {
+                    drawPath(
+                        estrelaDeQuatroPontas(center, r * 0.86f),
+                        apagada.copy(alpha = apagada.alpha * (1f - luz)),
+                        style = Stroke(width = 1.4.dp.toPx(), join = StrokeJoin.Round),
+                    )
+                }
+                if (luz > 0f) {
+                    drawPath(estrelaDeQuatroPontas(center, r * (0.8f + 0.2f * luz)), cor.copy(alpha = cor.alpha * luz))
+                }
+            }
+        }
+        AnimacaoDeArtista(
+            arquivo = "brilho-de-envio",
+            vez = envios,
+            luz = cor,
+            modifier = Modifier.requiredSize(40.dp),
+            quadros = 0..QUADRO_FINAL_DO_BRILHO,
+            velocidade = VELOCIDADE_DO_BRILHO,
+        )
     }
 }
+
+private const val TROCA_DA_ESTRELA_MS = 180
+private const val QUADRO_FINAL_DO_BRILHO = 23
+private const val VELOCIDADE_DO_BRILHO = 2.5f
 
 @Composable
 private fun Center(text: String) {

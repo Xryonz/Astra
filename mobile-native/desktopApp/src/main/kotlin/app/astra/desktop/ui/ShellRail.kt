@@ -2,7 +2,12 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -74,6 +81,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
+import app.astra.desktop.PedidoDeFora
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.ui.theme.DmMono
@@ -107,6 +115,8 @@ internal fun Rail(
     myId: String?,
     mutedServers: Set<String>,
     sussurroNaoLido: Boolean,
+    constelacoesComNovidade: Set<String>,
+    carregado: Boolean,
     canManageSelected: (String) -> Boolean,
     onOpenServerSettings: (String) -> Unit,
     onSelect: (Selection) -> Unit,
@@ -120,11 +130,31 @@ internal fun Rail(
 ) {
     val clipboard = LocalClipboardManager.current
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
+    var convite by remember { mutableStateOf<String?>(null) }
+    val pedidoDeConvite by PedidoDeFora.convite.collectAsState()
+    LaunchedEffect(pedidoDeConvite) {
+        val codigo = pedidoDeConvite ?: return@LaunchedEffect
+        PedidoDeFora.convite.value = null
+        convite = codigo
+    }
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
     var ordem by remember { mutableStateOf(prefs.ordemDasConstelacoes()) }
     val naOrdem = remember(servers, ordem) { naOrdemEscolhida(servers, ordem) }
     val arrasto = remember { ArrastoDaRail() }
     val estadoDaLista = rememberLazyListState()
+    var conhecidas by remember { mutableStateOf<Set<String>?>(null) }
+    var nascendo by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(carregado, servers) {
+        if (!carregado) return@LaunchedEffect
+        val ids = servers.mapTo(HashSet()) { it.id }
+        val antes = conhecidas
+        if (antes != null) {
+            val novas = ids - antes
+            if (novas.isNotEmpty()) nascendo = nascendo + novas
+        }
+        conhecidas = ids
+    }
+    val corDoFio = Obsidian.borderMid
     val zona = with(LocalDensity.current) { ZONA_DE_ROLAGEM.toPx() }
     val teto = with(LocalDensity.current) { PASSO_DA_ROLAGEM.toPx() }
     val itensAgora by rememberUpdatedState(naOrdem)
@@ -208,28 +238,17 @@ internal fun Rail(
                     )
                 }
                 if (sussurroNaoLido) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 4.dp, y = (-4).dp)
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(Obsidian.void),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(Obsidian.accent))
-                    }
+                    MarcaDeNovidade(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
                 }
             }
         }
-        Spacer(Modifier.height(2.dp))
-        DivisoriaDaRail()
-        Spacer(Modifier.height(12.dp))
+        Box(Modifier.width(1.dp).height(ALTURA_DO_FIO_DE_CIMA).background(corDoFio))
         LazyColumn(
             state = estadoDaLista,
             modifier = Modifier
                 .weight(1f)
-                .arrastoDaRail(arrasto, comecarOArrasto, acompanharOPonteiro, soltarOArrasto),
+                .arrastoDaRail(arrasto, comecarOArrasto, acompanharOPonteiro, soltarOArrasto)
+                .fioDasEstrelas(estadoDaLista, naOrdem.size, corDoFio),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(ESPACO_ENTRE_ITENS),
         ) {
@@ -357,10 +376,17 @@ internal fun Rail(
                         }
                     }
                 }
-                RailItem(
-                    active = (selection as? Selection.Server)?.id == srv.id,
-                    onClick = { onSelect(Selection.Server(srv.id)) },
+                val novidade = srv.id in constelacoesComNovidade
+                val acabouDeChegar = carregado && conhecidas?.contains(srv.id) == false
+                EstrelaDaRail(
                     rotulo = srv.name,
+                    nomeAcessivel = if (novidade) "${srv.name}, mensagens novas" else srv.name,
+                    aberta = (selection as? Selection.Server)?.id == srv.id,
+                    novidade = novidade,
+                    silenciada = srv.id in mutedServers,
+                    nascendo = acabouDeChegar || srv.id in nascendo,
+                    aoFormar = { nascendo = nascendo - srv.id },
+                    aoTocar = { onSelect(Selection.Server(srv.id)) },
                 ) {
                     if (!srv.iconUrl.isNullOrBlank() && !imagemMorreu(srv.iconUrl)) {
                         AsyncImage(
@@ -381,36 +407,20 @@ internal fun Rail(
                 }
                 }
             }
-            item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
+            item(key = "create-server") { CreateServerButton(onCreateServer, onOpenJoin = { convite = "" }) }
             item(key = "descobrir") {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.height(4.dp))
-                    DivisoriaDaRail()
-                    Spacer(Modifier.height(2.dp))
-                    Box(
-                        modifier = Modifier.size(72.dp).drawBehind {
-                            drawRect(
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        Obsidian.accent.copy(alpha = 0.16f),
-                                        Obsidian.accent.copy(alpha = 0.05f),
-                                        Color.Transparent,
-                                    ),
-                                    center = center,
-                                    radius = size.minDimension * 0.52f,
-                                ),
-                            )
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        RailItem(
-                            active = selection is Selection.Discover,
-                            onClick = { onSelect(Selection.Discover) },
-                            rotulo = "descobrir",
-                        ) {
-                            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp)
-                        }
-                    }
+                EstrelaDaRail(
+                    rotulo = "descobrir",
+                    nomeAcessivel = "descobrir",
+                    aberta = selection is Selection.Discover,
+                    apagada = true,
+                    aoTocar = { onSelect(Selection.Discover) },
+                ) {
+                    LIcon(
+                        Lucide.Compass,
+                        tint = if (selection is Selection.Discover) Obsidian.accent else Obsidian.text3,
+                        size = 18.dp,
+                    )
                 }
             }
         }
@@ -423,10 +433,15 @@ internal fun Rail(
             onClose = { inviteFor = null },
         )
     }
+    convite?.let { codigo ->
+        key(codigo) {
+            JoinByInviteDialog(onJoin = onJoinInvite, onClose = { convite = null }, codigoInicial = codigo)
+        }
+    }
 }
 
 private val TAMANHO_DO_ITEM = 44.dp
-private val ESPACO_ENTRE_ITENS = 8.dp
+private val ESPACO_ENTRE_ITENS = 4.dp
 private val ZONA_DE_ROLAGEM = 56.dp
 private val PASSO_DA_ROLAGEM = 9.dp
 private const val ESCALA_NA_MAO = 1.06f
@@ -497,21 +512,21 @@ private fun Modifier.arrastoDaRail(
 @Composable
 private fun CreateServerButton(
     onCreateServer: (name: String) -> Unit,
-    onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
+    onOpenJoin: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    var joinOpen by remember { mutableStateOf(false) }
     var criando by remember { mutableStateOf(false) }
     Box {
-        RailItem(
-            active = false,
-            onClick = { menuOpen = true },
+        EstrelaDaRail(
             rotulo = if (menuOpen) null else "adicionar",
             nomeAcessivel = "adicionar constelação",
+            aberta = false,
+            apagada = true,
+            aoTocar = { menuOpen = true },
         ) {
             Text(
                 "+",
-                style = TextStyle(color = Obsidian.accent, fontSize = 22.sp),
+                style = TextStyle(color = Obsidian.text3, fontSize = 20.sp),
                 modifier = Modifier.clearAndSetSemantics { },
             )
         }
@@ -531,13 +546,10 @@ private fun CreateServerButton(
                         .padding(4.dp),
                 ) {
                     CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; criando = true }
-                    CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; joinOpen = true }
+                    CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; onOpenJoin() }
                 }
             }
         }
-    }
-    if (joinOpen) {
-        JoinByInviteDialog(onJoin = onJoinInvite, onClose = { joinOpen = false })
     }
     if (criando) {
         EditorialInputDialog(
@@ -593,10 +605,186 @@ private object RailMenuBeside : PopupPositionProvider {
     )
 }
 
-@Composable
-private fun DivisoriaDaRail() {
-    Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+private fun Modifier.fioDasEstrelas(estado: LazyListState, estrelas: Int, cor: Color): Modifier = drawBehind {
+    val itens = estado.layoutInfo.visibleItemsInfo
+    if (itens.isEmpty()) return@drawBehind
+    val x = size.width / 2f
+    val espessura = 1.dp.toPx()
+    fun centro(indice: Int): Float? = itens.firstOrNull { it.index == indice }?.let { it.offset + it.size / 2f }
+    val fimSolido = when {
+        estrelas == 0 -> 0f
+        itens.first().index >= estrelas -> 0f
+        else -> centro(estrelas - 1) ?: size.height
+    }
+    if (fimSolido > 0f) drawLine(cor, Offset(x, 0f), Offset(x, fimSolido), espessura)
+    val descobrir = estrelas + 1
+    val fimTracejado = centro(descobrir) ?: if (itens.last().index < descobrir) size.height else 0f
+    if (fimTracejado > fimSolido) {
+        drawLine(
+            cor.copy(alpha = cor.alpha * ALFA_DO_FIO_TRACEJADO),
+            Offset(x, fimSolido),
+            Offset(x, fimTracejado),
+            espessura,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(TRACO_DO_FIO.toPx(), VAO_DO_FIO.toPx())),
+        )
+    }
 }
+
+@Composable
+private fun MarcaDeNovidade(modifier: Modifier = Modifier) {
+    val luz = Obsidian.accent
+    Box(
+        modifier = modifier.size(13.dp).clip(CircleShape).background(Obsidian.void),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(9.dp)) {
+            drawPath(estrelaDeQuatroPontas(center, size.minDimension / 2f), luz)
+        }
+    }
+}
+
+@Composable
+private fun EstrelaDaRail(
+    rotulo: String?,
+    nomeAcessivel: String?,
+    aberta: Boolean,
+    aoTocar: () -> Unit,
+    novidade: Boolean = false,
+    silenciada: Boolean = false,
+    apagada: Boolean = false,
+    nascendo: Boolean = false,
+    aoFormar: () -> Unit = {},
+    conteudo: @Composable () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val reduzir = LocalReduceMotion.current
+    val formando = nascendo && !reduzir
+    LaunchedEffect(nascendo, reduzir) {
+        if (!nascendo) return@LaunchedEffect
+        if (!reduzir) delay(TETO_DA_FORMACAO_MS)
+        aoFormar()
+    }
+    val aceso by animateFloatAsState(
+        if (aberta || formando) 1f else 0f,
+        when {
+            reduzir -> snap()
+            aberta || formando -> tween(ENTRADA_DO_CARTAO_MS, easing = EaseOutStd)
+            else -> tween(SAIDA_DO_CARTAO_MS)
+        },
+        label = "cartaoAceso",
+    )
+    val presenca by animateFloatAsState(
+        if (formando) 0f else 1f,
+        if (reduzir) snap() else tween(ENTRADA_DO_CARTAO_MS, easing = EaseOutStd),
+        label = "estrelaPresente",
+    )
+    val borda by animateColorAsState(
+        if (hovered) Obsidian.borderMid else Obsidian.borderDim,
+        tween(140),
+    )
+    val formaDoCartao = RoundedCornerShape(CANTO_DO_CARTAO)
+    val formaDaEstrela = RoundedCornerShape(CANTO_DA_ESTRELA)
+    val acendendo = aberta || formando
+    Box(Modifier.size(LADO_DO_CARTAO), contentAlignment = Alignment.Center) {
+        if (aceso > 0f) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        alpha = aceso
+                        val escala = if (acendendo) ESCALA_INICIAL + (1f - ESCALA_INICIAL) * aceso else 1f
+                        scaleX = escala
+                        scaleY = escala
+                    }
+                    .background(Obsidian.overlay, formaDoCartao)
+                    .border(1.dp, Obsidian.accent.copy(alpha = 0.55f), formaDoCartao),
+            )
+        }
+        if (formando) {
+            AnimacaoDeArtista(
+                arquivo = "constelacao",
+                vez = 1,
+                luz = Obsidian.accent,
+                fundo = Obsidian.overlay,
+                cores = ::claroViraFundo,
+                quadros = 0..QUADRO_DA_CONSTELACAO_FORMADA,
+                modifier = Modifier.size(LADO_DO_DESENHO),
+                aoTerminar = aoFormar,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(LADO_DA_ESTRELA)
+                .graphicsLayer {
+                    alpha = presenca
+                    val escala = ESCALA_INICIAL + (1f - ESCALA_INICIAL) * presenca
+                    scaleX = escala
+                    scaleY = escala
+                }
+                .clickScale(interaction, formaDoFoco = formaDaEstrela)
+                .clip(formaDaEstrela)
+                .background(
+                    when {
+                        aberta -> Obsidian.hover
+                        apagada && !hovered -> Obsidian.base
+                        else -> Obsidian.raised
+                    },
+                )
+                .border(1.dp, borda, formaDaEstrela)
+                .hoverable(interaction)
+                .clickable(interactionSource = interaction, indication = null, onClick = aoTocar)
+                .semantics { if (nomeAcessivel != null) contentDescription = nomeAcessivel },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier.matchParentSize().then(if (silenciada) Modifier.alpha(ALFA_SILENCIADA) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                conteudo()
+            }
+        }
+        if (novidade && !silenciada && !formando) {
+            MarcaDeNovidade(Modifier.align(Alignment.TopEnd).offset(x = (-1).dp, y = 1.dp))
+        }
+        BalaoAoPassar(hovered, rotulo)
+    }
+}
+
+@Composable
+private fun BalaoAoPassar(hovered: Boolean, rotulo: String?) {
+    var balaoAberto by remember { mutableStateOf(false) }
+    LaunchedEffect(hovered) {
+        if (!hovered) {
+            balaoAberto = false
+        } else {
+            delay(ATRASO_DO_BALAO_MS)
+            balaoAberto = true
+        }
+    }
+    if (rotulo != null && balaoAberto) {
+        val margem = with(LocalDensity.current) { 10.dp.roundToPx() }
+        Popup(popupPositionProvider = remember(margem) { BalaoDaRail(margem) }) {
+            BalaoDoNome(rotulo)
+        }
+    }
+}
+
+private val ALTURA_DO_FIO_DE_CIMA = 15.dp
+private val LADO_DO_CARTAO = 52.dp
+private val LADO_DA_ESTRELA = 42.dp
+private val LADO_DO_DESENHO = 46.dp
+private val CANTO_DO_CARTAO = 14.dp
+private val CANTO_DA_ESTRELA = 8.dp
+private val TRACO_DO_FIO = 3.dp
+private val VAO_DO_FIO = 4.dp
+private const val ALFA_DO_FIO_TRACEJADO = 0.7f
+private const val ALFA_SILENCIADA = 0.45f
+private const val ESCALA_INICIAL = 0.9f
+private const val ENTRADA_DO_CARTAO_MS = 200
+private const val SAIDA_DO_CARTAO_MS = 150
+private const val TETO_DA_FORMACAO_MS = 4_000L
+private const val QUADRO_DA_CONSTELACAO_FORMADA = 59
 
 private const val ATRASO_DO_BALAO_MS = 90L
 private const val ENTRADA_DO_BALAO_MS = 120
@@ -666,15 +854,6 @@ private fun RailItem(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    var balaoAberto by remember { mutableStateOf(false) }
-    LaunchedEffect(hovered) {
-        if (!hovered) {
-            balaoAberto = false
-        } else {
-            delay(ATRASO_DO_BALAO_MS)
-            balaoAberto = true
-        }
-    }
     val shape = RoundedCornerShape(8.dp)
     val bg by animateColorAsState(
         when {
@@ -705,12 +884,7 @@ private fun RailItem(
         contentAlignment = Alignment.Center,
     ) {
         content()
-        if (rotulo != null && balaoAberto) {
-            val margem = with(LocalDensity.current) { 10.dp.roundToPx() }
-            Popup(popupPositionProvider = remember(margem) { BalaoDaRail(margem) }) {
-                BalaoDoNome(rotulo)
-            }
-        }
+        BalaoAoPassar(hovered, rotulo)
     }
 }
 
@@ -777,7 +951,7 @@ internal fun FaixaDaConstelacao(
             )
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(5.dp).clip(CircleShape).background(Obsidian.success))
+                StatusDot(UserStatus.ONLINE, size = 8.dp)
                 Spacer(Modifier.width(5.dp))
                 Text(
                     "$online/$membros " + (if (membros == 1) "membro" else "membros") + " online",

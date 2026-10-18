@@ -54,6 +54,7 @@ func main() {
 		entrega:    entrega,
 		misturador: misturador,
 		motor:      motor,
+		vigilia:    NovaVigilia(),
 	}
 	defer app.Fechar()
 
@@ -72,9 +73,12 @@ type App struct {
 	entrega    *EntregaDeQuadros
 	misturador *Misturador
 	motor      *Motor
+	vigilia    *Vigilia
 
-	mudo  bool
-	surdo bool
+	mudo         bool
+	surdo        bool
+	transmitindo bool
+	assistindo   bool
 }
 
 func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
@@ -114,11 +118,18 @@ func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
 func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	switch cmd.Cmd {
 	case CmdEntrarNaSala:
-		return a.sala.Entrar(cmd.Url, cmd.Token)
+		if err := a.sala.Entrar(cmd.Url, cmd.Token); err != nil {
+			return err
+		}
+		a.pedirPrioridade(true)
+		return nil
 
 	case CmdDeixarSala:
 		a.emissor.Desligar()
 		a.sala.Sair()
+		a.transmitindo, a.assistindo = false, false
+		a.atualizarVigilia()
+		a.pedirPrioridade(false)
 		return nil
 
 	case CmdMudo:
@@ -141,6 +152,8 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		if !cmd.Ligado {
 			a.emissor.Desligar()
 			a.sala.PararTela()
+			a.transmitindo = false
+			a.atualizarVigilia()
 			return nil
 		}
 
@@ -156,6 +169,8 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 			Fps:     cmd.Fps,
 			Kbps:    cmd.Kbps,
 		})
+		a.transmitindo = true
+		a.atualizarVigilia()
 		return nil
 
 	case CmdAparelhos:
@@ -228,6 +243,8 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 
 	case CmdAssistir:
 		a.sala.Assistir(cmd.Par)
+		a.assistindo = cmd.Par != ""
+		a.atualizarVigilia()
 		return nil
 
 	case CmdVolume:
@@ -252,6 +269,16 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	default:
 		return fmt.Errorf("comando desconhecido: %q", cmd.Cmd)
 	}
+}
+
+func (a *App) pedirPrioridade(ligada bool) {
+	if err := PrioridadeTotal(ligada); err != nil {
+		fmt.Fprintf(os.Stderr, "prioridade da call: %v\n", err)
+	}
+}
+
+func (a *App) atualizarVigilia() {
+	a.vigilia.Manter(a.transmitindo || a.assistindo)
 }
 
 func (a *App) aplicarMudo(ligado bool) {

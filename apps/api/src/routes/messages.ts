@@ -15,7 +15,7 @@ import { validate } from '../middleware/validate'
 import { messageLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
 import { SendMessageSchema, EditMessageSchema, MessageCursorSchema } from '@astra/types'
-import { getMuteExpiry, isUserMuted, muteUser, trackMessage } from '../lib/spamDetector'
+import { duracaoDoSilencio, getMuteExpiry, isUserMuted, muteUser, trackMessage } from '../lib/spamDetector'
 import { getBotId } from '../lib/bot'
 import { notify, resumoDaMensagem } from '../lib/notifications'
 import { PERMS, getMemberPerms, membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
@@ -275,7 +275,7 @@ export function createMessagesRouter(io: SocketServer) {
 
           const botMsg = {
             id: `bot-mute-${Date.now()}`,
-            content: `**@${offender?.username ?? 'usuario'}** foi silenciado por 5 minutos por spam.`,
+            content: `**@${offender?.username ?? 'usuario'}** foi silenciado por ${duracaoDoSilencio()} por spam.`,
             channelId,
             edited: false,
             createdAt: new Date().toISOString(),

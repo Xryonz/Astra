@@ -6,6 +6,7 @@ import { messages, channels, servers, serverMembers, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { autorComoEra } from '../lib/autorDaMensagem'
+import { filterVisibleChannels } from '../lib/permissions'
 
 const router = Router()
 
@@ -23,6 +24,10 @@ router.get(
       .from(serverMembers).where(eq(serverMembers.userId, req.userId!))
     const serverIds = myMemberships.map((m) => m.serverId)
     if (serverIds.length === 0) return res.json({ data: { messages: [], channels: [], users: [], servers: [] } })
+
+    const canaisDasConstelacoes = await db.select({ id: channels.id })
+      .from(channels).where(inArray(channels.serverId, serverIds))
+    const canaisVisiveis = [...await filterVisibleChannels(req.userId!, canaisDasConstelacoes.map((c) => c.id))]
 
     const wantMsgs   = scope === 'all' || scope === 'messages'
     const wantChans  = scope === 'all' || scope === 'channels'
@@ -42,7 +47,7 @@ router.get(
             .innerJoin(users, eq(users.id, messages.authorId))
             .where(and(
               ilike(messages.content, like),
-              inArray(channels.serverId, serverIds),
+              inArray(messages.channelId, canaisVisiveis),
               isNull(messages.deletedAt),
             ))
             .orderBy(desc(messages.createdAt))
@@ -55,7 +60,7 @@ router.get(
           })
             .from(channels)
             .innerJoin(servers, eq(servers.id, channels.serverId))
-            .where(and(ilike(channels.name, like), inArray(channels.serverId, serverIds)))
+            .where(and(ilike(channels.name, like), inArray(channels.id, canaisVisiveis)))
             .limit(20)
         : Promise.resolve([] as any[]),
       wantUsers

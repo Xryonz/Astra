@@ -34,12 +34,12 @@ const ESTILO = `
     font: 15px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: #e4e4eb;
     user-select: all; overflow-wrap: anywhere;
   }
-  .baixar {
+  .botao {
     display: inline-block; margin-top: 12px; padding: 9px 16px; border-radius: 8px;
     background: #15152e; border: 1px solid #d4d8e0; color: #e4e4eb; font-weight: 600; text-decoration: none;
   }
-  .baixar:hover { background: #1c1c38; }
-  .baixar:focus-visible { outline: 2px solid #d4d8e0; outline-offset: 3px; }
+  .botao:hover { background: #1c1c38; }
+  .botao:focus-visible { outline: 2px solid #d4d8e0; outline-offset: 3px; }
 `
 
 function esc(s: string): string {
@@ -74,7 +74,7 @@ const BLOCO_DE_DOWNLOAD = `
       <section class="bloco">
         <h2>Ainda não tem o Astra</h2>
         <p>O Astra é para Windows. Baixe o arquivo que termina em <strong>win-x64.zip</strong>, extraia e abra o Astra.exe.</p>
-        <a class="baixar" href="${PAGINA_DE_DOWNLOAD}">Baixar o Astra</a>
+        <a class="botao" href="${PAGINA_DE_DOWNLOAD}">Baixar o Astra</a>
         <p class="apoio">Depois de entrar na sua conta, volte a este convite.</p>
       </section>`
 
@@ -135,7 +135,9 @@ router.get(
       <p class="estrelas">${esc(estrelas)}.</p>
       <section class="bloco">
         <h2>Já tem o Astra</h2>
-        <p>Clique em <strong>+</strong> na barra lateral, escolha <strong>Entrar com convite</strong> e cole este código:</p>
+        <p>Abra o convite direto no Astra e confirme a entrada.</p>
+        <a class="botao" href="${esc(`astra://convite/${encodeURIComponent(codigo)}`)}">Abrir no Astra</a>
+        <p class="apoio">Se o Astra não abrir, clique em <strong>+</strong> na barra lateral, escolha <strong>Entrar com convite</strong> e cole este código:</p>
         <code class="codigo">${esc(codigo)}</code>
       </section>${BLOCO_DE_DOWNLOAD}
     </div>`))

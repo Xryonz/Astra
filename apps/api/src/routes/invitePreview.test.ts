@@ -56,6 +56,7 @@ describe('pagina do convite', () => {
     expect(corpo).toContain('<h1>Andromeda</h1>')
     expect(corpo).toContain('3 estrelas brilham por aqui')
     expect(corpo).toContain('<code class="codigo">abc123</code>')
+    expect(corpo).toContain('href="astra://convite/abc123"')
     expect(corpo).toContain('https://github.com/Xryonz/Astra/releases/latest')
     expect(corpo).toContain('<meta name="robots" content="noindex">')
     expect(corpo).not.toContain('http-equiv="refresh"')

@@ -906,8 +906,11 @@ private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>):
     return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
 }
 
+private fun maiorLargura(ids: List<String>, larguras: Map<String, Int>): Int =
+    ids.maxOfOrNull { larguras[it] ?: 0 } ?: 0
+
 private fun DrawScope.direitaDaFala(ids: List<String>, larguras: Map<String, Int>): Float {
-    val conteudo = ids.maxOfOrNull { larguras[it] ?: 0 } ?: 0
+    val conteudo = maiorLargura(ids, larguras)
     if (conteudo == 0) return size.width
     return minOf(size.width, (INICIO_DO_TEXTO + RECUO_DA_LINHA).toPx() + conteudo)
 }
@@ -1140,7 +1143,12 @@ private fun MessageRow(
                     }
                 }
                 Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
-                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula, aoMedirConteudo = aoMedirLargura) {
+                PilulaJuntoDoTexto(
+                    Modifier.weight(1f),
+                    pilula = pilula,
+                    aoMedirConteudo = aoMedirLargura,
+                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
+                ) {
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             } else {
@@ -1148,7 +1156,12 @@ private fun MessageRow(
                     DesktopAvatar(msg.authorAvatar, msg.authorName, LARGURA_DO_AVATAR.value.toInt(), animar = hovered)
                 }
                 Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
-                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula, aoMedirConteudo = aoMedirLargura) {
+                PilulaJuntoDoTexto(
+                    Modifier.weight(1f),
+                    pilula = pilula,
+                    aoMedirConteudo = aoMedirLargura,
+                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
+                ) {
                     msg.replyTo?.let { ref ->
                         ReplyRef(ref, onJumpTo)
                     }
@@ -1785,11 +1798,13 @@ private fun PilulaJuntoDoTexto(
     modifier: Modifier = Modifier,
     pilula: @Composable () -> Unit,
     aoMedirConteudo: (Int) -> Unit,
+    larguraDaFala: () -> Int,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
     val densidade = LocalDensity.current
     val respiro = with(densidade) { 8.dp.roundToPx() }
     val subida = with(densidade) { 10.dp.roundToPx() }
+    val recuo = with(densidade) { RECUO_DA_LINHA.roundToPx() }
     Layout(
         contents = listOf({ Column(Modifier.onSizeChanged { aoMedirConteudo(it.width) }, content = conteudo) }, pilula),
         modifier = modifier,
@@ -1800,10 +1815,13 @@ private fun PilulaJuntoDoTexto(
         layout(largura, conteudoMedido.height) {
             conteudoMedido.place(0, 0)
             if (pilulaMedida != null) {
-                val x = (conteudoMedido.width + respiro)
-                    .coerceAtMost(largura - pilulaMedida.width)
-                    .coerceAtLeast(0)
-                pilulaMedida.place(x, -subida)
+                val larguraDaPilula = pilulaMedida.width
+                val borda = recuo + minOf(maxOf(larguraDaFala(), conteudoMedido.width), largura)
+                val aoLado = conteudoMedido.width + respiro
+                val encostaNaBorda = aoLado + larguraDaPilula + respiro > borda
+                val cabeDepoisDaBorda = borda + respiro + larguraDaPilula <= largura
+                val x = if (encostaNaBorda && cabeDepoisDaBorda) borda + respiro else aoLado
+                pilulaMedida.place(x.coerceAtMost(largura - larguraDaPilula).coerceAtLeast(0), -subida)
             }
         }
     }

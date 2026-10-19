@@ -12,6 +12,7 @@ object Desinstalador {
     private const val ATALHO = "Astra.lnk"
     private const val ATALHO_DO_INICIAR = "Microsoft\\Windows\\Start Menu\\Programs\\Astra.lnk"
     private const val ATALHO_DA_BARRA = "Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Astra.lnk"
+    private const val DLL_DO_NUCLEUS = "nucleus_notification_windows.dll"
     private val NOME_DE_VERSAO = Regex("""^\d+\.\d+\.\d+$""")
     private val PASTA_DE_TESTE = Regex("""^Astra-teste\d+$""")
 
@@ -92,6 +93,17 @@ object Desinstalador {
         return lista.filter { it.exists() }
     }
 
+    private fun extracaoDoNucleus(): Pair<List<File>, List<File>> {
+        val raiz = System.getenv("LOCALAPPDATA")?.let { File(it, "nucleus") }
+            ?: return emptyList<File>() to emptyList()
+        val nativo = File(raiz, "native")
+        val plataformas = nativo.listFiles().orEmpty().filter { it.isDirectory }
+        val extraidas = plataformas.flatMap { plataforma ->
+            plataforma.listFiles().orEmpty().filter { it.isDirectory && it.list()?.toList() == listOf(DLL_DO_NUCLEUS) }
+        }
+        return extraidas to plataformas + nativo + raiz
+    }
+
     private val proibidas: Set<String> by lazy {
         val home = System.getProperty("user.home")
         val doWindows = listOf(
@@ -131,9 +143,11 @@ object Desinstalador {
 
     private fun escreverRoteiro(): File {
         val (doPrograma, pastasQueSaemSeVazias) = programa()
-        val alvos = (doPrograma + descartaveis() + dados()).distinct().filter(::podeApagar)
+        val (doNucleus, pastasDoNucleus) = extracaoDoNucleus()
+        val alvos = (doPrograma + descartaveis() + dados() + doNucleus).distinct().filter(::podeApagar)
         val vazias = pastasQueSaemSeVazias
-            .filter { it.name.startsWith("Astra", ignoreCase = true) && podeApagar(it) }
+            .filter { it.name.startsWith("Astra", ignoreCase = true) && podeApagar(it) } +
+            pastasDoNucleus.filter(::podeApagar)
         val pastasDoPrograma = listOfNotNull(raizConfirmada() ?: Instalacao.imagem)
         val atalhos = System.getenv("APPDATA")?.let { base ->
             listOf(File(base, ATALHO_DO_INICIAR), File(base, ATALHO_DA_BARRA))

@@ -47,7 +47,8 @@ aplicativo e morre com ele.
 - Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
 - **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
 - Coil3 · socket.io-client · JNA (foco de janela, identidade na barra de tarefas, lista
-  de placas, início com o Windows, permissões) · RikkaUI · Lucide
+  de placas, início com o Windows, permissões) · Nucleus (identidade no atalho do menu
+  Iniciar) · RikkaUI · Lucide
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
 
 **Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
@@ -530,6 +531,7 @@ segue como resposta, e o desenho vetorial cobre quem não tem arte.
 | [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
 | [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
+| [Nucleus](https://github.com/NucleusFramework/Nucleus) (`nucleus.notification-windows` + `nucleus.core-runtime`) | gravar a identidade do Astra no atalho do menu Iniciar | MIT |
 
 ### Ferramentas de construção
 

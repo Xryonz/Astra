@@ -67,8 +67,6 @@ object Instalacao {
 
     fun icone(): File? = raiz?.let { File(it, ICONE) }?.takeIf { it.isFile }
 
-    fun lancador(): File? = raiz?.let { File(it, LANCADOR) }?.takeIf { it.isFile }
-
     data class Alvo(
         val programa: String,
         val argumentos: String,
@@ -77,17 +75,6 @@ object Instalacao {
     )
 
     fun alvoDoAtalho(): Alvo? {
-        val vbs = lancador()
-        val comLancador = raiz
-        if (vbs != null && comLancador != null) {
-            val janelas = System.getenv("SystemRoot") ?: "C:\\Windows"
-            return Alvo(
-                programa = "$janelas\\System32\\wscript.exe",
-                argumentos = "\"${vbs.absolutePath}\"",
-                pasta = comLancador.absolutePath,
-                simbolo = icone()?.absolutePath ?: exe?.absolutePath.orEmpty(),
-            )
-        }
         val programa = exeFixo?.absolutePath ?: return null
         val pasta = fixa?.absolutePath ?: return null
         return Alvo(programa, "", pasta, icone()?.absolutePath ?: programa)

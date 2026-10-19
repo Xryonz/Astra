@@ -2,8 +2,8 @@ import type { BlocoIa, PedidoIa, RespostaIa } from './ia'
 
 const BASE = 'https://api.groq.com/openai/v1/chat/completions'
 
-export const GROQ_CONVERSA = process.env.GROQ_MODEL      ?? 'llama-3.3-70b-versatile'
-export const GROQ_RESUMO   = process.env.GROQ_MODEL_FAST ?? 'llama-3.1-8b-instant'
+export const GROQ_CONVERSA = process.env.GROQ_MODEL      ?? 'openai/gpt-oss-120b'
+export const GROQ_RESUMO   = process.env.GROQ_MODEL_FAST ?? 'openai/gpt-oss-20b'
 
 interface ChamadaDeFerramenta {
   id:       string
@@ -56,26 +56,30 @@ export function paraMensagens(system: string, mensagens: any[]): MensagemOpenAi[
   return saida
 }
 
-export async function chamarGroq(chave: string, opts: PedidoIa): Promise<RespostaIa> {
+export function corpoDoGroq(opts: PedidoIa): Record<string, unknown> {
   const corpo: Record<string, unknown> = {
     model:                 opts.model,
     messages:              paraMensagens(opts.system, opts.messages),
     max_completion_tokens: opts.maxTokens,
     temperature:           0.7,
   }
+  if (opts.model.startsWith('openai/gpt-oss')) corpo.reasoning_effort = 'low'
   if (opts.tools?.length) {
     corpo.tools = opts.tools.map((t) => ({
       type:     'function',
       function: { name: t.name, description: t.description, parameters: t.input_schema },
     }))
   }
+  return corpo
+}
 
+export async function chamarGroq(chave: string, opts: PedidoIa): Promise<RespostaIa> {
   let res: Response
   try {
     res = await fetch(BASE, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chave}` },
-      body:    JSON.stringify(corpo),
+      body:    JSON.stringify(corpoDoGroq(opts)),
     })
   } catch (e) {
     return { error: { type: 'rede', message: (e as Error).message } }

@@ -597,7 +597,7 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
     MODELO_RESUMO,
     'Você comprime conversas. Resuma fatos relevantes em 2-4 frases curtas, em português. Mantenha decisões, preferências do user, fatos sobre o canal. Não invente nada.',
     `Resuma esta conversa:\n\n${transcript}`,
-    200,
+    400,
   )
   if (!text) return
 

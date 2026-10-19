@@ -1,4 +1,5 @@
-versao 1.0.55
-Desinstalar pelas configurações ou pela lista de aplicativos do Windows voltou a funcionar.
-As confirmações ganharam um desenho único: título, o que vai acontecer e os botões à direita.
-Elas abrem no centro da janela. Tab percorre os botões, Esc cancela, e o foco começa em cancelar quando a ação apaga algo.
+versao 1.0.56
+A borda de cada mensagem acompanha a largura do texto. Mensagens longas continuam ocupando a linha inteira.
+Os botões que aparecem ao passar o mouse ficam logo depois da borda, sem encostar nela.
+Numa resposta, a citação da mensagem original tem largura limitada e termina em reticências.
+Em instalações antigas, os atalhos abriam o Astra por um roteiro intermediário. Agora abrem o programa direto, e o Windows passa a reconhecê-lo pelo nome, inclusive em Elementos gráficos.

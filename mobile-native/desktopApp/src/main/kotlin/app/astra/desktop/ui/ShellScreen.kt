@@ -217,18 +217,18 @@ fun ShellScreen(
 
     state.penalidade?.let { p ->
         val onde = p.constelacao?.let { " de $it" } ?: ""
-        CenteredConfirmDialog(
-            message = if (p.tipo == "banido") "você foi banido$onde" else "você foi removido$onde",
-            detalhe = when {
+        Confirmacao(
+            titulo = if (p.tipo == "banido") "você foi banido$onde" else "você foi removido$onde",
+            consequencia = when {
                 !p.motivo.isNullOrBlank() -> "motivo: ${p.motivo}"
                 p.tipo == "banido" -> "não há como entrar de novo enquanto o banimento valer."
                 else -> "você pode entrar de novo se receber um convite."
             },
-            confirmLabel = "entendi",
-            cancelLabel = null,
+            acao = "entendi",
+            cancelar = null,
             perigo = false,
-            onConfirm = { vm.dispensarPenalidade() },
-            onDismiss = { vm.dispensarPenalidade() },
+            aoConfirmar = { vm.dispensarPenalidade() },
+            aoFechar = { vm.dispensarPenalidade() },
         )
     }
 

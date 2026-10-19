@@ -174,12 +174,12 @@ internal fun PedidoDeDesinstalar(aoDesistir: () -> Unit) {
     if (desinstalando) {
         TelaDeDesinstalacao()
     } else {
-        ConfirmPopup(
-            message = "desinstalar o Astra? o login e as preferências deste computador também saem.",
-            confirmLabel = "desinstalar",
-            onConfirm = { desinstalando = true },
-            onDismiss = aoDesistir,
-            posicao = CenterInWindow,
+        Confirmacao(
+            titulo = "desinstalar o Astra",
+            consequencia = "o programa sai deste computador, junto com o login e as preferências. sua conta continua existindo.",
+            acao = "desinstalar",
+            aoConfirmar = { desinstalando = true },
+            aoFechar = aoDesistir,
         )
     }
 }

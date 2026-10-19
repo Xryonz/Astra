@@ -391,14 +391,15 @@ private fun RoleEditor(
         }
     }
     if (confirmDelete && role != null) {
-        ConfirmPopup(
-            message = "excluir o cargo ${role.name}? quem o tem perde as permissões dele.",
-            confirmLabel = "excluir",
-            onConfirm = {
+        Confirmacao(
+            titulo = "excluir o cargo ${role.name}",
+            consequencia = "quem tem este cargo perde as permissões dele. não há como desfazer.",
+            acao = "excluir",
+            aoConfirmar = {
                 confirmDelete = false
                 onDelete { err -> if (err != null) msg = err to false }
             },
-            onDismiss = { confirmDelete = false },
+            aoFechar = { confirmDelete = false },
         )
     }
     Spacer(Modifier.height(24.dp))

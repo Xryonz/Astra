@@ -389,6 +389,22 @@ fun ChatView(
     var lightboxUrl by remember { mutableStateOf<String?>(null) }
     lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
 
+    var mensagemAApagar by remember(target.id) { mutableStateOf<String?>(null) }
+    val aindaExiste = mensagemAApagar?.let { ondeEsta(linhas, it) >= 0 } == true
+    LaunchedEffect(aindaExiste) { if (!aindaExiste) mensagemAApagar = null }
+    mensagemAApagar?.takeIf { aindaExiste }?.let { id ->
+        Confirmacao(
+            titulo = "apagar mensagem",
+            consequencia = "ela some da conversa para todos, e não há como desfazer.",
+            acao = "apagar",
+            aoConfirmar = {
+                mensagemAApagar = null
+                vm.delete(id)
+            },
+            aoFechar = { mensagemAApagar = null },
+        )
+    }
+
     val pulo = LocalPuloParaMensagem.current
     SideEffect {
         pulo.estaCarregada = { id -> ondeEsta(linhas, id) >= 0 }
@@ -497,7 +513,7 @@ fun ChatView(
                                 onStartEdit = { editingId = msg.id },
                                 onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
                                 onCancelEdit = { editingId = null },
-                                onDelete = { vm.delete(msg.id) },
+                                onDelete = { mensagemAApagar = msg.id },
                                 onPin = { vm.pin(msg.id) },
                                 onVote = { opcao -> vm.vote(msg.id, opcao) },
                                 onClosePoll = { vm.closePoll(msg.id) },
@@ -977,7 +993,6 @@ private fun MessageRow(
     val pillInteraction = remember { MutableInteractionSource() }
     val pillHovered by pillInteraction.collectIsHoveredAsState()
     var pickerOpen by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
     val grouped = !abreOCartao
@@ -1014,7 +1029,7 @@ private fun MessageRow(
             }
             if (msg.mine) {
                 add(MenuEntry.Separator)
-                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { confirmDelete = true })
+                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { onDelete() })
             }
         }
     }) {
@@ -1053,7 +1068,7 @@ private fun MessageRow(
             }
             .hoverable(interaction),
     ) {
-        val showPill = (hovered || pillHovered || pickerOpen || confirmDelete) && !msg.deleting && !editing
+        val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -1068,7 +1083,7 @@ private fun MessageRow(
                         onReply = onReply,
                         onReact = { pickerOpen = true },
                         onEdit = onStartEdit,
-                        onDelete = { confirmDelete = true },
+                        onDelete = onDelete,
                         modifier = Modifier.hoverable(pillInteraction),
                     )
                     if (pickerOpen) {
@@ -1081,15 +1096,6 @@ private fun MessageRow(
                                 ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
                             }
                         }
-                    }
-                    if (confirmDelete) {
-                        ConfirmPopup(
-                            message = "apagar esta mensagem? não há como desfazer.",
-                            confirmLabel = "apagar",
-                            posicao = AoLadoDoBotao,
-                            onConfirm = { confirmDelete = false; onDelete() },
-                            onDismiss = { confirmDelete = false },
-                        )
                     }
                 }
             }

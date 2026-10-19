@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -30,15 +28,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -235,47 +229,39 @@ private fun ProfilePopupCard(
                 val nome = p.displayName ?: p.username
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isMe) {
-                        BotaoDoCartao("editar perfil", principal = true, Modifier.weight(1f), onEditarPerfil)
+                        BotaoDeDialogo(
+                            "editar perfil",
+                            TipoDeBotao.PRINCIPAL,
+                            onClick = onEditarPerfil,
+                            modifier = Modifier.weight(1f),
+                        )
                     } else {
-                        BotaoDoCartao("sussurrar", principal = true, Modifier.weight(1f)) {
-                            onStartDm(p.username, nome)
-                        }
+                        BotaoDeDialogo(
+                            "sussurrar",
+                            TipoDeBotao.PRINCIPAL,
+                            onClick = { onStartDm(p.username, nome) },
+                            modifier = Modifier.weight(1f),
+                        )
                         if (p.username != USUARIO_DA_BOT) {
-                            BotaoDoCartao("chamar", principal = false, Modifier.weight(1f)) {
-                                onChamar(p.username, nome)
-                            }
+                            BotaoDeDialogo(
+                                "chamar",
+                                TipoDeBotao.SECUNDARIO,
+                                onClick = { onChamar(p.username, nome) },
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                BotaoDoCartao("ver perfil completo", principal = false, Modifier.fillMaxWidth(), onOpenFull)
+                BotaoDeDialogo(
+                    "ver perfil completo",
+                    TipoDeBotao.SECUNDARIO,
+                    onClick = onOpenFull,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
 }
 
-@Composable
-private fun BotaoDoCartao(rotulo: String, principal: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val forma = RoundedCornerShape(8.dp)
-    Text(
-        rotulo,
-        style = TextStyle(
-            color = if (principal) Obsidian.void else Obsidian.text1,
-            fontSize = 12.5.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-        ),
-        modifier = modifier
-            .clickScale(src, formaDoFoco = RoundedCornerShape(11.dp), folgaDoFoco = 3.dp)
-            .clip(forma)
-            .then(
-                if (principal) Modifier.background(Obsidian.accent)
-                else Modifier.border(1.dp, Obsidian.borderMid, forma)
-            )
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(vertical = 9.dp),
-        maxLines = 1,
-    )
-}
 

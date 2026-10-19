@@ -84,105 +84,74 @@ internal fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
             }
             busy = false
             if (r.isSuccess) onClose()
-            else erro = if (hasPassword) "Não deu. Confira a senha atual." else "Não deu. Tente de novo."
+            else erro = if (hasPassword) "não foi possível trocar. Confira a senha atual." else "não foi possível salvar. Tente de novo."
         }
     }
 
-    DialogShell(onClose = onClose, respiro = 20.dp) {
-        Column {
-                Text(
-                    if (hasPassword) "Mudança de senha" else "Definir senha",
-                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (hasPassword) "Informe a senha atual e escolha a nova."
-                    else "Escolha uma senha para entrar também por e-mail.",
-                    style = Tipo.descricao,
-                )
-                Spacer(Modifier.height(18.dp))
+    Dialogo(titulo = if (hasPassword) "trocar de senha" else "definir senha", aoFechar = onClose) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (hasPassword) "informe a senha atual e escolha a nova."
+            else "escolha uma senha para entrar também por e-mail.",
+            style = TextoDoDialogo,
+        )
+        Spacer(Modifier.height(16.dp))
 
-                if (hasPassword) {
-                    CampoDoDialogo("Senha atual")
-                    PasswordField("senha atual", current) { current = it; erro = null }
-                    Spacer(Modifier.height(14.dp))
-                }
-                CampoDoDialogo("Nova senha")
-                PasswordField("nova senha", next) { next = it; erro = null }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Ao menos 8 caracteres.",
-                    style = Tipo.apoio,
-                )
-                Spacer(Modifier.height(14.dp))
-                CampoDoDialogo("Confirmar nova senha")
-                PasswordField("confirmar nova senha", confirm) { confirm = it; erro = null }
-
-                if (confirm.isNotEmpty() && confirm != next) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "As duas não são iguais.",
-                        style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
-                    )
-                }
-                erro?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(it, style = Tipo.erro)
-                }
-
-                Spacer(Modifier.height(20.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BotaoDoDialogo("Cancelar", primario = false, ligado = !busy, onClick = onClose)
-                    Spacer(Modifier.width(10.dp))
-                    BotaoDoDialogo(
-                        if (busy) "Salvando…" else "Pronto",
-                        primario = true,
-                        ligado = podeSalvar,
-                        onClick = { salvar() },
-                    )
-                }
+        if (hasPassword) {
+            RotuloDeCampo("senha atual")
+            CampoDeDialogo(
+                current,
+                { current = it; erro = null },
+                dica = "senha atual",
+                aoEnviar = ::salvar,
+                foco = focoInicial,
+                segredo = true,
+            )
+            Spacer(Modifier.height(14.dp))
         }
-    }
-}
+        RotuloDeCampo("nova senha")
+        CampoDeDialogo(
+            next,
+            { next = it; erro = null },
+            dica = "nova senha",
+            aoEnviar = ::salvar,
+            foco = focoInicial.takeIf { !hasPassword },
+            segredo = true,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "ao menos 8 caracteres.",
+            style = Tipo.apoio,
+        )
+        Spacer(Modifier.height(14.dp))
+        RotuloDeCampo("confirmar nova senha")
+        CampoDeDialogo(
+            confirm,
+            { confirm = it; erro = null },
+            dica = "confirmar nova senha",
+            aoEnviar = ::salvar,
+            segredo = true,
+        )
 
-@Composable
-private fun CampoDoDialogo(texto: String) {
-    Text(
-        texto,
-        style = Tipo.rotulo,
-        modifier = Modifier.padding(bottom = 6.dp),
-    )
-}
+        if (confirm.isNotEmpty() && confirm != next) {
+            Spacer(Modifier.height(6.dp))
+            RecadoDoDialogo("as duas não são iguais.")
+        }
+        erro?.let {
+            Spacer(Modifier.height(10.dp))
+            RecadoDoDialogo(it)
+        }
 
-@Composable
-internal fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, onClick: () -> Unit) {
-    val toque = remember { MutableInteractionSource() }
-    val sobre by toque.collectIsHoveredAsState()
-    val fundo = when {
-        primario && ligado -> if (sobre) Obsidian.accent else Obsidian.accentDim
-        primario -> Obsidian.overlay
-        sobre -> Obsidian.hover
-        else -> Obsidian.overlay
-    }
-    val cor = when {
-        primario && ligado -> Obsidian.void
-        ligado -> Obsidian.text1
-        else -> Obsidian.text3
-    }
-    Box(
-        Modifier
-            .clickScale(toque)
-            .clip(RoundedCornerShape(8.dp))
-            .background(fundo)
-            .hoverable(toque, enabled = ligado)
-            .clickable(enabled = ligado, interactionSource = toque, indication = null, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 9.dp),
-    ) {
-        Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar, ligado = !busy)
+            BotaoDeDialogo(
+                if (busy) "salvando…" else "salvar",
+                TipoDeBotao.PRINCIPAL,
+                onClick = ::salvar,
+                ligado = podeSalvar,
+            )
+        }
     }
 }
 

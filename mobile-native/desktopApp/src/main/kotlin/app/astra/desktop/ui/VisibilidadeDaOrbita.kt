@@ -1,19 +1,12 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,10 +33,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
@@ -55,7 +44,6 @@ import com.composables.icons.lucide.Lucide
 @Composable
 internal fun VisibilidadeDaOrbitaDialog(
     nomeDaOrbita: String,
-    aoCentro: PopupPositionProvider,
     carregar: ((ChannelVisibilityDto?, String?) -> Unit) -> Unit,
     carregarCargos: ((List<RoleDto>?, String?) -> Unit) -> Unit,
     salvar: (privada: Boolean, cargos: List<String>, aoTerminar: (String?) -> Unit) -> Unit,
@@ -84,93 +72,74 @@ internal fun VisibilidadeDaOrbitaDialog(
         }
     }
 
-    Popup(
-        popupPositionProvider = aoCentro,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
-    ) {
-        val entrou = remember { MutableTransitionState(false).apply { targetState = true } }
-        AnimatedVisibility(
-            visibleState = entrou,
-            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.96f),
-        ) {
-            Column(
-                Modifier
-                    .width(360.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    .padding(18.dp),
-            ) {
-                Text(
-                    "quem vê $nomeDaOrbita",
-                    style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(14.dp))
+    Dialogo(titulo = "quem vê $nomeDaOrbita", aoFechar = onDismiss) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(14.dp))
 
-                if (lendo) {
-                    Text("lendo…", style = Tipo.descricao)
-                } else {
-                    ToggleRow(
-                        title = "órbita privada",
-                        sub = "quando ligada, só os cargos escolhidos entram aqui",
-                        on = privada,
-                        onChange = { privada = it },
+        if (lendo) {
+            Text("lendo…", style = Tipo.descricao)
+        } else {
+            ToggleRow(
+                title = "órbita privada",
+                sub = "quando ligada, só os cargos escolhidos entram aqui",
+                on = privada,
+                onChange = { privada = it },
+            )
+
+            if (privada) {
+                FieldLabel("cargos que veem")
+                val lista = cargos
+                val falhaDosCargos = erroDeCargos
+                when {
+                    falhaDosCargos != null -> RecadoDoDialogo(falhaDosCargos)
+                    lista == null -> Text("lendo os cargos…", style = Tipo.descricao)
+                    lista.isEmpty() -> Text(
+                        "esta constelação ainda não tem cargos. Crie um em Configurações › Cargos.",
+                        style = Tipo.apoio,
                     )
-
-                    if (privada) {
-                        FieldLabel("cargos que veem")
-                        val lista = cargos
-                        when {
-                            erroDeCargos != null -> Text(erroDeCargos!!, style = Tipo.erro)
-                            lista == null -> Text("lendo os cargos…", style = Tipo.descricao)
-                            lista.isEmpty() -> Text(
-                                "esta constelação ainda não tem cargos. Crie um em Configurações › Cargos.",
-                                style = Tipo.apoio,
-                            )
-                            else -> LazyColumn(
-                                Modifier.heightIn(max = 220.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                items(lista, key = { it.id }) { cargo ->
-                                    LinhaDeCargo(cargo, cargo.id in escolhidos) {
-                                        escolhidos = if (cargo.id in escolhidos) escolhidos - cargo.id
-                                        else escolhidos + cargo.id
-                                    }
-                                }
+                    else -> LazyColumn(
+                        Modifier.heightIn(max = 220.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(lista, key = { it.id }) { cargo ->
+                            LinhaDeCargo(cargo, cargo.id in escolhidos) {
+                                escolhidos = if (cargo.id in escolhidos) escolhidos - cargo.id
+                                else escolhidos + cargo.id
                             }
                         }
-                        if (escolhidos.isEmpty() && erroDeCargos == null) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "sem nenhum cargo marcado, só quem administra a constelação vê esta órbita.",
-                                style = Tipo.apoio,
-                            )
-                        }
                     }
                 }
-
-                erro?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(it, style = Tipo.erro)
-                }
-
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Spacer(Modifier.weight(1f))
-                    DialogButton("cancelar", accent = false, habilitado = !salvando) { onDismiss() }
-                    DialogButton("salvar", accent = true, habilitado = !lendo && !salvando) {
-                        salvando = true
-                        erro = null
-                        salvar(privada, escolhidos.toList()) { falha ->
-                            salvando = false
-                            if (falha == null) onDismiss() else erro = falha
-                        }
-                    }
+                if (escolhidos.isEmpty() && erroDeCargos == null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "sem nenhum cargo marcado, só quem administra a constelação vê esta órbita.",
+                        style = Tipo.apoio,
+                    )
                 }
             }
+        }
+
+        erro?.let {
+            Spacer(Modifier.height(10.dp))
+            RecadoDoDialogo(it)
+        }
+
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar, ligado = !salvando)
+            BotaoDeDialogo(
+                "salvar",
+                TipoDeBotao.PRINCIPAL,
+                onClick = {
+                    salvando = true
+                    erro = null
+                    salvar(privada, escolhidos.toList()) { falha ->
+                        salvando = false
+                        if (falha == null) onDismiss() else erro = falha
+                    }
+                },
+                ligado = !lendo && !salvando,
+                foco = focoInicial,
+            )
         }
     }
 }

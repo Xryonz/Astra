@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +48,9 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.PollDto
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
 import java.time.Duration
 import java.time.Instant
 import app.astra.desktop.ui.theme.Tipo
@@ -229,139 +237,95 @@ fun CriarEnqueteDialog(
     val validas = opcoes.count { it.isNotBlank() }
     val podeCriar = pergunta.trim().length >= 3 && validas >= 2
 
-    DialogShell(onClose) {
-        Text(
-            "criar enquete",
-            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-        )
-        Spacer(Modifier.height(3.dp))
+    Dialogo(titulo = "criar enquete", aoFechar = onClose, largura = LarguraDoDialogo.MEDIA) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
         Text(
             "em $canalNome",
-            style = Tipo.apoio,
+            style = TextoDoDialogo,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
 
         Spacer(Modifier.height(16.dp))
-        Text("pergunta", style = Tipo.rotulo)
-        Spacer(Modifier.height(7.dp))
-        DialogField(pergunta, "o que você quer perguntar?", { pergunta = it.take(MAX_PERGUNTA) })
+        RotuloDeCampo("pergunta")
+        CampoDeDialogo(
+            pergunta,
+            { pergunta = it.take(MAX_PERGUNTA) },
+            dica = "o que você quer perguntar?",
+            foco = focoInicial,
+        )
 
         Spacer(Modifier.height(14.dp))
-        Text("opções", style = Tipo.rotulo)
-        Spacer(Modifier.height(7.dp))
+        RotuloDeCampo("opções")
         opcoes.forEachIndexed { i, valor ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    DialogField(valor, "opção ${i + 1}", { opcoes[i] = it.take(MAX_OPCAO) })
-                }
+                CampoDeDialogo(
+                    valor,
+                    { opcoes[i] = it.take(MAX_OPCAO) },
+                    Modifier.weight(1f),
+                    dica = "opção ${i + 1}",
+                )
                 if (opcoes.size > 2) {
                     Spacer(Modifier.width(6.dp))
-                    BotaoGlifo("×") { opcoes.removeAt(i) }
+                    BotaoIcone(Lucide.X, dica = "remover a opção ${i + 1}", danger = true) { opcoes.removeAt(i) }
                 }
             }
             Spacer(Modifier.height(6.dp))
         }
         if (opcoes.size < MAX_OPCOES) {
-            val src = remember { MutableInteractionSource() }
-            val hov by src.collectIsHoveredAsState()
-            Text(
-                "+ adicionar opção",
-                style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
-                modifier = Modifier
-                    .hoverable(src)
-                    .clickable(interactionSource = src, indication = null) { opcoes.add("") }
-                    .padding(vertical = 3.dp),
-            )
+            BotaoDeDialogo("adicionar opção", TipoDeBotao.SECUNDARIO, onClick = { opcoes.add("") })
         }
 
         Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Caixinha(multipla) { multipla = !multipla }
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "deixar escolher mais de uma",
-                style = Tipo.rotulo,
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { multipla = !multipla },
-            )
-        }
+        CaixaDeMarcar("deixar escolher mais de uma", multipla) { multipla = !multipla }
 
         Spacer(Modifier.height(14.dp))
-        Text("prazo", style = Tipo.rotulo)
-        Spacer(Modifier.height(7.dp))
+        RotuloDeCampo("prazo")
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PRAZOS.forEachIndexed { i, (rotulo, _) ->
-                Pastilha(rotulo, ativa = prazo == i) { prazo = i }
+                EscolhaDoDialogo(rotulo, ativa = prazo == i, onClick = { prazo = i })
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DialogButton("cancelar", accent = false) { onClose() }
-            DialogButton("criar", accent = podeCriar) {
-                if (podeCriar) {
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar)
+            BotaoDeDialogo(
+                "criar",
+                TipoDeBotao.PRINCIPAL,
+                onClick = {
                     onCriar(pergunta.trim(), opcoes.toList(), multipla, PRAZOS[prazo].second)
                     onClose()
-                }
-            }
+                },
+                ligado = podeCriar,
+            )
         }
     }
 }
 
 @Composable
-private fun BotaoGlifo(glifo: String, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
+private fun CaixaDeMarcar(rotulo: String, marcada: Boolean, onClick: () -> Unit) {
+    val toque = remember { MutableInteractionSource() }
+    Row(
         Modifier
-            .size(30.dp)
+            .clickScale(toque)
+            .defaultMinSize(minHeight = 28.dp)
             .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (hov) Obsidian.danger else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
+            .semantics { toggleableState = ToggleableState(marcada) }
+            .clickable(interactionSource = toque, indication = null, role = Role.Checkbox, onClick = onClick)
+            .padding(end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(glifo, style = TextStyle(color = if (hov) Obsidian.danger else Obsidian.text3, fontSize = 13.sp))
+        Box(
+            Modifier
+                .size(16.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(if (marcada) Obsidian.accent.copy(alpha = 0.22f) else Color.Transparent)
+                .border(1.dp, if (marcada) Obsidian.accent else Obsidian.borderMid, RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (marcada) LIcon(Lucide.Check, tint = Obsidian.accent, size = 11.dp)
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(rotulo, style = Tipo.rotulo)
     }
-}
-
-@Composable
-private fun Caixinha(marcada: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(16.dp)
-            .clip(RoundedCornerShape(5.dp))
-            .background(if (marcada) Obsidian.accent.copy(alpha = 0.22f) else Color.Transparent)
-            .border(1.dp, if (marcada) Obsidian.accent else Obsidian.borderMid, RoundedCornerShape(5.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (marcada) Text("✓", style = TextStyle(color = Obsidian.accent, fontSize = 10.sp))
-    }
-}
-
-@Composable
-private fun Pastilha(rotulo: String, ativa: Boolean, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Text(
-        rotulo,
-        style = TextStyle(color = if (ativa) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(7.dp))
-            .border(
-                1.dp,
-                if (ativa) Obsidian.accentDim else if (hov) Obsidian.borderMid else Obsidian.borderDim,
-                RoundedCornerShape(7.dp),
-            )
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 5.dp),
-    )
 }

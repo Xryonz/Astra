@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
@@ -46,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -371,7 +369,7 @@ fun UserFooter(
     if (confirmLogout) Confirmacao(
         titulo = "sair da conta",
         consequencia = "o Astra volta para a tela de entrada neste computador, e uma call em andamento termina. " +
-            "suas constelações continuam como estão.",
+            "Suas constelações continuam como estão.",
         acao = "sair",
         aoConfirmar = {
             confirmLogout = false
@@ -553,7 +551,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        CardButton("editar perfil", accent = true) { editing = true }
+                        BotaoDeDialogo("editar perfil", TipoDeBotao.PRINCIPAL, onClick = { editing = true })
                     }
                 } else {
                     EditField("nome", nameField, single = true) { nameField = it }
@@ -566,25 +564,35 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     ) {
-                        CardButton("cancelar", accent = false, enabled = !saving) { editing = false }
-                        CardButton(if (saving) "salvando…" else "salvar", accent = true, enabled = !saving) {
-                            saving = true
-                            scope.launch {
-                                runCatching {
-                                    koin.get<UserApi>().updateProfile(
-                                        UpdateProfileRequest(
-                                            displayName = nameField.trim().ifBlank { null },
-                                            pronouns = pronounsField.trim(),
-                                            bio = bioField.trim(),
-                                        ),
-                                    )
-                                }.onSuccess {
-                                    onEdited()
-                                    onClose()
+                        BotaoDeDialogo(
+                            "cancelar",
+                            TipoDeBotao.SECUNDARIO,
+                            onClick = { editing = false },
+                            ligado = !saving,
+                        )
+                        BotaoDeDialogo(
+                            if (saving) "salvando…" else "salvar",
+                            TipoDeBotao.PRINCIPAL,
+                            onClick = {
+                                saving = true
+                                scope.launch {
+                                    runCatching {
+                                        koin.get<UserApi>().updateProfile(
+                                            UpdateProfileRequest(
+                                                displayName = nameField.trim().ifBlank { null },
+                                                pronouns = pronounsField.trim(),
+                                                bio = bioField.trim(),
+                                            ),
+                                        )
+                                    }.onSuccess {
+                                        onEdited()
+                                        onClose()
+                                    }
+                                    saving = false
                                 }
-                                saving = false
-                            }
-                        }
+                            },
+                            ligado = !saving,
+                        )
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -594,40 +602,10 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
 }
 
 @Composable
-private fun CardButton(label: String, accent: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(
-            color = if (accent) Obsidian.accent else Obsidian.text3,
-            fontSize = 12.sp,
-        ),
-        modifier = Modifier
-            .clip(RoundedCornerShape(7.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(7.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
-}
-
-@Composable
 private fun EditField(label: String, value: String, single: Boolean, onChange: (String) -> Unit) {
     Column {
-        Text(label.uppercase(), style = Tipo.secao)
-        Spacer(Modifier.height(3.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = single,
-            maxLines = if (single) 1 else 4,
-            textStyle = Tipo.corpo,
-            cursorBrush = SolidColor(Obsidian.accent),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.base)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-        )
+        RotuloDeCampo(label)
+        CampoDeDialogo(value, onChange, umaLinha = single)
     }
 }
 

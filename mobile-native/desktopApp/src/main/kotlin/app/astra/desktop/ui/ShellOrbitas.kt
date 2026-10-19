@@ -305,7 +305,6 @@ internal fun Sidebar(
         )
         is ChanDialog.Visibilidade -> VisibilidadeDaOrbitaDialog(
             nomeDaOrbita = "#${d.name}",
-            aoCentro = CenterInWindow,
             carregar = { pronto -> visibilidade.ler(d.serverId, d.channelId, pronto) },
             carregarCargos = { pronto -> visibilidade.cargos(d.serverId, pronto) },
             salvar = { privada, cargos, pronto ->
@@ -847,15 +846,3 @@ private class ChannelMenu(
     val onToggleBot: (channelId: String, ligar: Boolean) -> Unit,
     val onToggleKeepBot: (channelId: String, guardar: Boolean) -> Unit,
 )
-
-internal object CenterInWindow : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset(
-        x = ((windowSize.width - popupContentSize.width) / 2).coerceAtLeast(0),
-        y = ((windowSize.height - popupContentSize.height) / 2).coerceAtLeast(0),
-    )
-}

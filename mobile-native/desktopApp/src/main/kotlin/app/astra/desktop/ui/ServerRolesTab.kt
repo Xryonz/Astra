@@ -337,7 +337,7 @@ private fun RoleEditor(
         val canGrant = amOwner || key in myPermissions
         PermissionRow(
             label = label,
-            desc = if (canGrant) desc else "$desc — você não tem esta permissão",
+            desc = if (canGrant) desc else "$desc; você não tem esta permissão",
             checked = key in perms,
             enabled = canGrant,
         ) { on ->
@@ -393,7 +393,7 @@ private fun RoleEditor(
     if (confirmDelete && role != null) {
         Confirmacao(
             titulo = "excluir o cargo ${role.name}",
-            consequencia = "quem tem este cargo perde as permissões dele. não há como desfazer.",
+            consequencia = "quem tem este cargo perde as permissões dele. Não há como desfazer.",
             acao = "excluir",
             aoConfirmar = {
                 confirmDelete = false

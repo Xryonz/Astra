@@ -66,7 +66,7 @@ fun FirstStepsCard(
         Spacer(Modifier.height(13.dp))
         StepRow(hasAvatar, "escolha sua foto de perfil")
         Spacer(Modifier.height(10.dp))
-        StepRow(hasServer, "crie ou entre numa constelação — no + da lateral")
+        StepRow(hasServer, "crie ou entre numa constelação pelo + da lateral")
         Spacer(Modifier.height(10.dp))
         StepRow(hasDm, "mande seu primeiro sussurro")
     }

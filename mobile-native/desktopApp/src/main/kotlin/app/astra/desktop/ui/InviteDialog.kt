@@ -364,7 +364,7 @@ fun JoinByInviteDialog(
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            "cole o link que te mandaram — ou só o código.",
+            "cole o link do convite ou apenas o código.",
             style = Tipo.apoio,
         )
         Spacer(Modifier.height(14.dp))
@@ -426,7 +426,7 @@ internal fun CartaoDaConstelacao(previa: InvitePreviewDto) {
             )
             Spacer(Modifier.height(3.dp))
             if (previa.isGroup) {
-                Text("grupo privado — peça para te adicionarem", style = Tipo.apoio)
+                Text("grupo privado: peça a quem administra para adicionar você", style = Tipo.apoio)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)

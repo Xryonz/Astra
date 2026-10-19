@@ -226,7 +226,7 @@ internal fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
+        "a cor atravessa o cartão inteiro. Com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -295,7 +295,7 @@ internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): 
 
 internal fun saveErrorMessage(t: Throwable?): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"
-    if (http.code() == 413) return "a imagem ficou grande demais — escolha uma menor ou dê menos zoom"
+    if (http.code() == 413) return "a imagem ficou grande demais. Escolha uma menor ou use menos zoom."
     val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
     val parsed = body?.let {
         runCatching { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }.getOrNull()
@@ -419,7 +419,7 @@ private fun ResizeBannerDialog(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "é isto que os outros veem. arraste na imagem para enquadrar.",
+                    "é isto que os outros veem. Arraste na imagem para enquadrar.",
                     style = Tipo.apoio,
                 )
                 Spacer(Modifier.height(16.dp))

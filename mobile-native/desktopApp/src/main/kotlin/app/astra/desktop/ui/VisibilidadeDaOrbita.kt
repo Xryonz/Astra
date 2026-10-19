@@ -127,7 +127,7 @@ internal fun VisibilidadeDaOrbitaDialog(
                             erroDeCargos != null -> Text(erroDeCargos!!, style = Tipo.erro)
                             lista == null -> Text("lendo os cargos…", style = Tipo.descricao)
                             lista.isEmpty() -> Text(
-                                "esta constelação ainda não tem cargos. crie um em configurações › cargos.",
+                                "esta constelação ainda não tem cargos. Crie um em Configurações › Cargos.",
                                 style = Tipo.apoio,
                             )
                             else -> LazyColumn(

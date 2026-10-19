@@ -65,7 +65,7 @@ object CrashLog {
             "${e::class.simpleName}: ${e.message.orEmpty().take(160)}"
         }
         val texto = "O Astra encontrou um erro.\n\n$motivo\n\n" +
-            "Se a janela continuar aberta, o Astra segue funcionando — mas pode estar instável.\n\n" +
+            "Se a janela continuar aberta, o Astra segue funcionando, mas pode estar instável.\n\n" +
             "O registro está em:\n${File(dataDir(), FILE).absolutePath}"
         thread(isDaemon = true, name = "astra-aviso-de-falha") { CaixaDeAviso.erro(texto) }
     }

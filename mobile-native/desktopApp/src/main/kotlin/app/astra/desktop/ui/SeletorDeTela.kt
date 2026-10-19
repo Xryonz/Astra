@@ -132,7 +132,7 @@ fun SeletorDeTela(
         if (emJanelas) {
             Spacer(Modifier.height(10.dp))
             Text(
-                "só a janela escolhida é enviada — o que estiver por cima dela não aparece",
+                "só a janela escolhida é enviada. O que estiver por cima dela não aparece.",
                 style = Tipo.nota,
             )
         }

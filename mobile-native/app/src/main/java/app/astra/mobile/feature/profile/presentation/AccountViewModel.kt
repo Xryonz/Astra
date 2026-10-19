@@ -29,7 +29,7 @@ class AccountViewModel @Inject constructor(
                             loading = false,
                             displayName = p.displayName, origDisplayName = p.displayName,
                             username = p.username, origUsername = p.username,
-                            email = p.email ?: "—", userId = p.id, hasPassword = p.hasPassword,
+                            email = p.email ?: "não informado", userId = p.id, hasPassword = p.hasPassword,
                         )
                     }
                 }

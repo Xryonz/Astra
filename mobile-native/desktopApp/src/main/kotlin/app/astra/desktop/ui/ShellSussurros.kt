@@ -318,7 +318,7 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
                             val r = runCatching { api.addMember(srv.id, username) }
                             busy = null
                             msg = if (r.isSuccess) "entrou em ${srv.name}" to true
-                            else "não deu — já é membro, ou você não tem permissão" to false
+                            else "não foi possível adicionar. A pessoa já é membro ou você não tem permissão." to false
                         }
                     }
                     .padding(horizontal = 8.dp, vertical = 7.dp),

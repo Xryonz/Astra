@@ -132,7 +132,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                "PNG, GIF ou WebP — vai inteira, sem recompressão.",
+                "PNG, GIF ou WebP, enviada inteira, sem recompressão.",
                 style = Tipo.apoio,
             )
         }

@@ -42,12 +42,12 @@ object AstraCopy {
     }
 
     object Desc {
-        const val constelacao = "Servidor — espaço da sua comunidade"
-        const val aglomerado = "Grupo privado — sem convite público"
+        const val constelacao = "Servidor: espaço da sua comunidade"
+        const val aglomerado = "Grupo privado, sem convite público"
         const val estrela = "Usuário"
         const val orbita = "Canal de texto"
         const val orbitaVoz = "Canal de voz/vídeo"
-        const val cometa = "Thread — conversa derivada de uma mensagem"
+        const val cometa = "Thread: conversa derivada de uma mensagem"
         const val sussurro = "Mensagem privada 1-a-1"
     }
 
@@ -76,7 +76,7 @@ object AstraCopy {
         const val channelDeleted = "Órbita eclipsada."
         const val threadCreated = "Cometa solto."
         const val friendAdded = "Estrela alinhada."
-        const val networkLost = "Sinal perdido — tentando reconectar."
+        const val networkLost = "Sinal perdido. Tentando reconectar."
         const val copySuccess = "Coordenada copiada."
     }
 }

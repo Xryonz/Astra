@@ -98,7 +98,7 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
                 escopo.launch {
                     runCatching { api.renomear(serverId, emoji.id, RenameEmojiRequest(novo)) }
                         .onSuccess { recarregar(); msg = "agora é :$novo:" to true }
-                        .onFailure { msg = "não foi possível renomear — o nome pode já estar em uso" to false }
+                        .onFailure { msg = "não foi possível renomear. O nome pode já estar em uso." to false }
                 }
             },
             onApagar = {
@@ -148,7 +148,7 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                "PNG, GIF ou WebP até 512KB — vira 128px. O nome sai do arquivo e pode ser corrigido.",
+                "PNG, GIF ou WebP de até 512 KB, reduzido para 128 px. O nome vem do arquivo e pode ser corrigido.",
                 style = Tipo.apoio,
             )
         }

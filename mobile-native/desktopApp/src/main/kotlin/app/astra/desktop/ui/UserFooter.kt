@@ -663,7 +663,7 @@ private fun SinalDaChamada(caminho: LeituraDoCaminho) {
         2 -> "chamada oscilando"
         else -> "chamada estável"
     }
-    val detalhe = "$comoEsta — ida e volta ${caminho.ida} ms, tremor ${caminho.tremor} ms, perda ${caminho.perda}%"
+    val detalhe = "$comoEsta: ida e volta ${caminho.ida} ms, tremor ${caminho.tremor} ms, perda ${caminho.perda}%"
 
     val interacao = remember { MutableInteractionSource() }
     val sobHover by interacao.collectIsHoveredAsState()

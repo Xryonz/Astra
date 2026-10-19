@@ -75,7 +75,7 @@ object Vigia {
         if (apareceu) return@runCatching
         if (Arranque.modoSeguro) {
             desistir(
-                "O Astra abriu, mas a janela não apareceu — nem mesmo em modo seguro.\n\n" +
+                "O Astra abriu, mas a janela não apareceu, nem mesmo em modo seguro.\n\n" +
                     "O relatório está em:\n${CrashLog.dataDir()}",
             )
         }

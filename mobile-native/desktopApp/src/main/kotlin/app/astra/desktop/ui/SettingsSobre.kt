@@ -98,7 +98,7 @@ internal fun AboutSection() {
     Text("atualizações", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
+        "o Astra verifica ao abrir e a cada 20 minutos. Você também pode procurar agora.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -107,7 +107,7 @@ internal fun AboutSection() {
     when (val s = st) {
         is UpdateState.Checking -> AboutStatus("procurando atualizações…")
         is UpdateState.UpToDate -> AboutStatus(
-            "você está na ${s.vista} — a mais nova publicada, conferido ${haQuantoTempo(s.conferidoEm)}",
+            "você está na ${s.vista}, a mais nova publicada, conferida ${haQuantoTempo(s.conferidoEm)}",
         )
         is UpdateState.Available -> {
             AboutStatus("nova versão ${s.version} disponível")
@@ -127,7 +127,7 @@ internal fun AboutSection() {
             )
         }
         is UpdateState.Ready -> {
-            AboutStatus("${s.version} baixada — reinicie para aplicar")
+            AboutStatus("${s.version} baixada. Reinicie para aplicar.")
             Spacer(Modifier.height(10.dp))
             AboutButton("reiniciar agora", accent = true) { scope.launch { updater.restartToInstall() } }
         }
@@ -159,7 +159,7 @@ private fun BlocoDeDesinstalar() {
     Spacer(Modifier.height(4.dp))
     Text(
         "apaga o Astra deste computador: o programa, as versões guardadas, os atalhos, o login e as " +
-            "preferências. as regras de rede que o Windows criou para o Astra não são apagadas.",
+            "preferências. As regras de rede que o Windows criou para o Astra não são apagadas.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -176,7 +176,7 @@ internal fun PedidoDeDesinstalar(aoDesistir: () -> Unit) {
     } else {
         Confirmacao(
             titulo = "desinstalar o Astra",
-            consequencia = "o programa sai deste computador, junto com o login e as preferências. sua conta continua existindo.",
+            consequencia = "o programa sai deste computador, junto com o login e as preferências. Sua conta continua existindo.",
             acao = "desinstalar",
             aoConfirmar = { desinstalando = true },
             aoFechar = aoDesistir,
@@ -380,7 +380,7 @@ internal fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = n
 }
 
 internal fun mesEAno(iso: String?): String {
-    val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "—"
+    val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "…"
     val meses = listOf(
         "jan", "fev", "mar", "abr", "mai", "jun",
         "jul", "ago", "set", "out", "nov", "dez",

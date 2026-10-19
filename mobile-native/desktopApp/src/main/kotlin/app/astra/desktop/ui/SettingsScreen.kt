@@ -118,7 +118,7 @@ internal val LARGURA_DO_TEXTO_DE_CONFIG = 520.dp
 private val ESPACO_PARA_A_BARRA = 78.dp
 private const val VIDA_DA_CONFIRMACAO_MS = 2_600L
 private const val RECUSA_DO_ARRANQUE =
-    "o Windows recusou a mudança no arranque. dá para ligar e desligar isto também pelo " +
+    "o Windows recusou a mudança na inicialização. Também é possível ligar e desligar isto pelo " +
         "Gerenciador de Tarefas, na aba Inicializar."
 internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
@@ -325,7 +325,7 @@ fun SettingsScreen(
                                 )
                                 ToggleRow(
                                     "Aviso sem conteúdo",
-                                    "some quem escreveu e o que escreveu — fica só “sussurro novo”",
+                                    "o aviso esconde quem escreveu e o quê, e mostra só “sussurro novo”",
                                     prefState.avisoDiscreto, prefs::setAvisoDiscreto,
                                 )
                                 Spacer(Modifier.height(10.dp))

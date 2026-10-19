@@ -244,7 +244,7 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
         faltaEsticar -> "liberar"
         pronto && c.permissao == Permissao.TELA -> "não precisa"
         pronto -> "permitido"
-        !temAcao -> "—"
+        !temAcao -> "sem ajuste"
         c.permissao == Permissao.REDE -> "liberar"
         else -> "permitir"
     }

@@ -101,7 +101,7 @@ fun WindowScope.AstraTitleBar(
                 TitleBarBell(notifUnread, aoMedir = aoMedirOSino, onClick = onOpenNotifications)
                 TitleBarButton(
                     Lucide.Target,
-                    if (missoesProntas > 0) "Missões — $missoesProntas para resgatar" else "Missões",
+                    if (missoesProntas > 0) "Missões: $missoesProntas para resgatar" else "Missões",
                     aviso = missoesProntas,
                     onClick = onOpenMissions,
                 )
@@ -146,7 +146,11 @@ private fun TitleBarBell(unread: Int, aoMedir: (Float) -> Unit, onClick: () -> U
             Lucide.Bell,
             tint = if (unread > 0) Obsidian.text1 else Obsidian.text2,
             size = 15.dp,
-            rotulo = if (unread > 0) "Notificações — $unread não lidas" else "Notificações",
+            rotulo = when {
+                unread == 1 -> "Notificações: 1 não lida"
+                unread > 1 -> "Notificações: $unread não lidas"
+                else -> "Notificações"
+            },
         )
         if (unread > 0) {
             Box(

@@ -49,7 +49,7 @@ import com.composables.icons.lucide.X
 @Composable
 internal fun PermissionsSection(onTestarAviso: () -> Unit) {
     Text(
-        "o Windows decide o que cada programa pode usar — e quando ele bloqueia, não avisa: o microfone entrega silêncio, o aviso não aparece, a call não conecta. aqui é possível ver o que está liberado e liberar o que faltar.",
+        "o Windows decide o que cada programa pode usar e não avisa quando bloqueia algo: o microfone fica em silêncio, o aviso não aparece ou a call não conecta. Aqui você vê o que está liberado e libera o que faltar.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -62,12 +62,12 @@ internal fun PermissionsSection(onTestarAviso: () -> Unit) {
             "instalado no Windows não tem esse pedido: quem manda é um interruptor do " +
             "próprio sistema, o mesmo para todos os programas de área de trabalho.\n\n" +
             "Por isso o botão \"permitir\" aqui abre a página exata das Configurações do " +
-            "Windows em vez de perguntar — e continua conferindo sozinho depois. Você liga " +
+            "Windows em vez de perguntar, e continua conferindo sozinho depois. Você liga " +
             "o interruptor lá, volta para cá, e a linha já está verde sem precisar clicar de novo.\n\n" +
             "Duas fogem da regra. Avisos não têm interruptor para ligar: o Windows só " +
             "registra o Astra quando ele manda o primeiro aviso, então permitir manda um. " +
-            "E transmitir a tela não pede permissão nenhuma no Windows — inventar um " +
-            "cadeado ali seria teatro.",
+            "E transmitir a tela não depende de nenhuma permissão do Windows, por isso " +
+            "a linha dela mostra \"não precisa\".",
     )
 }
 
@@ -79,9 +79,9 @@ internal fun VoiceSection(
 ) {
     TituloExplicavel(
         "Transmissão de tela",
-        "Vale ao iniciar a transmissão. O padrão de estreia sai da força do computador — " +
-            "quem tem quatro núcleos ou menos começa em 540p, porque comprimir vídeo aqui " +
-            "é trabalho do processador.",
+        "Vale ao iniciar a transmissão. A qualidade inicial depende da força do computador: " +
+            "com quatro núcleos ou menos, começa em 540p, porque aqui quem comprime o vídeo " +
+            "é o processador.",
     )
     RadioList(
         ScreenQuality.entries.map { it.label to it },
@@ -92,18 +92,18 @@ internal fun VoiceSection(
     TituloExplicavel(
         "Motor de vídeo novo",
         "Comprime a transmissão na placa de vídeo, sem trazer o quadro para o processador. " +
-            "Vale ao entrar na próxima chamada — não muda uma que já esteja em andamento.",
+            "Vale a partir da próxima chamada. Uma chamada em andamento não muda.",
     )
     ToggleRow(
         "Usar o motor novo",
-        "em teste. sem o pacote ou sem placa compatível, a chamada segue pelo caminho de sempre",
+        "em teste. Sem o pacote ou sem placa compatível, a chamada segue pelo caminho de sempre",
         p.motorNovo,
         prefs::setMotorNovo,
     )
     ToggleRow(
         "Transmitir em duas qualidades",
-        "em teste. manda a tela cheia e uma versão menor ao mesmo tempo, para que quem está com " +
-            "a rede curta receba a menor em vez de derrubar a qualidade de todo mundo. exige placa " +
+        "em teste. Manda a tela cheia e uma versão menor ao mesmo tempo, para que quem está com " +
+            "a rede curta receba a menor em vez de derrubar a qualidade de todo mundo. Exige placa " +
             "com aceleração; sem ela, segue em uma qualidade só",
         p.duasCamadas,
         prefs::setDuasCamadas,
@@ -114,7 +114,7 @@ internal fun VoiceSection(
         Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
         Spacer(Modifier.height(4.dp))
         Text(
-            "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: silêncio. a lista abaixo mostra até onde chegou — a etapa que faltar é a culpada.",
+            "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: em silêncio. A lista abaixo mostra até onde a conexão chegou; a etapa que faltar é a causa.",
             style = Tipo.apoio,
             modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
@@ -126,7 +126,7 @@ internal fun VoiceSection(
     Text("Dispositivos", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "\"padrão do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
+        "\"padrão do Windows\" segue o aparelho escolhido no sistema, inclusive se ele mudar depois.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -144,7 +144,7 @@ internal fun VoiceSection(
     LinhaDeVolume("volume da escuta", p.volumeDaEscuta, prefs::setVolumeDaEscuta)
     Spacer(Modifier.height(6.dp))
     Text(
-        "os dois só abaixam. para uma pessoa específica, use o botão direito no cartão dela na chamada.",
+        "os dois só abaixam. Para uma pessoa específica, use o botão direito no cartão dela na chamada.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -152,7 +152,7 @@ internal fun VoiceSection(
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    ToggleRow("Cancelamento de eco", "evita o retorno do áudio dos outros pelo seu microfone — ao custo de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Cancelamento de eco", "evita que o áudio dos outros volte pelo seu microfone, com alguma perda de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
     ToggleRow("Supressão de ruído", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Ganho automático", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
     Spacer(Modifier.height(10.dp))
@@ -160,7 +160,7 @@ internal fun VoiceSection(
         if (p.micEchoCancel) {
             "o cancelador do Windows trabalha a 16 kHz, e a sua voz sai de lá nessa taxa: " +
                 "limpa, porém sem os agudos. Desligado, ela sobe para 48 kHz, a taxa cheia. " +
-                "Quem usa fone não tem eco para cancelar — aí desligar só melhora."
+                "Quem usa fone não tem eco para cancelar, então desligar só melhora."
         } else {
             "sua voz está indo a 48 kHz, a taxa cheia. Em compensação os dois ajustes acima " +
                 "não têm efeito: no Windows os três vivem no mesmo componente, e sem ele o " +
@@ -174,7 +174,7 @@ internal fun VoiceSection(
     MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
     Spacer(Modifier.height(4.dp))
     Text(
-        "os ajustes do microfone valem na hora, mesmo com a call aberta — o som corta " +
+        "os ajustes do microfone valem na hora, mesmo com a call aberta. O som corta " +
             "por um instante enquanto o microfone reabre.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
@@ -227,13 +227,13 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
 internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arranque: RascunhoDoArranque) {
     ToggleRow(
         "Modo desempenho",
-        "desliga aurora + estrelas e reduz animações de uma vez — para jogar ou transmitir",
+        "desliga aurora e estrelas e reduz as animações de uma vez, para jogar ou transmitir",
         p.performanceMode, prefs::setPerformanceMode,
     )
     Spacer(Modifier.height(6.dp))
 
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        LabeledControl("Qualidade da aurora", "mais detalhe = preparo mais longo ao abrir; escolha o fundo em Aparência") {
+        LabeledControl("Qualidade da aurora", "mais detalhe pede um preparo mais longo ao abrir; o fundo se escolhe em Aparência") {
             SegmentedRow(
                 listOf("Alta" to AuroraQuality.HIGH, "Média" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
                 p.auroraQuality, prefs::setAuroraQuality,
@@ -249,8 +249,8 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
 
     Spacer(Modifier.height(6.dp))
     ToggleRow(
-        "Janela translucida",
-        "cantos arredondados + fundo vazando; opaca = mais nitido e leve",
+        "Janela translúcida",
+        "cantos arredondados e fundo translúcido; a janela opaca fica mais nítida e leve",
         p.windowTransparent, prefs::setWindowTransparent,
     )
     Text(
@@ -262,7 +262,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
     Spacer(Modifier.height(6.dp))
     ToggleRow(
         "Fechar de vez ao fechar o app",
-        "o X encerra o Astra em vez de minimizar para bandeja — sem nada em segundo plano",
+        "o X encerra o Astra em vez de minimizar para a bandeja, sem nada em segundo plano",
         p.exitOnClose, prefs::setExitOnClose,
     )
     Spacer(Modifier.height(6.dp))
@@ -304,7 +304,7 @@ private fun ArranqueComWindows(arranque: RascunhoDoArranque) {
 
     ToggleRow(
         "Abrir junto com o Windows",
-        "o Astra já sobe na bandeja ao ligar o computador — sem esperar você lembrar dele",
+        "o Astra abre na bandeja quando o computador liga",
         arranque.ligado,
     ) { arranque.ligado = it }
     if (arranque.ligado) {

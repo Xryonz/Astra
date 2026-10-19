@@ -114,7 +114,7 @@ internal fun TrocarEmailDialog(emailAtual: String?, onClose: () -> Unit, aoTroca
         val pendente = enviadoPara
         if (pendente == null) {
             Text(
-                "O código vai para o endereço novo. A conta só muda quando ele voltar certo — " +
+                "O código vai para o endereço novo. A conta só muda depois que ele for confirmado; " +
                     "até lá, ${emailAtual ?: "o e-mail atual"} continua valendo.",
                 style = Tipo.descricao,
             )
@@ -232,8 +232,8 @@ internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: 
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "É por ele que as pessoas te encontram na busca e te mencionam. " +
-                "Hoje você é @${atual ?: "—"}.",
+            "É o nome usado na busca e nas menções. " +
+                "O atual é @${atual ?: "…"}.",
             style = Tipo.descricao,
         )
         Spacer(Modifier.height(16.dp))

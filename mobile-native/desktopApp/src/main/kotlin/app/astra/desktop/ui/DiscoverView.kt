@@ -292,7 +292,7 @@ private fun DiscoverEmptyMap(query: String) {
             Spacer(Modifier.height(6.dp))
             Text(
                 if (query.isBlank()) "seja o primeiro a fincar bandeira numa constelação"
-                else "nenhuma constelação encontrada — tente outro nome",
+                else "nenhuma constelação encontrada. Tente outro nome.",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
             )
         }

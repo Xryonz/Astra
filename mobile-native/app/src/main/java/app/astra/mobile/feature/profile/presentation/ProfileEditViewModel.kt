@@ -76,7 +76,7 @@ class ProfileEditViewModel @Inject constructor(
 
     fun fotoCabe(bytes: ByteArray, mime: String): Boolean {
         if (ehGif(mime) && bytes.size > AVATAR_GIF_MAX) {
-            _state.update { it.copy(error = "GIF muito grande — escolha um menor.", saved = false) }
+            _state.update { it.copy(error = "GIF muito grande. Escolha um menor.", saved = false) }
             return false
         }
         return true

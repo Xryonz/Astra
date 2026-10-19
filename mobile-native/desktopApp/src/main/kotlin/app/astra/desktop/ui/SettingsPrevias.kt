@@ -269,11 +269,11 @@ internal fun PrivacySection(
     aoMudarPerfil: (ProfileDraft) -> Unit,
 ) {
     Column {
-        Text("Quem pode te mandar sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+        Text("Quem pode mandar sussurro para você", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
         Spacer(Modifier.height(4.dp))
         Text(
-            "vale para conversa NOVA. quem já está falando com você continua falando — " +
-                "apertar isto não cala ninguém que você já estava respondendo.",
+            "vale para conversas novas. Quem já conversa com você continua " +
+                "podendo responder normalmente.",
             style = Tipo.apoio,
             modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
@@ -281,8 +281,8 @@ internal fun PrivacySection(
         FiltroDeSussurro(draft.dmPrivacy) { aoMudarPerfil(draft.copy(dmPrivacy = it)) }
         Spacer(Modifier.height(8.dp))
         Text(
-            "quem for barrado recebe a mesma recusa de quem foi bloqueado. não dá para " +
-                "descobrir, do outro lado, qual é o seu ajuste.",
+            "quem for barrado recebe a mesma recusa de quem foi bloqueado. Do outro lado, não " +
+                "é possível descobrir qual é o seu ajuste.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
             modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
@@ -295,7 +295,7 @@ internal fun PrivacySection(
         Spacer(Modifier.height(10.dp))
         ToggleRow(
             "Mostrar o que estou usando",
-            "quem te vê passa a ver o nome do programa em primeiro plano",
+            "os outros passam a ver o nome do programa em primeiro plano",
             prefState.atividadeVisivel,
             prefs::setAtividadeVisivel,
         )
@@ -307,8 +307,8 @@ internal fun PrivacySection(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "o título da janela nunca é lido. Ele entregaria arquivo aberto, aba, endereço e busca — " +
-                "por isso navegador aparece só como “Navegando”, sem dizer qual nem o quê.",
+            "o título da janela nunca é lido, porque revelaria o arquivo aberto, a aba, o endereço e a busca. " +
+                "Por isso o navegador aparece só como “Navegando”, sem dizer qual nem o quê.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
             modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
@@ -338,7 +338,7 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         if (ativo) {
             Spacer(Modifier.width(8.dp))
             Text(
-                if (detectado && !p.modoTransmissao) "valendo — programa de transmissão aberto" else "valendo",
+                if (detectado && !p.modoTransmissao) "valendo: programa de transmissão aberto" else "valendo",
                 style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
             )
         }
@@ -364,12 +364,12 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         Spacer(Modifier.height(10.dp))
         InfoNote(
             "O que o Astra olha para detectar",
-            "Para saber que o OBS está aberto é preciso olhar a lista de programas em " +
-                "execução — uma leitura mais ampla que a do “o que estou usando”, que só " +
-                "olha a janela da frente. Por isso isto é uma escolha sua, e não o padrão.\n\n" +
-                "O que se faz com essa lista: comparar o nome do executável com quatro " +
-                "nomes conhecidos de programas de transmissão. Nada além disso é lido — " +
-                "título de janela continua sendo o que o Astra nunca olha.\n\n" +
+            "Para saber que o OBS está aberto, o Astra precisa olhar a lista de programas em " +
+                "execução, uma leitura mais ampla que a do “o que estou usando”, que só " +
+                "olha a janela da frente. Por isso fica desligado até você escolher.\n\n" +
+                "A lista serve só para comparar o nome de cada executável com quatro " +
+                "nomes conhecidos de programas de transmissão. Nada além disso é lido, " +
+                "nem o título das janelas.\n\n" +
                 "O resultado é um sim ou não que fica nesta máquina. Nem o servidor vê.",
         )
     }
@@ -474,7 +474,7 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
                 Text("Astra", style = Tipo.nota)
                 if (discreto) {
                     Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-                    Text("sem nome e sem texto — é tudo que aparece.", style = Tipo.apoio)
+                    Text("sem nome e sem texto: é só isso que aparece.", style = Tipo.apoio)
                 } else {
                     Text("ana", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
                     Text("Entramos na órbita às 21h?", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
@@ -601,9 +601,9 @@ private fun MedidaDoQuadro() {
     Spacer(Modifier.height(6.dp))
     Text(
         if (amostras == 0) {
-            "as barras acima são previsão; esta linha é o tempo real de desenho nesta máquina. O Astra não mexe em nada por conta dela — quem decide é você, aqui e em Aparência."
+            "as barras acima são uma estimativa; esta linha é o tempo real de desenho nesta máquina. Os ajustes ficam com você, aqui e em Aparência."
         } else {
-            "tempo real de desenho nesta máquina. O Astra não mexe em nada por conta dela — quem decide é você, aqui e em Aparência."
+            "tempo real de desenho nesta máquina. Os ajustes ficam com você, aqui e em Aparência."
         },
         style = Tipo.apoio,
     )
@@ -668,9 +668,9 @@ private fun costWord(v: Float) = when {
 private fun costVerdict(gpu: Float, cpu: Float): String {
     val m = maxOf(gpu, cpu)
     return when {
-        m < 0.36f -> "leve — sobra folga para jogar ou transmitir junto."
-        m < 0.68f -> "equilibrado — visual completo sem pesar."
-        else -> "pesado — o modo desempenho corta isso num toque."
+        m < 0.36f -> "leve: sobra folga para jogar ou transmitir ao mesmo tempo."
+        m < 0.68f -> "equilibrado: visual completo sem pesar."
+        else -> "pesado: o modo desempenho reduz isso de uma vez."
     }
 }
 
@@ -845,7 +845,7 @@ internal fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "abaixo desse nível o mic não transmite. 0 = sempre aberto. teste o mic acima para calibrar.",
+            "abaixo desse nível o microfone não transmite. Em 0, fica sempre aberto. Teste o microfone acima para calibrar.",
             style = Tipo.apoio,
         )
     }

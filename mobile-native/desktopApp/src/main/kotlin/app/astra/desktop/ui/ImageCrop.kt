@@ -287,7 +287,7 @@ fun CropDialog(
             .onFailure { e ->
                 val motivo = e.message.orEmpty()
                 err = if ("404" in motivo) {
-                    "essa imagem não está mais no servidor. escolha o arquivo de novo para subir outra vez."
+                    "essa imagem não está mais no servidor. Escolha o arquivo de novo para enviar outra vez."
                 } else {
                     "não foi possível ler: " + (motivo.take(120).ifBlank { e::class.simpleName ?: "erro desconhecido" })
                 }
@@ -437,7 +437,7 @@ fun CropDialog(
                         if (animacao != null && recortarNoServidor != null) {
                             if (animacao.size > ImageCrop.TETO_DA_ANIMACAO) {
                                 busy = false
-                                err = "a animação passa de 9 MB — escolha um GIF menor"
+                                err = "a animação passa de 9 MB. Escolha um GIF menor."
                                 return@CropButton
                             }
                             val e = i.escalaDoOriginal

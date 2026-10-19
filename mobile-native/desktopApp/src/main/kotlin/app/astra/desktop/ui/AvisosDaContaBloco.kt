@@ -69,14 +69,14 @@ internal fun AvisosDaContaBloco() {
     fun aplicar(novo: AvisosDaContaDto) {
         escopo.launch {
             erro = null
-            avisos.salvar(novo).onFailure { erro = "não foi possível salvar — a mudança voltou atrás" }
+            avisos.salvar(novo).onFailure { erro = "não foi possível salvar. A mudança foi desfeita." }
         }
     }
 
     BlocoDeAjustes(
         "na sua conta, em todo lugar",
         "decidem se o aviso chega a existir. Desligar aqui apaga o aviso do sino, " +
-            "do celular e do navegador junto — não é só nesta máquina.",
+            "do celular e do navegador, em todos os aparelhos da conta.",
     ) {
         ToggleRow(
             "Menções", "quando alguém escreve o seu @",

@@ -266,7 +266,7 @@ private fun FriendsList(
 ) {
     when {
         loading && items.isEmpty() -> Center("carregando amigos…")
-        items.isEmpty() -> EmptyHint("nenhum amigo ainda — adicione pela aba Adicionar")
+        items.isEmpty() -> EmptyHint("nenhum amigo ainda. Use a aba Adicionar.")
         else -> {
             val online = items.count { presenceRank(it.presence) < 3 }
             Column(Modifier.fillMaxSize()) {
@@ -460,7 +460,7 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
                                 ok -> "pedido enviado" to true
                                 code == 404 -> "usuário não encontrado" to false
                                 code == 400 -> "confira os dados" to false
-                                else -> "não deu — tente de novo" to false
+                                else -> "não foi possível enviar. Tente de novo." to false
                             }
                             if (ok) value = ""
                         }

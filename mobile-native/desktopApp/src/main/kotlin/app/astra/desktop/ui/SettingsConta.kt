@@ -84,13 +84,13 @@ internal fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         val email = emailAgora ?: me?.email
         LinhaDaConta(
             rotulo = "Nome de usuário",
-            valor = usuario?.let { "@$it" } ?: "—",
+            valor = usuario?.let { "@$it" } ?: "…",
             acao = if (usuario == null) null else "Editar",
             aoAgir = { trocandoUsuario = true },
         )
         LinhaDaConta(
             rotulo = "E-mail",
-            valor = email?.let { if (emTransmissao) mascarar(it) else it } ?: "—",
+            valor = email?.let { if (emTransmissao) mascarar(it) else it } ?: "…",
             acao = if (email == null || semSenha) null else "Editar",
             aoAgir = { trocandoEmail = true },
         )
@@ -226,8 +226,8 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         return
     }
     Text(
-        "o que você escreveu fica, assinado “conta apagada” — a conversa é de duas " +
-            "pessoas, e sua saída não deveria abrir buracos no que a outra leu.",
+        "o que você escreveu continua lá, assinado como “conta apagada”. A conversa " +
+            "pertence às duas pessoas, e a sua saída não apaga o que a outra leu.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -243,8 +243,8 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         if (presas.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Text(
-                "você ainda é dono de: ${presas.joinToString(", ")}. transfira ou exclua " +
-                    "antes — constelação com gente dentro não some junto com a sua conta.",
+                "você ainda é dono de: ${presas.joinToString(", ")}. Transfira ou exclua " +
+                    "essas constelações antes, porque elas não são apagadas junto com a sua conta.",
                 style = TextStyle(color = Obsidian.danger, fontSize = 11.sp, lineHeight = 16.sp),
                 modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
             )
@@ -281,7 +281,7 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
                             if (presas.isEmpty()) erro = corpo?.error ?: "não foi possível apagar."
                         }
                         r?.code() == 401 -> erro = "senha incorreta."
-                        else -> erro = "não foi possível apagar. verifique a conexão."
+                        else -> erro = "não foi possível apagar. Verifique a conexão."
                     }
                 }
             }
@@ -304,7 +304,7 @@ internal fun SessionsSection() {
     }
 
     Text(
-        "cada linha é um acesso ativo na sua conta. não reconhece algum? derrube.",
+        "cada linha é um acesso ativo na sua conta. Se não reconhecer algum, encerre essa sessão.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )

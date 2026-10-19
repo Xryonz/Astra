@@ -1769,6 +1769,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     val src = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
+            .widthIn(max = 420.dp)
             .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) }
             .padding(bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1780,8 +1781,11 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             cor = ref.authorId?.let { LocalCoresDeCargo.current[it] },
             padrao = Obsidian.accent,
             fontSize = 11.sp,
+            modifier = Modifier.widthIn(max = 200.dp),
             fontWeight = FontWeight.SemiBold,
             fontFamily = ref.authorFont?.let { profileFontFamily(it) },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.width(6.dp))
         Text(

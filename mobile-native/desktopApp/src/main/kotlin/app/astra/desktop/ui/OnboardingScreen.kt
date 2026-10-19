@@ -195,7 +195,7 @@ private fun WelcomeStep(reduce: Boolean) {
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            "Astra é onde suas conversas viram um céu só seu — calmo, escuro, sem barulho.",
+            "No Astra, suas conversas formam um céu próprio, escuro e silencioso.",
             style = TextStyle(color = Obsidian.text3, fontSize = 14.sp, lineHeight = 21.sp, textAlign = TextAlign.Center),
             modifier = Modifier.width(340.dp),
         )
@@ -211,7 +211,7 @@ private fun SkyStep() {
         )
         Spacer(Modifier.height(22.dp))
         Column(Modifier.width(360.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            SkyTerm("✦", "constelação", "um servidor — sua comunidade e quem vive nela.")
+            SkyTerm("✦", "constelação", "um servidor: a comunidade e quem participa dela.")
             SkyTerm("◉", "órbita", "um canal dentro de uma constelação.")
             SkyTerm("☾", "sussurro", "uma conversa direta, no pé do ouvido.")
         }
@@ -284,7 +284,7 @@ private fun EntrarStep(entrou: ServerDto?, aoEntrar: (ServerDto) -> Unit, aoExpl
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Uma conta sozinha é um céu vazio. Cole o convite que te mandaram — ou " +
+            "Uma conta sozinha é um céu vazio. Cole o convite que você recebeu ou " +
                 "veja as constelações abertas a qualquer pessoa.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.5.sp, lineHeight = 18.sp),
         )
@@ -380,7 +380,7 @@ private fun PhotoStep(displayName: String, avatarUrl: String?, busy: Boolean, on
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "opcional — é possível mudar quando quiser nas configurações.",
+            "opcional. Pode ser trocada depois nas configurações.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, textAlign = TextAlign.Center),
         )
     }
@@ -395,8 +395,8 @@ private fun PermsStep(onTestarAviso: () -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "O Windows guarda microfone, câmera e avisos atrás de um interruptor — e quando ele " +
-                "bloqueia, não avisa ninguém: some o som e pronto. É possível liberar agora ou depois, " +
+            "O Windows controla o acesso ao microfone e aos avisos por interruptores e não avisa " +
+                "quando bloqueia algo: o som simplesmente some. Você pode liberar agora ou depois, " +
                 "em Configurações > Permissões.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.5.sp, lineHeight = 18.sp),
         )

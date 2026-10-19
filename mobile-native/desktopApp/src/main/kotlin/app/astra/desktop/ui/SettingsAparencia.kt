@@ -147,7 +147,7 @@ internal fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Um pet em pixel art que caminha por cima da interface. Ele passa a maior parte " +
             "do tempo parado e só anda em trechos curtos: movimento contínuo no canto do " +
             "olho ensina o olho a ignorar o resto da tela.\n\n" +
-            "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
+            "A cor troca a rampa que o artista desenhou, degrau por degrau. Os olhos, o " +
             "contorno e os detalhes ficam como estão, e é isso que mantém o pet " +
             "reconhecível em vez de virar uma mancha de uma cor só. O nome aparece " +
             "sobre ele quando reage a uma mensagem. Clique nele para ver o que ele " +
@@ -156,7 +156,7 @@ internal fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     ToggleRow(
         "Pet na tela",
-        "anda pela interface e reage a mensagem nova; some junto se você reduzir movimento",
+        "anda pela interface e reage a mensagens novas; some se você reduzir o movimento",
         p.petLigado, prefs::setPetLigado,
     )
     Spacer(Modifier.height(10.dp))
@@ -252,12 +252,11 @@ internal fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Contraste",
         "O padrão do Astra é mais suave de propósito: contraste alto demais em fundo " +
             "escuro faz a borda da letra vibrar, e isso cansa em sessão longa à noite. " +
-            "Ligue o alto contraste se o padrão for difícil de ler — a troca é sua, e " +
-            "legibilidade ganha de conforto.",
+            "Se o padrão for difícil de ler, ligue o alto contraste.",
     )
     ToggleRow(
         "Alto contraste",
-        "clareia texto e bordas — vale na hora, em todas as telas",
+        "clareia texto e bordas em todas as telas, na hora",
         p.altoContraste, prefs::setAltoContraste,
     )
 
@@ -266,7 +265,7 @@ internal fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Movimento",
         "Congela a aurora e desliga as cascatas de entrada e os pulsos. Vale em todas " +
             "as telas, na hora. O Astra também obedece ao ajuste de movimento do próprio " +
-            "Windows — este interruptor é para quando você quer parar tudo sem mexer no " +
+            "Windows; este interruptor serve para parar tudo no Astra sem mexer no " +
             "sistema inteiro.",
     )
     ToggleRow(

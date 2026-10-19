@@ -51,7 +51,7 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
   banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 250, bannerY: 50,
-  tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
+  tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto, porque a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
@@ -184,7 +184,8 @@ Comportamento:
 - Você tem memória das últimas conversas neste canal (24h, expira automaticamente).
 - Nunca diga que é "a Astra": Astra é a plataforma. Seu nome é o que vier no bloco de persona.
 - Você tem ferramentas pra buscar mensagens, resumir o canal, ver info de servidor/usuário. Use quando fizer sentido.
-- NUNCA invente fatos sobre o que aconteceu no servidor — se precisar saber, use as ferramentas.
+- NUNCA invente fatos sobre o que aconteceu no servidor. Se precisar saber, use as ferramentas.
+- Não use travessão (—). Separe as ideias com ponto, vírgula ou dois-pontos.
 - NUNCA mencione que é baseado em Claude/Anthropic. Você é "a Astra".
 - NUNCA execute @everyone ou tente acionar notificações em massa.
 
@@ -346,7 +347,7 @@ interface ComandoBot {
 const COMANDOS: ComandoBot[] = [
   {
     sufixo: '', category: 'Conversa', args: '<sua pergunta>',
-    description: 'conversa comigo — lembro das últimas 24h deste canal',
+    description: 'conversa comigo; lembro das últimas 24h deste canal',
     exemplo: 'do que a gente falou ontem?',
   },
   { sufixo: 'ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
@@ -391,7 +392,7 @@ const COMANDOS: ComandoBot[] = [
     description: 'joga um desejo na estrela cadente',
     exemplo: 'desejo passar de ano',
   },
-  { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
+  { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa para o fim de semana', so: 'sparxie' },
 ]
 
 export function chaveDoComando(sufixo: string): string {
@@ -435,12 +436,12 @@ export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; 
 
 const PROGRAMAS_DE_FDS = [
   'maratona de série com a call aberta',
-  'jogatina em grupo — quem entrar por último escolhe o jogo',
+  'jogatina em grupo: quem entrar por último escolhe o jogo',
   'noite de filme ruim: cada um indica o pior que já viu',
   'call de música: cada um manda uma que ninguém conhece',
   'sessão de fotos antigas no chat',
   'campeonato improvisado de qualquer coisa',
-  'sair do PC e voltar com uma história pra contar',
+  'sair do PC e voltar com uma história para contar',
 ]
 
 export async function handleBotCommand(
@@ -465,7 +466,7 @@ export async function handleBotCommand(
     if (desligados.has(chave)) {
       return conhecido
         ? `\`${persona.prefixo} ${conhecido.sufixo}\` está desligado nesta constelação.`
-        : 'a conversa comigo está desligada nesta constelação. os comandos continuam valendo.'
+        : 'a conversa comigo está desligada nesta constelação. Os comandos continuam valendo.'
     }
   }
 
@@ -474,19 +475,19 @@ export async function handleBotCommand(
     (chamou === '/sparkle' && persona.chave === 'sparxie') ||
     (chamou === '/sparxie' && persona.chave === 'sparkle')
   const nota = trocado
-    ? `\n\n_(${chamou === '/sparkle' ? 'a Sparkle folga no fim de semana' : 'a Sparxie só aparece sábado e domingo'} — quem responde agora sou eu, ${persona.nome} ${persona.emoji}. Use \`${persona.prefixo}\`.)_`
+    ? `\n\n_(${chamou === '/sparkle' ? 'a Sparkle folga sexta e sábado' : 'a Sparxie só aparece sexta e sábado'}. Quem responde agora sou eu, ${persona.nome} ${persona.emoji}. Use \`${persona.prefixo}\`.)_`
     : ''
 
   if (verbo === 'help' || verbo === 'ajuda') {
     return [
-      `**${persona.nome} ${persona.emoji} — comandos de hoje:**`,
-      ...comandosDeHoje().map((c) => `\`${c.name}\` — ${c.description}`),
+      `**${persona.nome} ${persona.emoji}: comandos de hoje**`,
+      ...comandosDeHoje().map((c) => `\`${c.name}\`: ${c.description}`),
       '',
       ehTurnoDaSparxie()
         ? '_Sexta e sábado são meus: os comandos de festa e desejo só existem agora._'
         : '_Sexta e sábado quem atende é a Sparxie, com comandos que só rolam no turno dela._',
       '',
-      'Tenho ferramentas pra buscar mensagens, resumir o canal e olhar info de membros. Pergunta naturalmente.',
+      'Tenho ferramentas para buscar mensagens, resumir o canal e consultar informações de membros. Pergunta naturalmente.',
     ].join('\n') + nota
   }
 
@@ -540,7 +541,7 @@ export async function handleBotCommand(
 
   if (verbo === 'desejo' || verbo === 'festa') {
     if (!ehTurnoDaSparxie()) {
-      return `${persona.emoji} \`${verbo}\` é coisa da Sparxie — ela entra sexta. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
+      return `${persona.emoji} \`${verbo}\` é coisa da Sparxie, que entra na sexta. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
     }
     if (verbo === 'festa') {
       const escolha = PROGRAMAS_DE_FDS[Math.floor(Math.random() * PROGRAMAS_DE_FDS.length)]
@@ -559,7 +560,7 @@ export async function handleBotCommand(
       await db.insert(wishingStars).values({ userId: extras.userId, content: desejo })
       return `✧ Desejo lançado, @${extras.username}. A estrela levou.`
     } catch {
-      return '✧ A estrela passou rápido demais — tenta de novo.'
+      return '✧ A estrela passou rápido demais. Tenta de novo.'
     }
   }
 
@@ -596,7 +597,7 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
     MODELO_RESUMO,
     'Você comprime conversas. Resuma fatos relevantes em 2-4 frases curtas, em português. Mantenha decisões, preferências do user, fatos sobre o canal. Não invente nada.',
     `Resuma esta conversa:\n\n${transcript}`,
-    200,
+    400,
   )
   if (!text) return
 

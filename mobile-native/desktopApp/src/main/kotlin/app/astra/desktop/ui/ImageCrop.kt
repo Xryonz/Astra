@@ -5,16 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -49,16 +45,10 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.mobile.core.network.dto.RecorteDaFotoDto
 import app.astra.shared.AstraShared
@@ -240,18 +230,9 @@ object ImageCrop {
     }.onFailure { motivos += (it.message ?: it::class.simpleName ?: "falhou") }.getOrNull()
 }
 
-private val StageW = 324.dp
+private val StageW = 320.dp
 private val StageH = 210.dp
 private val StagePad = 14.dp
-
-private object CropOverlay : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
-}
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -287,7 +268,7 @@ fun CropDialog(
             .onFailure { e ->
                 val motivo = e.message.orEmpty()
                 err = if ("404" in motivo) {
-                    "essa imagem não está mais no servidor. escolha o arquivo de novo para subir outra vez."
+                    "essa imagem não está mais no servidor. Escolha o arquivo de novo para enviar outra vez."
                 } else {
                     "não foi possível ler: " + (motivo.take(120).ifBlank { e::class.simpleName ?: "erro desconhecido" })
                 }
@@ -304,168 +285,143 @@ fun CropDialog(
         return Offset(p.x.coerceIn(-lx, lx), p.y.coerceIn(-ly, ly))
     }
 
-    Popup(
-        popupPositionProvider = CropOverlay,
-        onDismissRequest = onClose,
-        properties = PopupProperties(focusable = true),
-    ) {
+    fun aplicar() {
+        val i = cur ?: return
+        if (busy) return
+        busy = true
+        err = null
+        val zoom = cover * pct / 100f
+        val sx = i.w / 2f - (cropW / 2f + pan.x) / zoom
+        val sy = i.h / 2f - (cropH / 2f + pan.y) / zoom
+        val sw = cropW / zoom
+        val sh = cropH / zoom
+        val animacao = i.animacao
+        if (animacao != null && recortarNoServidor != null) {
+            if (animacao.size > ImageCrop.TETO_DA_ANIMACAO) {
+                busy = false
+                err = "a animação passa de 9 MB. Escolha um GIF menor."
+                return
+            }
+            val e = i.escalaDoOriginal
+            val recorte = RecorteDaFotoDto(
+                x = (sx * e).roundToInt().coerceAtLeast(0),
+                y = (sy * e).roundToInt().coerceAtLeast(0),
+                lado = (sw * e).roundToInt().coerceAtLeast(1),
+            )
+            scope.launch {
+                val r = runCatching {
+                    val imagem = withContext(Dispatchers.Default) { ImageCrop.dataUriDaAnimacao(animacao) }
+                    recortarNoServidor(imagem, recorte)
+                }
+                busy = false
+                r.onSuccess { onApply(it); onClose() }
+                    .onFailure { err = ImageCrop.mensagemDoServidor(it) }
+            }
+            return
+        }
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { ImageCrop.bake(i, sx, sy, sw, sh, outW) }
+            busy = false
+            r.onSuccess { onApply(it); onClose() }
+                .onFailure { err = "não foi possível recortar essa imagem." }
+        }
+    }
+
+    Dialogo(titulo = title, aoFechar = onClose) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "arraste para enquadrar · a roda do mouse aproxima.",
+            style = TextoDoDialogo,
+        )
+        if (cur?.animacao != null && recortarNoServidor != null) {
+            Text("a animação continua depois do recorte.", style = TextoDoDialogo)
+        }
+        Spacer(Modifier.height(14.dp))
         Box(
             Modifier
-                .fillMaxSize()
-                .background(Obsidian.void.copy(alpha = 0.72f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onClose() }
-                .semCursorDeClique(),
+                .width(StageW)
+                .height(StageH)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Obsidian.void),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                Modifier
-                    .width(StageW + 36.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.raised)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {}
-                    .padding(18.dp),
-            ) {
+            val img = bmp
+            val i = cur
+            if (img == null || i == null) {
                 Text(
-                    title,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    err ?: "carregando…",
+                    style = TextStyle(
+                        color = if (err != null) Obsidian.danger else Obsidian.text3,
+                        fontSize = 12.sp,
+                    ),
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "arraste para enquadrar · a roda do mouse aproxima.",
-                    style = Tipo.apoio,
-                )
-                if (cur?.animacao != null && recortarNoServidor != null) {
-                    Text("a animação continua depois do recorte.", style = Tipo.apoio)
-                }
-                Spacer(Modifier.height(14.dp))
-                Box(
+            } else {
+                Canvas(
                     Modifier
-                        .width(StageW)
-                        .height(StageH)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Obsidian.void),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .onPointerEvent(PointerEventType.Scroll) { e ->
+                            val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
+                            pct = (pct + if (dy < 0) 8 else -8).coerceIn(100, 300)
+                            pan = clampPan(pan, cover * pct / 100f)
+                        }
+                        .pointerInput(i) {
+                            detectDragGestures { change, drag ->
+                                change.consume()
+                                pan = clampPan(pan + drag, cover * pct / 100f)
+                            }
+                        },
                 ) {
-                    val img = bmp
-                    val i = cur
-                    if (img == null || i == null) {
-                        Text(
-                            err ?: "carregando…",
-                            style = TextStyle(
-                                color = if (err != null) Obsidian.danger else Obsidian.text3,
-                                fontSize = 12.sp,
-                            ),
-                        )
-                    } else {
-                        Canvas(
-                            Modifier
-                                .fillMaxSize()
-                                .clipToBounds()
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .onPointerEvent(PointerEventType.Scroll) { e ->
-                                    val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
-                                    pct = (pct + if (dy < 0) 8 else -8).coerceIn(100, 300)
-                                    pan = clampPan(pan, cover * pct / 100f)
-                                }
-                                .pointerInput(i) {
-                                    detectDragGestures { change, drag ->
-                                        change.consume()
-                                        pan = clampPan(pan + drag, cover * pct / 100f)
-                                    }
-                                },
-                        ) {
-                            val zoom = cover * pct / 100f
-                            val dw = i.w * zoom
-                            val dh = i.h * zoom
-                            drawImage(
-                                image = img,
-                                dstOffset = IntOffset(
-                                    (size.width / 2f + pan.x - dw / 2f).roundToInt(),
-                                    (size.height / 2f + pan.y - dh / 2f).roundToInt(),
-                                ),
-                                dstSize = IntSize(dw.roundToInt().coerceAtLeast(1), dh.roundToInt().coerceAtLeast(1)),
-                            )
-                            val hole = Rect(
-                                Offset((size.width - cropW) / 2f, (size.height - cropH) / 2f),
-                                Size(cropW, cropH),
-                            )
-                            val holePath = Path().apply {
-                                if (round) addOval(hole)
-                                else addRoundRect(RoundRect(hole, CornerRadius(8.dp.toPx())))
-                            }
-                            val stagePath = Path().apply { addRect(Rect(Offset.Zero, size)) }
-                            drawPath(
-                                Path.combine(PathOperation.Difference, stagePath, holePath),
-                                Obsidian.void.copy(alpha = 0.68f),
-                            )
-                            drawPath(
-                                holePath,
-                                Obsidian.accent.copy(alpha = 0.85f),
-                                style = Stroke(1.5.dp.toPx()),
-                            )
-                        }
+                    val zoom = cover * pct / 100f
+                    val dw = i.w * zoom
+                    val dh = i.h * zoom
+                    drawImage(
+                        image = img,
+                        dstOffset = IntOffset(
+                            (size.width / 2f + pan.x - dw / 2f).roundToInt(),
+                            (size.height / 2f + pan.y - dh / 2f).roundToInt(),
+                        ),
+                        dstSize = IntSize(dw.roundToInt().coerceAtLeast(1), dh.roundToInt().coerceAtLeast(1)),
+                    )
+                    val hole = Rect(
+                        Offset((size.width - cropW) / 2f, (size.height - cropH) / 2f),
+                        Size(cropW, cropH),
+                    )
+                    val holePath = Path().apply {
+                        if (round) addOval(hole)
+                        else addRoundRect(RoundRect(hole, CornerRadius(8.dp.toPx())))
                     }
-                }
-                val erroAoAplicar = err
-                if (erroAoAplicar != null && cur != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(erroAoAplicar, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
-                }
-                Spacer(Modifier.height(14.dp))
-                CropZoomTrack(pct) { pct = it; pan = clampPan(pan, cover * it / 100f) }
-                Spacer(Modifier.height(18.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CropButton("cancelar", accent = false) { onClose() }
-                    CropButton(if (busy) "aplicando…" else "aplicar", accent = true) {
-                        val i = cur ?: return@CropButton
-                        if (busy) return@CropButton
-                        busy = true
-                        err = null
-                        val zoom = cover * pct / 100f
-                        val sx = i.w / 2f - (cropW / 2f + pan.x) / zoom
-                        val sy = i.h / 2f - (cropH / 2f + pan.y) / zoom
-                        val sw = cropW / zoom
-                        val sh = cropH / zoom
-                        val animacao = i.animacao
-                        if (animacao != null && recortarNoServidor != null) {
-                            if (animacao.size > ImageCrop.TETO_DA_ANIMACAO) {
-                                busy = false
-                                err = "a animação passa de 9 MB — escolha um GIF menor"
-                                return@CropButton
-                            }
-                            val e = i.escalaDoOriginal
-                            val recorte = RecorteDaFotoDto(
-                                x = (sx * e).roundToInt().coerceAtLeast(0),
-                                y = (sy * e).roundToInt().coerceAtLeast(0),
-                                lado = (sw * e).roundToInt().coerceAtLeast(1),
-                            )
-                            scope.launch {
-                                val r = runCatching {
-                                    val imagem = withContext(Dispatchers.Default) { ImageCrop.dataUriDaAnimacao(animacao) }
-                                    recortarNoServidor(imagem, recorte)
-                                }
-                                busy = false
-                                r.onSuccess { onApply(it); onClose() }
-                                    .onFailure { err = ImageCrop.mensagemDoServidor(it) }
-                            }
-                            return@CropButton
-                        }
-                        scope.launch {
-                            val r = withContext(Dispatchers.IO) { ImageCrop.bake(i, sx, sy, sw, sh, outW) }
-                            busy = false
-                            r.onSuccess { onApply(it); onClose() }
-                                .onFailure { err = "não foi possível recortar essa imagem" }
-                        }
-                    }
+                    val stagePath = Path().apply { addRect(Rect(Offset.Zero, size)) }
+                    drawPath(
+                        Path.combine(PathOperation.Difference, stagePath, holePath),
+                        Obsidian.void.copy(alpha = 0.68f),
+                    )
+                    drawPath(
+                        holePath,
+                        Obsidian.accent.copy(alpha = 0.85f),
+                        style = Stroke(1.5.dp.toPx()),
+                    )
                 }
             }
+        }
+        val erroAoAplicar = err
+        if (erroAoAplicar != null && cur != null) {
+            Spacer(Modifier.height(8.dp))
+            RecadoDoDialogo(erroAoAplicar)
+        }
+        Spacer(Modifier.height(14.dp))
+        CropZoomTrack(pct) { pct = it; pan = clampPan(pan, cover * it / 100f) }
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar)
+            BotaoDeDialogo(
+                if (busy) "aplicando…" else "aplicar",
+                TipoDeBotao.PRINCIPAL,
+                onClick = ::aplicar,
+                ligado = cur != null && !busy,
+                foco = focoInicial,
+            )
         }
     }
 }
@@ -501,15 +457,3 @@ private fun CropZoomTrack(pct: Int, onChange: (Int) -> Unit) {
     }
 }
 
-@Composable
-private fun CropButton(label: String, accent: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-}

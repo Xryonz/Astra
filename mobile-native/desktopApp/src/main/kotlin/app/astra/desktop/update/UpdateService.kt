@@ -160,7 +160,7 @@ class UpdateService(private val http: OkHttpClient) {
             return@withContext
         }
         if (release == null) {
-            falhou("não consegui ler a versão publicada")
+            falhou("não foi possível ler a versão publicada")
             return@withContext
         }
         if (!isNewer(release.version, currentVersion)) {
@@ -170,7 +170,7 @@ class UpdateService(private val http: OkHttpClient) {
         }
         if (TentativasDeInstalar.desistiu(release.version)) {
             _state.value = UpdateState.Failed(
-                "a instalação automática da ${release.version} falhou duas vezes — baixe pela página da versão",
+                "a instalação automática da ${release.version} falhou duas vezes. Baixe pela página da versão.",
                 release.releaseUrl,
             )
             return@withContext
@@ -223,7 +223,7 @@ class UpdateService(private val http: OkHttpClient) {
 
     private suspend fun prepararVersao(av: UpdateState.Available) {
         val appRoot = Instalacao.imagem ?: run {
-            _state.value = UpdateState.Failed("não achei a pasta do app", av.releaseUrl)
+            _state.value = UpdateState.Failed("a pasta do app não foi encontrada", av.releaseUrl)
             return
         }
         val newVersionDir = Instalacao.palcoPara(av.version) ?: run {
@@ -320,13 +320,13 @@ class UpdateService(private val http: OkHttpClient) {
         val m = e.message.orEmpty()
         return when {
             e is AssinaturaInvalida -> e.message.orEmpty()
-            e is UnknownHostException -> "sem internet — tente pelo site"
+            e is UnknownHostException -> "sem internet. Tente pelo site."
             m.contains("HTTP 404") -> "essa versão ainda não está no GitHub"
-            m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"
+            m.startsWith("HTTP") -> "o GitHub recusou ($m). Tente pelo site."
             m.contains("space", true) || m.contains("espaco", true) || m.contains("espaço", true) -> "sem espaço em disco para atualizar"
-            m.contains("incompleto") -> "o download veio incompleto — tente de novo"
-            e is IOException -> "a conexão caiu no meio — tente de novo"
-            else -> "falha ao baixar — tente pelo site"
+            m.contains("incompleto") -> "o download veio incompleto. Tente de novo."
+            e is IOException -> "a conexão caiu durante o download. Tente de novo."
+            else -> "falha ao baixar. Tente pelo site."
         }
     }
 
@@ -451,7 +451,7 @@ class UpdateService(private val http: OkHttpClient) {
         }
         val versaoNova = VERSAO_NO_NOME.find(nova.name)?.value ?: nova.name
         if (!TentativasDeInstalar.registrarTentativa(versaoNova)) {
-            _state.value = UpdateState.Failed("não consegui registrar a atualização — feche e abra o Astra", LATEST_PAGE)
+            _state.value = UpdateState.Failed("não foi possível registrar a atualização. Feche e abra o Astra.", LATEST_PAGE)
             return
         }
         SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
@@ -463,7 +463,7 @@ class UpdateService(private val http: OkHttpClient) {
                 exitProcess(0)
             }
             _state.value = UpdateState.Failed(
-                "a instalação da $versaoNova não começou — tente de novo ou baixe pela página da versão",
+                "a instalação da $versaoNova não começou. Tente de novo ou baixe pela página da versão.",
                 LATEST_PAGE,
             )
             return
@@ -481,7 +481,7 @@ class UpdateService(private val http: OkHttpClient) {
             FocoDoSistema.cederAFrenteA(novo.pid())
             exitProcess(0)
         }
-        _state.value = UpdateState.Failed("não consegui reiniciar para instalar — feche e abra o Astra", LATEST_PAGE)
+        _state.value = UpdateState.Failed("não foi possível reiniciar para instalar. Feche e abra o Astra.", LATEST_PAGE)
     }
 
     private fun pastaDaMaiorVersao(): File? {

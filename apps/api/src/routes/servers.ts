@@ -227,7 +227,7 @@ serversRouter.patch(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-      return res.status(403).json({ error: 'Sem permissão pra editar o servidor' })
+      return res.status(403).json({ error: 'Sem permissão para editar o servidor' })
     }
 
     if (iconUrl && !isAllowedIcon(iconUrl)) return res.status(422).json({ error: 'URL de ícone não permitida' })
@@ -292,7 +292,7 @@ serversRouter.post(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-      return res.status(403).json({ error: 'Sem permissão pra regenerar o convite' })
+      return res.status(403).json({ error: 'Sem permissão para gerar um convite novo' })
     }
 
     const newCode = createId()
@@ -560,7 +560,7 @@ serversRouter.post(
     const requester = await getMemberPerms(req.userId!, serverId)
     if (!requester.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!requester.isOwner && !requester.permissions.has(PERMS.MANAGE_SERVER))
-      return res.status(403).json({ error: 'Sem permissão pra adicionar membros' })
+      return res.status(403).json({ error: 'Sem permissão para adicionar membros' })
 
     const [target] = await db.select({ id: users.id, displayName: users.displayName }).from(users)
       .where(eq(users.username, username)).limit(1)
@@ -619,7 +619,7 @@ serversRouter.get(
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER))
-      return res.status(403).json({ error: 'Sem permissão pra ver audit log' })
+      return res.status(403).json({ error: 'Sem permissão para ver o registro de auditoria' })
 
     const rows = await db.select({
       id:        auditLogs.id,
@@ -689,7 +689,7 @@ channelsRouter.post(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão pra criar canais' })
+      return res.status(403).json({ error: 'Sem permissão para criar canais' })
 
     if (categoryId) {
       const [cat] = await db.select({ id: channelCategories.id })
@@ -822,7 +822,7 @@ channelsRouter.patch(
     if (position !== undefined) set.position = position
     if (botEnabled !== undefined) set.botEnabled = botEnabled
     if (botKeepReplies !== undefined) set.botKeepReplies = botKeepReplies
-    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
+    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
     const r = await db.update(channels)
       .set(set)
@@ -848,7 +848,7 @@ channelsRouter.delete(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId && !m.isOwner) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão pra excluir canais' })
+      return res.status(403).json({ error: 'Sem permissão para excluir canais' })
 
     const r = await db.delete(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
@@ -876,7 +876,7 @@ channelsRouter.post(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão pra criar categorias' })
+      return res.status(403).json({ error: 'Sem permissão para criar categorias' })
 
     const existing = await db.select({ position: channelCategories.position })
       .from(channelCategories).where(eq(channelCategories.serverId, serverId))
@@ -910,7 +910,7 @@ channelsRouter.patch(
     if (name !== undefined) set.name = name
     if (position !== undefined) set.position = position
     if (botEnabled !== undefined) set.botEnabled = botEnabled
-    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
+    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
     const r = await db.update(channelCategories)
       .set(set)

@@ -126,7 +126,7 @@ private val ESTREIA = listOf(
         Marco.DESEMPENHO,
         "Como a sua máquina deve tratar o Astra",
         "O Astra não mede o seu computador nem decide por você: quem conhece a máquina é quem " +
-            "está nela. Escolha por onde começar — a tela muda enquanto você escolhe, e nada " +
+            "está nela. Escolha por onde começar: a tela muda enquanto você escolhe, e nada " +
             "disto é definitivo.",
     ),
 )

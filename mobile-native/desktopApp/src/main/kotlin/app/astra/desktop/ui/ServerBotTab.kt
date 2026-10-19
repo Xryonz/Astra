@@ -47,8 +47,8 @@ fun ServerBotTab(
     )
     Spacer(Modifier.height(4.dp))
     Text(
-        "desligar um comando vale só nesta constelação. quem chamar recebe um aviso curto " +
-            "em vez de silêncio — comando que não responde parece bot quebrada.",
+        "desligar um comando vale só nesta constelação. Quem chamar recebe um aviso curto " +
+            "em vez de silêncio, porque um comando sem resposta parece defeito da bot.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = 620.dp),
     )

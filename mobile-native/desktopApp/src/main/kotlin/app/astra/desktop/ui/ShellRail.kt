@@ -345,7 +345,7 @@ internal fun Rail(
                                 .padding(14.dp),
                         ) {
                             Text(
-                                "excluir ${srv.name}? apaga a constelação para todos — não há como desfazer.",
+                                "excluir ${srv.name}? A constelação é apagada para todos, e não há como desfazer.",
                                 style = Tipo.corpo,
                                 modifier = Modifier.widthIn(max = 240.dp),
                             )

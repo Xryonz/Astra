@@ -186,7 +186,7 @@ const createReminder: ToolHandler = async (input, ctx) => {
     channelId: ctx.channelId, dueAt,
   }).returning({ id: reminders.id, dueAt: reminders.dueAt })
 
-  return `Lembrete criado: "${content}" — disparo em ${r.dueAt.toLocaleString('pt-BR')}.`
+  return `Lembrete criado: "${content}", disparo em ${r.dueAt.toLocaleString('pt-BR')}.`
 }
 
 const REGISTRY: Record<string, { def: ToolDefinition; handler: ToolHandler }> = {

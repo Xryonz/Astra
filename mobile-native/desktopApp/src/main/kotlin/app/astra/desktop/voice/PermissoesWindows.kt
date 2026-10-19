@@ -28,7 +28,7 @@ enum class Permissao(val titulo: String, val oQueE: String) {
     ),
     SOM(
         "Som",
-        "A saída de áudio — é por onde você escuta as outras pessoas.",
+        "A saída de áudio, por onde você escuta as outras pessoas.",
     ),
     TELA(
         "Transmitir a tela",
@@ -40,7 +40,7 @@ enum class Permissao(val titulo: String, val oQueE: String) {
     ),
     AVISOS(
         "Avisos",
-        "Deixa o Astra te chamar quando chega mensagem com o app fechado ou atrás de outra janela.",
+        "Permite que o Astra avise você quando chega mensagem com o app fechado ou atrás de outra janela.",
     ),
 }
 
@@ -77,7 +77,7 @@ object PermissoesWindows {
         if (ligado == 0) {
             return Checagem(
                 Permissao.AVISOS, Acesso.BLOQUEADO,
-                "As notificações estão desligadas no Windows — nenhum app consegue avisar você.",
+                "As notificações estão desligadas no Windows, e nenhum app consegue avisar você.",
                 "ms-settings:notifications",
             )
         }
@@ -142,7 +142,7 @@ object PermissoesWindows {
             )
             soZeros -> Checagem(
                 Permissao.MICROFONE, Acesso.MUDO,
-                "O microfone abriu, mas não chegou som nenhum. Costuma ser a privacidade do Windows fechada — ou o mic mudo no botão do aparelho.",
+                "O microfone abriu, mas não chegou som nenhum. Em geral é a privacidade do Windows fechada ou o botão de mudo do próprio aparelho.",
                 "ms-settings:privacy-microphone",
             )
             else -> Checagem(Permissao.MICROFONE, Acesso.OK, "Ouvindo normalmente (${nomes.first()}).")
@@ -154,7 +154,7 @@ object PermissoesWindows {
         return if (saidas.isEmpty()) {
             Checagem(
                 Permissao.SOM, Acesso.SEM_APARELHO,
-                "Nenhuma saída de áudio encontrada — você não ouviria a call.",
+                "Nenhuma saída de áudio encontrada. Sem ela, você não ouve a call.",
                 "ms-settings:sound",
             )
         } else {
@@ -208,14 +208,14 @@ object PermissoesWindows {
         if (System.getProperty("jpackage.app-path") == null) {
             return Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
-                "Rodando pelo Gradle — não há executável do Astra para procurar no firewall.",
+                "Rodando pelo Gradle, sem executável do Astra para procurar no firewall.",
             )
         }
         val correndo = quemFalaNaRede()
         if (correndo.isEmpty()) {
             return Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
-                "Não encontrei os executáveis do Astra para conferir no firewall.",
+                "O Astra não encontrou os próprios executáveis para conferir no firewall.",
                 "windowsdefender://network/",
             )
         }
@@ -237,7 +237,7 @@ object PermissoesWindows {
             bloqueados.isNotEmpty() -> Checagem(
                 Permissao.REDE, Acesso.BLOQUEADO,
                 "Existe uma regra bloqueando ${bloqueados.joinToString(" e ", transform = ::apelido)} " +
-                    "no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não " +
+                    "no firewall, provavelmente criada por um \"Cancelar\" no aviso do Windows. A call não " +
                     "conecta assim. Liberar remove o bloqueio.",
                 "windowsdefender://network/",
                 podeResolver = true,
@@ -245,7 +245,7 @@ object PermissoesWindows {
             semRegra.isNotEmpty() -> Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
                 "O Windows ainda vai perguntar por ${semRegra.joinToString(" e ", transform = ::apelido)} " +
-                    "na primeira call. Liberar agora resolve antes — e vale também para as versões que vierem.",
+                    "na primeira call. Liberar agora resolve isso antes e vale também para as próximas versões.",
                 "windowsdefender://network/",
                 podeResolver = true,
             )
@@ -260,7 +260,7 @@ object PermissoesWindows {
             )
             else -> Checagem(
                 Permissao.REDE, Acesso.OK,
-                "Liberado no endereço fixo do Astra — atualizar não derruba mais a liberação.",
+                "Liberado no endereço fixo do Astra. Atualizações não desfazem mais a liberação.",
                 podeDesfazer = true,
             )
         }

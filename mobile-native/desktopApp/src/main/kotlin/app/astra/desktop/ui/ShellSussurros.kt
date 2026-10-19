@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,6 +38,13 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -294,52 +302,75 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
     var busy by remember { mutableStateOf<String?>(null) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
 
-    DialogShell(onClose = onClose) {
-        Text(
-            "convidar @$username",
-            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            "para qual constelação?",
-            style = Tipo.apoio,
-        )
+    Dialogo(titulo = "convidar @$username", aoFechar = onClose) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
+        Text("para qual constelação?", style = TextoDoDialogo)
         Spacer(Modifier.height(12.dp))
-        servers.forEach { srv ->
-            val loading = busy == srv.id
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(enabled = busy == null) {
-                        busy = srv.id
-                        msg = null
-                        scope.launch {
-                            val r = runCatching { api.addMember(srv.id, username) }
-                            busy = null
-                            msg = if (r.isSuccess) "entrou em ${srv.name}" to true
-                            else "não deu — já é membro, ou você não tem permissão" to false
-                        }
+        Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+            servers.forEachIndexed { i, srv ->
+                LinhaDeConstelacao(
+                    srv,
+                    carregando = busy == srv.id,
+                    ligada = busy == null,
+                    foco = focoInicial.takeIf { i == 0 },
+                ) {
+                    busy = srv.id
+                    msg = null
+                    scope.launch {
+                        val r = runCatching { api.addMember(srv.id, username) }
+                        busy = null
+                        msg = if (r.isSuccess) "entrou em ${srv.name}." to true
+                        else "não foi possível adicionar. A pessoa já é membro ou você não tem permissão." to false
                     }
-                    .padding(horizontal = 8.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                DesktopAvatar(srv.iconUrl, srv.name, 26)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    if (loading) "…" else srv.name,
-                    style = Tipo.corpo,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+                }
             }
         }
         msg?.let { (text, ok) ->
             Spacer(Modifier.height(10.dp))
-            Text(
-                text,
-                style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp),
+            RecadoDoDialogo(text, sucesso = ok)
+        }
+        RodapeDoDialogo {
+            BotaoDeDialogo(
+                "fechar",
+                TipoDeBotao.SECUNDARIO,
+                onClick = fechar,
+                foco = focoInicial.takeIf { servers.isEmpty() },
             )
         }
+    }
+}
+
+@Composable
+private fun LinhaDeConstelacao(
+    srv: ServerDto,
+    carregando: Boolean,
+    ligada: Boolean,
+    foco: FocusRequester?,
+    onClick: () -> Unit,
+) {
+    val toque = remember { MutableInteractionSource() }
+    val sobre by toque.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
+            .clickScale(toque)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (sobre && ligada) Obsidian.hover else Color.Transparent)
+            .hoverable(toque, enabled = ligada)
+            .semantics { if (!ligada) disabled() }
+            .clickable(interactionSource = toque, indication = null, role = Role.Button) { if (ligada) onClick() }
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesktopAvatar(srv.iconUrl, srv.name, 26)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            if (carregando) "…" else srv.name,
+            style = Tipo.corpo,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

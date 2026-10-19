@@ -94,7 +94,7 @@ export async function saudarNovoMembro(serverId: string, userId: string): Promis
 
     const persona = await sincronizaPersona(botId)
     const nome = pessoa.displayName || pessoa.username
-    await falar(channelId, `${nome} chegou na constelação. Bem-vindo — \`${persona.prefixo} ajuda\` mostra o que eu faço.`, persona, botId)
+    await falar(channelId, `${nome} chegou na constelação. Boas-vindas! \`${persona.prefixo} ajuda\` mostra o que eu faço.`, persona, botId)
   } catch (e) {
     logger.error('Bot', `saudacao falhou: ${(e as Error).message}`)
   }

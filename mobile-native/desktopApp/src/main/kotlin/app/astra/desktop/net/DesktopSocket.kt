@@ -174,7 +174,7 @@ class DesktopSocket(
     private suspend fun abrir() {
         val token = tokenValido()
         if (token == null) {
-            lastError = "sessão expirada — entre de novo"
+            lastError = "sessão expirada. Entre de novo."
             note("· sem token válido")
             recuar()
             return
@@ -203,7 +203,7 @@ class DesktopSocket(
         }
         s.on(Socket.EVENT_DISCONNECT) { args ->
             note("· desconectou (${args.firstOrNull() ?: "?"})")
-            lastError = "queda de conexão — reconectando"
+            lastError = "conexão perdida, reconectando"
         }
         s.on(Socket.EVENT_CONNECT) {
             lastError = null
@@ -253,8 +253,8 @@ class DesktopSocket(
     }
 
     private fun emPortugues(cru: String): String = when {
-        cru.contains("TOKEN_REVOKED") -> "sessão encerrada em outro lugar — entre de novo"
-        cru.contains("INVALID_TOKEN") || cru.contains("AUTH_REQUIRED") -> "sessão vencida — renovando"
+        cru.contains("TOKEN_REVOKED") -> "sessão encerrada. Entre de novo."
+        cru.contains("INVALID_TOKEN") || cru.contains("AUTH_REQUIRED") -> "sessão vencida, renovando"
         cru.contains("timeout", true) -> "servidor não respondeu (pode estar acordando)"
         cru.contains("xhr", true) || cru.contains("websocket", true) -> "sem alcançar o servidor"
         else -> cru.take(60)

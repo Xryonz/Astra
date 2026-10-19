@@ -14,11 +14,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,8 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -48,15 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.Desinstalador
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -98,7 +87,7 @@ internal fun AboutSection() {
     Text("atualizações", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
+        "o Astra verifica ao abrir e a cada 20 minutos. Você também pode procurar agora.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -107,7 +96,7 @@ internal fun AboutSection() {
     when (val s = st) {
         is UpdateState.Checking -> AboutStatus("procurando atualizações…")
         is UpdateState.UpToDate -> AboutStatus(
-            "você está na ${s.vista} — a mais nova publicada, conferido ${haQuantoTempo(s.conferidoEm)}",
+            "você está na ${s.vista}, a mais nova publicada, conferida ${haQuantoTempo(s.conferidoEm)}",
         )
         is UpdateState.Available -> {
             AboutStatus("nova versão ${s.version} disponível")
@@ -127,7 +116,7 @@ internal fun AboutSection() {
             )
         }
         is UpdateState.Ready -> {
-            AboutStatus("${s.version} baixada — reinicie para aplicar")
+            AboutStatus("${s.version} baixada. Reinicie para aplicar.")
             Spacer(Modifier.height(10.dp))
             AboutButton("reiniciar agora", accent = true) { scope.launch { updater.restartToInstall() } }
         }
@@ -159,7 +148,7 @@ private fun BlocoDeDesinstalar() {
     Spacer(Modifier.height(4.dp))
     Text(
         "apaga o Astra deste computador: o programa, as versões guardadas, os atalhos, o login e as " +
-            "preferências. as regras de rede que o Windows criou para o Astra não são apagadas.",
+            "preferências. As regras de rede que o Windows criou para o Astra não são apagadas.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -176,21 +165,12 @@ internal fun PedidoDeDesinstalar(aoDesistir: () -> Unit) {
     } else {
         Confirmacao(
             titulo = "desinstalar o Astra",
-            consequencia = "o programa sai deste computador, junto com o login e as preferências. sua conta continua existindo.",
+            consequencia = "o programa sai deste computador, junto com o login e as preferências. Sua conta continua existindo.",
             acao = "desinstalar",
             aoConfirmar = { desinstalando = true },
             aoFechar = aoDesistir,
         )
     }
-}
-
-private object JanelaInteira : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
 }
 
 @Composable
@@ -225,55 +205,35 @@ private fun TelaDeDesinstalacao() {
         exitProcess(0)
     }
 
-    Popup(popupPositionProvider = JanelaInteira, properties = PopupProperties(focusable = true)) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Obsidian.void.copy(alpha = 0.82f))
-                .pointerInput(Unit) { detectTapGestures { } },
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                Modifier
-                    .width(360.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Obsidian.raised)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                    .padding(22.dp),
-            ) {
-                Text(
-                    "desinstalando o Astra",
-                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    when {
-                        falhou -> "não foi possível terminar a remoção"
-                        atual < etapas.size -> etapas[atual].rotulo + "…"
-                        else -> "fechando o Astra…"
-                    },
-                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                )
-                Spacer(Modifier.height(16.dp))
-                Canvas(Modifier.fillMaxWidth().height(4.dp)) {
-                    val raio = CornerRadius(size.height / 2f)
-                    drawRoundRect(Obsidian.borderDim, cornerRadius = raio)
-                    drawRoundRect(
-                        if (falhou) Obsidian.danger else Obsidian.accent,
-                        size = Size(size.width * progresso.value, size.height),
-                        cornerRadius = raio,
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    if (falhou) "feche o Astra e apague à mão a pasta do programa e a pasta Astra dentro de %APPDATA%."
-                    else "o Astra fecha sozinho no fim, e os arquivos do programa somem logo depois.",
-                    style = Tipo.apoio,
-                )
-                if (falhou) {
-                    Spacer(Modifier.height(14.dp))
-                    AboutButton("fechar o Astra", accent = false) { exitProcess(0) }
-                }
+    Dialogo(titulo = "desinstalando o Astra", aoFechar = {}, dispensavel = false, animarEntrada = false) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            when {
+                falhou -> "não foi possível terminar a remoção."
+                atual < etapas.size -> etapas[atual].rotulo + "…"
+                else -> "fechando o Astra…"
+            },
+            style = TextoDoDialogo,
+        )
+        Spacer(Modifier.height(16.dp))
+        Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+            val raio = CornerRadius(size.height / 2f)
+            drawRoundRect(Obsidian.borderDim, cornerRadius = raio)
+            drawRoundRect(
+                if (falhou) Obsidian.danger else Obsidian.accent,
+                size = Size(size.width * progresso.value, size.height),
+                cornerRadius = raio,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (falhou) "feche o Astra e apague à mão a pasta do programa e a pasta Astra dentro de %APPDATA%."
+            else "o Astra fecha sozinho no fim, e os arquivos do programa somem logo depois.",
+            style = Tipo.apoio,
+        )
+        if (falhou) {
+            RodapeDoDialogo {
+                BotaoDeDialogo("fechar o Astra", TipoDeBotao.PRINCIPAL, onClick = { exitProcess(0) })
             }
         }
     }
@@ -380,7 +340,7 @@ internal fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = n
 }
 
 internal fun mesEAno(iso: String?): String {
-    val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "—"
+    val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "…"
     val meses = listOf(
         "jan", "fev", "mar", "abr", "mai", "jun",
         "jul", "ago", "set", "out", "nov", "dez",

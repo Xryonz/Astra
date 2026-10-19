@@ -216,7 +216,7 @@ private fun HourPicker(label: String, value: Int?, onPick: (Int?) -> Unit) {
         Spacer(Modifier.height(4.dp))
         Box {
             Text(
-                text = value?.let { String.format("%02d:00", it) } ?: "—",
+                text = value?.let { String.format("%02d:00", it) } ?: "nenhum",
                 style = MaterialTheme.typography.titleMedium,
                 color = if (value != null) astraColors.accent else astraColors.text3,
                 modifier = Modifier
@@ -232,7 +232,7 @@ private fun HourPicker(label: String, value: Int?, onPick: (Int?) -> Unit) {
                 containerColor = astraColors.overlay,
                 border = BorderStroke(1.dp, astraColors.border),
             ) {
-                ItemDeMenu(text = { Text("—") }, onClick = { open = false; onPick(null) })
+                ItemDeMenu(text = { Text("Nenhum") }, onClick = { open = false; onPick(null) })
                 (0..23).forEach { h ->
                     ItemDeMenu(
                         text = { Text(String.format("%02d:00", h)) },

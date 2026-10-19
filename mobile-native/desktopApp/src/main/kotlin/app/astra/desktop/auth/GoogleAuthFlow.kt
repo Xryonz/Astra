@@ -23,7 +23,7 @@ object GoogleAuthFlow {
         val deferred = CompletableDeferred<Result<String>>()
 
         val server = runCatching { HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0) }
-            .getOrElse { return@withContext Result.failure(Exception("Não consegui abrir a porta local")) }
+            .getOrElse { return@withContext Result.failure(Exception("Não foi possível abrir a porta local")) }
         val port = server.address.port
 
         server.createContext("/callback") { ex ->
@@ -38,7 +38,7 @@ object GoogleAuthFlow {
                     "ok"
                 }
                 params["error"] == "google_email_unregistered" -> {
-                    complete(deferred, Result.failure(Exception("Esse Google ainda não tem conta no Astra — crie uma conta primeiro.")))
+                    complete(deferred, Result.failure(Exception("Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro.")))
                     "unreg"
                 }
                 else -> {
@@ -52,7 +52,7 @@ object GoogleAuthFlow {
             val s = parseQuery(ex.requestURI.rawQuery)["s"]
             val msg = when (s) {
                 "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
-                "unreg" -> "Esse Google ainda não tem conta no Astra — crie uma conta primeiro."
+                "unreg" -> "Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro."
                 "nonce" -> "Não foi possível confirmar o login. Tente de novo."
                 else -> "Não foi possível entrar com o Google."
             }
@@ -69,11 +69,11 @@ object GoogleAuthFlow {
 
         if (!opened) {
             runCatching { server.stop(0) }
-            return@withContext Result.failure(Exception("Não consegui abrir o navegador"))
+            return@withContext Result.failure(Exception("Não foi possível abrir o navegador"))
         }
 
         val out = withTimeoutOrNull(TIMEOUT_MS) { deferred.await() }
-            ?: Result.failure(Exception("Tempo esgotado — tente de novo"))
+            ?: Result.failure(Exception("Tempo esgotado. Tente de novo."))
         Thread {
             try { Thread.sleep(3000); server.stop(2) } catch (_: Exception) { runCatching { server.stop(0) } }
         }.apply { isDaemon = true }.start()

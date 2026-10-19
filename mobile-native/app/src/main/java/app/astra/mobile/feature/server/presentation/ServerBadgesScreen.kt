@@ -240,7 +240,7 @@ private fun CreateBadgeDialog(
                         .clickable { color = hex },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (hex == null) Text("—", color = astraColors.text3, fontSize = 12.sp)
+                    if (hex == null) Box(Modifier.width(10.dp).height(1.dp).background(astraColors.text3))
                 }
             }
         }

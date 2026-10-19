@@ -95,7 +95,7 @@ internal fun DiagnosticsSection() {
         val passos = remember(tick) { VoiceLog.linhas().asReversed() }
         if (passos.isEmpty()) {
             Text(
-                "nenhuma call ainda nesta sessão. entre numa e volte aqui.",
+                "nenhuma call ainda nesta sessão. Entre em uma e volte aqui.",
                 style = Tipo.apoio,
             )
         } else {
@@ -128,7 +128,7 @@ internal fun DiagnosticsSection() {
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "o mesmo vai para o arquivo voz.txt (na pasta do Astra) — é possível mandar inteiro para quem estiver ajudando.",
+                "o mesmo registro fica no arquivo voz.txt, na pasta do Astra, e pode ser enviado inteiro a quem estiver ajudando.",
                 style = Tipo.apoio,
             )
         }
@@ -155,7 +155,7 @@ internal fun DiagnosticsSection() {
         Spacer(Modifier.height(6.dp))
         if (events.isEmpty()) {
             Text(
-                "nada ainda — se algo devia ter chegado e não chegou, o problema está do lado do servidor.",
+                "nada recebido até agora. Se algo deveria ter chegado e não chegou, o problema está no servidor.",
                 style = Tipo.apoio,
             )
         } else {
@@ -199,7 +199,7 @@ internal fun DiagnosticsSection() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "cole isto quando pedir ajuda — não vai conteúdo de mensagem nenhuma, só nomes de aviso e horários.",
+            "cole isto ao pedir ajuda. O texto leva só nomes de avisos e horários, sem o conteúdo das mensagens.",
             style = Tipo.apoio,
         )
     }
@@ -215,7 +215,7 @@ internal fun VoicePassos() {
 
     if (passos.isEmpty()) {
         Text(
-            "nenhuma call nesta sessão ainda. entre numa e volte aqui — cada etapa aparece nesta lista.",
+            "nenhuma call nesta sessão ainda. Entre em uma e volte aqui: cada etapa aparece nesta lista.",
             style = Tipo.apoio,
         )
         return
@@ -282,7 +282,7 @@ private fun ModoSeguroBloco() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            if (desligado) "desligado — vale na próxima abertura" else "voltar ao desenho normal",
+            if (desligado) "desligado a partir da próxima abertura" else "voltar ao desenho normal",
             style = TextStyle(
                 color = if (desligado) Obsidian.success else Obsidian.accent,
                 fontSize = 12.sp,

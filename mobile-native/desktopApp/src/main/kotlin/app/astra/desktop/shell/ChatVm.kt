@@ -387,7 +387,7 @@ class ChatVm(
         if (r.code == "MUTED" || r.code == "SPAM_MUTED") {
             val s = r.secondsLeft ?: 0
             val falta = if (s >= 60) "${s / 60}min" else "${s}s"
-            return if (s > 0) "Você está silenciado — faltam $falta" else "Você está silenciado neste servidor"
+            return if (s > 0) "Você está silenciado por mais $falta" else "Você está silenciado neste servidor"
         }
         return r.error?.takeIf { it.isNotBlank() && it != "DISCONNECTED" && it != "NO_ACK" }
             ?: "Mensagem não enviada"
@@ -400,13 +400,13 @@ class ChatVm(
     }
 
     private fun sendError(t: Throwable, fallback: String): String {
-        val http = t as? HttpException ?: return "$fallback — sem conexão"
+        val http = t as? HttpException ?: return "$fallback: sem conexão"
         val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
             ?.let { runCatching { json.decodeFromString<ApiError>(it) }.getOrNull() }
         if (parsed?.code == "MUTED" || parsed?.code == "SPAM_MUTED") {
             val s = parsed.secondsLeft ?: 0
             val falta = if (s >= 60) "${s / 60}min" else "${s}s"
-            return if (s > 0) "Você está silenciado — faltam $falta" else "Você está silenciado neste servidor"
+            return if (s > 0) "Você está silenciado por mais $falta" else "Você está silenciado neste servidor"
         }
         parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }
         return when (http.code()) {
@@ -725,7 +725,7 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         stopTypingEmit()
         if (!socket.sendBotCommand(channelId, serverId, content.trim())) {
-            _state.update { it.copy(error = "Sem conexão — o comando não chegou na bot") }
+            _state.update { it.copy(error = "Sem conexão. O comando não chegou à bot.") }
         }
     }
 

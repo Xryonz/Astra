@@ -25,7 +25,7 @@ object ImageEncoder {
             return@withContext if (bytes.size <= gifRawLimit) {
                 Result.success("data:image/gif;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
             } else {
-                Result.failure(ApiException("GIF muito grande — escolha um menor."))
+                Result.failure(ApiException("GIF muito grande. Escolha um menor."))
             }
         }
         try {
@@ -48,7 +48,7 @@ object ImageEncoder {
         val base = mime.substringBefore(';').trim().lowercase()
         if (base == "image/gif") {
             return@withContext if (bytes.size <= gifRawLimit) Result.success(bytes to "image/gif")
-            else Result.failure(ApiException("GIF muito grande — escolha um menor."))
+            else Result.failure(ApiException("GIF muito grande. Escolha um menor."))
         }
         try {
             val src = decodeOriented(bytes)

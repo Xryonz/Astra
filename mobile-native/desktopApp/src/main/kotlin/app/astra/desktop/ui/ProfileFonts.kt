@@ -11,12 +11,12 @@ data class ProfileFont(val id: String, val label: String, val family: FontFamily
 val PROFILE_FONTS = listOf(
     ProfileFont("serif", "Serif editorial", DmSerif),
     ProfileFont("sans", "Sans limpa", DmSans),
-    ProfileFont("mono", "Mono tecnica", DmMono),
+    ProfileFont("mono", "Mono técnica", DmMono),
     ProfileFont("handwriting", "Manuscrita", GreatVibes),
-    ProfileFont("gothic", "Gotica", FontFamily.Serif),
+    ProfileFont("gothic", "Gótica", FontFamily.Serif),
     ProfileFont("rounded", "Arredondada", FontFamily.SansSerif),
     ProfileFont("condensed", "Condensada", FontFamily.SansSerif),
-    ProfileFont("modern", "Geometrica", FontFamily.SansSerif),
+    ProfileFont("modern", "Geométrica", FontFamily.SansSerif),
 )
 
 fun profileFontFamily(id: String?): FontFamily =

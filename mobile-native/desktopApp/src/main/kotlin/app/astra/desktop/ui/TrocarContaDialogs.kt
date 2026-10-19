@@ -1,18 +1,7 @@
 package app.astra.desktop.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,20 +9,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.AuthApi
@@ -46,6 +28,15 @@ import retrofit2.HttpException
 import app.astra.desktop.ui.theme.Tipo
 
 private const val DIGITOS_DO_CODIGO = 6
+
+internal val EstiloDoCodigo: TextStyle
+    get() = TextStyle(
+        color = Obsidian.text1,
+        fontSize = 24.sp,
+        fontFamily = DmMono,
+        textAlign = TextAlign.Center,
+        letterSpacing = 8.sp,
+    )
 
 internal fun recadoDaApi(t: Throwable?, reserva: String): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"
@@ -104,91 +95,80 @@ internal fun TrocarEmailDialog(emailAtual: String?, onClose: () -> Unit, aoTroca
         }
     }
 
-    DialogShell(onClose = onClose, largura = 400.dp) {
-        Text(
-            "Trocar de e-mail",
-            style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontFamily = DmSerif),
-        )
-        Spacer(Modifier.height(6.dp))
+    Dialogo(titulo = "trocar de e-mail", aoFechar = onClose, largura = LarguraDoDialogo.MEDIA) { fechar ->
+        Spacer(Modifier.height(8.dp))
 
         val pendente = enviadoPara
         if (pendente == null) {
             Text(
-                "O código vai para o endereço novo. A conta só muda quando ele voltar certo — " +
+                "o código vai para o endereço novo. A conta só muda depois que ele for confirmado; " +
                     "até lá, ${emailAtual ?: "o e-mail atual"} continua valendo.",
-                style = Tipo.descricao,
+                style = TextoDoDialogo,
             )
             Spacer(Modifier.height(16.dp))
-            RotuloDoCampo("E-mail novo")
-            CampoDeLinha("nome@exemplo.com", novo, foco, !ocupado) { novo = it; erro = null }
+            RotuloDeCampo("e-mail novo")
+            CampoDeDialogo(
+                novo,
+                { novo = it; erro = null },
+                dica = "nome@exemplo.com",
+                aoEnviar = ::pedirCodigo,
+                foco = foco,
+                ligado = !ocupado,
+            )
             Spacer(Modifier.height(14.dp))
-            RotuloDoCampo("Senha atual")
-            CampoDeLinha("senha atual", senha, null, !ocupado, segredo = true) { senha = it; erro = null }
+            RotuloDeCampo("senha atual")
+            CampoDeDialogo(
+                senha,
+                { senha = it; erro = null },
+                dica = "senha atual",
+                aoEnviar = ::pedirCodigo,
+                ligado = !ocupado,
+                segredo = true,
+            )
             Spacer(Modifier.height(6.dp))
             Text(
-                "A senha impede que alguém com o seu computador destrancado tome a conta.",
+                "a senha impede que alguém com o seu computador destrancado tome a conta.",
                 style = Tipo.apoio,
             )
         } else {
             Text(
-                "Enviamos um código de seis dígitos para $pendente.",
-                style = Tipo.descricao,
+                "enviamos um código de seis dígitos para $pendente.",
+                style = TextoDoDialogo,
             )
             Spacer(Modifier.height(16.dp))
-            BasicTextField(
-                value = codigo,
-                onValueChange = { bruto ->
+            CampoDeDialogo(
+                codigo,
+                { bruto ->
                     codigo = bruto.filter { it.isDigit() }.take(DIGITOS_DO_CODIGO)
                     erro = null
                     if (codigo.length == DIGITOS_DO_CODIGO) confirmar()
                 },
-                singleLine = true,
-                enabled = !ocupado,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                textStyle = TextStyle(
-                    color = Obsidian.text1,
-                    fontSize = 24.sp,
-                    fontFamily = DmMono,
-                    textAlign = TextAlign.Center,
-                    letterSpacing = 8.sp,
-                ),
-                cursorBrush = SolidColor(Obsidian.accent),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(foco)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(Obsidian.base)
-                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(9.dp))
-                    .padding(vertical = 14.dp),
+                foco = foco,
+                ligado = !ocupado,
+                estilo = EstiloDoCodigo,
             )
         }
 
         erro?.let {
             Spacer(Modifier.height(10.dp))
-            Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
+            RecadoDoDialogo(it)
         }
 
-        Spacer(Modifier.height(18.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BotaoDoDialogo("Cancelar", primario = false, ligado = !ocupado, onClick = onClose)
-            Spacer(Modifier.width(10.dp))
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar, ligado = !ocupado)
             if (pendente == null) {
-                BotaoDoDialogo(
-                    if (ocupado) "Enviando…" else "Enviar código",
-                    primario = true,
-                    ligado = podeEnviar,
+                BotaoDeDialogo(
+                    if (ocupado) "enviando…" else "enviar código",
+                    TipoDeBotao.PRINCIPAL,
                     onClick = ::pedirCodigo,
+                    ligado = podeEnviar,
                 )
             } else {
-                BotaoDoDialogo(
-                    if (ocupado) "Conferindo…" else "Confirmar",
-                    primario = true,
-                    ligado = !ocupado && codigo.length == DIGITOS_DO_CODIGO,
+                BotaoDeDialogo(
+                    if (ocupado) "conferindo…" else "confirmar",
+                    TipoDeBotao.PRINCIPAL,
                     onClick = ::confirmar,
+                    ligado = !ocupado && codigo.length == DIGITOS_DO_CODIGO,
                 )
             }
         }
@@ -199,13 +179,10 @@ internal fun TrocarEmailDialog(emailAtual: String?, onClose: () -> Unit, aoTroca
 internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: (String) -> Unit) {
     val api = remember { GlobalContext.get().get<AuthApi>() }
     val escopo = rememberCoroutineScope()
-    val foco = remember { FocusRequester() }
 
     var nome by remember { mutableStateOf("") }
     var ocupado by remember { mutableStateOf(false) }
     var erro by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) { runCatching { foco.requestFocus() } }
 
     val limpo = nome.trim().lowercase()
     val formatoOk = limpo.length in 3..32 && limpo.all { it.isDigit() || it in 'a'..'z' || it == '_' }
@@ -225,96 +202,46 @@ internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: 
         }
     }
 
-    DialogShell(onClose = onClose, largura = 400.dp) {
+    Dialogo(titulo = "trocar de nome de usuário", aoFechar = onClose) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Trocar de nome de usuário",
-            style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontFamily = DmSerif),
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "É por ele que as pessoas te encontram na busca e te mencionam. " +
-                "Hoje você é @${atual ?: "—"}.",
-            style = Tipo.descricao,
+            "é o nome usado na busca e nas menções. O atual é @${atual ?: "…"}.",
+            style = TextoDoDialogo,
         )
         Spacer(Modifier.height(16.dp))
-        RotuloDoCampo("Nome novo")
-        CampoDeLinha("nome_de_usuario", nome, foco, !ocupado) { nome = it; erro = null }
+        RotuloDeCampo("nome novo")
+        CampoDeDialogo(
+            nome,
+            { nome = it; erro = null },
+            dica = "nome_de_usuario",
+            aoEnviar = ::salvar,
+            foco = focoInicial,
+            ligado = !ocupado,
+        )
         Spacer(Modifier.height(6.dp))
         Text(
-            "De 3 a 32 caracteres, apenas minúsculas, números e underscore.",
+            "de 3 a 32 caracteres, apenas minúsculas, números e underscore.",
             style = Tipo.apoio,
         )
 
         if (nome.isNotBlank() && !formatoOk) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                "esse formato não serve",
-                style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
-            )
+            RecadoDoDialogo("este formato não é aceito.")
         }
         erro?.let {
             Spacer(Modifier.height(10.dp))
-            Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
+            RecadoDoDialogo(it)
         }
 
-        Spacer(Modifier.height(18.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BotaoDoDialogo("Cancelar", primario = false, ligado = !ocupado, onClick = onClose)
-            Spacer(Modifier.width(10.dp))
-            BotaoDoDialogo(
-                if (ocupado) "Salvando…" else "Pronto",
-                primario = true,
-                ligado = podeSalvar,
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar, ligado = !ocupado)
+            BotaoDeDialogo(
+                if (ocupado) "salvando…" else "salvar",
+                TipoDeBotao.PRINCIPAL,
                 onClick = ::salvar,
+                ligado = podeSalvar,
             )
         }
-    }
-}
-
-@Composable
-private fun RotuloDoCampo(texto: String) {
-    Text(
-        texto,
-        style = Tipo.rotulo,
-        modifier = Modifier.padding(bottom = 6.dp),
-    )
-}
-
-@Composable
-private fun CampoDeLinha(
-    dica: String,
-    valor: String,
-    foco: FocusRequester?,
-    ligado: Boolean,
-    segredo: Boolean = false,
-    onChange: (String) -> Unit,
-) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.base)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        if (valor.isEmpty()) {
-            Text(dica, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-        }
-        BasicTextField(
-            value = valor,
-            onValueChange = onChange,
-            singleLine = true,
-            enabled = ligado,
-            visualTransformation = if (segredo) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            textStyle = Tipo.corpo,
-            cursorBrush = SolidColor(Obsidian.accent),
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (foco != null) Modifier.focusRequester(foco) else Modifier),
-        )
     }
 }

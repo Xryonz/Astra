@@ -85,7 +85,7 @@ router.post(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId && !m.isOwner) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-      return res.status(403).json({ error: 'Sem permissão pra regenerar o convite' })
+      return res.status(403).json({ error: 'Sem permissão para gerar um convite novo' })
     }
 
     const newCode = crypto.randomUUID()

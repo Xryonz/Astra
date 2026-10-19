@@ -20,7 +20,7 @@ export function createSoundsRouter(io: SocketServer) {
     const m = await getMemberPerms(userId, serverId)
     if (!m.memberId) return { ok: false as const, erro: 'Você não é membro' }
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-      return { ok: false as const, erro: 'Sem permissão pra mexer nos sons' }
+      return { ok: false as const, erro: 'Sem permissão para gerenciar os sons' }
     }
     return { ok: true as const }
   }

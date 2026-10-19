@@ -226,7 +226,7 @@ internal fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a cor atravessa o cartão inteiro. com imagem de banner, ela aparece do banner para baixo.",
+        "a cor atravessa o cartão inteiro. Com imagem de banner, ela aparece do banner para baixo.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -295,7 +295,7 @@ internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): 
 
 internal fun saveErrorMessage(t: Throwable?): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"
-    if (http.code() == 413) return "a imagem ficou grande demais — escolha uma menor ou dê menos zoom"
+    if (http.code() == 413) return "a imagem ficou grande demais. Escolha uma menor ou use menos zoom."
     val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
     val parsed = body?.let {
         runCatching { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }.getOrNull()
@@ -411,23 +411,20 @@ private fun ResizeBannerDialog(
     var posY by remember { mutableStateOf(draft.bannerPositionY) }
     var scl by remember { mutableStateOf(draft.bannerScale) }
     val name = draft.displayName.ifBlank { username }
-    DialogShell(onClose = onClose, largura = 360.dp) {
+    Dialogo(titulo = "redimensionar banner", aoFechar = onClose) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
         Column {
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    "redimensionar banner",
-                    style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "é isto que os outros veem. arraste na imagem para enquadrar.",
-                    style = Tipo.apoio,
+                    "é isto que os outros veem. Arraste na imagem para enquadrar.",
+                    style = TextoDoDialogo,
                 )
                 Spacer(Modifier.height(16.dp))
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Obsidian.overlay)
+                        .background(Obsidian.hover)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
                 ) {
                     ProfileBanner(
@@ -435,7 +432,7 @@ private fun ResizeBannerDialog(
                         imageUrl = draft.bannerUrl,
                         positionY = posY,
                         scale = scl,
-                        fallback = Obsidian.overlay,
+                        fallback = Obsidian.hover,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(ProfileBannerAspect)
@@ -470,10 +467,14 @@ private fun ResizeBannerDialog(
                 }
                 Spacer(Modifier.height(16.dp))
                 ZoomTrack(scl) { scl = it }
-                Spacer(Modifier.height(18.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AboutButton("cancelar", accent = false) { onClose() }
-                    AboutButton("salvar", accent = true) { onSave(posY, scl); onClose() }
+                RodapeDoDialogo {
+                    BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar)
+                    BotaoDeDialogo(
+                        "salvar",
+                        TipoDeBotao.PRINCIPAL,
+                        onClick = { onSave(posY, scl); onClose() },
+                        foco = focoInicial,
+                    )
                 }
         }
     }

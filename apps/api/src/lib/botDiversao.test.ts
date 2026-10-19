@@ -31,8 +31,8 @@ describe('dado', () => {
 
 describe('escolha', () => {
   it('exige pelo menos duas opcoes', () => {
-    expect(escolha('pizza')).toContain('virgula')
-    expect(escolha('')).toContain('virgula')
+    expect(escolha('pizza')).toContain('vírgula')
+    expect(escolha('')).toContain('vírgula')
   })
 
   it('devolve uma das opcoes dadas, sem inventar', () => {

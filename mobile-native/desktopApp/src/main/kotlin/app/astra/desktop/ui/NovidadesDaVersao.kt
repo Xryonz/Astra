@@ -9,13 +9,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.ui.theme.Tipo
 
 object NovidadesDaVersao {
     private const val CHAVE = "novidadesVistas"
@@ -48,22 +46,20 @@ object NovidadesDaVersao {
 
 @Composable
 fun CartaoDeNovidades(versao: String, itens: List<String>, aoFechar: () -> Unit) {
-    DialogShell(aoFechar, largura = 420.dp) {
-        Text(
-            "o que mudou na $versao",
-            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-        )
+    Dialogo(titulo = "o que mudou na $versao", aoFechar = aoFechar, largura = LarguraDoDialogo.MEDIA) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
         Spacer(Modifier.height(14.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itens.forEach { item ->
                 Row {
                     Text("·", style = TextStyle(color = Obsidian.accent, fontSize = 13.sp))
                     Spacer(Modifier.width(8.dp))
-                    Text(item, style = Tipo.corpo)
+                    Text(item, style = TextoDoDialogo)
                 }
             }
         }
-        Spacer(Modifier.height(18.dp))
-        DialogButton("entendi", accent = true) { aoFechar() }
+        RodapeDoDialogo {
+            BotaoDeDialogo("entendi", TipoDeBotao.PRINCIPAL, onClick = fechar, foco = focoInicial)
+        }
     }
 }

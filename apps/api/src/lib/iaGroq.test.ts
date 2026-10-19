@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { paraMensagens } from './iaGroq'
+import { corpoDoGroq, paraMensagens } from './iaGroq'
 
 const FERRAMENTA = {
   role: 'assistant',
@@ -66,5 +66,29 @@ describe('paraMensagens', () => {
     const comChamada = r.filter((m) => m.tool_calls?.length)
     expect(comChamada).toHaveLength(1)
     expect(comChamada[0].tool_calls).toHaveLength(2)
+  })
+})
+
+describe('corpoDoGroq', () => {
+  const pedido = { system: 's', messages: [{ role: 'user', content: 'oi' }], maxTokens: 100 }
+
+  it('pede pouco raciocinio aos modelos gpt-oss, que gastam o teto de tokens pensando', () => {
+    expect(corpoDoGroq({ ...pedido, model: 'openai/gpt-oss-120b' }).reasoning_effort).toBe('low')
+    expect(corpoDoGroq({ ...pedido, model: 'openai/gpt-oss-20b' }).reasoning_effort).toBe('low')
+  })
+
+  it('nao manda reasoning_effort a modelo que nao conhece o parametro', () => {
+    expect(corpoDoGroq({ ...pedido, model: 'qwen/qwen3.8-27b' })).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('ferramentas viram functions no formato da OpenAI', () => {
+    const corpo = corpoDoGroq({
+      ...pedido,
+      model: 'openai/gpt-oss-120b',
+      tools: [{ name: 'buscar', description: 'acha', input_schema: { type: 'object' } }],
+    })
+    expect(corpo.tools).toEqual([
+      { type: 'function', function: { name: 'buscar', description: 'acha', parameters: { type: 'object' } } },
+    ])
   })
 })

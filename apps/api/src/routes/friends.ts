@@ -169,7 +169,7 @@ router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: R
   const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
   if (!row) throw notFound('Pedido não encontrado')
 
-  if (row.requesterId === req.userId) throw badRequest('Você que mandou — espere ele aceitar')
+  if (row.requesterId === req.userId) throw badRequest('Você enviou este pedido. Aguarde a outra pessoa aceitar.')
   if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
   if (row.status === 'accepted') return res.json({ data: row })
 

@@ -502,7 +502,7 @@ private fun OverviewSection(
             if (confirmRegen) {
                 Confirmacao(
                     titulo = "gerar convite novo",
-                    consequencia = "o link atual para de funcionar. quem ainda não entrou vai precisar do novo.",
+                    consequencia = "o link atual para de funcionar. Quem ainda não entrou vai precisar do novo.",
                     acao = "gerar novo",
                     aoConfirmar = {
                         confirmRegen = false
@@ -520,7 +520,7 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "regenerar invalida o convite atual — quem tiver o link antigo não entra mais.",
+        "gerar um convite novo invalida o atual. Quem tiver o link antigo não consegue mais entrar.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -542,7 +542,7 @@ private fun OverviewSection(
     Spacer(Modifier.height(6.dp))
     Text(
         if (retention == 0) "as mensagens ficam para sempre."
-        else "mensagens com mais de $retention dia(s) somem sozinhas — não há como recuperar.",
+        else "mensagens com mais de $retention dia(s) são apagadas automaticamente e não podem ser recuperadas.",
         style = TextStyle(color = if (retention == 0) Obsidian.text3 else Obsidian.warning, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -586,7 +586,7 @@ private fun OverviewSection(
     if (confirmDanger) {
         Confirmacao(
             titulo = if (isOwner) "excluir ${server.name}" else "sair de ${server.name}",
-            consequencia = if (isOwner) "a constelação some para todos os membros, com as órbitas e as mensagens. não há como desfazer."
+            consequencia = if (isOwner) "a constelação some para todos os membros, com as órbitas e as mensagens. Não há como desfazer."
             else "você deixa de ver as órbitas e as mensagens dela até entrar de novo.",
             acao = if (isOwner) "excluir" else "sair",
             aoConfirmar = {

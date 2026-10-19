@@ -62,7 +62,7 @@ bansRouter.post(
     const requester = await getMemberPerms(req.userId!, serverId)
     if (!requester.memberId && !requester.isOwner) return res.status(403).json({ error: 'Você não é membro' })
     if (!requester.isOwner && !requester.permissions.has(PERMS.BAN_MEMBERS))
-      return res.status(403).json({ error: 'Sem permissão pra banir' })
+      return res.status(403).json({ error: 'Sem permissão para banir' })
 
     if (userId === req.userId) return res.status(400).json({ error: 'Você não pode se banir' })
 

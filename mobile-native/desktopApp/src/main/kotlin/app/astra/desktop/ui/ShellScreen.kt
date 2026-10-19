@@ -183,7 +183,7 @@ fun ShellScreen(
     }
     if (permsOpen) {
         PermissoesDialog(
-            onTestarAviso = { notify("Astra", "Pronto — os avisos do Astra estão liberados.") },
+            onTestarAviso = { notify("Astra", "Os avisos do Astra estão liberados.") },
             onClose = {
                 permsOpen = false
                 sessionStore.setUiPref("permsVistas", "1")

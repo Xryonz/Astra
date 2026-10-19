@@ -105,12 +105,12 @@ fun AvisoDeDesenhoPeloProcessador(aoDispensar: () -> Unit) {
 
 private fun reabrirUsandoAPlaca(): String {
     if (!Arranque.sairDoModoSeguro()) {
-        return "não foi possível gravar a escolha — confira se há espaço livre no disco"
+        return "não foi possível gravar a escolha. Confira se há espaço livre no disco."
     }
     FocoDoSistema.cederAFrenteAQualquerUm()
     if (Vigia.reabrir()) {
         SidecarDeVoz.encerrarTodos(prazoMs = 3_000L)
         exitProcess(0)
     }
-    return "não foi possível reabrir — feche e abra o Astra para usar a placa de vídeo"
+    return "não foi possível reabrir. Feche e abra o Astra para usar a placa de vídeo."
 }

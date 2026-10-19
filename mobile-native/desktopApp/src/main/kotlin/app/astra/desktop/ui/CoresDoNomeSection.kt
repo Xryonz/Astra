@@ -77,7 +77,7 @@ internal fun CoresDoNomeSection(me: ProfileUserDto?) {
     }
 
     Text(
-        "sua cor vale por constelação — o mesmo nome pode ter cores diferentes em cada uma.",
+        "a cor vale por constelação: o mesmo nome pode ter uma cor diferente em cada uma.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
@@ -248,7 +248,7 @@ private fun LinhaDeConstelacao(
                     if (movimento != Movimento.NENHUM) {
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "o movimento só acontece sob o cursor — em repouso, e no celular, o nome fica na cor parada.",
+                            "o movimento só acontece com o cursor sobre o nome. Em repouso, e no celular, o nome fica na cor fixa.",
                             style = Tipo.apoio,
                             modifier = Modifier.widthIn(max = 380.dp),
                         )

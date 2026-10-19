@@ -132,8 +132,8 @@ fun DesejosPanel(
 
             when {
                 carregando && itens.isEmpty() -> Vazio("lendo o céu…")
-                erro && itens.isEmpty() -> Vazio("não deu para ler o céu agora.")
-                itens.isEmpty() -> Vazio("nenhum desejo ainda. o primeiro pode ser o seu.")
+                erro && itens.isEmpty() -> Vazio("não foi possível ler o céu agora.")
+                itens.isEmpty() -> Vazio("nenhum desejo ainda. O primeiro pode ser o seu.")
                 else -> LazyColumn(
                     state = lista,
                     modifier = Modifier.heightIn(max = 460.dp).padding(horizontal = 10.dp, vertical = 4.dp),

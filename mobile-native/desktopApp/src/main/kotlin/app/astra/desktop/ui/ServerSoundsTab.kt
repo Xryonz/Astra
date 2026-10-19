@@ -132,7 +132,7 @@ internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                "qualquer formato serve — o Astra converte sem perder qualidade.",
+                "qualquer formato de áudio é aceito. O Astra converte sem perder qualidade.",
                 style = Tipo.apoio,
             )
         }

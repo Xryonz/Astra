@@ -1,52 +1,28 @@
 package app.astra.desktop.ui
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.DmSerif
-import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
 @Composable
 fun PermissoesDialog(onTestarAviso: () -> Unit, onClose: () -> Unit) {
-    DialogShell(onClose = onClose) {
+    Dialogo(titulo = "antes da primeira call", aoFechar = onClose, largura = LarguraDoDialogo.MEDIA) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Antes da primeira call",
-            style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontFamily = DmSerif),
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "O Windows controla quem pode usar microfone e câmera, e quando ele bloqueia não avisa " +
-                "ninguém — o som simplesmente não chega. Conferi agora para você não descobrir no meio da conversa.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
+            "o Windows controla quem pode usar o microfone e não avisa quando bloqueia: " +
+                "o som simplesmente não chega. O Astra conferiu agora para você não descobrir o bloqueio no meio da conversa.",
+            style = TextoDoDialogo,
         )
         Spacer(Modifier.height(16.dp))
 
         PainelDePermissoes(onTestarAviso = onTestarAviso)
 
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Spacer(Modifier.weight(1f))
-            Text(
-                "entendi",
-                style = TextStyle(color = Obsidian.accent, fontSize = 12.5.sp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(9.dp))
-                    .border(1.dp, Obsidian.accentDim, RoundedCornerShape(9.dp))
-                    .clickable { onClose() }
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-            )
+        RodapeDoDialogo {
+            BotaoDeDialogo("entendi", TipoDeBotao.PRINCIPAL, onClick = fechar, foco = focoInicial)
         }
     }
 }

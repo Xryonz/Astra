@@ -151,7 +151,7 @@ private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        Text(text = " — $count", style = Tipo.secao, maxLines = 1)
+        Text(text = " · $count", style = Tipo.secao, maxLines = 1)
     }
 }
 

@@ -2157,7 +2157,7 @@ private fun EmptyChat() {
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "nada por aqui ainda — comece a conversa",
+                "nenhuma mensagem ainda. Comece a conversa.",
                 style = Tipo.descricao,
             )
         }

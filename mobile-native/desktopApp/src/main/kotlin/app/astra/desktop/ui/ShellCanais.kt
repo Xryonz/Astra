@@ -1,20 +1,14 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,22 +27,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.shell.ChatTarget
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.dto.ChannelDto
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Lock
@@ -69,132 +56,35 @@ internal fun EditorialInputDialog(
     var text by remember { mutableStateOf(initial) }
     var type by remember { mutableStateOf("TEXT") }
     val valid = text.trim().isNotEmpty()
-    Popup(
-        popupPositionProvider = CenterInWindow,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
-    ) {
-        val entered = remember { MutableTransitionState(false).apply { targetState = true } }
-        AnimatedVisibility(
-            visibleState = entered,
-            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.96f),
-        ) {
-            Column(
-                Modifier
-                    .width(300.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    .padding(18.dp),
-            ) {
-                Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif))
-                Spacer(Modifier.height(14.dp))
-                BasicTextField(
-                    value = text,
-                    onValueChange = { text = it.take(50) },
-                    singleLine = true,
-                    textStyle = Tipo.corpo,
-                    cursorBrush = SolidColor(Obsidian.accent),
-                    decorationBox = { inner ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Obsidian.base)
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (channelType) {
-                                LIcon(Lucide.Hash, tint = Obsidian.text3, size = 14.dp)
-                                Spacer(Modifier.width(6.dp))
-                            }
-                            Box(Modifier.weight(1f)) {
-                                if (text.isEmpty()) {
-                                    Text(placeholder, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-                                }
-                                inner()
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (channelType) {
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TypeChip("texto", Lucide.Hash, type == "TEXT") { type = "TEXT" }
-                        TypeChip("voz", Lucide.Volume2, type == "VOICE") { type = "VOICE" }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Spacer(Modifier.weight(1f))
-                    DialogButton(label = "cancelar", accent = false, enabled = true) { onDismiss() }
-                    DialogButton(label = confirmLabel, accent = true, enabled = valid) {
-                        onDismiss()
-                        onConfirm(text.trim(), type)
-                    }
-                }
-            }
+    val confirmar = {
+        if (valid) {
+            onConfirm(text.trim(), type)
+            onDismiss()
         }
     }
-}
-
-@Composable
-private fun TypeChip(label: String, icon: ImageVector, active: Boolean, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val bg by animateColorAsState(
-        if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent, tween(120),
-    )
-    val border by animateColorAsState(
-        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, tween(120),
-    )
-    val fg = if (active) Obsidian.text1 else Obsidian.text3
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .border(1.dp, border, RoundedCornerShape(8.dp))
-            .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LIcon(icon, tint = fg, size = 14.dp)
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = TextStyle(color = fg, fontSize = 12.sp))
+    Dialogo(titulo = title, aoFechar = onDismiss) { fechar ->
+        val focoInicial = rememberFocoAoAbrir()
+        Spacer(Modifier.height(16.dp))
+        CampoDeDialogo(
+            text,
+            { text = it.take(50) },
+            dica = placeholder,
+            aoEnviar = confirmar,
+            foco = focoInicial,
+            icone = if (channelType) Lucide.Hash else null,
+        )
+        if (channelType) {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EscolhaDoDialogo("texto", type == "TEXT", { type = "TEXT" }, Lucide.Hash)
+                EscolhaDoDialogo("voz", type == "VOICE", { type = "VOICE" }, Lucide.Volume2)
+            }
+        }
+        RodapeDoDialogo {
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = fechar)
+            BotaoDeDialogo(confirmLabel, TipoDeBotao.PRINCIPAL, onClick = confirmar, ligado = valid)
+        }
     }
-}
-
-@Composable
-private fun DialogButton(label: String, accent: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val fg = when {
-        !enabled -> Obsidian.text3.copy(alpha = 0.5f)
-        accent -> Obsidian.accent
-        else -> Obsidian.text3
-    }
-    val border by animateColorAsState(
-        when {
-            !enabled -> Obsidian.borderDim.copy(alpha = 0.5f)
-            accent -> Obsidian.accent.copy(alpha = if (hovered) 0.9f else 0.55f)
-            hovered -> Obsidian.borderMid
-            else -> Obsidian.borderDim
-        },
-        tween(120),
-    )
-    Text(
-        label,
-        style = TextStyle(color = fg, fontSize = 12.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, border, RoundedCornerShape(8.dp))
-            .hoverable(interaction)
-            .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    )
 }
 
 @Composable

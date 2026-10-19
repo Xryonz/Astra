@@ -368,11 +368,16 @@ fun UserFooter(
         Spacer(Modifier.width(2.dp))
         FooterIcon(Lucide.LogOut, rotulo = "sair da conta", danger = true, onClick = { confirmLogout = true })
     }
-    if (confirmLogout) CenteredConfirmDialog(
-        message = "sair da conta?",
-        confirmLabel = "sair",
-        onConfirm = onLogout,
-        onDismiss = { confirmLogout = false },
+    if (confirmLogout) Confirmacao(
+        titulo = "sair da conta",
+        consequencia = "o Astra volta para a tela de entrada neste computador, e uma call em andamento termina. " +
+            "suas constelações continuam como estão.",
+        acao = "sair",
+        aoConfirmar = {
+            confirmLogout = false
+            onLogout()
+        },
+        aoFechar = { confirmLogout = false },
     )
     }
 }

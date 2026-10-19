@@ -1,10 +1,4 @@
-versao 1.0.54
-Os estados viraram estrela, lua de sangue (ausente) e eclipse (não perturbe).
-Ao escolher ausente ou não perturbe, a lua ou o eclipse passa sobre a sua foto.
-Cada fala na conversa ganha duas semi-bordas finas.
-A coluna virou um fio de estrelas, e a constelação nova se forma ao chegar.
-Enviar virou uma estrela que brilha a cada envio.
-Imagens e arquivos podem ser colados direto no campo de mensagem.
-Na call, o Windows dá prioridade total ao Astra, e a tela não apaga enquanto você transmite ou assiste.
-O Astra aparece em Aplicativos instalados do Windows e pode ser desinstalado por lá.
-Links de convite abrem o Astra com o convite pronto para confirmar.
+versao 1.0.55
+Desinstalar pelas configurações ou pela lista de aplicativos do Windows voltou a funcionar.
+As confirmações ganharam um desenho único: título, o que vai acontecer e os botões à direita.
+Elas abrem no centro da janela. Tab percorre os botões, Esc cancela, e o foco começa em cancelar quando a ação apaga algo.

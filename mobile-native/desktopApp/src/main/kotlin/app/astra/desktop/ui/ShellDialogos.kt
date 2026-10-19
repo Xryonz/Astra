@@ -1,34 +1,52 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -39,168 +57,187 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.ui.theme.Tipo
+import kotlinx.coroutines.launch
+
+enum class TipoDeBotao { PRINCIPAL, SECUNDARIO, PERIGO }
 
 @Composable
-fun ConfirmPopup(
-    message: String,
-    confirmLabel: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    cancelLabel: String = "cancelar",
-    posicao: PopupPositionProvider? = null,
+fun Confirmacao(
+    titulo: String,
+    consequencia: String?,
+    acao: String,
+    aoConfirmar: () -> Unit,
+    aoFechar: () -> Unit,
+    perigo: Boolean = true,
+    cancelar: String? = "cancelar",
 ) {
-    val corpo: @Composable () -> Unit = {
-        Column(
-            Modifier
-                .popupReveal()
-                .clip(RoundedCornerShape(10.dp))
-                .background(Obsidian.overlay)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                .padding(14.dp),
-        ) {
-            Text(
-                message,
-                style = Tipo.corpo,
-                modifier = Modifier.widthIn(max = 240.dp),
+    Dialogo(titulo = titulo, aoFechar = aoFechar) { fechar ->
+        val focoInicial = remember { FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focoInicial.requestFocus() } }
+        if (consequencia != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(consequencia, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))
+        }
+        Spacer(Modifier.height(20.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            if (cancelar != null) {
+                BotaoDeDialogo(
+                    rotulo = cancelar,
+                    tipo = TipoDeBotao.SECUNDARIO,
+                    foco = focoInicial.takeIf { perigo },
+                    onClick = fechar,
+                )
+            }
+            BotaoDeDialogo(
+                rotulo = acao,
+                tipo = if (perigo) TipoDeBotao.PERIGO else TipoDeBotao.PRINCIPAL,
+                foco = focoInicial.takeIf { !perigo || cancelar == null },
+                onClick = aoConfirmar,
             )
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    cancelLabel,
-                    style = Tipo.descricao,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(7.dp))
-                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                        .clickable(onClick = onDismiss)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-                Text(
-                    confirmLabel,
-                    style = Tipo.erro,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(7.dp))
-                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
-                        .clickable { onDismiss(); onConfirm() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+        }
+    }
+}
+
+@Composable
+internal fun Dialogo(
+    titulo: String,
+    aoFechar: () -> Unit,
+    largura: Dp = LARGURA_DO_AVISO,
+    conteudo: @Composable ColumnScope.(fechar: () -> Unit) -> Unit,
+) {
+    val reduzir = LocalReduceMotion.current
+    val escopo = rememberCoroutineScope()
+    val presenca = remember { Animatable(if (reduzir) 1f else 0f) }
+    var fechando by remember { mutableStateOf(false) }
+    var fechado by remember { mutableStateOf(false) }
+    val aoFecharAgora by rememberUpdatedState(aoFechar)
+    LaunchedEffect(Unit) {
+        if (presenca.value < 1f) presenca.animateTo(1f, tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd))
+    }
+    val fechar: () -> Unit = {
+        if (!fechando) {
+            fechando = true
+            if (reduzir) {
+                fechado = true
+                aoFecharAgora()
+            } else {
+                escopo.launch {
+                    presenca.animateTo(0f, tween(SAIDA_DO_DIALOGO_MS, easing = EaseOutStd))
+                    fechado = true
+                    aoFecharAgora()
+                }
             }
         }
     }
-    val props = PopupProperties(focusable = true)
-    if (posicao != null) {
-        Popup(popupPositionProvider = posicao, onDismissRequest = onDismiss, properties = props) { corpo() }
-    } else {
-        Popup(onDismissRequest = onDismiss, properties = props) { corpo() }
-    }
-}
-
-object AoLadoDoBotao : PopupPositionProvider {
-    private const val FOLGA = 8
-
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val direita = anchorBounds.right + FOLGA
-        val x = if (direita + popupContentSize.width <= windowSize.width) direita
-        else (anchorBounds.left - FOLGA - popupContentSize.width)
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val y = (anchorBounds.center.y - popupContentSize.height / 2)
-            .coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
-        return IntOffset(x, y)
-    }
-}
-
-@Composable
-fun CenteredConfirmDialog(
-    message: String,
-    confirmLabel: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    cancelLabel: String? = "cancelar",
-    detalhe: String? = null,
-    perigo: Boolean = true,
-) {
-    val reduce = LocalReduceMotion.current
-    val enter = remember { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (!reduce) enter.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMedium))
-    }
-    val scrimSrc = remember { MutableInteractionSource() }
-    val cardSrc = remember { MutableInteractionSource() }
-    val cancelSrc = remember { MutableInteractionSource() }
-    val okSrc = remember { MutableInteractionSource() }
+    val fecharAgora by rememberUpdatedState(fechar)
+    if (fechado) return
     Popup(
-        alignment = Alignment.Center,
-        onDismissRequest = onDismiss,
+        popupPositionProvider = JanelaDoDialogo,
+        onDismissRequest = { fecharAgora() },
         properties = PopupProperties(focusable = true),
     ) {
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = enter.value }
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(interactionSource = scrimSrc, indication = null, onClick = onDismiss)
-                .semCursorDeClique(),
+                .graphicsLayer { alpha = presenca.value }
+                .background(Obsidian.void.copy(alpha = ESCURO_ATRAS_DO_DIALOGO))
+                .pointerInput(Unit) { detectTapGestures { fecharAgora() } }
+                .onPreviewKeyEvent { e ->
+                    if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) {
+                        fecharAgora()
+                        true
+                    } else {
+                        false
+                    }
+                },
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 Modifier
                     .graphicsLayer {
-                        val s = 0.92f + 0.08f * enter.value
-                        scaleX = s; scaleY = s
+                        val p = presenca.value
+                        val escala = ESCALA_DE_ENTRADA + (1f - ESCALA_DE_ENTRADA) * p
+                        scaleX = escala
+                        scaleY = escala
+                        translationY = (1f - p) * SUBIDA_DE_ENTRADA.toPx()
                     }
-                    .widthIn(max = 320.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .width(largura)
+                    .clip(FormaDoDialogo)
                     .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                    .clickable(interactionSource = cardSrc, indication = null, onClick = {})
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .border(1.dp, Obsidian.borderDim, FormaDoDialogo)
+                    .pointerInput(Unit) { detectTapGestures { } }
+                    .semantics { paneTitle = titulo }
+                    .padding(RESPIRO_DO_DIALOGO),
             ) {
                 Text(
-                    message,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+                    titulo,
+                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = DmSerif),
                 )
-                if (detalhe != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        detalhe,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                val corBotao = if (perigo) Obsidian.danger else Obsidian.accent
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (cancelLabel != null) {
-                        Text(
-                            cancelLabel,
-                            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                            modifier = Modifier
-                                .clickScale(cancelSrc)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                                .clickable(interactionSource = cancelSrc, indication = null, onClick = onDismiss)
-                                .padding(horizontal = 16.dp, vertical = 9.dp),
-                        )
-                    }
-                    Text(
-                        confirmLabel,
-                        style = TextStyle(color = corBotao, fontSize = 13.sp),
-                        modifier = Modifier
-                            .clickScale(okSrc)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, corBotao, RoundedCornerShape(8.dp))
-                            .clickable(interactionSource = okSrc, indication = null) { onDismiss(); onConfirm() }
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
-                    )
-                }
+                conteudo(fechar)
             }
         }
     }
 }
+
+@Composable
+internal fun BotaoDeDialogo(
+    rotulo: String,
+    tipo: TipoDeBotao,
+    onClick: () -> Unit,
+    ligado: Boolean = true,
+    foco: FocusRequester? = null,
+) {
+    val toque = remember { MutableInteractionSource() }
+    val sobre by toque.collectIsHoveredAsState()
+    val aceso = sobre && ligado
+    val fundo = when (tipo) {
+        TipoDeBotao.PRINCIPAL -> if (aceso) Obsidian.active else Obsidian.hover
+        TipoDeBotao.SECUNDARIO -> if (aceso) Obsidian.hover else Color.Transparent
+        TipoDeBotao.PERIGO -> Obsidian.danger.copy(alpha = if (aceso) TINTA_DO_PERIGO_ACESO else TINTA_DO_PERIGO)
+    }
+    val cor = when {
+        !ligado -> Obsidian.text3
+        tipo == TipoDeBotao.PERIGO -> Obsidian.danger
+        tipo == TipoDeBotao.PRINCIPAL || aceso -> Obsidian.text1
+        else -> Obsidian.text2
+    }
+    Box(
+        Modifier
+            .then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
+            .clickScale(toque)
+            .defaultMinSize(minHeight = ALTURA_DO_BOTAO)
+            .clip(FormaDeBotao)
+            .background(fundo)
+            .hoverable(toque, enabled = ligado)
+            .clickable(interactionSource = toque, indication = null, enabled = ligado, role = Role.Button, onClick = onClick)
+            .padding(horizontal = RESPIRO_DO_BOTAO),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
+    }
+}
+
+private object JanelaDoDialogo : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset.Zero
+}
+
+private val FormaDoDialogo = RoundedCornerShape(8.dp)
+private val LARGURA_DO_AVISO = 360.dp
+private val RESPIRO_DO_DIALOGO = 20.dp
+private val SUBIDA_DE_ENTRADA = 8.dp
+private val ALTURA_DO_BOTAO = 32.dp
+private val RESPIRO_DO_BOTAO = 14.dp
+private const val ESCURO_ATRAS_DO_DIALOGO = 0.72f
+private const val ESCALA_DE_ENTRADA = 0.98f
+private const val ENTRADA_DO_DIALOGO_MS = 160
+private const val SAIDA_DO_DIALOGO_MS = 120
+private const val TINTA_DO_PERIGO = 0.08f
+private const val TINTA_DO_PERIGO_ACESO = 0.12f

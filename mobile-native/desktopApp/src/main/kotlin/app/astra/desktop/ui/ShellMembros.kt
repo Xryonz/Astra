@@ -185,11 +185,16 @@ private fun MemberRow(
         }
     }) {
         confirmMember?.let { act ->
-            ConfirmPopup(
-                message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
-                confirmLabel = if (act == "ban") "banir" else "expulsar",
-                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
-                onDismiss = { confirmMember = null },
+            Confirmacao(
+                titulo = if (act == "ban") "banir $name" else "expulsar $name",
+                consequencia = if (act == "ban") "a pessoa sai da constelação e não poderá voltar enquanto o banimento valer."
+                else "a pessoa sai da constelação, mas pode voltar se receber um convite.",
+                acao = if (act == "ban") "banir" else "expulsar",
+                aoConfirmar = {
+                    confirmMember = null
+                    if (act == "ban") onBan(m.userId) else onKick(m.id)
+                },
+                aoFechar = { confirmMember = null },
             )
         }
         ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles, entraPelaDireita = true) {

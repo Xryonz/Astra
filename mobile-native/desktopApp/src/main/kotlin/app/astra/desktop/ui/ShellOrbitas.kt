@@ -447,11 +447,12 @@ private fun OrbitList(
                         }
                     }) {
                         head()
-                        if (confirmDelCat) ConfirmPopup(
-                            message = "excluir a categoria ${cat.name}? não há como desfazer.",
-                            confirmLabel = "excluir",
-                            onConfirm = { onDeleteCat(cat.id) },
-                            onDismiss = { confirmDelCat = false },
+                        if (confirmDelCat) Confirmacao(
+                            titulo = "excluir a categoria ${cat.name}",
+                            consequencia = "as órbitas dela continuam, agora fora de qualquer categoria.",
+                            acao = "excluir",
+                            aoConfirmar = { confirmDelCat = false; onDeleteCat(cat.id) },
+                            aoFechar = { confirmDelCat = false },
                         )
                     }
                     visible.forEachIndexed { i, ch ->
@@ -744,11 +745,12 @@ private fun OrbitEntry(
             }
         }) {
             OrbitItem(ch, active, unread, unreadCount, onOpenChat, onOpenVoice, dragCtx)
-            if (confirmDelCh) ConfirmPopup(
-                message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não há como desfazer.",
-                confirmLabel = "excluir",
-                onConfirm = { menu.onDelete(ch.id) },
-                onDismiss = { confirmDelCh = false },
+            if (confirmDelCh) Confirmacao(
+                titulo = "excluir a órbita ${ch.name}",
+                consequencia = "as mensagens dela são apagadas para todos, e não há como desfazer.",
+                acao = "excluir",
+                aoConfirmar = { confirmDelCh = false; menu.onDelete(ch.id) },
+                aoFechar = { confirmDelCh = false },
             )
         }
         naVoz.forEach { voz ->

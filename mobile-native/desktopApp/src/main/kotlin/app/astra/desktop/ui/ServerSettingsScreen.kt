@@ -500,11 +500,11 @@ private fun OverviewSection(
                 confirmRegen = true
             }
             if (confirmRegen) {
-                ConfirmPopup(
-                    message = "gerar um convite novo? o link atual para de funcionar.",
-                    confirmLabel = "gerar novo",
-                    posicao = AoLadoDoBotao,
-                    onConfirm = {
+                Confirmacao(
+                    titulo = "gerar convite novo",
+                    consequencia = "o link atual para de funcionar. quem ainda não entrou vai precisar do novo.",
+                    acao = "gerar novo",
+                    aoConfirmar = {
                         confirmRegen = false
                         regenerating = true
                         msg = null
@@ -513,7 +513,7 @@ private fun OverviewSection(
                             msg = (err ?: "convite novo gerado") to (err == null)
                         }
                     },
-                    onDismiss = { confirmRegen = false },
+                    aoFechar = { confirmRegen = false },
                 )
             }
         }
@@ -584,15 +584,16 @@ private fun OverviewSection(
         icone = if (isOwner) Lucide.Trash2 else Lucide.LogOut,
     ) { confirmDanger = true }
     if (confirmDanger) {
-        ConfirmPopup(
-            message = if (isOwner) "excluir ${server.name}? apaga para todos — não há como desfazer."
-            else "sair de ${server.name}?",
-            confirmLabel = if (isOwner) "excluir" else "sair",
-            onConfirm = {
+        Confirmacao(
+            titulo = if (isOwner) "excluir ${server.name}" else "sair de ${server.name}",
+            consequencia = if (isOwner) "a constelação some para todos os membros, com as órbitas e as mensagens. não há como desfazer."
+            else "você deixa de ver as órbitas e as mensagens dela até entrar de novo.",
+            acao = if (isOwner) "excluir" else "sair",
+            aoConfirmar = {
                 confirmDanger = false
                 if (isOwner) onDelete() else onLeave()
             },
-            onDismiss = { confirmDanger = false },
+            aoFechar = { confirmDanger = false },
         )
     }
     Spacer(Modifier.height(24.dp))

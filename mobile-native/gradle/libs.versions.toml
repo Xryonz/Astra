@@ -56,6 +56,9 @@ profileinstaller = "1.4.1"
 # 1.11; a 2.3 ja pede o 1.12. "lite" = sem motor de expressoes, que os arquivos
 # do Astra nao usam.
 compottie = "2.2.4"
+# Nucleus: so o modulo de avisos do Windows, usado aqui para carimbar a
+# identidade do Astra no atalho do menu Iniciar. O resto do framework pede o CMP 1.12.
+nucleus = "2.5.18"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -118,6 +121,7 @@ androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profi
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 compottie-lite = { group = "io.github.alexzhirkevich", name = "compottie-lite", version.ref = "compottie" }
+nucleus-notification-windows = { group = "dev.nucleusframework", name = "nucleus.notification-windows", version.ref = "nucleus" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

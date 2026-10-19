@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.mp3spi)
     implementation(libs.vorbisspi)
     implementation(libs.compottie.lite)
+    implementation(libs.nucleus.notification.windows)
 }
 
 val sidecarFonte = project.file("../../sidecar-voz")

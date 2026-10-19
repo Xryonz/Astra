@@ -5,7 +5,10 @@ import com.sun.jna.WString
 import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinReg
 import com.sun.jna.win32.StdCallLibrary
+import dev.nucleusframework.notification.windows.ShortcutPolicy
+import dev.nucleusframework.notification.windows.WindowsNotificationCenter
 import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 object WindowsAppId {
@@ -14,6 +17,8 @@ object WindowsAppId {
     private const val NOME_VISIVEL = "Astra"
     private const val CHAVE = "Software\\Classes\\AppUserModelId\\$AUMID"
     private const val ATALHO = "Microsoft\\Windows\\Start Menu\\Programs\\Astra.lnk"
+    private const val ATALHO_DA_BARRA = "Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Astra.lnk"
+    private const val PRAZO_DOS_ATALHOS_S = 20L
     private const val CHAVE_DA_LISTA = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Astra"
     private const val PUBLICADOR = "Xryonz"
     private const val CHAVE_DO_PROTOCOLO = "Software\\Classes\\astra"
@@ -37,7 +42,8 @@ object WindowsAppId {
         if (!noWindows()) return
         thread(isDaemon = true, name = "astra-identidade") {
             runCatching { gravarNoRegistro() }
-            runCatching { garantirAtalhoNoIniciar() }
+            runCatching { garantirAtalhos() }
+            carimbarIdentidadeNoIniciar()
             runCatching { entrarNaListaDeProgramas() }
             runCatching { registrarProtocolo() }
         }
@@ -94,26 +100,45 @@ object WindowsAppId {
 
     private fun icone(): String? = Instalacao.icone()?.absolutePath
 
-    private fun garantirAtalhoNoIniciar() {
-        val menu = System.getenv("APPDATA")?.let { File(it, ATALHO) } ?: return
+    private fun garantirAtalhos() {
+        val pastaDoUsuario = System.getenv("APPDATA") ?: return
+        val menu = File(pastaDoUsuario, ATALHO)
+        val barra = File(pastaDoUsuario, ATALHO_DA_BARRA)
         val alvo = Instalacao.alvoDoAtalho() ?: return
 
         fun q(s: String) = s.replace("'", "''")
         val roteiro = buildString {
-            append("\$p = '${q(menu.absolutePath)}'; ")
             append("\$w = New-Object -ComObject WScript.Shell; ")
-            append("if (Test-Path \$p) { \$c = \$w.CreateShortcut(\$p); ")
-            append("if (\$c.TargetPath -eq '${q(alvo.programa)}' -and \$c.Arguments -eq '${q(alvo.argumentos)}') { exit } }; ")
-            append("New-Item -ItemType Directory -Force -Path (Split-Path \$p) | Out-Null; ")
-            append("\$s = \$w.CreateShortcut(\$p); ")
+            append("function Apontar(\$s) { ")
             append("\$s.TargetPath = '${q(alvo.programa)}'; ")
             append("\$s.Arguments = '${q(alvo.argumentos)}'; ")
             append("\$s.WorkingDirectory = '${q(alvo.pasta)}'; ")
             append("\$s.IconLocation = '${q(alvo.simbolo)}'; ")
-            append("\$s.Save()")
+            append("\$s.Save() }; ")
+            append("\$p = '${q(menu.absolutePath)}'; ")
+            append("\$c = if (Test-Path \$p) { \$w.CreateShortcut(\$p) }; ")
+            append("if (-not \$c -or \$c.TargetPath -ne '${q(alvo.programa)}' -or \$c.Arguments -ne '${q(alvo.argumentos)}') { ")
+            append("New-Item -ItemType Directory -Force -Path (Split-Path \$p) | Out-Null; Apontar (\$w.CreateShortcut(\$p)) }; ")
+            append("\$b = '${q(barra.absolutePath)}'; ")
+            append("if (Test-Path \$b) { \$f = \$w.CreateShortcut(\$b); ")
+            append("if (\$f.TargetPath -like '*\\wscript.exe' -and \$f.Arguments -like '*launch.vbs*') { Apontar \$f } }")
         }
         ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-Command", roteiro)
             .redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .start()
+            .waitFor(PRAZO_DOS_ATALHOS_S, TimeUnit.SECONDS)
+    }
+
+    private fun carimbarIdentidadeNoIniciar() {
+        if (!Desinstalador.disponivel) return
+        Nativo.tentar("identidade no atalho do Iniciar") {
+            val pronto = WindowsNotificationCenter.initialize(
+                aumid = AUMID,
+                appName = NOME_VISIVEL,
+                shortcutPolicy = ShortcutPolicy.REQUIRE_CREATE,
+            )
+            if (pronto) WindowsNotificationCenter.uninitialize()
+        }
     }
 }

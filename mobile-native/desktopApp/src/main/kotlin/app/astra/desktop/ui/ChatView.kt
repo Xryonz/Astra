@@ -83,6 +83,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -458,6 +459,7 @@ fun ChatView(
     val meuId = LocalMinhaConta.current.id
     val falas = remember(linhas, primeiraNaoLida, meuId) { falasPorMensagem(linhas, primeiraNaoLida, meuId) }
     val alturas = remember(target.id) { mutableStateMapOf<String, Int>() }
+    val larguras = remember(target.id) { mutableStateMapOf<String, Int>() }
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
         Box(Modifier.weight(1f)) {
@@ -504,6 +506,8 @@ fun ChatView(
                                 idsDaFala = falas[msg.id].orEmpty(),
                                 alturas = alturas,
                                 aoMedir = { altura -> if (alturas[msg.id] != altura) alturas[msg.id] = altura },
+                                larguras = larguras,
+                                aoMedirLargura = { largura -> if (larguras[msg.id] != largura) larguras[msg.id] = largura },
                                 isChannel = isChannel,
                                 highlighted = msg.id == highlightId,
                                 editing = msg.id == editingId,
@@ -902,12 +906,21 @@ private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>):
     return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
 }
 
-private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala) {
+private fun maiorLargura(ids: List<String>, larguras: Map<String, Int>): Int =
+    ids.maxOfOrNull { larguras[it] ?: 0 } ?: 0
+
+private fun DrawScope.direitaDaFala(ids: List<String>, larguras: Map<String, Int>): Float {
+    val conteudo = maiorLargura(ids, larguras)
+    if (conteudo == 0) return size.width
+    return minOf(size.width, (INICIO_DO_TEXTO + RECUO_DA_LINHA).toPx() + conteudo)
+}
+
+private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala, direita: Float) {
     val traco = 1.dp.toPx()
     val meio = traco / 2f
     val raio = CANTO_DA_SEMIBORDA.toPx()
     val alto = size.height
-    val deitada = maxOf(size.width * PONTA_DEITADA, raio)
+    val deitada = maxOf(direita * PONTA_DEITADA, raio)
     val tetoEmPe = maxOf(raio, PONTA_EM_PE_MAXIMA.toPx())
     val emPeSemTeto = (fala.acima + alto + fala.abaixo) * PONTA_EM_PE
     if (emPeSemTeto < tetoEmPe && !fala.inteira) return
@@ -929,7 +942,7 @@ private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala
         val ate = (emPe - fala.acima).coerceAtMost(alto)
         if (ate > de) drawLine(cor, Offset(meio, de), Offset(meio, ate), traco)
     }
-    val x = size.width - meio
+    val x = direita - meio
     if (fecha) {
         val y = alto - meio
         drawPath(
@@ -952,6 +965,10 @@ private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala
 
 private val CANTO_DA_SEMIBORDA = 8.dp
 private val MARGEM_DA_FALA = 14.dp
+private val RECUO_DA_LINHA = 12.dp
+private val LARGURA_DO_AVATAR = 34.dp
+private val ESPACO_ATE_O_TEXTO = 10.dp
+private val INICIO_DO_TEXTO = RECUO_DA_LINHA + LARGURA_DO_AVATAR + ESPACO_ATE_O_TEXTO
 private val PONTA_EM_PE_MAXIMA = 120.dp
 private const val PONTA_DEITADA = 0.25f
 private const val PONTA_EM_PE = 0.5f
@@ -966,6 +983,8 @@ private fun MessageRow(
     idsDaFala: List<String>,
     alturas: Map<String, Int>,
     aoMedir: (Int) -> Unit,
+    larguras: Map<String, Int>,
+    aoMedirLargura: (Int) -> Unit,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -1057,14 +1076,21 @@ private fun MessageRow(
                 alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
+                val direita = direitaDaFala(idsDaFala, larguras)
                 if (realce > 0f) {
                     val aceso = Obsidian.accentDim
                     drawOutline(
-                        formaDoRealce.createOutline(size, layoutDirection, this),
+                        formaDoRealce.createOutline(Size(direita, size.height), layoutDirection, this),
                         aceso.copy(alpha = aceso.alpha * realce),
                     )
                 }
-                semibordas(abreOCartao, fechaOCartao, corDaSemiborda, medirFala(idsDaFala, msg.id, alturas))
+                semibordas(
+                    abreOCartao,
+                    fechaOCartao,
+                    corDaSemiborda,
+                    medirFala(idsDaFala, msg.id, alturas),
+                    direita,
+                )
             }
             .hoverable(interaction),
     ) {
@@ -1103,7 +1129,7 @@ private fun MessageRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = RECUO_DA_LINHA)
                 .padding(
                     top = if (grouped) dens.groupedTopDp.dp else respiroDaCarta,
                     bottom = if (fechaOCartao) respiroDaCarta else 2.dp,
@@ -1111,21 +1137,31 @@ private fun MessageRow(
             verticalAlignment = Alignment.Top,
         ) {
             if (grouped) {
-                Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.width(LARGURA_DO_AVATAR), contentAlignment = Alignment.CenterEnd) {
                     if (hovered) {
                         Text(hhmm(msg.createdAt), style = Tipo.nota)
                     }
                 }
-                Spacer(Modifier.width(10.dp))
-                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {
+                Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
+                PilulaJuntoDoTexto(
+                    Modifier.weight(1f),
+                    pilula = pilula,
+                    aoMedirConteudo = aoMedirLargura,
+                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
+                ) {
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             } else {
                 ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34, animar = hovered)
+                    DesktopAvatar(msg.authorAvatar, msg.authorName, LARGURA_DO_AVATAR.value.toInt(), animar = hovered)
                 }
-                Spacer(Modifier.width(10.dp))
-                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {
+                Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
+                PilulaJuntoDoTexto(
+                    Modifier.weight(1f),
+                    pilula = pilula,
+                    aoMedirConteudo = aoMedirLargura,
+                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
+                ) {
                     msg.replyTo?.let { ref ->
                         ReplyRef(ref, onJumpTo)
                     }
@@ -1733,6 +1769,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     val src = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
+            .widthIn(max = 420.dp)
             .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) }
             .padding(bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1744,8 +1781,11 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             cor = ref.authorId?.let { LocalCoresDeCargo.current[it] },
             padrao = Obsidian.accent,
             fontSize = 11.sp,
+            modifier = Modifier.widthIn(max = 200.dp),
             fontWeight = FontWeight.SemiBold,
             fontFamily = ref.authorFont?.let { profileFontFamily(it) },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.width(6.dp))
         Text(
@@ -1761,13 +1801,16 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
 private fun PilulaJuntoDoTexto(
     modifier: Modifier = Modifier,
     pilula: @Composable () -> Unit,
+    aoMedirConteudo: (Int) -> Unit,
+    larguraDaFala: () -> Int,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
     val densidade = LocalDensity.current
     val respiro = with(densidade) { 8.dp.roundToPx() }
     val subida = with(densidade) { 10.dp.roundToPx() }
+    val recuo = with(densidade) { RECUO_DA_LINHA.roundToPx() }
     Layout(
-        contents = listOf({ Column(content = conteudo) }, pilula),
+        contents = listOf({ Column(Modifier.onSizeChanged { aoMedirConteudo(it.width) }, content = conteudo) }, pilula),
         modifier = modifier,
     ) { (medidosConteudo, medidosPilula), constraints ->
         val conteudoMedido = medidosConteudo.first().measure(constraints.copy(minWidth = 0))
@@ -1776,10 +1819,13 @@ private fun PilulaJuntoDoTexto(
         layout(largura, conteudoMedido.height) {
             conteudoMedido.place(0, 0)
             if (pilulaMedida != null) {
-                val x = (conteudoMedido.width + respiro)
-                    .coerceAtMost(largura - pilulaMedida.width)
-                    .coerceAtLeast(0)
-                pilulaMedida.place(x, -subida)
+                val larguraDaPilula = pilulaMedida.width
+                val borda = recuo + minOf(maxOf(larguraDaFala(), conteudoMedido.width), largura)
+                val aoLado = conteudoMedido.width + respiro
+                val encostaNaBorda = aoLado + larguraDaPilula + respiro > borda
+                val cabeDepoisDaBorda = borda + respiro + larguraDaPilula <= largura
+                val x = if (encostaNaBorda && cabeDepoisDaBorda) borda + respiro else aoLado
+                pilulaMedida.place(x.coerceAtMost(largura - larguraDaPilula).coerceAtLeast(0), -subida)
             }
         }
     }

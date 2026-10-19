@@ -44,7 +44,7 @@ const router = Router()
 
 function ensureKey(res: Response): boolean {
   if (!env.GIPHY_API_KEY) {
-    res.status(503).json({ error: 'GIF picker desabilitado — GIPHY_API_KEY ausente no backend' })
+    res.status(503).json({ error: 'Busca de GIFs indisponível: falta a chave do GIPHY no servidor.' })
     return false
   }
   return true

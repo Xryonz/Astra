@@ -410,7 +410,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const targetId = req.params.userId
     const me       = req.userId!
-    if (targetId === me) return res.status(400).json({ error: 'Não dá pra escrever no próprio mural' })
+    if (targetId === me) return res.status(400).json({ error: 'Não é possível escrever no próprio mural' })
 
     const [a, b] = me < targetId ? [me, targetId] : [targetId, me]
     const [friendRow] = await db.select({ id: friendships.id })

@@ -540,7 +540,7 @@ export function setupSocket(io: Server) {
       } else {
         const userMessage = semPrefixo(content)
         if (!userMessage) {
-          reply = `Como posso ajudar? Tente \`${persona.prefixo} ajuda\` pra ver os comandos de hoje.`
+          reply = `Como posso ajudar? Tente \`${persona.prefixo} ajuda\` para ver os comandos de hoje.`
         } else {
           const result = await askBot({
             userMessage,

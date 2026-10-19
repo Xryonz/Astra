@@ -18,7 +18,7 @@ async function podeGerenciar(userId: string, serverId: string) {
   const m = await getMemberPerms(userId, serverId)
   if (!m.memberId) return { ok: false as const, erro: 'Você não é membro' }
   if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-    return { ok: false as const, erro: 'Sem permissão pra mexer nas figurinhas' }
+    return { ok: false as const, erro: 'Sem permissão para gerenciar as figurinhas' }
   }
   return { ok: true as const }
 }

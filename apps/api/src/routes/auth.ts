@@ -438,7 +438,7 @@ router.post(
       return res.status(400).json({ error: 'Código incorreto' })
     }
     if (!user.emailCodeExpiresAt || user.emailCodeExpiresAt < new Date()) {
-      return res.status(400).json({ error: 'Código expirado — peça um novo' })
+      return res.status(400).json({ error: 'Código expirado. Peça um novo.' })
     }
     await db.update(users)
       .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })

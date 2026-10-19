@@ -70,7 +70,7 @@ rolesRouter.post(
     if (!srv) return res.status(404).json({ error: 'Servidor não encontrado' })
     const actor = await getMemberPerms(req.userId!, serverId)
     if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
-      return res.status(403).json({ error: 'Sem permissão pra gerenciar cargos' })
+      return res.status(403).json({ error: 'Sem permissão para gerenciar cargos' })
 
     const body = req.body as z.infer<typeof CreateRoleSchema>
     const permsToSet = grantableSubset(actor, body.permissions ?? [])
@@ -107,7 +107,7 @@ rolesRouter.patch(
     const { serverId, roleId } = req.params
     const actor = await getMemberPerms(req.userId!, serverId)
     if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
-      return res.status(403).json({ error: 'Sem permissão pra editar cargos' })
+      return res.status(403).json({ error: 'Sem permissão para editar cargos' })
 
     const body = req.body as z.infer<typeof UpdateRoleSchema>
     const patch: Record<string, unknown> = {}
@@ -140,7 +140,7 @@ rolesRouter.patch(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
     if (!(await canManageRoles(req.userId!, serverId)))
-      return res.status(403).json({ error: 'Sem permissão pra reordenar cargos' })
+      return res.status(403).json({ error: 'Sem permissão para reordenar cargos' })
 
     const { positions } = req.body as z.infer<typeof PositionSchema>
     await db.transaction(async (tx) => {
@@ -160,7 +160,7 @@ rolesRouter.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, roleId } = req.params
     if (!(await canManageRoles(req.userId!, serverId)))
-      return res.status(403).json({ error: 'Sem permissão pra excluir cargos' })
+      return res.status(403).json({ error: 'Sem permissão para excluir cargos' })
 
     const r = await db.delete(roles)
       .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId)))
@@ -181,7 +181,7 @@ rolesRouter.post(
     const { serverId, memberId, roleId } = req.params
     const actor = await getMemberPerms(req.userId!, serverId)
     if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
-      return res.status(403).json({ error: 'Sem permissão pra atribuir cargos' })
+      return res.status(403).json({ error: 'Sem permissão para atribuir cargos' })
 
     const [[m], [r]] = await Promise.all([
       db.select({ id: serverMembers.id }).from(serverMembers)
@@ -214,7 +214,7 @@ rolesRouter.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, memberId, roleId } = req.params
     if (!(await canManageRoles(req.userId!, serverId)))
-      return res.status(403).json({ error: 'Sem permissão pra remover cargos' })
+      return res.status(403).json({ error: 'Sem permissão para remover cargos' })
 
     await db.delete(memberRoles).where(and(
       eq(memberRoles.memberId, memberId),

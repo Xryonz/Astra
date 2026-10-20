@@ -267,36 +267,46 @@ private fun LinhaDeConstelacao(
 
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DialogButton("aplicar", accent = true, habilitado = montada != null && !salvando) {
-                        salvando = true; erro = null
-                        scope.launch {
-                            val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(montada)).data }
-                            salvando = false
-                            if (r.isSuccess) {
-                                aoSalvar(r.getOrNull()?.nameColor)
-                                rascunho = null
-                                segundaCor = null
-                                movimento = Movimento.NENHUM
-                            } else {
-                                erro = "Não foi possível aplicar essa cor"
+                    BotaoDeDialogo(
+                        "aplicar",
+                        TipoDeBotao.PRINCIPAL,
+                        onClick = {
+                            salvando = true; erro = null
+                            scope.launch {
+                                val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(montada)).data }
+                                salvando = false
+                                if (r.isSuccess) {
+                                    aoSalvar(r.getOrNull()?.nameColor)
+                                    rascunho = null
+                                    segundaCor = null
+                                    movimento = Movimento.NENHUM
+                                } else {
+                                    erro = "Não foi possível aplicar essa cor"
+                                }
                             }
-                        }
-                    }
-                    DialogButton("voltar ao padrão", accent = false, habilitado = !salvando) {
-                        salvando = true; erro = null
-                        scope.launch {
-                            val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(null)).data }
-                            salvando = false
-                            if (r.isSuccess) {
-                                aoSalvar(null)
-                                rascunho = null
-                                segundaCor = null
-                                movimento = Movimento.NENHUM
-                            } else {
-                                erro = "Não foi possível limpar a cor"
+                        },
+                        ligado = montada != null && !salvando,
+                    )
+                    BotaoDeDialogo(
+                        "voltar ao padrão",
+                        TipoDeBotao.SECUNDARIO,
+                        onClick = {
+                            salvando = true; erro = null
+                            scope.launch {
+                                val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(null)).data }
+                                salvando = false
+                                if (r.isSuccess) {
+                                    aoSalvar(null)
+                                    rascunho = null
+                                    segundaCor = null
+                                    movimento = Movimento.NENHUM
+                                } else {
+                                    erro = "Não foi possível limpar a cor"
+                                }
                             }
-                        }
-                    }
+                        },
+                        ligado = !salvando,
+                    )
                 }
             }
         }

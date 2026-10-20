@@ -1,7 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -11,9 +10,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -131,12 +127,13 @@ internal fun BarraDeSalvar(
                 PendenciaDaBarra(ajustes, perfil, erro)
                 Spacer(Modifier.width(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BotaoDaBarra("descartar", principal = false, ativo = !salvando, onClick = aoDescartar)
-                    BotaoDaBarra(
+                    BotaoDeDialogo("descartar", TipoDeBotao.SECUNDARIO, onClick = aoDescartar, ligado = !salvando)
+                    BotaoDeDialogo(
                         if (salvando) "salvando…" else "salvar",
-                        principal = true,
-                        ativo = !salvando,
+                        TipoDeBotao.PRINCIPAL,
                         onClick = aoSalvar,
+                        ligado = !salvando,
+                        icone = Lucide.Check,
                     )
                 }
             } else {
@@ -157,7 +154,7 @@ internal fun BarraDeSalvar(
 private fun PendenciaDaBarra(ajustes: Int, perfil: Boolean, erro: String?) {
     Column(Modifier.widthIn(max = 360.dp)) {
         Text(
-            if (erro != null) "não deu para salvar tudo" else "alterações não salvas",
+            if (erro != null) "não foi possível salvar tudo" else "alterações não salvas",
             style = Tipo.corpo,
         )
         Spacer(Modifier.height(2.dp))
@@ -172,39 +169,3 @@ private fun PendenciaDaBarra(ajustes: Int, perfil: Boolean, erro: String?) {
     }
 }
 
-@Composable
-private fun BotaoDaBarra(rotulo: String, principal: Boolean, ativo: Boolean, onClick: () -> Unit) {
-    val fonte = remember { MutableInteractionSource() }
-    val sobre by fonte.collectIsHoveredAsState()
-    val cor = when {
-        !ativo -> Obsidian.text3
-        principal -> Obsidian.accent
-        else -> Obsidian.text2
-    }
-    val fundo by animateColorAsState(
-        when {
-            !ativo -> Color.Transparent
-            sobre && principal -> Obsidian.accent.copy(alpha = 0.14f)
-            sobre -> Obsidian.hover
-            else -> Color.Transparent
-        },
-        tween(140),
-    )
-    Row(
-        Modifier
-            .clickScale(fonte)
-            .clip(FormaDeBotao)
-            .background(fundo)
-            .border(1.dp, if (principal) Obsidian.accentDim else Obsidian.borderDim, FormaDeBotao)
-            .hoverable(fonte)
-            .clickable(interactionSource = fonte, indication = null, enabled = ativo, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (principal) {
-            LIcon(Lucide.Check, tint = cor, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
-    }
-}

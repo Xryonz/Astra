@@ -1,6 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,21 +8,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,17 +23,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.Desinstalador
@@ -101,7 +86,11 @@ internal fun AboutSection() {
         is UpdateState.Available -> {
             AboutStatus("nova versão ${s.version} disponível")
             Spacer(Modifier.height(10.dp))
-            AboutButton("baixar e reiniciar", accent = true) { scope.launch { updater.downloadAndStage(s) } }
+            BotaoDeDialogo(
+                "baixar e reiniciar",
+                TipoDeBotao.PRINCIPAL,
+                onClick = { scope.launch { updater.downloadAndStage(s) } },
+            )
         }
         is UpdateState.Downloading -> {
             AboutStatus("baixando ${s.version}… ${(s.progress * 100).toInt()}%")
@@ -118,15 +107,21 @@ internal fun AboutSection() {
         is UpdateState.Ready -> {
             AboutStatus("${s.version} baixada. Reinicie para aplicar.")
             Spacer(Modifier.height(10.dp))
-            AboutButton("reiniciar agora", accent = true) { scope.launch { updater.restartToInstall() } }
+            BotaoDeDialogo(
+                "reiniciar agora",
+                TipoDeBotao.PRINCIPAL,
+                onClick = { scope.launch { updater.restartToInstall() } },
+            )
         }
         is UpdateState.Failed -> {
             AboutStatus(s.reason)
             if (s.releaseUrl != null) {
                 Spacer(Modifier.height(10.dp))
-                AboutButton("abrir página do release", accent = false) {
-                    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(s.releaseUrl)) }
-                }
+                BotaoDeDialogo(
+                    "abrir página do release",
+                    TipoDeBotao.PRINCIPAL,
+                    onClick = { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(s.releaseUrl)) } },
+                )
             }
         }
         else -> {}
@@ -153,7 +148,12 @@ private fun BlocoDeDesinstalar() {
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
     Spacer(Modifier.height(14.dp))
-    BotaoDePerigo("desinstalar o Astra", Lucide.Trash2) { confirmar = true }
+    BotaoDeDialogo(
+        "desinstalar o Astra",
+        TipoDeBotao.PERIGO,
+        onClick = { confirmar = true },
+        icone = Lucide.Trash2,
+    )
     if (confirmar) PedidoDeDesinstalar(aoDesistir = { confirmar = false })
 }
 
@@ -249,25 +249,27 @@ private fun BotaoProcurarAtualizacao(procurar: suspend () -> Unit) {
     var etapa by remember { mutableIntStateOf(0) }
 
     Column {
-        AboutButton(
-            label = if (procurando) ETAPAS_DA_BUSCA[etapa] else "procurar atualizações",
-            accent = false,
+        BotaoDeDialogo(
+            if (procurando) ETAPAS_DA_BUSCA[etapa] else "procurar atualizações",
+            TipoDeBotao.PRINCIPAL,
+            onClick = {
+                if (!procurando) {
+                    procurando = true
+                    etapa = 0
+                    escopo.launch {
+                        val comecou = System.currentTimeMillis()
+                        val trabalho = launch { runCatching { procurar() } }
+                        delay(PISO_DA_BUSCA / ETAPAS_DA_BUSCA.size)
+                        etapa = 1
+                        trabalho.join()
+                        val resta = PISO_DA_BUSCA - (System.currentTimeMillis() - comecou)
+                        if (resta > 0) delay(resta)
+                        procurando = false
+                    }
+                }
+            },
             icone = Lucide.RefreshCw,
-        ) {
-            if (procurando) return@AboutButton
-            procurando = true
-            etapa = 0
-            escopo.launch {
-                val comecou = System.currentTimeMillis()
-                val trabalho = launch { runCatching { procurar() } }
-                delay(PISO_DA_BUSCA / ETAPAS_DA_BUSCA.size)
-                etapa = 1
-                trabalho.join()
-                val resta = PISO_DA_BUSCA - (System.currentTimeMillis() - comecou)
-                if (resta > 0) delay(resta)
-                procurando = false
-            }
-        }
+        )
         if (procurando) {
             Spacer(Modifier.height(6.dp))
             BarraDeVarredura()
@@ -318,27 +320,6 @@ private fun AboutStatus(text: String) {
     Text(text, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
 }
 
-@Composable
-internal fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
-    val cor = if (accent) Obsidian.accent else Obsidian.text2
-    val src = remember { MutableInteractionSource() }
-    Row(
-        modifier = Modifier
-            .clickScale(src)
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icone?.let {
-            LIcon(it, tint = cor, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
-    }
-}
-
 internal fun mesEAno(iso: String?): String {
     val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "…"
     val meses = listOf(
@@ -346,34 +327,4 @@ internal fun mesEAno(iso: String?): String {
         "jul", "ago", "set", "out", "nov", "dez",
     )
     return "${meses[data.monthValue - 1]} ${data.year}"
-}
-
-@Composable
-internal fun BotaoDePerigo(label: String, icone: ImageVector, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    val fundo by animateColorAsState(
-        if (hov) Obsidian.danger.copy(alpha = 0.16f) else Color.Transparent, tween(140),
-    )
-    val borda by animateColorAsState(
-        if (hov) Obsidian.danger else Obsidian.danger.copy(alpha = 0.55f), tween(140),
-    )
-    Row(
-        modifier = Modifier
-            .clickScale(src)
-            .clip(RoundedCornerShape(8.dp))
-            .background(fundo)
-            .border(1.dp, borda, RoundedCornerShape(8.dp))
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LIcon(icone, tint = Obsidian.danger, size = 14.dp)
-        Spacer(Modifier.width(7.dp))
-        Text(
-            label,
-            style = TextStyle(color = Obsidian.danger, fontSize = 13.sp, fontWeight = FontWeight.Medium),
-        )
-    }
 }

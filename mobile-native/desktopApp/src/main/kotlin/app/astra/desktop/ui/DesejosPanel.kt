@@ -225,11 +225,11 @@ private fun CampoDeDesejo(
                 .onFocusChanged { aoMudarFoco(it.isFocused) },
         )
         Spacer(Modifier.width(8.dp))
-        DialogButton(
-            label = if (enviando) "lançando…" else "lançar",
-            accent = true,
-            habilitado = podeEnviar,
+        BotaoDeDialogo(
+            if (enviando) "lançando…" else "lançar",
+            TipoDeBotao.PRINCIPAL,
             onClick = aoEnviar,
+            ligado = podeEnviar,
         )
     }
 }

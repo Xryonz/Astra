@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,12 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,71 +46,6 @@ import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
 fun inviteLink(code: String): String = AstraShared.BASE_URL.trimEnd('/') + "/i/" + code
-
-@Composable
-internal fun DialogField(
-    value: String,
-    placeholder: String,
-    onChange: (String) -> Unit,
-    onSubmit: () -> Unit = {},
-) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(9.dp))
-            .background(Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        if (value.isEmpty()) {
-            Text(placeholder, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-        }
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = Tipo.corpo,
-            cursorBrush = SolidColor(Obsidian.accent),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-@Composable
-internal fun DialogButton(
-    label: String,
-    accent: Boolean,
-    icone: ImageVector? = null,
-    habilitado: Boolean = true,
-    onClick: () -> Unit,
-) {
-    val cor = when {
-        !habilitado -> Obsidian.text3.copy(alpha = 0.5f)
-        accent -> Obsidian.accent
-        else -> Obsidian.text2
-    }
-    val borda = when {
-        !habilitado -> Obsidian.borderDim.copy(alpha = 0.5f)
-        accent -> Obsidian.accentDim
-        else -> Obsidian.borderDim
-    }
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, borda, RoundedCornerShape(8.dp))
-            .clickable(enabled = habilitado, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icone?.let {
-            LIcon(it, tint = cor, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
-    }
-}
 
 @Composable
 fun InvitePeopleDialog(

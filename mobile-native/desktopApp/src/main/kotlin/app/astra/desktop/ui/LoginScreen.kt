@@ -383,8 +383,8 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
             .fillMaxWidth()
             .clickScale(src)
             .clip(shape)
-            .background(if (hovered && active) Obsidian.raised else Color.Transparent)
-            .border(1.dp, Obsidian.borderMid, shape)
+            .background(if (hovered && active) Obsidian.active else Obsidian.hover)
+            .hoverable(src)
             .clickable(enabled = active, interactionSource = src, indication = null, onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
@@ -397,7 +397,7 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
         Spacer(Modifier.width(10.dp))
         Text(
             if (loading) "abrindo o navegador…" else "entrar com Google",
-            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
         )
     }
 }
@@ -511,8 +511,8 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
             .background(
                 when {
                     !enabled -> Obsidian.raised
-                    hovered -> Obsidian.text1
-                    else -> Obsidian.accent
+                    hovered -> Color.White
+                    else -> Obsidian.text1
                 },
             )
             .then(
@@ -532,7 +532,7 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
                     )
                 },
             )
-            .border(1.dp, if (enabled) Obsidian.accent else Obsidian.borderMid, shape)
+            .border(1.dp, if (enabled) Color.Transparent else Obsidian.borderMid, shape)
             .hoverable(interaction)
             .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick)
             .padding(vertical = 13.dp),

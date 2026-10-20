@@ -234,6 +234,7 @@ internal fun BotaoDeDialogo(
     modifier: Modifier = Modifier,
     ligado: Boolean = true,
     foco: FocusRequester? = null,
+    icone: ImageVector? = null,
 ) {
     val toque = remember { MutableInteractionSource() }
     val parado = remember { MutableInteractionSource() }
@@ -250,7 +251,7 @@ internal fun BotaoDeDialogo(
         tipo == TipoDeBotao.PRINCIPAL || aceso -> Obsidian.text1
         else -> Obsidian.text2
     }
-    Box(
+    Row(
         modifier
             .then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
             .clickScale(if (ligado) toque else parado)
@@ -264,8 +265,13 @@ internal fun BotaoDeDialogo(
                 if (ligado) onClick()
             }
             .padding(horizontal = RESPIRO_DO_BOTAO),
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icone != null) {
+            LIcon(icone, tint = cor, size = 14.dp)
+            Spacer(Modifier.width(7.dp))
+        }
         Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
     }
 }

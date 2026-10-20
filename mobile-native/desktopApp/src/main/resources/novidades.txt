@@ -1,5 +1,7 @@
-versao 1.0.56
-A borda de cada mensagem acompanha a largura do texto. Mensagens longas continuam ocupando a linha inteira.
-Os botões que aparecem ao passar o mouse ficam logo depois da borda, sem encostar nela.
-Numa resposta, a citação da mensagem original tem largura limitada e termina em reticências.
-Em instalações antigas, os atalhos abriam o Astra por um roteiro intermediário. Agora abrem o programa direto, e o Windows passa a reconhecê-lo pelo nome, inclusive em Elementos gráficos.
+versao 1.0.57
+As janelas seguem um desenho único: título, uma frase que explica a consequência e botões à direita.
+Os campos de texto ficam mais escuros que a janela, e a borda acende enquanto você digita.
+Os botões perderam o contorno: a ação principal ganha um fundo discreto, e as de perigo ficam em vermelho suave.
+No login e na tela de entrada, o botão principal é branco e não muda mais de cor com o tema.
+Pelo teclado, o foco não se perde enquanto um botão espera o servidor, e o leitor de tela anuncia os erros.
+Os textos do aplicativo foram revisados, sem travessões e com um tom mais direto.

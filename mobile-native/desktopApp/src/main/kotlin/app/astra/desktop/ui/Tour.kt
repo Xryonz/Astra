@@ -382,9 +382,9 @@ private fun CartaoDoTour(
         }
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BotaoDoTour(if (ehDesempenho) "deixar como estava" else "pular", destaque = false, onClick = aoPular)
+            BotaoDeDialogo(if (ehDesempenho) "deixar como estava" else "pular", TipoDeBotao.SECUNDARIO, onClick = aoPular)
             Spacer(Modifier.width(8.dp))
-            BotaoDoTour(if (ultimo) "entendi" else "próximo", destaque = true, onClick = aoAvancar)
+            BotaoDeDialogo(if (ultimo) "entendi" else "próximo", TipoDeBotao.PRINCIPAL, onClick = aoAvancar)
         }
     }
 }
@@ -417,33 +417,6 @@ private fun OpcaoDePerfil(opcao: OpcaoDeDesempenho, escolhido: Boolean, aoEscolh
         Text(
             opcao.conta,
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
-        )
-    }
-}
-
-@Composable
-private fun BotaoDoTour(rotulo: String, destaque: Boolean, onClick: () -> Unit) {
-    val fonte = remember { MutableInteractionSource() }
-    val sobre by fonte.collectIsHoveredAsState()
-    val cor = if (destaque) Obsidian.accent else Obsidian.text3
-    Box(
-        Modifier
-            .clickScale(fonte)
-            .clip(FormaDeBotao)
-            .background(if (sobre) cor.copy(alpha = 0.12f) else Color.Transparent)
-            .border(1.dp, if (destaque) Obsidian.accentDim else Obsidian.borderDim, FormaDeBotao)
-            .hoverable(fonte)
-            .clickable(interactionSource = fonte, indication = null, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            rotulo,
-            style = TextStyle(
-                color = cor,
-                fontSize = 12.sp,
-                fontWeight = if (destaque) FontWeight.Medium else FontWeight.Normal,
-            ),
         )
     }
 }

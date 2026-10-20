@@ -712,9 +712,11 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
             Spacer(Modifier.height(10.dp))
             MicMeter(testing, p.micSensitivity)
             Spacer(Modifier.height(10.dp))
-            AboutButton(if (testing) "parar teste" else "testar microfone", accent = !testing) {
-                testing = !testing
-            }
+            BotaoDeDialogo(
+                if (testing) "parar teste" else "testar microfone",
+                TipoDeBotao.PRINCIPAL,
+                onClick = { testing = !testing },
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 if (p.micNoiseSuppression) "supressão de ruído: ligada" else "supressão de ruído: desligada",

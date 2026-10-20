@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -295,7 +296,12 @@ private fun EntrarStep(entrou: ServerDto?, aoEntrar: (ServerDto) -> Unit, aoExpl
             return@Column
         }
 
-        DialogField(cru, inviteLink("codigo-do-convite"), { cru = it; erro = null }, entrar)
+        CampoDeDialogo(
+            cru,
+            { cru = it; erro = null },
+            dica = inviteLink("codigo-do-convite"),
+            aoEnviar = entrar,
+        )
 
         if (procurando) {
             Spacer(Modifier.height(10.dp))
@@ -305,11 +311,11 @@ private fun EntrarStep(entrou: ServerDto?, aoEntrar: (ServerDto) -> Unit, aoExpl
             Spacer(Modifier.height(12.dp))
             CartaoDaConstelacao(it)
             Spacer(Modifier.height(12.dp))
-            DialogButton(
-                label = if (entrando) "entrando…" else "entrar",
-                accent = true,
-                habilitado = podeEntrar,
+            BotaoDeDialogo(
+                if (entrando) "entrando…" else "entrar",
+                TipoDeBotao.PRINCIPAL,
                 onClick = entrar,
+                ligado = podeEntrar,
             )
         }
         erro?.let {
@@ -418,12 +424,11 @@ private fun OnbButton(text: String, primary: Boolean = true, onClick: () -> Unit
             .clip(shape)
             .background(
                 when {
-                    !primary -> if (hovered) Obsidian.raised else Obsidian.overlay.copy(alpha = 0.0f)
-                    hovered -> Obsidian.text1
-                    else -> Obsidian.accent
+                    !primary -> if (hovered) Obsidian.active else Obsidian.hover
+                    hovered -> Color.White
+                    else -> Obsidian.text1
                 },
             )
-            .border(1.dp, if (primary) Obsidian.accent else Obsidian.borderMid, shape)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 34.dp, vertical = 12.dp),

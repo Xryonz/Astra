@@ -573,16 +573,18 @@ private fun OverviewSection(
     SettingsDivider()
     FieldLabel("zona de perigo")
     Text(
-        if (isOwner) "excluir apaga a constelação para todo mundo. Não da para desfazer."
+        if (isOwner) "excluir apaga a constelação para todo mundo. Não há como desfazer."
         else "sair remove teu acesso; para voltar precisa de convite.",
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    DangerButton(
+    BotaoDeDialogo(
         if (isOwner) "excluir constelação" else "sair da constelação",
+        TipoDeBotao.PERIGO,
+        onClick = { confirmDanger = true },
         icone = if (isOwner) Lucide.Trash2 else Lucide.LogOut,
-    ) { confirmDanger = true }
+    )
     if (confirmDanger) {
         Confirmacao(
             titulo = if (isOwner) "excluir ${server.name}" else "sair de ${server.name}",
@@ -627,42 +629,51 @@ private fun OverviewSection(
               Spacer(Modifier.height(8.dp))
           }
           Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-              SmallButton(if (saving) "salvando…" else "salvar", accent = true, icone = Lucide.Check) {
-                  if (saving || !dirty) return@SmallButton
-                  saving = true
-                  msg = null
-                  onSave(
-                      UpdateServerRequest(
-                          name = name.trim().ifBlank { null },
-                          iconUrl = iconUrl ?: "",
-                          bannerUrl = bannerUrl ?: "",
-                          bannerPositionY = bannerPositionY,
-                          bannerScale = bannerScale,
-                          iconScale = iconScale,
-                          description = description.trim(),
-                          messageRetentionDays = retention,
-                          isPublic = isPublic,
-                          botNoticeChannelId = orbitaAvisos.orEmpty(),
-                      ),
-                  ) { err ->
-                      saving = false
-                      msg = (err ?: "constelação salva") to (err == null)
-                  }
-              }
-              if (dirty && !saving) {
-                  SmallButton("descartar", accent = false) {
-                      name = server.name
-                      description = server.description.orEmpty()
-                      iconUrl = server.iconUrl
-                      bannerUrl = server.bannerUrl
-                      isPublic = server.isPublic
-                      retention = server.messageRetentionDays ?: 0
-                      bannerPositionY = server.bannerPositionY
-                      bannerScale = server.bannerScale
-                      iconScale = server.iconScale
-                      orbitaAvisos = server.botNoticeChannelId
+              BotaoDeDialogo(
+                  if (saving) "salvando…" else "salvar",
+                  TipoDeBotao.PRINCIPAL,
+                  onClick = {
+                      saving = true
                       msg = null
-                  }
+                      onSave(
+                          UpdateServerRequest(
+                              name = name.trim().ifBlank { null },
+                              iconUrl = iconUrl ?: "",
+                              bannerUrl = bannerUrl ?: "",
+                              bannerPositionY = bannerPositionY,
+                              bannerScale = bannerScale,
+                              iconScale = iconScale,
+                              description = description.trim(),
+                              messageRetentionDays = retention,
+                              isPublic = isPublic,
+                              botNoticeChannelId = orbitaAvisos.orEmpty(),
+                          ),
+                      ) { err ->
+                          saving = false
+                          msg = (err ?: "constelação salva") to (err == null)
+                      }
+                  },
+                  ligado = dirty && !saving,
+                  icone = Lucide.Check,
+              )
+              if (dirty && !saving) {
+                  BotaoDeDialogo(
+                      "descartar",
+                      TipoDeBotao.SECUNDARIO,
+                      onClick = {
+                          name = server.name
+                          description = server.description.orEmpty()
+                          iconUrl = server.iconUrl
+                          bannerUrl = server.bannerUrl
+                          isPublic = server.isPublic
+                          retention = server.messageRetentionDays ?: 0
+                          bannerPositionY = server.bannerPositionY
+                          bannerScale = server.bannerScale
+                          iconScale = server.iconScale
+                          orbitaAvisos = server.botNoticeChannelId
+                          msg = null
+                      },
+                  )
               }
           }
           if (!dirty && msg == null) {
@@ -918,39 +929,3 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-@Composable
-private fun SmallButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
-    val cor = if (accent) Obsidian.accent else Obsidian.text2
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icone?.let {
-            LIcon(it, tint = cor, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
-    }
-}
-
-@Composable
-private fun DangerButton(label: String, icone: ImageVector? = null, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, Obsidian.danger.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icone?.let {
-            LIcon(it, tint = Obsidian.danger, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(label, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
-    }
-}

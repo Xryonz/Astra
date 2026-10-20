@@ -220,9 +220,12 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     Spacer(Modifier.height(12.dp))
 
     if (!aberto) {
-        BotaoDePerigo("apagar minha conta", Lucide.Trash2) {
-            aberto = true; confirmacao = ""; senha = ""; erro = null; presas = emptyList()
-        }
+        BotaoDeDialogo(
+            "apagar minha conta",
+            TipoDeBotao.PERIGO,
+            onClick = { aberto = true; confirmacao = ""; senha = ""; erro = null; presas = emptyList() },
+            icone = Lucide.Trash2,
+        )
         return
     }
     Text(
@@ -254,38 +257,44 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AboutButton(if (indo) "apagando…" else "apagar para sempre", accent = false, icone = Lucide.Trash2) {
-                if (indo || confirmacao.trim().lowercase().removePrefix("@") != arroba.lowercase()) {
-                    erro = "digite exatamente @$arroba."
-                    return@AboutButton
-                }
-                indo = true; erro = null; presas = emptyList()
-                escopo.launch {
-                    val r = runCatching {
-                        koin.get<AuthApi>().apagarConta(
-                            ApagarContaRequest(confirmacao.trim().removePrefix("@"), senha.ifBlank { null }),
-                        )
-                    }.getOrNull()
-                    indo = false
-                    when {
-                        r?.isSuccessful == true -> {
-                            aoSairDaConta()
-                        }
-                        r?.code() == 409 -> {
-                            val corpo = runCatching {
-                                koin.get<Json>().decodeFromString<RecusaDeApagar>(
-                                    r.errorBody()?.string().orEmpty(),
+            BotaoDeDialogo(
+                if (indo) "apagando…" else "apagar para sempre",
+                TipoDeBotao.PERIGO,
+                onClick = {
+                    if (confirmacao.trim().lowercase().removePrefix("@") != arroba.lowercase()) {
+                        erro = "digite exatamente @$arroba."
+                    } else {
+                        indo = true; erro = null; presas = emptyList()
+                        escopo.launch {
+                            val r = runCatching {
+                                koin.get<AuthApi>().apagarConta(
+                                    ApagarContaRequest(confirmacao.trim().removePrefix("@"), senha.ifBlank { null }),
                                 )
                             }.getOrNull()
-                            presas = corpo?.constelacoes?.map { it.name }.orEmpty()
-                            if (presas.isEmpty()) erro = corpo?.error ?: "não foi possível apagar."
+                            indo = false
+                            when {
+                                r?.isSuccessful == true -> {
+                                    aoSairDaConta()
+                                }
+                                r?.code() == 409 -> {
+                                    val corpo = runCatching {
+                                        koin.get<Json>().decodeFromString<RecusaDeApagar>(
+                                            r.errorBody()?.string().orEmpty(),
+                                        )
+                                    }.getOrNull()
+                                    presas = corpo?.constelacoes?.map { it.name }.orEmpty()
+                                    if (presas.isEmpty()) erro = corpo?.error ?: "não foi possível apagar."
+                                }
+                                r?.code() == 401 -> erro = "senha incorreta."
+                                else -> erro = "não foi possível apagar. Verifique a conexão."
+                            }
                         }
-                        r?.code() == 401 -> erro = "senha incorreta."
-                        else -> erro = "não foi possível apagar. Verifique a conexão."
                     }
-                }
-            }
-            AboutButton("cancelar", accent = false) { aberto = false }
+                },
+                ligado = !indo,
+                icone = Lucide.Trash2,
+            )
+            BotaoDeDialogo("cancelar", TipoDeBotao.SECUNDARIO, onClick = { aberto = false })
         }
     }
 }
@@ -359,23 +368,29 @@ internal fun SessionsSection() {
     }
 
     Spacer(Modifier.height(18.dp))
-    AboutButton(if (busy) "…" else "derrubar todas as outras", accent = false, icone = Lucide.LogOut) {
-        if (busy) return@AboutButton
-        busy = true; msg = null
-        scope.launch {
-            val token = koin.get<SessionStore>().load()?.refreshToken
-            if (token.isNullOrBlank()) {
-                busy = false
-                msg = "não achei o token desta sessão" to false
-                return@launch
+    BotaoDeDialogo(
+        if (busy) "derrubando…" else "derrubar todas as outras",
+        TipoDeBotao.PRINCIPAL,
+        onClick = {
+            if (!busy) {
+                busy = true; msg = null
+                scope.launch {
+                    val token = koin.get<SessionStore>().load()?.refreshToken
+                    if (token.isNullOrBlank()) {
+                        busy = false
+                        msg = "não foi possível ler a sessão deste computador" to false
+                        return@launch
+                    }
+                    val r = runCatching { koin.get<SessionApi>().revokeOthers(RevokeOthersRequest(token)) }
+                    busy = false
+                    msg = r.map { "derrubadas: ${it.data?.revokedCount ?: 0}" to true }
+                        .getOrElse { "não foi possível derrubar as outras" to false }
+                    reload++
+                }
             }
-            val r = runCatching { koin.get<SessionApi>().revokeOthers(RevokeOthersRequest(token)) }
-            busy = false
-            msg = r.map { "derrubadas: ${it.data?.revokedCount ?: 0}" to true }
-                .getOrElse { "não foi possível derrubar as outras" to false }
-            reload++
-        }
-    }
+        },
+        icone = Lucide.LogOut,
+    )
     Spacer(Modifier.height(20.dp))
 }
 

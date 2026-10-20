@@ -1,10 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -12,7 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -34,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import com.composables.icons.lucide.ChevronDown
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -63,7 +57,6 @@ import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -92,7 +85,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.composables.icons.lucide.CloudOff
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.FileImage
 import com.composables.icons.lucide.FileText
@@ -118,10 +110,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 import app.astra.desktop.ui.theme.Tipo
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
@@ -140,9 +130,7 @@ private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", L
 
 private const val JANELA_DO_GRUPO_MIN = 5L
 
-private val LARGURA_DO_TRACO = 28.dp
-
-private const val KIND_PASSAGEM_DE_TURNO = "passagem"
+internal const val KIND_PASSAGEM_DE_TURNO = "passagem"
 
 internal sealed interface LinhaDoChat {
     data class Dia(val chave: String, val rotulo: String) : LinhaDoChat
@@ -953,191 +941,5 @@ private const val VELOCIDADE_DO_BRILHO = 2.5f
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-    }
-}
-
-@Composable
-private fun SeparadorDoChat(rotulo: String) {
-    val traco = Obsidian.borderDim.copy(alpha = 0.7f)
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
-        Text(rotulo, style = Tipo.nota, modifier = Modifier.padding(horizontal = 12.dp))
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
-    }
-}
-
-@Composable
-private fun MarcaDeNovasMensagens() {
-    val accent = Obsidian.accent
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
-        Text(
-            "novas mensagens",
-            style = Tipo.nota.copy(color = accent),
-            modifier = Modifier.padding(horizontal = 10.dp),
-        )
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
-    }
-}
-
-@Composable
-private fun VoltarAoPresente(
-    visivel: Boolean,
-    novas: Int,
-    modifier: Modifier = Modifier,
-    aoTocar: () -> Unit,
-) {
-    val reduzir = LocalReduceMotion.current
-    var congelada by remember { mutableIntStateOf(novas) }
-    LaunchedEffect(visivel, novas) { if (visivel) congelada = novas }
-    val exibidas = if (visivel) novas else congelada
-    AnimatedVisibility(
-        visible = visivel,
-        enter = fadeIn(tween(if (reduzir) 0 else 120)) +
-            slideInVertically(tween(if (reduzir) 0 else 140, easing = EaseOutStd)) { it / 2 },
-        exit = fadeOut(tween(if (reduzir) 0 else 90)),
-        modifier = modifier,
-    ) {
-        val fonte = remember { MutableInteractionSource() }
-        val hover by fonte.collectIsHoveredAsState()
-        Row(
-            Modifier
-                .clickScale(fonte)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (hover) Obsidian.hover else Obsidian.overlay)
-                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .hoverable(fonte)
-                .clickable(interactionSource = fonte, indication = null, onClick = aoTocar)
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LIcon(Lucide.ChevronDown, tint = if (exibidas > 0) Obsidian.accent else Obsidian.text2, size = 14.dp)
-            Spacer(Modifier.width(6.dp))
-            Text(
-                when (exibidas) {
-                    0 -> "voltar ao presente"
-                    1 -> "1 nova mensagem"
-                    else -> "$exibidas novas mensagens"
-                },
-                style = Tipo.rotulo,
-            )
-        }
-    }
-}
-
-private fun instanteDe(m: ChatMessage): Instant? =
-    m.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
-
-private fun instanteDaMaisRecente(mensagens: List<ChatMessage>): Instant? =
-    mensagens.lastOrNull { !it.pending && !it.failed }?.let(::instanteDe)
-
-private fun contarNovas(mensagens: List<ChatMessage>, vista: Instant?): Int {
-    if (vista == null) return 0
-    var novas = 0
-    for (i in mensagens.indices.reversed()) {
-        val m = mensagens[i]
-        if (m.pending || m.failed) continue
-        val quando = instanteDe(m) ?: continue
-        if (!quando.isAfter(vista)) break
-        if (!m.mine && m.kind != KIND_PASSAGEM_DE_TURNO) novas++
-    }
-    return novas
-}
-
-@Composable
-private fun EmptyChat() {
-    val accent = Obsidian.accent
-    val phase = if (LocalReduceMotion.current) {
-        remember { mutableStateOf(0f) }
-    } else {
-        rememberInfiniteTransition(label = "emptyDots").animateFloat(
-            initialValue = 0f,
-            targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(tween(1150, easing = LinearEasing)),
-            label = "dotsPhase",
-        )
-    }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Canvas(Modifier.size(width = 62.dp, height = 28.dp)) {
-                val ph = phase.value
-                val r = 4.5.dp.toPx()
-                val gap = 16.dp.toPx()
-                val baseY = size.height - r
-                val startX = size.width / 2f - gap
-                repeat(3) { i ->
-                    val lift = sin(ph - i * 0.7f).coerceAtLeast(0f)
-                    drawCircle(
-                        color = accent.copy(alpha = 0.38f + 0.34f * lift),
-                        radius = r * (0.88f + 0.16f * lift),
-                        center = Offset(startX + i * gap, baseY - lift * 11.dp.toPx()),
-                    )
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "nenhuma mensagem ainda. Comece a conversa.",
-                style = Tipo.descricao,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AcordandoOServidor() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TypingDots(Obsidian.accent)
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "o servidor está acordando",
-                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "isto pode levar até um minuto depois de um tempo parado",
-                style = Tipo.apoio,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-        ) {
-            LIcon(Lucide.CloudOff, tint = Obsidian.text3, size = 20.dp, rotulo = null)
-            Spacer(Modifier.height(12.dp))
-            Text(motivo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
-            if (podeTentar) {
-                Spacer(Modifier.height(14.dp))
-                val src = remember { MutableInteractionSource() }
-                Text(
-                    "tentar de novo",
-                    style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickScale(src)
-                        .background(Obsidian.overlay)
-                        .clickable(interactionSource = src, indication = null, onClick = onRetry)
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                )
-            }
-        }
     }
 }

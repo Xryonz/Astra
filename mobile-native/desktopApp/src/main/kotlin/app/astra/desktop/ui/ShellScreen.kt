@@ -1,14 +1,16 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -51,6 +53,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.AvisosNaTela
 import app.astra.desktop.EscopoSupervisionado
@@ -68,6 +71,7 @@ import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.PreCarregadorDeImagens
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.Acesso
 import app.astra.desktop.voice.LeituraDoCaminho
@@ -573,10 +577,15 @@ fun ShellScreen(
             leiturasAoEntrar = state.leiturasAoEntrar,
             modifier = Modifier.weight(1f),
         )
+        val reduzirMovimento = LocalReduceMotion.current
+        val deslizeDoPainel = with(LocalDensity.current) { 10.dp.roundToPx() }
+        val saiuDaConstelacao = state.selection !is Selection.Server
         AnimatedVisibility(
             visible = state.selection is Selection.Server && state.membersOpen,
-            enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
-            exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
+            enter = if (reduzirMovimento) EnterTransition.None else
+                slideInHorizontally(tween(200, easing = EaseOutStd)) { deslizeDoPainel } + fadeIn(tween(200)),
+            exit = if (reduzirMovimento || saiuDaConstelacao) ExitTransition.None else
+                slideOutHorizontally(tween(120, easing = EaseOutStd)) { deslizeDoPainel } + fadeOut(tween(120)),
         ) {
             MembersPanel(
                 members = state.members,

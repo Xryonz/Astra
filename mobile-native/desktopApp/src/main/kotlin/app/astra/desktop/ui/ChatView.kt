@@ -467,23 +467,26 @@ fun ChatView(
         EscopoProprio {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
             val reduzirMovimento = LocalReduceMotion.current
-            AnimatedVisibility(
-                visible = state.typing.isNotEmpty(),
-                enter = expandVertically(tween(if (reduzirMovimento) 0 else 140, easing = EaseOutStd)) +
-                    fadeIn(tween(if (reduzirMovimento) 0 else 120)),
-                exit = shrinkVertically(tween(if (reduzirMovimento) 0 else 120, easing = EaseOutStd)) +
-                    fadeOut(tween(if (reduzirMovimento) 0 else 80)),
-            ) {
-                Row(Modifier.height(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TypingDots(Obsidian.accent)
-                    Spacer(Modifier.width(6.dp))
-                    val names = state.typing.values.toList()
-                    val label = when (names.size) {
-                        1 -> "${names[0]} está digitando…"
-                        2 -> "${names[0]} e ${names[1]} estão digitando…"
-                        else -> "várias pessoas estão digitando…"
+            val digitando = state.typing.values.toList()
+            var ultimosDigitando by remember(target.id) { mutableStateOf(digitando) }
+            if (digitando.isNotEmpty()) ultimosDigitando = digitando
+            Column(Modifier.height(16.dp)) {
+                AnimatedVisibility(
+                    visible = digitando.isNotEmpty(),
+                    enter = fadeIn(tween(if (reduzirMovimento) 0 else 120)),
+                    exit = fadeOut(tween(if (reduzirMovimento) 0 else 80)),
+                ) {
+                    Row(Modifier.height(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TypingDots(Obsidian.accent)
+                        Spacer(Modifier.width(6.dp))
+                        val names = ultimosDigitando
+                        val label = when (names.size) {
+                            1 -> "${names[0]} está digitando…"
+                            2 -> "${names[0]} e ${names[1]} estão digitando…"
+                            else -> "várias pessoas estão digitando…"
+                        }
+                        Text(label, style = Tipo.apoio)
                     }
-                    Text(label, style = Tipo.apoio)
                 }
             }
             if (state.error != null && state.messages.isNotEmpty()) {

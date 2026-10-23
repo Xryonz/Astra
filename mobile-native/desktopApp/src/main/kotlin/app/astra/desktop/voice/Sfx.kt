@@ -1,8 +1,6 @@
 package app.astra.desktop.voice
 
 import javax.sound.sampled.AudioFormat
-import javax.sound.sampled.AudioSystem
-import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
@@ -12,72 +10,47 @@ object Sfx {
 
     private data class Tone(val hz: Float, val ms: Int, val gain: Float = 0.26f, val sino: Boolean = false)
 
-    fun callJoin()   = play(listOf(Tone(620f, 80), Tone(930f, 150)))
-    fun callLeave()  = play(listOf(Tone(430f, 90), Tone(300f, 175)))
-    fun shareStart() = play(listOf(Tone(500f, 95), Tone(680f, 95), Tone(920f, 155)))
-    fun shareStop()  = play(listOf(Tone(920f, 95), Tone(680f, 95), Tone(500f, 155)))
+    private val FORMATO = AudioFormat(RATE.toFloat(), 16, 1, true, false)
 
-    fun aviso() = play(
-        listOf(
-            Tone(880f, 110, gain = 0.20f, sino = true),
-            Tone(1108.7f, 240, gain = 0.18f, sino = true),
-        ),
+    private val ENTRADA = som(Tone(620f, 80), Tone(930f, 150))
+    private val SAIDA = som(Tone(430f, 90), Tone(300f, 175))
+    private val TELA_LIGADA = som(Tone(500f, 95), Tone(680f, 95), Tone(920f, 155))
+    private val TELA_DESLIGADA = som(Tone(920f, 95), Tone(680f, 95), Tone(500f, 155))
+    private val AVISO = som(
+        Tone(880f, 110, gain = 0.20f, sino = true),
+        Tone(1108.7f, 240, gain = 0.18f, sino = true),
     )
+    private val CARINHO = som(
+        Tone(392f, 70, gain = 0.11f, sino = true),
+        Tone(523.3f, 130, gain = 0.09f, sino = true),
+    )
+    private val TOQUE = som(Tone(880f, 150), Tone(0f, 90), Tone(1170f, 220), Tone(0f, 2400, gain = 0f))
+    private val CHAMANDO = som(Tone(392f, 300, gain = 0.10f), Tone(0f, 2200, gain = 0f))
 
-    fun carinho() = play(
-        listOf(
-            Tone(392f, 70, gain = 0.11f, sino = true),
-            Tone(523.3f, 130, gain = 0.09f, sino = true),
-        ),
-    )
+    fun callJoin() = ENTRADA.tocar()
+    fun callLeave() = SAIDA.tocar()
+    fun shareStart() = TELA_LIGADA.tocar()
+    fun shareStop() = TELA_DESLIGADA.tocar()
+
+    fun aviso() = AVISO.tocar()
+
+    fun carinho() = CARINHO.tocar()
 
     @Volatile private var tocando = false
-
-    private val TOQUE = listOf(
-        Tone(880f, 150), Tone(0f, 90), Tone(1170f, 220), Tone(0f, 2400, gain = 0f),
-    )
-    private val CHAMANDO = listOf(
-        Tone(392f, 300, gain = 0.10f), Tone(0f, 2200, gain = 0f),
-    )
 
     fun ringStart(souEuQueLiguei: Boolean) {
         if (tocando) return
         tocando = true
-        val seq = if (souEuQueLiguei) CHAMANDO else TOQUE
-        thread(isDaemon = true, name = "astra-ring") {
-            runCatching {
-                val fmt = AudioFormat(RATE.toFloat(), 16, 1, true, false)
-                val buf = render(seq)
-                AudioSystem.getSourceDataLine(fmt).apply {
-                    open(fmt)
-                    start()
-                    while (tocando) write(buf, 0, buf.size)
-                    stop()
-                    close()
-                }
-            }
-            tocando = false
-        }
+        (if (souEuQueLiguei) CHAMANDO else TOQUE).repetir()
     }
 
-    fun ringStop() { tocando = false }
-
-    private fun play(seq: List<Tone>) {
-        thread(isDaemon = true, name = "astra-sfx") {
-            runCatching {
-                val fmt = AudioFormat(RATE.toFloat(), 16, 1, true, false)
-                val buf = render(seq)
-                AudioSystem.getSourceDataLine(fmt).apply {
-                    open(fmt)
-                    start()
-                    write(buf, 0, buf.size)
-                    drain()
-                    stop()
-                    close()
-                }
-            }
-        }
+    fun ringStop() {
+        tocando = false
+        TOQUE.parar()
+        CHAMANDO.parar()
     }
+
+    private fun som(vararg sequencia: Tone) = SomPronto(FORMATO) { render(sequencia.asList()) }
 
     private fun render(seq: List<Tone>): ByteArray {
         val total = seq.sumOf { it.ms * RATE / 1000 }

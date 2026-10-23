@@ -420,7 +420,6 @@ private fun Modifier.auroraNaPlaca(
         }
     }
     return drawBehind {
-        Quadros.marcar()
         Quadros.cronometrar("aurora") {
             if (size.width <= 0f || size.height <= 0f || !clipe.paradoPronto) {
                 drawRect(voidC)
@@ -486,7 +485,6 @@ private fun Modifier.auroraPeloProcessador(
     }
     DisposableEffect(filtro) { onDispose { filtro[0]?.close() } }
     return drawBehind {
-        Quadros.marcar()
         Quadros.cronometrar("aurora") {
             if (size.width <= 0f || size.height <= 0f || !clipe.paradoPronto) {
                 drawRect(voidC)

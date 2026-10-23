@@ -77,7 +77,6 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.TargetDataLine
 import kotlin.concurrent.thread
 import kotlin.math.PI
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -601,9 +600,9 @@ private fun MedidaDoQuadro() {
     Spacer(Modifier.height(6.dp))
     Text(
         if (amostras == 0) {
-            "as barras acima são uma estimativa; esta linha é o tempo real de desenho nesta máquina. Os ajustes ficam com você, aqui e em Aparência."
+            "as barras acima são uma estimativa; esta linha mede quanto o processador desta máquina leva para montar cada quadro. Os ajustes ficam com você, aqui e em Aparência."
         } else {
-            "tempo real de desenho nesta máquina. Os ajustes ficam com você, aqui e em Aparência."
+            "quanto o processador desta máquina leva para montar cada quadro. Os ajustes ficam com você, aqui e em Aparência."
         },
         style = Tipo.apoio,
     )
@@ -611,8 +610,7 @@ private fun MedidaDoQuadro() {
 
 private fun textoDaMedida(mediana: Double, amostras: Int): String {
     if (amostras == 0 || mediana <= 0.0) return "ainda medindo"
-    val porSegundo = (1000.0 / mediana).roundToInt()
-    return "%.1f ms por quadro · %d por segundo".format(mediana, porSegundo)
+    return "%.1f ms por quadro".format(mediana)
 }
 
 @Composable

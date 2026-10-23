@@ -52,6 +52,8 @@ private val PASSO_RUIM = Regex(
 
 private fun passoRuim(texto: String) = PASSO_RUIM.containsMatchIn(texto)
 
+private const val ORCAMENTO_DE_QUADRO_A_60_MS = 16.7
+
 @Composable
 internal fun DiagnosticsSection() {
     val socket = remember { GlobalContext.get().get<DesktopSocket>() }
@@ -142,7 +144,7 @@ internal fun DiagnosticsSection() {
             ok = !DesenhoDaJanela.peloProcessador,
         )
         DiagRow("memória (heap)", "$heapMb MB de $heapMax MB", ok = true)
-        DiagRow("quadro", Quadros.resumo(), ok = Quadros.p95Ms < 20.0 || Quadros.amostras == 0)
+        DiagRow("quadro", Quadros.resumo(), ok = Quadros.p95Ms < ORCAMENTO_DE_QUADRO_A_60_MS || Quadros.amostras == 0)
         DiagRow(
             "registro de falhas",
             if (falhas.exists()) "TEM falhas registradas" else "nenhuma falha",

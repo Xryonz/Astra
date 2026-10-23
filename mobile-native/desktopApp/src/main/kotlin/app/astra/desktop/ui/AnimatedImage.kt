@@ -273,7 +273,7 @@ private fun quadrosDoCodec(codec: Codec, lado: Int, cobrir: Boolean, ativo: () -
             val full = SkiaImage.makeFromBitmap(bmp)
             try {
                 out += if (scale < 1f) {
-                    reduzirEmEtapas(full, tw, th).asComposeImageBitmap()
+                    reduzirComMipmaps(full, tw, th).asComposeImageBitmap()
                 } else {
                     full.toComposeImageBitmap()
                 }

@@ -54,7 +54,7 @@ val appModule = module {
     single { SessionStore() }
 
     single(named("plain")) {
-        ClienteCompartilhado.base.newBuilder()
+        ClienteCompartilhado.comFilaPropria()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(75, TimeUnit.SECONDS)

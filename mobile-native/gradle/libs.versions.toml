@@ -4,7 +4,7 @@ kotlin = "2.3.21"
 ksp = "2.3.9"
 # Compose Multiplatform (desktop). O CMP mais recente e sempre compativel com o
 # Kotlin mais recente (min 2.1.0); nosso 2.3.21 serve. So o modulo :desktopApp usa.
-composeMultiplatform = "1.11.1"
+composeMultiplatform = "1.12.2"
 # DI do desktop (Hilt e Android-only). koin-core puro, sem codegen.
 koin = "4.1.0"
 hilt = "2.60"

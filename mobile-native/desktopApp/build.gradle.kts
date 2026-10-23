@@ -98,7 +98,7 @@ tasks.matching {
 }.configureEach { dependsOn(compilarSidecarVoz) }
 
 tasks.withType<AbstractJLinkTask>().configureEach {
-    freeArgs.add("--include-locales=pt-BR,en")
+    freeArgs.add("--include-locales=pt,en")
 }
 
 tasks.register("zipDistributable") {

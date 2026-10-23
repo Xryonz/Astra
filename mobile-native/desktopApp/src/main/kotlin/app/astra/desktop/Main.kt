@@ -41,6 +41,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.AtividadePublicador
 import app.astra.desktop.net.Servidor
@@ -711,7 +712,12 @@ fun main(args: Array<String>) {
                     .components {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
-                        add(OkHttpNetworkFetcherFactory(cacheStrategy = { ErroGuardadoPorPouco() }))
+                        add(
+                            OkHttpNetworkFetcherFactory(
+                                callFactory = { ClienteCompartilhado.base },
+                                cacheStrategy = { ErroGuardadoPorPouco() },
+                            ),
+                        )
                         add(DecodificadorNitido.Fabrica())
                     }
                     .memoryCache {

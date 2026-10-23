@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class FastSendResult(
@@ -38,6 +39,10 @@ class DesktopSocket(
     private val channels = ConcurrentHashMap.newKeySet<String>()
     private val dms = ConcurrentHashMap.newKeySet<String>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val clienteDoSocket by lazy {
+        ClienteCompartilhado.base.newBuilder().readTimeout(1, TimeUnit.MINUTES).build()
+    }
 
     private val ouvidos = LinkedHashMap<String, MutableSharedFlow<String>>()
 
@@ -187,6 +192,8 @@ class DesktopSocket(
             auth = mapOf("token" to token)
             reconnection = false
             forceNew = true
+            callFactory = clienteDoSocket
+            webSocketFactory = clienteDoSocket
         }
         val s = runCatching { IO.socket(AstraShared.BASE_URL, opts) }.getOrNull() ?: run {
             recuar()

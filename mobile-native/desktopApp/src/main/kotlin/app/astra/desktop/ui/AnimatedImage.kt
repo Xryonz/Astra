@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.shared.AstraShared
 import androidx.compose.ui.draw.drawBehind
 import coil3.PlatformContext
@@ -292,8 +293,6 @@ private object AnimatedImageStore {
         return frames
     }
 
-    private val plain by lazy { OkHttpClient() }
-
     private fun fetchBytes(url: String): ByteArray? {
         if (url.startsWith("data:")) {
             val i = url.indexOf("base64,")
@@ -301,7 +300,7 @@ private object AnimatedImageStore {
             return runCatching { Base64.getDecoder().decode(url.substring(i + 7)) }.getOrNull()
         }
         val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
-        return doDiscoDoCoil(abs) ?: doDiscoDoCoil(url) ?: get(http, abs) ?: get(plain, abs)
+        return doDiscoDoCoil(abs) ?: doDiscoDoCoil(url) ?: get(http, abs) ?: get(ClienteCompartilhado.base, abs)
     }
 
     private fun doDiscoDoCoil(chave: String): ByteArray? = runCatching {

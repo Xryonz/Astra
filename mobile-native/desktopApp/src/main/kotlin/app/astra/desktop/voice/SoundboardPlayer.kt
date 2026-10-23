@@ -1,6 +1,6 @@
 package app.astra.desktop.voice
 
-import okhttp3.OkHttpClient
+import app.astra.desktop.net.ClienteCompartilhado
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.util.Collections
@@ -13,8 +13,6 @@ import kotlin.concurrent.thread
 object SoundboardPlayer {
     private const val TETO_CACHE = 24
     private const val TETO_BYTES = 4 * 1024 * 1024
-
-    private val http = OkHttpClient()
 
     private val cache: MutableMap<String, ByteArray> = Collections.synchronizedMap(
         object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
@@ -34,7 +32,7 @@ object SoundboardPlayer {
     }
 
     private fun baixar(url: String): ByteArray? = runCatching {
-        http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+        ClienteCompartilhado.base.newCall(Request.Builder().url(url).build()).execute().use { r ->
             if (!r.isSuccessful) return null
             val corpo = r.body?.bytes() ?: return null
             if (corpo.size > TETO_BYTES) null else corpo

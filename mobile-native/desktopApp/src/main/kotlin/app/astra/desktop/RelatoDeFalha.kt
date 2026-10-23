@@ -1,10 +1,10 @@
 package app.astra.desktop
 
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.shared.AstraShared
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
@@ -41,7 +41,7 @@ object RelatoDeFalha {
     private val json = Json { encodeDefaults = true }
 
     private val cliente by lazy {
-        OkHttpClient.Builder()
+        ClienteCompartilhado.base.newBuilder()
             .callTimeout(PRAZO_S, TimeUnit.SECONDS)
             .build()
     }

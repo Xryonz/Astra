@@ -3,6 +3,7 @@ package app.astra.desktop.di
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.AuthInterceptor
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.desktop.net.DeviceInterceptor
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.xp.MissoesStore
@@ -43,7 +44,6 @@ import app.astra.shared.AstraShared
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import retrofit2.Retrofit
@@ -54,7 +54,7 @@ val appModule = module {
     single { SessionStore() }
 
     single(named("plain")) {
-        OkHttpClient.Builder()
+        ClienteCompartilhado.base.newBuilder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(75, TimeUnit.SECONDS)
@@ -74,7 +74,7 @@ val appModule = module {
     single<RefreshApi> { get<Retrofit>(named("plain")).create(RefreshApi::class.java) }
 
     single(named("authed")) {
-        OkHttpClient.Builder()
+        ClienteCompartilhado.base.newBuilder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS)

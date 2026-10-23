@@ -3,6 +3,7 @@ package app.astra.desktop.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -29,10 +32,13 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -45,13 +51,40 @@ import org.koin.core.qualifier.named
 import java.util.Base64
 import kotlin.math.roundToInt
 
-internal data class AnimatedFrames(
+internal class AnimatedFrames(
     val frames: List<ImageBitmap>,
     val durationsMs: List<Int>,
     val width: Int,
     val height: Int,
 ) {
     val bytes: Long get() = width.toLong() * height * 4 * frames.size
+
+    private var emUso = 0
+    private var descartada = false
+    private var fechada = false
+
+    @Synchronized
+    fun usar() {
+        emUso++
+    }
+
+    @Synchronized
+    fun soltar() {
+        emUso--
+        if (emUso == 0 && descartada) fechar()
+    }
+
+    @Synchronized
+    fun descartar() {
+        descartada = true
+        if (emUso == 0) fechar()
+    }
+
+    private fun fechar() {
+        if (fechada) return
+        fechada = true
+        frames.forEach { runCatching { it.asSkiaBitmap().close() } }
+    }
 }
 
 @Composable
@@ -117,12 +150,20 @@ private fun QuadrosAnimados(
     alignment: Alignment,
     contentScale: ContentScale,
 ) {
+    DisposableEffect(a) {
+        a.usar()
+        onDispose { a.soltar() }
+    }
     val indice = remember(a) { mutableIntStateOf(0) }
     if (tocar && a.frames.size > 1) {
         LaunchedEffect(a) {
             var i = 0
+            var prazo = System.nanoTime()
             while (true) {
-                delay(a.durationsMs[i].coerceAtLeast(20).toLong())
+                prazo += a.durationsMs[i].coerceAtLeast(20) * NS_POR_MS
+                val agora = System.nanoTime()
+                if (agora - prazo > ATRASO_MAXIMO_NS) prazo = agora
+                delay((prazo - agora).coerceAtLeast(0) / NS_POR_MS)
                 i = (i + 1) % a.frames.size
                 indice.intValue = i
             }
@@ -158,6 +199,10 @@ internal fun FotoAnimada(quadros: AnimatedFrames, contentDescription: String?, m
 internal fun fotoSabidamenteParada(url: String): Boolean = AnimatedImageStore.isKnownStatic(url)
 
 private const val ESPERA_ANTES_DE_DECODIFICAR_MS = 150L
+
+private const val NS_POR_MS = 1_000_000L
+
+private const val ATRASO_MAXIMO_NS = 1_000_000_000L
 
 private class QuadrosPainter(
     private val quadros: List<ImageBitmap>,
@@ -197,7 +242,12 @@ private fun decodeAnimated(
     cobrir: Boolean,
     ativo: () -> Boolean,
 ): AnimatedFrames? = runCatching {
-    val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
+    Data.makeFromBytes(bytes).use { dados ->
+        Codec.makeFromData(dados).use { codec -> quadrosDoCodec(codec, lado, cobrir, ativo) }
+    }
+}.getOrElse { if (it is CancellationException) throw it else null }
+
+private fun quadrosDoCodec(codec: Codec, lado: Int, cobrir: Boolean, ativo: () -> Boolean): AnimatedFrames? {
     val count = codec.frameCount
     if (count <= 1) return null
     val info = codec.imageInfo
@@ -221,22 +271,30 @@ private fun decodeAnimated(
             if (!ativo()) throw CancellationException()
             codec.readPixels(bmp, i)
             val full = SkiaImage.makeFromBitmap(bmp)
-            if (scale < 1f) {
-                out += SkiaImage.makeFromBitmap(reduzirEmEtapas(full, tw, th)).toComposeImageBitmap()
+            try {
+                out += if (scale < 1f) {
+                    reduzirEmEtapas(full, tw, th).asComposeImageBitmap()
+                } else {
+                    full.toComposeImageBitmap()
+                }
+            } finally {
                 runCatching { full.close() }
-            } else {
-                out += full.toComposeImageBitmap()
             }
             val d = fi.getOrNull(i)?.duration ?: 100
             durs += if (d <= 0) 100 else d
         }
+    } catch (e: Throwable) {
+        out.forEach { runCatching { it.asSkiaBitmap().close() } }
+        throw e
     } finally {
         runCatching { bmp.close() }
     }
-    AnimatedFrames(out, durs, tw, th)
-}.getOrElse { if (it is CancellationException) throw it else null }
+    return AnimatedFrames(out, durs, tw, th)
+}
 
 private const val ANIM_CACHE_BYTES = 48L * 1024 * 1024
+
+private const val CARENCIA_DO_DESCARTE_MS = 5_000L
 
 private object AnimatedImageStore {
     private val lock = Any()
@@ -250,8 +308,10 @@ private object AnimatedImageStore {
         if (cacheBytes <= ANIM_CACHE_BYTES) return
         val it = cache.entries.iterator()
         while (it.hasNext() && cacheBytes > ANIM_CACHE_BYTES) {
-            cacheBytes -= it.next().value.bytes
+            val saindo = it.next().value
+            cacheBytes -= saindo.bytes
             it.remove()
+            descartarDepois(saindo)
         }
     }
     private val staticKeys = object : LinkedHashMap<String, Boolean>(16, 0.75f, true) {
@@ -259,6 +319,15 @@ private object AnimatedImageStore {
     }
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
+
+    private val descarte = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private fun descartarDepois(quadros: AnimatedFrames) {
+        descarte.launch {
+            delay(CARENCIA_DO_DESCARTE_MS)
+            quadros.descartar()
+        }
+    }
 
     private fun guardavel(chave: Chave) = !(chave.cobrir && chave.url.startsWith("data:"))
 
@@ -280,12 +349,15 @@ private object AnimatedImageStore {
         val bytes = fetchBytes(url) ?: return null
         val contexto = currentCoroutineContext()
         val frames = decodeAnimated(bytes, lado, cobrir) { contexto.isActive }
-        if (!guardar) return frames
+        if (!guardar) return frames?.also { descartarDepois(it) }
         synchronized(lock) {
             if (frames == null) {
                 staticKeys[url] = true
             } else {
-                cache.put(chave, frames)?.let { cacheBytes -= it.bytes }
+                cache.put(chave, frames)?.let {
+                    cacheBytes -= it.bytes
+                    descartarDepois(it)
+                }
                 cacheBytes += frames.bytes
                 trimLocked()
             }

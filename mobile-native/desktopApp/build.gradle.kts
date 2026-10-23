@@ -141,11 +141,13 @@ compose.desktop {
         mainClass = "app.astra.desktop.MainKt"
         jvmArgs += "-Dastra.version=$astraVersion"
         jvmArgs += "-Dastra.canal=${providers.gradleProperty("astra.canal").orNull ?: "dev"}"
+        jvmArgs += "-Dsun.java2d.d3d=false"
         val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
         if (gcProfile == "zgc") {
             jvmArgs += "-XX:+UseZGC"
             jvmArgs += "-XX:+ZGenerational"
         } else {
+            jvmArgs += "-XX:+UseG1GC"
             jvmArgs += "-XX:MaxGCPauseMillis=8"
             jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
         }
@@ -198,6 +200,7 @@ compose.desktop {
                 "jdk.accessibility",
                 "jdk.localedata",
             )
+            if (providers.gradleProperty("jfr").isPresent) modules("jdk.jfr")
             appResourcesRootDir.set(project.file("appResources"))
             windows {
                 iconFile.set(project.file("icons/astra.ico"))

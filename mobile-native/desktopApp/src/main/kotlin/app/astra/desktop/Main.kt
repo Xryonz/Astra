@@ -211,6 +211,11 @@ private fun placaQueDesenha(componente: java.awt.Component): String? {
     return componente.components.firstNotNullOfOrNull { placaQueDesenha(it) }
 }
 
+private fun semBufferDuploDoSwing(janela: javax.swing.JFrame) {
+    janela.rootPane.isDoubleBuffered = false
+    (janela.contentPane as? javax.swing.JComponent)?.isDoubleBuffered = false
+}
+
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
     val dir = CrashLog.dataDir()
@@ -686,6 +691,7 @@ fun main(args: Array<String>) {
             marcoDoArranque(Arranque.MARCO_JANELA)
             MaximizadaDentroDaAreaUtil()
             remember { Vigia.janelaCriada() }
+            remember { semBufferDuploDoSwing(window) }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
                 Arranque.marcar("composição da janela pronta")

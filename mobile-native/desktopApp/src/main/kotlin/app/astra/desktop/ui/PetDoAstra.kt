@@ -63,7 +63,6 @@ import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random

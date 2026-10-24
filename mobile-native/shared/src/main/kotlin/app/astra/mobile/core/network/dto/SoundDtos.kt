@@ -23,12 +23,3 @@ data class CriarSomRequest(
 
 @Serializable
 data class TocarSomRequest(val channelId: String)
-
-@Serializable
-data class SoundboardPlayDto(
-    val channelId: String = "",
-    val soundId: String = "",
-    val name: String = "",
-    val url: String = "",
-    val byUserId: String = "",
-)

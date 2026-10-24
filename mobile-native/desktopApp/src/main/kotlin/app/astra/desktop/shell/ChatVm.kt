@@ -38,7 +38,6 @@ import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -45,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.network.dto.ItemMissaoDto
-import app.astra.mobile.core.network.dto.PainelMissoesDto
 import app.astra.mobile.core.network.dto.ProgressoDto
 import app.astra.mobile.core.xp.quantasProntas
 import app.astra.mobile.ui.LocalAppPrefs

@@ -1,12 +1,10 @@
 package app.astra.mobile.core.voice
 
-import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.util.Log
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.realtime.SocketManager
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +14,6 @@ import javax.inject.Singleton
 
 @Singleton
 class SonsDaConstelacao @Inject constructor(
-    @ApplicationContext private val contexto: Context,
     socketManager: SocketManager,
 ) {
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.Main)

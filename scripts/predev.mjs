@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-/**
- * predev — pre-flight checks pra evitar bugs silenciosos no dev.
- *
- * Roda automaticamente antes de `npm run dev` (configurado em package.json).
- * Garante:
- *   1. Porta 3001 (api) livre — mata orphans
- *   2. .env do api existe + tem vars obrigatórias
- *   3. DB schema atualizado (roda manualMigrate)
- *
- * Cross-platform: funciona em Windows (PowerShell), Linux, macOS.
- *
- * Por que existe: bug do ProfileCard (2026-06-02) foi causado por orphan
- * api process com schema antigo. predev mata esse padrão.
- */
 import { execSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
@@ -33,13 +19,9 @@ const log = {
   err:  (s) => console.log(`  ${c.red}✗${c.reset} ${s}`),
 }
 
-// ──────────────────────────────────────────────────────────────
-// 1. Porta: mata processos em 3001 (api)
-// ──────────────────────────────────────────────────────────────
 function killOrphansOnPort(port) {
   try {
     if (IS_WIN) {
-      // Windows: netstat -ano | findstr PORT → extrai PID → taskkill
       const out = execSync(`netstat -ano | findstr ":${port} "`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
       const pids = new Set()
       for (const line of out.split('\n')) {
@@ -58,7 +40,6 @@ function killOrphansOnPort(port) {
         }
       }
     } else {
-      // Unix: lsof -ti:PORT → kill
       const out = execSync(`lsof -ti:${port}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
       if (!out) { log.ok(`:${port} livre`); return }
       for (const pid of out.split('\n')) {
@@ -71,7 +52,6 @@ function killOrphansOnPort(port) {
       }
     }
   } catch {
-    // netstat/lsof retornou erro = nada listening = OK
     log.ok(`:${port} livre`)
   }
 }
@@ -79,9 +59,6 @@ function killOrphansOnPort(port) {
 log.step('Checando portas')
 killOrphansOnPort(3001)
 
-// ──────────────────────────────────────────────────────────────
-// 2. .env validação (apps/api/.env)
-// ──────────────────────────────────────────────────────────────
 log.step('Validando apps/api/.env')
 const envPath = resolve(ROOT, 'apps/api/.env')
 if (!existsSync(envPath)) {
@@ -109,13 +86,7 @@ if (missing.length > 0) {
 }
 log.ok(`${REQUIRED.length}/${REQUIRED.length} vars obrigatórias presentes`)
 
-// ──────────────────────────────────────────────────────────────
-// 3. DB migration (manualMigrate)
-// ──────────────────────────────────────────────────────────────
 log.step('Aplicando migrations')
-// Cross-platform: passa comando inteiro como string única com shell:true.
-// Não dispara DEP0190 (args não são separados) — args são literais hardcoded
-// neste arquivo, nenhum input do user envolvido.
 const migrate = spawnSync('npx ts-node src/db/manualMigrate.ts', {
   cwd: resolve(ROOT, 'apps/api'),
   stdio: 'inherit',

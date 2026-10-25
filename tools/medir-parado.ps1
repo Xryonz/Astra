@@ -1,34 +1,3 @@
-# QUANTO O ASTRA GASTA PARADO -- com as tres travas que faltaram na primeira vez.
-#
-# ASCII puro: o PowerShell 5.1 le arquivo sem BOM como ANSI e quebra com aspa curva.
-#
-# POR QUE ESTE ARQUIVO EXISTE
-#
-# Numa sessao inteira eu medi o custo do app parado seis vezes e tirei tres conclusoes
-# CONTRADITORIAS da mesma maquina: "e a aurora", depois "nao e a aurora", depois "e a
-# aurora". Nenhuma medicao estava errada em si -- o que estava errado era o que mais
-# variava entre elas sem ninguem controlar:
-#
-#   1. FOCO. Metade das medidas foi com o app na frente e metade atras, sem conferir.
-#      Depois que o segundo plano passou a congelar o movimento, essa e a variavel que
-#      MAIS muda o numero: 0,001 nucleo contra 0,35.
-#   2. ESTADO DA TELA. Uma das medidas pegou o app preso numa tela de carregamento
-#      quebrada, com um indicador animado girando pra sempre. Ela mediu o defeito, nao o
-#      app -- e foi ela que produziu a conclusao "nao e a aurora", que eu publiquei.
-#   3. UMA AMOSTRA SO. Duas leituras a 0,29 e 0,27 viraram "a transparencia nao custa
-#      nada". Com uma amostra cada, e ruido, nao resultado.
-#
-# Este script tranca as tres: confere quem esta em primeiro plano ANTES e DEPOIS de cada
-# amostra (e descarta se mudou no meio), recusa medir se o app registrou falha de rede, e
-# tira varias amostras por configuracao mostrando todas -- nunca so a media.
-#
-# USO
-#   powershell -ExecutionPolicy Bypass -File tools\medir-parado.ps1
-#   powershell -ExecutionPolicy Bypass -File tools\medir-parado.ps1 -Configs 'ceu,semceu'
-#   powershell -ExecutionPolicy Bypass -File tools\medir-parado.ps1 -SemFoco
-#
-# ATENCAO: mexe no ui.properties do dono e devolve no fim (inclusive se der erro).
-
 param(
   [string]$Configs = 'ceu,soaurora,soestrelas,semceu',
   [int]$Amostras = 3,
@@ -63,8 +32,6 @@ public class Jan {
 }
 "@
 
-# Cada configuracao muda UMA coisa em relacao a 'ceu'. Trocar duas de uma vez foi como se
-# perde a resposta: quando o numero mexe, nao da pra saber qual das duas mexeu.
 $PRESETS = @{
   'ceu'        = @{ auroraEnabled='1'; starsEnabled='1'; windowTransparent='1'; uiFps='free'; auroraQuality='high'; reduceMotion='0' }
   'soaurora'   = @{ auroraEnabled='1'; starsEnabled='0'; windowTransparent='1'; uiFps='free'; auroraQuality='high' }
@@ -74,9 +41,6 @@ $PRESETS = @{
   'fps60'      = @{ auroraEnabled='1'; starsEnabled='1'; windowTransparent='1'; uiFps='60';   auroraQuality='high' }
   'fps30'      = @{ auroraEnabled='1'; starsEnabled='1'; windowTransparent='1'; uiFps='30';   auroraQuality='high' }
   'auroralow'  = @{ auroraEnabled='1'; starsEnabled='1'; windowTransparent='1'; uiFps='free'; auroraQuality='low' }
-  # Ceu ligado, TODO o resto do movimento desligado. E o unico jeito de separar "o custo e
-  # o ceu" de "o custo e o resto que se mexe" -- e foi a confusao entre os dois que
-  # produziu tres conclusoes contraditorias na primeira rodada.
   'semmovimento' = @{ auroraEnabled='1'; starsEnabled='1'; windowTransparent='1'; uiFps='free'; auroraQuality='high'; reduceMotion='1' }
 }
 
@@ -131,18 +95,13 @@ try {
     $p = Achar-Astra
     if (-not $p) { Write-Host "$nome : o app nao subiu" -ForegroundColor Red; continue }
 
-    # TRAVA 2: falha de rede = a tela pode estar num estado de carregamento com
-    # indicador animado, e ai a medida e do defeito, nao do app.
     if (Test-Path $rede) {
       Write-Host "$nome : DESCARTADA -- houve falha de rede (rede.txt existe)" -ForegroundColor Yellow
       continue
     }
 
-    # TRAVA 1: colocar o app no estado pedido, e CONFERIR que ele ficou la.
     $h = [Jan]::Maior([uint32]$p.Id)
     if (-not $SemFoco) {
-      # minimizar+restaurar e o unico jeito confiavel de trazer pra frente a partir de um
-      # processo sem foco (SetForegroundWindow do Windows recusa).
       [void][Jan]::ShowWindow($h, 6); Start-Sleep -Seconds 2
       [void][Jan]::ShowWindow($h, 9); Start-Sleep -Seconds 4
     }

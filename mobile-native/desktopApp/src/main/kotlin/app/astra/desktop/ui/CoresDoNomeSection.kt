@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -123,6 +126,7 @@ private fun LinhaDeConstelacao(
     var rascunho by remember(servidor.id) { mutableStateOf<String?>(null) }
     var segundaCor by remember(servidor.id) { mutableStateOf<String?>(null) }
     var movimento by remember(servidor.id) { mutableStateOf(Movimento.NENHUM) }
+    var graus by remember(servidor.id) { mutableIntStateOf(GRAUS_DO_DEGRADE_DE_FABRICA) }
 
     LaunchedEffect(servidor.id) {
         val vista = runCatching { api.myPerms(servidor.id).data?.nameColor }.getOrNull()
@@ -138,6 +142,7 @@ private fun LinhaDeConstelacao(
             is CorDoNome.Animada.Varredura -> emHex(salva.fim)
             else -> null
         }
+        graus = (salva as? CorDoNome.Degrade)?.graus ?: GRAUS_DO_DEGRADE_DE_FABRICA
         movimento = when (salva) {
             is CorDoNome.Animada.ArcoIris -> Movimento.ARCO_IRIS
             is CorDoNome.Animada.Varredura -> Movimento.VARREDURA
@@ -148,15 +153,30 @@ private fun LinhaDeConstelacao(
 
     val escolhida = rascunho
     val faltaSegunda = movimento == Movimento.VARREDURA && segundaCor == null
-    val montada = when {
-        escolhida == null || faltaSegunda -> null
-        movimento == Movimento.ARCO_IRIS -> "anim:arcoiris:$escolhida"
-        movimento == Movimento.PULSO -> "anim:pulso:$escolhida"
-        movimento == Movimento.VARREDURA -> "anim:varredura:$escolhida:$segundaCor"
-        segundaCor != null -> "gradient:0:$escolhida:$segundaCor"
-        else -> escolhida
-    }
+    val montada = montarCorDoNome(escolhida, segundaCor, movimento, graus)
     val amostra = lerCorDoNome(montada)
+    val nome = me?.displayName ?: me?.username ?: "seu nome"
+
+    fun descartarRascunho() {
+        rascunho = null
+        segundaCor = null
+        movimento = Movimento.NENHUM
+        graus = GRAUS_DO_DEGRADE_DE_FABRICA
+    }
+
+    fun gravar(cor: String?, erroAoGravar: String) {
+        salvando = true; erro = null
+        scope.launch {
+            val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(cor)).data }
+            salvando = false
+            if (r.isSuccess) {
+                aoSalvar(if (cor == null) null else r.getOrNull()?.nameColor)
+                descartarRascunho()
+            } else {
+                erro = erroAoGravar
+            }
+        }
+    }
 
     val interacao = remember { MutableInteractionSource() }
     val hover by interacao.collectIsHoveredAsState()
@@ -168,41 +188,7 @@ private fun LinhaDeConstelacao(
             .background(Obsidian.raised.copy(alpha = if (hover || expandida) 0.75f else 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp)),
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clickScale(interacao)
-                .hoverable(interacao)
-                .clickable(interactionSource = interacao, indication = null, onClick = aoAlternar)
-                .padding(horizontal = 18.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DesktopAvatar(servidor.iconUrl, servidor.name, 26)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    servidor.name,
-                    style = Tipo.corpo,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                NomeColorido(
-                    texto = me?.displayName ?: me?.username ?: "seu nome",
-                    cor = lerCorDoNome(corAtual),
-                    padrao = Obsidian.text3,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            LIcon(
-                Lucide.ChevronDown,
-                tint = Obsidian.text3,
-                size = 15.dp,
-                rotulo = if (expandida) "fechar ${servidor.name}" else "escolher cor em ${servidor.name}",
-            )
-        }
+        CabecaDaConstelacao(servidor, nome, corAtual, expandida, interacao, aoAlternar)
 
         AnimatedVisibility(
             visible = expandida,
@@ -211,48 +197,25 @@ private fun LinhaDeConstelacao(
         ) {
             Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 12.dp)) {
                 FieldLabel("cor")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PREDEFINIDAS.forEach { hex ->
-                        Amostra(hex, selecionada = escolhida == hex) { rascunho = hex; erro = null }
-                    }
-                }
+                EscolhaDeCor(escolhida, comNenhuma = false) { rascunho = it; erro = null }
 
                 Spacer(Modifier.height(12.dp))
                 FieldLabel("segunda cor, para degradê")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Amostra(null, selecionada = segundaCor == null) { segundaCor = null }
-                    PREDEFINIDAS.forEach { hex ->
-                        Amostra(hex, selecionada = segundaCor == hex) { segundaCor = hex; erro = null }
-                    }
+                EscolhaDeCor(segundaCor, comNenhuma = true) { segundaCor = it; erro = null }
+
+                if (segundaCor != null && movimento == Movimento.NENHUM) {
+                    Spacer(Modifier.height(12.dp))
+                    FieldLabel("direção do degradê")
+                    SeletorDeDirecao(graus) { graus = it; erro = null }
                 }
 
                 Spacer(Modifier.height(12.dp))
                 FieldLabel("movimento, ao passar o cursor")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Movimento.entries.forEach { m ->
-                        PastilhaDeMovimento(m.rotulo, selecionada = movimento == m) {
-                            movimento = m; erro = null
-                        }
-                    }
-                }
+                EscolhaDeMovimento(movimento) { movimento = it; erro = null }
 
                 if (amostra != null) {
                     Spacer(Modifier.height(12.dp))
-                    NomeColorido(
-                        texto = me?.displayName ?: me?.username ?: "seu nome",
-                        cor = amostra,
-                        padrao = Obsidian.text1,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    if (movimento != Movimento.NENHUM) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "o movimento só acontece com o cursor sobre o nome. Em repouso, e no celular, o nome fica na cor fixa.",
-                            style = Tipo.apoio,
-                            modifier = Modifier.widthIn(max = 380.dp),
-                        )
-                    }
+                    PreviaDoNome(nome, amostra, comMovimento = movimento != Movimento.NENHUM)
                 }
 
                 if (faltaSegunda) {
@@ -266,50 +229,117 @@ private fun LinhaDeConstelacao(
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BotaoDeDialogo(
-                        "aplicar",
-                        TipoDeBotao.PRINCIPAL,
-                        onClick = {
-                            salvando = true; erro = null
-                            scope.launch {
-                                val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(montada)).data }
-                                salvando = false
-                                if (r.isSuccess) {
-                                    aoSalvar(r.getOrNull()?.nameColor)
-                                    rascunho = null
-                                    segundaCor = null
-                                    movimento = Movimento.NENHUM
-                                } else {
-                                    erro = "Não foi possível aplicar essa cor"
-                                }
-                            }
-                        },
-                        ligado = montada != null && !salvando,
-                    )
-                    BotaoDeDialogo(
-                        "voltar ao padrão",
-                        TipoDeBotao.SECUNDARIO,
-                        onClick = {
-                            salvando = true; erro = null
-                            scope.launch {
-                                val r = runCatching { api.setMyColor(servidor.id, MyColorRequest(null)).data }
-                                salvando = false
-                                if (r.isSuccess) {
-                                    aoSalvar(null)
-                                    rascunho = null
-                                    segundaCor = null
-                                    movimento = Movimento.NENHUM
-                                } else {
-                                    erro = "Não foi possível limpar a cor"
-                                }
-                            }
-                        },
-                        ligado = !salvando,
-                    )
-                }
+                BotoesDaCor(
+                    podeAplicar = montada != null,
+                    salvando = salvando,
+                    aoAplicar = { gravar(montada, "Não foi possível aplicar essa cor") },
+                    aoLimpar = { gravar(null, "Não foi possível limpar a cor") },
+                )
             }
         }
+    }
+}
+
+private fun montarCorDoNome(escolhida: String?, segundaCor: String?, movimento: Movimento, graus: Int): String? =
+    when {
+        escolhida == null -> null
+        movimento == Movimento.VARREDURA && segundaCor == null -> null
+        movimento == Movimento.ARCO_IRIS -> "anim:arcoiris:$escolhida"
+        movimento == Movimento.PULSO -> "anim:pulso:$escolhida"
+        movimento == Movimento.VARREDURA -> "anim:varredura:$escolhida:$segundaCor"
+        segundaCor != null -> "gradient:$graus:$escolhida:$segundaCor"
+        else -> escolhida
+    }
+
+@Composable
+private fun CabecaDaConstelacao(
+    servidor: ServerDto,
+    nome: String,
+    corAtual: String?,
+    expandida: Boolean,
+    interacao: MutableInteractionSource,
+    aoAlternar: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickScale(interacao)
+            .hoverable(interacao)
+            .clickable(interactionSource = interacao, indication = null, onClick = aoAlternar)
+            .padding(horizontal = 18.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesktopAvatar(servidor.iconUrl, servidor.name, 26)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                servidor.name,
+                style = Tipo.corpo,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            NomeColorido(
+                texto = nome,
+                cor = lerCorDoNome(corAtual),
+                padrao = Obsidian.text3,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        LIcon(
+            Lucide.ChevronDown,
+            tint = Obsidian.text3,
+            size = 15.dp,
+            rotulo = if (expandida) "fechar ${servidor.name}" else "escolher cor em ${servidor.name}",
+        )
+    }
+}
+
+@Composable
+private fun EscolhaDeCor(selecionada: String?, comNenhuma: Boolean, aoEscolher: (String?) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (comNenhuma) Amostra(null, selecionada = selecionada == null) { aoEscolher(null) }
+        PREDEFINIDAS.forEach { hex ->
+            Amostra(hex, selecionada = selecionada == hex) { aoEscolher(hex) }
+        }
+    }
+}
+
+@Composable
+private fun EscolhaDeMovimento(movimento: Movimento, aoEscolher: (Movimento) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Movimento.entries.forEach { m ->
+            PastilhaDeMovimento(m.rotulo, selecionada = movimento == m) { aoEscolher(m) }
+        }
+    }
+}
+
+@Composable
+private fun PreviaDoNome(nome: String, amostra: CorDoNome, comMovimento: Boolean) {
+    NomeColorido(
+        texto = nome,
+        cor = amostra,
+        padrao = Obsidian.text1,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+    if (comMovimento) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "o movimento só acontece com o cursor sobre o nome. Em repouso, e no celular, o nome fica na cor fixa.",
+            style = Tipo.apoio,
+            modifier = Modifier.widthIn(max = 380.dp),
+        )
+    }
+}
+
+@Composable
+private fun BotoesDaCor(podeAplicar: Boolean, salvando: Boolean, aoAplicar: () -> Unit, aoLimpar: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        BotaoDeDialogo("aplicar", TipoDeBotao.PRINCIPAL, onClick = aoAplicar, ligado = podeAplicar && !salvando)
+        BotaoDeDialogo("voltar ao padrão", TipoDeBotao.SECUNDARIO, onClick = aoLimpar, ligado = !salvando)
     }
 }
 
@@ -335,6 +365,7 @@ private fun PastilhaDeMovimento(rotulo: String, selecionada: Boolean, aoTocar: (
             )
             .hoverable(interacao)
             .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .semantics { selected = selecionada }
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
         Text(

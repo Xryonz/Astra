@@ -8,16 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import app.astra.desktop.ui.theme.Obsidian
-import kotlin.math.abs
-import kotlin.math.cos
 import kotlin.math.min
-import kotlin.math.sin
 
 data class BannerGradient(val id: String, val label: String, val css: String)
 
@@ -83,17 +79,8 @@ fun bannerBrush(css: String?, width: Float, height: Float, fallback: Color): Bru
     if (colors.isEmpty()) return SolidColor(fallback)
     if (colors.size == 1) return SolidColor(colors[0])
 
-    val rad = Math.toRadians(deg.toDouble())
-    val dx = sin(rad).toFloat()
-    val dy = -cos(rad).toFloat()
-    val len = (abs(width * dx) + abs(height * dy)) / 2f
-    val cx = width / 2f
-    val cy = height / 2f
-    return Brush.linearGradient(
-        colors = colors,
-        start = Offset(cx - dx * len, cy - dy * len),
-        end = Offset(cx + dx * len, cy + dy * len),
-    )
+    val (inicio, fim) = pontasDoDegrade(deg, width, height)
+    return Brush.linearGradient(colors = colors, start = inicio, end = fim)
 }
 
 internal const val ProfileBannerAspect = 3.5f

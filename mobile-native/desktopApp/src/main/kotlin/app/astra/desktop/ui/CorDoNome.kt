@@ -17,7 +17,7 @@ sealed interface CorDoNome {
         val fim: Color,
         val graus: Int,
     ) : CorDoNome {
-        override val pincel: Brush get() = Brush.linearGradient(listOf(solida, fim))
+        override val pincel: Brush get() = DegradeEmAngulo(listOf(solida, fim), graus)
     }
 
     sealed interface Animada : CorDoNome {

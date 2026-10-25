@@ -38,6 +38,8 @@ val ProfileGradients: List<Pair<String, String>> = listOf(
 )
 
 private val HEX_RE = Regex("#[0-9a-fA-F]{6}")
+private val GRAUS_RE = Regex("(-?\\d+(?:\\.\\d+)?)deg")
+private const val GRAUS_PADRAO_DO_CSS = 180f
 
 fun parseGradientBrush(css: String?): Brush? {
     if (css.isNullOrBlank()) return null
@@ -47,9 +49,12 @@ fun parseGradientBrush(css: String?): Brush? {
     return when {
         colors.isEmpty() -> null
         colors.size == 1 -> Brush.linearGradient(listOf(colors[0], colors[0]))
-        else -> Brush.linearGradient(colors)
+        else -> DegradeEmAngulo(colors, grausDoCss(css))
     }
 }
+
+private fun grausDoCss(css: String): Float =
+    GRAUS_RE.find(css)?.groupValues?.get(1)?.toFloatOrNull() ?: GRAUS_PADRAO_DO_CSS
 
 val DisplayFontOptions: List<Pair<String, String>> = listOf(
     "serif" to "Serif",

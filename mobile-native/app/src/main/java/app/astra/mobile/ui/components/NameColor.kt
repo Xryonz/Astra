@@ -15,7 +15,7 @@ fun parseNameColor(raw: String?): NameColor? {
         if (parts.size != 4) return null
         val c1 = parseHex6(parts[2]) ?: return null
         val c2 = parseHex6(parts[3]) ?: return null
-        return NameColor.Gradient(Brush.linearGradient(listOf(c1, c2)))
+        return NameColor.Gradient(DegradeEmAngulo(listOf(c1, c2), parts[1].toFloatOrNull() ?: 0f))
     }
     if (raw.startsWith("anim:")) return parseAnimatedAtRest(raw)
     return parseHex6(raw)?.let { NameColor.Solid(it) }

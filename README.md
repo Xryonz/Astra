@@ -434,7 +434,7 @@ e mesmo as que não pedem merecem — a arte é de quem a desenhou.
 
 A licença dos companheiros viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada
-folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
+folha fica no `enum Pet`, em `ui/PetDoAstra.kt`.
 
 ### Animações
 

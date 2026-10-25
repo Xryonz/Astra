@@ -27,14 +27,12 @@ const COR_OU_NENHUMA = z
   .refine((v) => v === '' || BANNER_COLOR_RE.test(v), 'Cor inválida')
   .transform((v) => (v === '' ? null : v))
 
-export const BANNER_BORDER_STYLES = [
+const BANNER_BORDER_STYLES = [
   'none', 'aurora', 'pulse', 'ink',
   'marquee', 'glow', 'noise', 'shimmer',
 ] as const
-export type BannerBorderStyle = (typeof BANNER_BORDER_STYLES)[number]
 
-export const DISPLAY_FONTS = ['serif', 'sans', 'mono', 'rounded', 'condensed', 'handwriting', 'gothic', 'modern'] as const
-export type DisplayFont = (typeof DISPLAY_FONTS)[number]
+const DISPLAY_FONTS = ['serif', 'sans', 'mono', 'rounded', 'condensed', 'handwriting', 'gothic', 'modern'] as const
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -72,9 +70,6 @@ export const RecortarFotoSchema = z.object({
 export const ProfileNoteSchema = z.object({
   content: z.string().min(1, 'Nota vazia').max(120, 'Máx 120 caracteres'),
 })
-export type ProfileNoteInput = z.infer<typeof ProfileNoteSchema>
-
-export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>
 
 export const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Senha atual obrigatória'),
@@ -84,7 +79,6 @@ export const ChangePasswordSchema = z.object({
     .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
     .regex(/[0-9]/, 'Deve conter ao menos um número'),
 })
-export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>
 
 export const SetPasswordSchema = z.object({
   newPassword: z
@@ -93,18 +87,15 @@ export const SetPasswordSchema = z.object({
     .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
     .regex(/[0-9]/, 'Deve conter ao menos um número'),
 })
-export type SetPasswordInput = z.infer<typeof SetPasswordSchema>
 
 export const VerifyEmailSchema = z.object({
   code: z.string().length(6, 'Código de 6 dígitos'),
 })
-export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>
 
 export const ChangeEmailSchema = z.object({
   newEmail: z.string().email('E-mail inválido'),
   currentPassword: z.string().min(1, 'Senha atual obrigatória'),
 })
-export type ChangeEmailInput = z.infer<typeof ChangeEmailSchema>
 
 export const ChangeUsernameSchema = z.object({
   username: z
@@ -113,16 +104,11 @@ export const ChangeUsernameSchema = z.object({
     .max(32, 'Máximo 32 caracteres')
     .regex(/^[a-z0-9_]+$/, 'Apenas letras minúsculas, números e underscore'),
 })
-export type ChangeUsernameInput = z.infer<typeof ChangeUsernameSchema>
 
 export const CreateServerSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório').max(100, 'Máximo 100 caracteres'),
   iconUrl: z.string().url().optional(),
   isGroup: z.boolean().optional().default(false),
-})
-
-export const CreateGroupSchema = z.object({
-  name: z.string().min(1, 'Nome obrigatório').max(100),
 })
 
 export const CreateChannelSchema = z.object({
@@ -175,180 +161,3 @@ export const MessageCursorSchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().min(1).max(50).default(30),
 })
-
-export type RegisterInput    = z.infer<typeof RegisterSchema>
-export type LoginInput       = z.infer<typeof LoginSchema>
-export type CreateServerInput = z.infer<typeof CreateServerSchema>
-export type CreateChannelInput = z.infer<typeof CreateChannelSchema>
-export type SendMessageInput = z.infer<typeof SendMessageSchema>
-export type EditMessageInput = z.infer<typeof EditMessageSchema>
-export type MessageCursorInput = z.infer<typeof MessageCursorSchema>
-
-export interface ApiResponse<T = unknown> {
-  data?: T
-  error?: string
-  message?: string
-}
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  nextCursor: string | null
-  hasMore: boolean
-}
-
-export interface UserPublic {
-  id:          string
-  email?:      string
-  username:    string
-
-  coordinate?: string
-  displayName: string
-  avatarUrl:   string | null
-  bio?:        string | null
-  bannerUrl?:  string | null
-  bannerColor?: string | null
-  profileTheme?: string | null
-  bannerPositionY?: number
-  bannerScale?:     number
-  bannerBorder?:    BannerBorderStyle
-  bannerTextColor?: string | null
-  pronouns?:        string | null
-  statusEmoji?:     string | null
-  displayFont?:     DisplayFont
-
-  hasPassword?: boolean
-
-  onboardedAt?: string | null
-  isBot?:      boolean
-}
-
-export interface ProfileNote {
-  id:        string
-  content:   string
-  pinned:    boolean
-  createdAt: string
-  author:    Pick<UserPublic, 'id' | 'username' | 'displayName' | 'avatarUrl'>
-}
-
-export interface Reaction {
-  emoji: string
-  count: number
-  users: string[]
-}
-
-export interface Attachment {
-  url:      string
-  thumbUrl?: string
-  type:     string
-  name:     string
-  size:     number
-  width?:   number
-  height?:  number
-
-  blurhash?: string
-}
-
-export interface MessageWithAuthor {
-  id:          string
-  content:     string
-  channelId?:  string
-  authorColor?: string | null
-  edited:      boolean
-  pinned?:     boolean
-  mentions?:   string[]
-  reactions?:  Reaction[]
-  attachments?: Attachment[]
-  replyToId?:  string | null
-  replyTo?:    ReplyPreview | null
-  createdAt:   string
-  updatedAt?:  string
-  author:      UserPublic
-}
-
-export interface ReplyPreview {
-  id:           string
-  content:      string
-  authorName:   string
-  authorAvatar: string | null
-}
-
-export interface ChannelInfo {
-  id: string
-  name: string
-  type: 'TEXT' | 'VOICE'
-  serverId: string
-}
-
-export interface ServerWithChannels {
-  id: string
-  name: string
-  iconUrl: string | null
-
-  bannerUrl: string | null
-  inviteCode: string
-  ownerId: string
-  isGroup: boolean
-
-  isPublic?: boolean
-
-  description?: string | null
-  messageRetentionDays: number | null
-  channels: ChannelInfo[]
-  _count: { members: number }
-}
-
-export interface DiscoverServer {
-  id: string
-  name: string
-  iconUrl: string | null
-  bannerUrl: string | null
-  description: string | null
-  members: number
-}
-
-export interface ServerBadge {
-  id: string
-  serverId: string
-  name: string
-  icon: string
-  color: string | null
-  description: string | null
-  createdAt: string
-}
-
-export interface GlobalBadge {
-  id: string
-  name: string
-  icon: string
-  color: string
-  description: string
-}
-
-export interface GrantedBadge {
-  badgeId: string
-  name: string
-  icon: string
-  color: string | null
-  description: string | null
-  serverId: string
-  serverName: string
-}
-
-export interface UserBadges {
-  global: GlobalBadge[]
-  server: GrantedBadge[]
-}
-
-export interface SocketEvents {
-  join_channel: (channelId: string) => void
-  leave_channel: (channelId: string) => void
-  typing_start: (channelId: string) => void
-  typing_stop: (channelId: string) => void
-
-  new_message: (message: MessageWithAuthor) => void
-  message_edited: (payload: { messageId: string; content: string; channelId: string }) => void
-  message_deleted: (payload: { messageId: string; channelId: string }) => void
-  user_typing: (payload: { userId: string; username: string; channelId: string }) => void
-  user_stopped_typing: (payload: { userId: string; channelId: string }) => void
-  presence_update: (payload: { userId: string; status: 'online' | 'offline' }) => void
-}

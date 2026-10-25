@@ -563,4 +563,9 @@ export const crashReports = pgTable('CrashReport', {
   byVersaoTipo:  index('CrashReport_versao_tipo_idx').on(t.versao, t.tipo),
 }))
 
+export const ajustesDeDados = pgTable('AjusteDeDados', {
+  nome:    text('nome').primaryKey(),
+  feitoEm: timestamp('feitoEm', { precision: 3 }).notNull().defaultNow(),
+})
+
 export const _sqlMarker = sql`1`

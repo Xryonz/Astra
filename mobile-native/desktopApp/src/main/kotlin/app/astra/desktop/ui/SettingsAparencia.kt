@@ -223,6 +223,7 @@ private fun AmostraDePelagem(pelagem: Pelagem, escolhida: Boolean, onClick: () -
     Box(
         Modifier
             .size(30.dp)
+            .clickScale(fonte, formaDoFoco = CircleShape)
             .clip(CircleShape)
             .background(pelagem.amostra)
             .border(
@@ -231,7 +232,6 @@ private fun AmostraDePelagem(pelagem: Pelagem, escolhida: Boolean, onClick: () -
                 shape = CircleShape,
             )
             .clickable(interactionSource = fonte, indication = null, onClick = onClick)
-            .clickScale(fonte, formaDoFoco = CircleShape)
             .semantics { contentDescription = pelagem.rotulo },
     )
 }

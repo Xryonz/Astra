@@ -11,13 +11,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -89,6 +87,7 @@ val FormaDeBotao = RoundedCornerShape(8.dp)
 
 private const val APERTO_MS = 90
 private const val SOLTURA_MS = 320
+private const val ENTRADA_DO_POP_MS = 240
 
 @Composable
 fun Modifier.clickScale(
@@ -379,7 +378,7 @@ fun PopIn(content: @Composable () -> Unit) {
     AnimatedVisibility(
         visibleState = vis,
         enter = if (semMovimento) EnterTransition.None else scaleIn(
-            animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
+            animationSpec = tween(ENTRADA_DO_POP_MS, easing = EaseOutStd),
             initialScale = 0.4f,
         ) + fadeIn(tween(120)),
         exit = if (semMovimento) ExitTransition.None else

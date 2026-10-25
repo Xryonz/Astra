@@ -28,7 +28,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.LocalAppPrefs
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -42,7 +42,7 @@ fun AccessibilityScreen(
     val prefs = LocalAppPrefs.current
     val haptic = LocalHapticFeedback.current
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Acessibilidade", onBack = onBack)
 

@@ -521,13 +521,3 @@ private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
         drawCircle(color, 3.2.dp.toPx(), head.pos, alpha = headF)
     }
 }
-
-@Suppress("UNUSED_PARAMETER")
-@Composable
-fun CosmicBackground(
-    modifier: Modifier = Modifier,
-    interactive: Boolean = false,
-    content: @Composable BoxScope.() -> Unit,
-) {
-    Box(modifier.fillMaxSize(), content = content)
-}

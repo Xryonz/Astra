@@ -40,7 +40,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -85,7 +85,7 @@ fun ServerSettingsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Configurar constelação", onBack = onBack)
 
@@ -93,7 +93,7 @@ fun ServerSettingsScreen(
                 Box(Modifier.fillMaxWidth().padding(vertical = 80.dp), contentAlignment = Alignment.Center) {
                     CosmicSpinner()
                 }
-                return@CosmicBackground
+                return@TelaCheia
             }
 
             Row(

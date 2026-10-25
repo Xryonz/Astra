@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.Reveal
@@ -90,7 +90,7 @@ private fun LoginContent(
     onGoogle: () -> Unit,
     onGoToRegister: () -> Unit,
 ) {
-    CosmicBackground(interactive = true) {
+    TelaCheia {
 
         Box(
             Modifier

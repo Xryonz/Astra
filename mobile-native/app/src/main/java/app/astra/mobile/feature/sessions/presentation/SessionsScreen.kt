@@ -36,7 +36,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Monitor
 import com.composables.icons.lucide.Smartphone
 import app.astra.mobile.ui.components.AstraDialog
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
@@ -52,7 +52,7 @@ fun SessionsScreen(
     var confirmOthers by remember { mutableStateOf(false) }
     val others = state.sessions.count { !it.current }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Sessões", onBack = onBack)
 

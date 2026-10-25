@@ -47,7 +47,7 @@ import app.astra.mobile.core.network.dto.ItemMissaoDto
 import app.astra.mobile.core.network.dto.ProgressoDto
 import app.astra.mobile.core.xp.quantasProntas
 import app.astra.mobile.ui.LocalAppPrefs
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
@@ -70,7 +70,7 @@ fun JornadaScreen(
     val progresso by viewModel.progresso.collectAsState()
     val resgatando by viewModel.resgatando.collectAsState()
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(title = "Sua jornada", onBack = onBack)
             val p = painel

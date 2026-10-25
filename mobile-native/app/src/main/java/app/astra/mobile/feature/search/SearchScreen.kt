@@ -49,7 +49,7 @@ import app.astra.mobile.core.network.dto.SearchServerDto
 import app.astra.mobile.core.network.dto.SearchUserDto
 import app.astra.mobile.core.upload.RodadaDasImagens
 import app.astra.mobile.ui.components.AstraAvatar
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
@@ -72,7 +72,7 @@ fun SearchScreen(
 
     LaunchedEffect(Unit) { focus.requestFocus() }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().imePadding()) {
             EditorialTopBar(title = "Buscar", onBack = onBack)
 

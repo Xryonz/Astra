@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -28,7 +28,7 @@ import app.astra.mobile.ui.theme.astraColors
 
 @Composable
 fun DataScreen(onBack: () -> Unit) {
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Dados e privacidade", onBack = onBack)
 

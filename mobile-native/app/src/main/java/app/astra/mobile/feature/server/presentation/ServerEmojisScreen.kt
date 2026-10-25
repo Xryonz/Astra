@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -77,7 +77,7 @@ fun ServerEmojisScreen(
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Emojis",

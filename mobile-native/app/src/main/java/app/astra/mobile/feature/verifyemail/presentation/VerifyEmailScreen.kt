@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.TextoDeApoio
 import app.astra.mobile.ui.theme.DmSerif
@@ -42,7 +42,7 @@ fun VerifyEmailScreen(
     BackHandler {}
     LaunchedEffect(state.done) { if (state.done) onDone() }
 
-    CosmicBackground {
+    TelaCheia {
         Column(
             Modifier
                 .align(Alignment.Center)

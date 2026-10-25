@@ -265,7 +265,7 @@ private fun FriendsList(
     onRemove: (String) -> Unit,
 ) {
     when {
-        loading && items.isEmpty() -> Center("carregando amigos…")
+        loading && items.isEmpty() -> AvisoNoCentro("carregando amigos…")
         items.isEmpty() -> EmptyHint("nenhum amigo ainda. Use a aba Adicionar.")
         else -> {
             val online = items.count { presenceRank(it.presence) < 3 }
@@ -510,11 +510,4 @@ private fun RowIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
 @Composable
 private fun Muted(text: String) {
     Text(text, style = Tipo.descricao, modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp))
-}
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-    }
 }

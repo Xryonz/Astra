@@ -96,8 +96,6 @@ fun Modifier.clickScale(
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
-    var focado by remember { mutableStateOf(false) }
-    val modoDeEntrada = LocalInputModeManager.current
     val escala = animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
         animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
@@ -108,17 +106,16 @@ fun Modifier.clickScale(
         animationSpec = tween(durationMillis = if (pressed) 90 else 320),
         label = "clickGlow",
     )
-    val corDoFoco = Obsidian.accent
-    return onFocusChanged { focado = it.isFocused }
-        .graphicsLayer { scaleX = escala.value; scaleY = escala.value }
+    val corDoBrilho = Obsidian.accent
+    return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
         .drawBehind {
             val aceso = brilho.value
             if (aceso <= 0.01f) return@drawBehind
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        corDoFoco.copy(alpha = 0.34f * aceso),
-                        corDoFoco.copy(alpha = 0.10f * aceso),
+                        corDoBrilho.copy(alpha = 0.34f * aceso),
+                        corDoBrilho.copy(alpha = 0.10f * aceso),
                         Color.Transparent,
                     ),
                     center = center,
@@ -127,14 +124,23 @@ fun Modifier.clickScale(
                 radius = size.minDimension * 0.95f,
             )
         }
+        .anelDeFoco(formaDoFoco, folgaDoFoco)
+}
+
+@Composable
+fun Modifier.anelDeFoco(forma: Shape = RoundedCornerShape(8.dp), folga: Dp = 0.dp): Modifier {
+    var focado by remember { mutableStateOf(false) }
+    val modoDeEntrada = LocalInputModeManager.current
+    val corDoFoco = Obsidian.accent
+    return onFocusChanged { focado = it.isFocused }
         .drawWithContent {
             drawContent()
             if (!focado || modoDeEntrada.inputMode != InputMode.Keyboard) return@drawWithContent
             val traco = Stroke(width = 2.dp.toPx())
-            val folga = folgaDoFoco.toPx()
-            val area = Size(size.width + folga * 2, size.height + folga * 2)
-            translate(-folga, -folga) {
-                when (val contorno = formaDoFoco.createOutline(area, layoutDirection, this)) {
+            val folgaPx = folga.toPx()
+            val area = Size(size.width + folgaPx * 2, size.height + folgaPx * 2)
+            translate(-folgaPx, -folgaPx) {
+                when (val contorno = forma.createOutline(area, layoutDirection, this)) {
                     is Outline.Rectangle -> drawRect(corDoFoco, size = area, style = traco)
                     is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
                     is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)

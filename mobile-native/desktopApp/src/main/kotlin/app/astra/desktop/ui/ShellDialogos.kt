@@ -65,14 +65,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -160,7 +155,7 @@ internal fun Dialogo(
     val fecharAgora by rememberUpdatedState(fechar)
     if (fechado) return
     Popup(
-        popupPositionProvider = JanelaDoDialogo,
+        popupPositionProvider = CobrindoAJanela,
         onDismissRequest = { if (dispensavel) fecharAgora() },
         properties = PopupProperties(focusable = true),
     ) {
@@ -377,15 +372,6 @@ internal fun EscolhaDoDialogo(rotulo: String, ativa: Boolean, onClick: () -> Uni
         }
         Text(rotulo, style = TextStyle(color = cor, fontSize = 12.sp))
     }
-}
-
-private object JanelaDoDialogo : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
 }
 
 private val FormaDoDialogo = RoundedCornerShape(8.dp)

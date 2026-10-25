@@ -135,8 +135,8 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         Spacer(Modifier.height(14.dp))
 
         when {
-            loading && results.isEmpty() -> Center("procurando constelações…")
-            error != null && results.isEmpty() -> Center(error!!)
+            loading && results.isEmpty() -> AvisoNoCentro("procurando constelações…")
+            error != null && results.isEmpty() -> AvisoNoCentro(error!!)
             results.isEmpty() -> DiscoverEmptyMap(query)
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 240.dp),
@@ -250,13 +250,6 @@ private fun DiscoverCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
     }
 }
 

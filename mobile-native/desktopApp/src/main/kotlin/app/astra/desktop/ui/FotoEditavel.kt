@@ -72,30 +72,12 @@ fun FotoEditavel(
         }
         menuEm?.let { em ->
             Popup(
-                popupPositionProvider = remember(em) { AbaixoDoAlvo() },
+                popupPositionProvider = remember(em) { AbaixoDoAlvo(AlinhamentoNoAlvo.ESQUERDA) },
                 onDismissRequest = { menuEm = null },
                 properties = PopupProperties(focusable = true),
             ) {
                 MenuCard(acoes(), dismiss = { menuEm = null })
             }
         }
-    }
-}
-
-private class AbaixoDoAlvo : androidx.compose.ui.window.PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: androidx.compose.ui.unit.IntRect,
-        windowSize: androidx.compose.ui.unit.IntSize,
-        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-        popupContentSize: androidx.compose.ui.unit.IntSize,
-    ): IntOffset {
-        val folga = 6
-        val abaixo = anchorBounds.bottom + folga
-        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - folga - popupContentSize.height).coerceAtLeast(0)
-        val x = anchorBounds.left
-            .coerceAtMost(windowSize.width - popupContentSize.width)
-            .coerceAtLeast(0)
-        return IntOffset(x, y)
     }
 }

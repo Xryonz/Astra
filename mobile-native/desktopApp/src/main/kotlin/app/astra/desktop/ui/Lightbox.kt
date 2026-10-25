@@ -37,13 +37,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -61,15 +56,6 @@ val LocalOpenImage = staticCompositionLocalOf<(String) -> Unit> { {} }
 fun absoluteUrl(url: String): String =
     if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
 
-private object FillWindow : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
-}
-
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun Lightbox(url: String, onClose: () -> Unit) {
@@ -82,7 +68,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
     LaunchedEffect(Unit) { if (reveal.value < 1f) reveal.animateTo(1f, tween(180, easing = EaseOutStd)) }
 
     Popup(
-        popupPositionProvider = FillWindow,
+        popupPositionProvider = CobrindoAJanela,
         onDismissRequest = onClose,
         properties = PopupProperties(focusable = true),
         onPreviewKeyEvent = { e ->

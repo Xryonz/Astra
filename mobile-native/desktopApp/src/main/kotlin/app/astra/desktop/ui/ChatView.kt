@@ -937,10 +937,3 @@ private fun EstrelaDeEnviar(acesa: Boolean, envios: Int, onClick: () -> Unit) {
 private const val TROCA_DA_ESTRELA_MS = 180
 private const val QUADRO_FINAL_DO_BRILHO = 23
 private const val VELOCIDADE_DO_BRILHO = 2.5f
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-    }
-}

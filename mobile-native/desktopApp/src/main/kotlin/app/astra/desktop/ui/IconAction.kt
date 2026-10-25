@@ -113,7 +113,7 @@ fun BotaoIcone(
         }
         if (mostrarDica && !ocupado) {
             val margem = with(LocalDensity.current) { 6.dp.roundToPx() }
-            Popup(popupPositionProvider = remember(margem) { AbaixoCentralizado(margem) }) {
+            Popup(popupPositionProvider = remember(margem) { AbaixoDoAlvo(AlinhamentoNoAlvo.CENTRO, margem) }) {
                 Box(
                     Modifier
                         .popupReveal(originX = 0.5f, originY = 0f)
@@ -172,22 +172,6 @@ private class AcimaCentralizado(private val margem: Int) : PopupPositionProvider
         val acima = anchorBounds.top - popupContentSize.height - margem
         val y = if (acima >= 0) acima
         else (anchorBounds.bottom + margem).coerceAtMost(windowSize.height - popupContentSize.height)
-        return IntOffset(x, y)
-    }
-}
-
-private class AbaixoCentralizado(private val margem: Int) : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val abaixo = anchorBounds.bottom + margem
-        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - popupContentSize.height - margem).coerceAtLeast(0)
         return IntOffset(x, y)
     }
 }

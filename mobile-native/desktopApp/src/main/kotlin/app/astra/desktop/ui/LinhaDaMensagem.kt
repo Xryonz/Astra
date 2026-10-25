@@ -55,14 +55,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.ui.theme.DmSerif
@@ -420,21 +415,7 @@ internal fun MessageRow(
     }
 }
 
-private object SobOAlvo : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = anchorBounds.left
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val abaixo = anchorBounds.bottom + 6
-        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - popupContentSize.height - 6).coerceAtLeast(0)
-        return IntOffset(x, y)
-    }
-}
+private val SobOAlvo = AbaixoDoAlvo(AlinhamentoNoAlvo.ESQUERDA)
 
 @Composable
 private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
@@ -590,35 +571,32 @@ internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<Emoji
 
 @Composable
 private fun EmojiCell(glyph: String, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (hov) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    CelulaDoSeletor(onClick) {
         Text(glyph, style = TextStyle(fontSize = 15.sp, color = Obsidian.text1))
     }
 }
 
 @Composable
 private fun EmojiCell(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
+    CelulaDoSeletor(onClick) {
+        LIcon(icon, tint = Obsidian.text2, size = 16.dp, rotulo = rotulo)
+    }
+}
+
+@Composable
+private fun CelulaDoSeletor(onClick: () -> Unit, conteudo: @Composable () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
         modifier = Modifier
             .size(30.dp)
-            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp))
+            .anelDeFoco(RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = Obsidian.text2, size = 16.dp, rotulo = rotulo)
+        conteudo()
     }
 }

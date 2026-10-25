@@ -34,14 +34,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.ui.theme.Obsidian
@@ -208,18 +203,4 @@ private val HORA_CURTA = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.sy
 private fun horaCurta(iso: String?): String =
     iso?.let { runCatching { HORA_CURTA.format(Instant.parse(it)) }.getOrNull() } ?: ""
 
-private object AbaixoPelaDireita : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.right - popupContentSize.width)
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val abaixo = anchorBounds.bottom + 6
-        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - popupContentSize.height - 6).coerceAtLeast(0)
-        return IntOffset(x, y)
-    }
-}
+private val AbaixoPelaDireita = AbaixoDoAlvo(AlinhamentoNoAlvo.DIREITA)

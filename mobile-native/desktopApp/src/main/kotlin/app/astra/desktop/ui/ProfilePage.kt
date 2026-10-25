@@ -52,14 +52,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
@@ -97,15 +92,6 @@ private fun Modifier.veuNoPe(): Modifier = drawWithContent {
         topLeft = Offset(0f, size.height - h),
         size = Size(size.width, h),
     )
-}
-
-private object CenterFill : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -150,7 +136,7 @@ fun ProfilePage(
     }
 
     Popup(
-        popupPositionProvider = CenterFill,
+        popupPositionProvider = CobrindoAJanela,
         onDismissRequest = { requestClose() },
         properties = PopupProperties(focusable = true),
         onPreviewKeyEvent = { e ->

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.net.tipoDeEmojiOuFigurinha
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -126,13 +127,7 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
                     msg = null
                     val r = withContext(Dispatchers.IO) {
                         runCatching {
-                            val tipo = when (arquivo.extension.lowercase()) {
-                                "png" -> "image/png"
-                                "gif" -> "image/gif"
-                                "webp" -> "image/webp"
-                                "jpg", "jpeg" -> "image/jpeg"
-                                else -> error("use PNG, GIF ou WebP")
-                            }
+                            val tipo = tipoDeEmojiOuFigurinha(arquivo)
                             val parte = MultipartBody.Part.createFormData(
                                 "file", arquivo.name,
                                 arquivo.asRequestBody(tipo.toMediaType()),

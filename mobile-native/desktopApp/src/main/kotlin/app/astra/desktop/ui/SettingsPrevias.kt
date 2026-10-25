@@ -10,7 +10,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -69,7 +67,6 @@ import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
-import com.composables.icons.lucide.Info
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
@@ -708,7 +705,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
         ) {
             Text("seu microfone", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
             Spacer(Modifier.height(10.dp))
-            MicMeter(testing, p.micSensitivity)
+            MicMeter(testing)
             Spacer(Modifier.height(10.dp))
             BotaoDeDialogo(
                 if (testing) "parar teste" else "testar microfone",
@@ -725,7 +722,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
 }
 
 @Composable
-private fun MicMeter(active: Boolean, threshold: Float = 0f) {
+private fun MicMeter(active: Boolean) {
     var level by remember { mutableFloatStateOf(0f) }
     var available by remember { mutableStateOf(true) }
     DisposableEffect(active) {
@@ -780,73 +777,19 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         tween(220),
         label = "micColor",
     )
-    Box(Modifier.fillMaxWidth().height(30.dp)) {
-        Row(
-            Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            val bars = 16
-            for (i in 0 until bars) {
-                val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
-                val h = (lvl * shape).coerceIn(0.05f, 1f)
-                Box(
-                    Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
-                        .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
-                )
-            }
-        }
-        if (threshold > 0f) {
-            Row(Modifier.fillMaxSize()) {
-                val f = threshold.coerceIn(0.02f, 0.98f)
-                Spacer(Modifier.weight(f))
-                Box(Modifier.width(2.dp).fillMaxHeight().background(Obsidian.accent.copy(alpha = 0.9f)))
-                Spacer(Modifier.weight(1f - f))
-            }
-        }
-    }
-}
-
-@Composable
-internal fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Sensibilidade de entrada", style = Tipo.corpo)
-            Text(
-                if (value <= 0f) "sempre transmite" else "${(value * 100).toInt()}%",
-                style = Tipo.apoio,
+    Row(
+        Modifier.fillMaxWidth().height(30.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        val bars = 16
+        for (i in 0 until bars) {
+            val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
+            val h = (lvl * shape).coerceIn(0.05f, 1f)
+            Box(
+                Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
+                    .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
             )
         }
-        Spacer(Modifier.height(6.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(22.dp)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { change, _ ->
-                        change.consume()
-                        onChange((change.position.x / size.width).coerceIn(0f, 1f))
-                    }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
-            Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                val f = value.coerceIn(0f, 1f)
-                if (f > 0f) Spacer(Modifier.weight(f))
-                Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))
-                if (f < 1f) Spacer(Modifier.weight(1f - f))
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "abaixo desse nível o microfone não transmite. Em 0, fica sempre aberto. Teste o microfone acima para calibrar.",
-            style = Tipo.apoio,
-        )
     }
 }

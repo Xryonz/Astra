@@ -433,12 +433,12 @@ CREATE TABLE IF NOT EXISTS "AjusteDeDados" (
   "feitoEm" timestamp (3) NOT NULL DEFAULT now()
 );
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM "AjusteDeDados" WHERE "nome" = 'degrade-do-nome-de-0-para-135') THEN
-    UPDATE "ServerMember" SET "nameColor" = 'gradient:135:' || substr("nameColor", 12)
+  IF NOT EXISTS (SELECT 1 FROM "AjusteDeDados" WHERE "nome" = 'degrade-do-nome-de-0-para-90') THEN
+    UPDATE "ServerMember" SET "nameColor" = 'gradient:90:' || substr("nameColor", 12)
       WHERE "nameColor" LIKE 'gradient:0:%';
-    UPDATE "Message" SET "authorColor" = 'gradient:135:' || substr("authorColor", 12)
+    UPDATE "Message" SET "authorColor" = 'gradient:90:' || substr("authorColor", 12)
       WHERE "authorColor" LIKE 'gradient:0:%';
-    INSERT INTO "AjusteDeDados" ("nome") VALUES ('degrade-do-nome-de-0-para-135')
+    INSERT INTO "AjusteDeDados" ("nome") VALUES ('degrade-do-nome-de-0-para-90')
       ON CONFLICT DO NOTHING;
   END IF;
 END $$;

@@ -87,6 +87,9 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 val FormaDeBotao = RoundedCornerShape(8.dp)
 
+private const val APERTO_MS = 90
+private const val SOLTURA_MS = 320
+
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
@@ -96,14 +99,15 @@ fun Modifier.clickScale(
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
+    val duracao = if (pressed) APERTO_MS else SOLTURA_MS
     val escala = animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+        animationSpec = tween(durationMillis = duracao, easing = EaseOutStd),
         label = "clickScale",
     )
     val brilho = animateFloatAsState(
         targetValue = if (pressed && !reduce) 1f else 0f,
-        animationSpec = tween(durationMillis = if (pressed) 90 else 320),
+        animationSpec = tween(durationMillis = duracao),
         label = "clickGlow",
     )
     val corDoBrilho = Obsidian.accent

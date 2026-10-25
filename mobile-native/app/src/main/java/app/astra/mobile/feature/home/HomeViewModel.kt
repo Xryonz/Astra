@@ -44,8 +44,6 @@ class HomeViewModel @Inject constructor(
     private val salasDeVoz: SalasDeVoz,
 ) : ViewModel() {
 
-    fun registerPush() = pushRegistrar.register()
-
     private val _state = MutableStateFlow(HomeUiState())
     val state = _state.asStateFlow()
 
@@ -58,6 +56,7 @@ class HomeViewModel @Inject constructor(
     private var channelPrefModes: Map<String, String> = emptyMap()
 
     init {
+        pushRegistrar.register()
         load()
         refreshNotifications()
         observeIncoming()

@@ -70,7 +70,6 @@ export async function responderNoSussurro({
     await db.update(dmConversations).set({ updatedAt: new Date() })
       .where(eq(dmConversations.id, conversationId))
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[bot/sussurro]', err)
   }
 }

@@ -419,7 +419,6 @@ export function createDMRouter(io: SocketServer) {
               },
             }).catch(() => {})
           } catch (err) {
-            // eslint-disable-next-line no-console
             console.error('[dm POST] background work failed:', err)
           }
         })()

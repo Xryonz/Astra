@@ -20,7 +20,6 @@ const EnvSchema = z.object({
 
   GROQ_API_KEY:      z.string().min(1).optional(),
   GEMINI_API_KEY:    z.string().min(1).optional(),
-  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
   VAPID_PUBLIC_KEY:  z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),

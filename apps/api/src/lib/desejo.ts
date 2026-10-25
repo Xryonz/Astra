@@ -4,7 +4,6 @@ export const DESEJO_MAXIMO = 500
 export const DESEJOS_NA_JANELA = 3
 export const JANELA_DO_DESEJO_MS = 10 * 60_000
 
-// eslint-disable-next-line no-control-regex
 const CARACTERE_DE_CONTROLE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g
 
 export function limparDesejo(cru: string): string {

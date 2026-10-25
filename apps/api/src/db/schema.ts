@@ -1,7 +1,6 @@
 import {
   pgTable, text, boolean, timestamp, integer, pgEnum, uniqueIndex, index, primaryKey,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 import { createId } from './cuid'
 
 export const roleEnum        = pgEnum('Role',        ['OWNER', 'ADMIN', 'MEMBER'])
@@ -567,5 +566,3 @@ export const ajustesDeDados = pgTable('AjusteDeDados', {
   nome:    text('nome').primaryKey(),
   feitoEm: timestamp('feitoEm', { precision: 3 }).notNull().defaultNow(),
 })
-
-export const _sqlMarker = sql`1`

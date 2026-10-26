@@ -13,6 +13,7 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/interceptor/pkg/gcc"
+	"github.com/pion/interceptor/pkg/twcc"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
@@ -167,8 +168,13 @@ func (s *Sala) Entrar(url, token string) error {
 		})
 	})
 
+	numeracao, err := twcc.NewHeaderExtensionInterceptor()
+	if err != nil {
+		return fmt.Errorf("numerar os pacotes para o congestionamento: %w", err)
+	}
+
 	quarto, err := lksdk.ConnectToRoomWithToken(url, token, retorno,
-		lksdk.WithInterceptors([]interceptor.Factory{medidor}),
+		lksdk.WithInterceptors([]interceptor.Factory{medidor, numeracao}),
 		lksdk.WithIncludeDefaultInterceptors(true),
 	)
 	if err != nil {

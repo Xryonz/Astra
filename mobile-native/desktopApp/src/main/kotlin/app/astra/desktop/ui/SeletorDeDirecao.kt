@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -75,7 +76,7 @@ private fun BotaoDeDirecao(direcao: DirecaoDoDegrade, selecionada: Boolean, aoTo
             )
             .border(1.dp, if (selecionada) Obsidian.accent else Obsidian.borderDim, FormaDoBotaoDeDirecao)
             .hoverable(interacao)
-            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .clickable(interactionSource = interacao, indication = null, role = Role.RadioButton, onClick = aoTocar)
             .semantics { selected = selecionada },
         contentAlignment = Alignment.Center,
     ) {

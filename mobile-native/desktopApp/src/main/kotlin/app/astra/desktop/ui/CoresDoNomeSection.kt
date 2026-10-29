@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -208,11 +209,11 @@ private fun LinhaDeConstelacao(
         ) {
             Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 12.dp)) {
                 FieldLabel("cor")
-                EscolhaDeCor(escolhida, comNenhuma = false) { rascunho = it; erro = null }
+                EscolhaDeCor(escolhida, comNenhuma = false, fileira = null) { rascunho = it; erro = null }
 
                 Spacer(Modifier.height(12.dp))
                 FieldLabel("segunda cor, para degradê")
-                EscolhaDeCor(segundaCor, comNenhuma = true) { segundaCor = it; erro = null }
+                EscolhaDeCor(segundaCor, comNenhuma = true, fileira = "segunda cor") { segundaCor = it; erro = null }
 
                 if (segundaCor != null && movimento == Movimento.NENHUM) {
                     Spacer(Modifier.height(12.dp))
@@ -309,11 +310,17 @@ private fun CabecaDaConstelacao(
 }
 
 @Composable
-private fun EscolhaDeCor(selecionada: String?, comNenhuma: Boolean, aoEscolher: (String?) -> Unit) {
+private fun EscolhaDeCor(
+    selecionada: String?,
+    comNenhuma: Boolean,
+    fileira: String?,
+    aoEscolher: (String?) -> Unit,
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (comNenhuma) Amostra(null, "sem segunda cor", selecionada = selecionada == null) { aoEscolher(null) }
         PREDEFINIDAS.forEach { cor ->
-            Amostra(cor.hex, cor.nome, selecionada = selecionada == cor.hex) { aoEscolher(cor.hex) }
+            val nome = if (fileira == null) cor.nome else "$fileira: ${cor.nome}"
+            Amostra(cor.hex, nome, selecionada = selecionada == cor.hex) { aoEscolher(cor.hex) }
         }
     }
 }
@@ -375,7 +382,7 @@ private fun PastilhaDeMovimento(rotulo: String, selecionada: Boolean, aoTocar: (
                 RoundedCornerShape(8.dp),
             )
             .hoverable(interacao)
-            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .clickable(interactionSource = interacao, indication = null, role = Role.RadioButton, onClick = aoTocar)
             .semantics { selected = selecionada }
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
@@ -405,7 +412,7 @@ private fun Amostra(hex: String?, nome: String, selecionada: Boolean, aoTocar: (
                 CircleShape,
             )
             .hoverable(interacao)
-            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .clickable(interactionSource = interacao, indication = null, role = Role.RadioButton, onClick = aoTocar)
             .semantics {
                 contentDescription = nome
                 selected = selecionada

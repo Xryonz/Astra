@@ -65,18 +65,6 @@ export const users = pgTable('User', {
   updatedAt:    timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 })
 
-export const profileNotes = pgTable('ProfileNote', {
-  id:            text('id').primaryKey().$defaultFn(createId),
-  profileUserId: text('profileUserId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  authorId:      text('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  content:       text('content').notNull(),
-  pinned:        boolean('pinned').notNull().default(false),
-  createdAt:     timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byProfileTime: index('ProfileNote_profileUserId_createdAt_idx').on(t.profileUserId, t.createdAt),
-  uniqAuthor:    uniqueIndex('ProfileNote_profileUserId_authorId_key').on(t.profileUserId, t.authorId),
-}))
-
 export const mutedMembers = pgTable('MutedMember', {
   id:        text('id').primaryKey().$defaultFn(createId),
   userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -393,19 +381,6 @@ export const directMessages = pgTable('DirectMessage', {
   byExpires:      index('DirectMessage_expiresAt_idx').on(t.expiresAt),
 }))
 
-export const pushSubscriptions = pgTable('PushSubscription', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  endpoint:  text('endpoint').notNull(),
-  p256dh:    text('p256dh').notNull(),
-  auth:      text('auth').notNull(),
-  userAgent: text('userAgent'),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqEndpoint: uniqueIndex('PushSubscription_endpoint_key').on(t.endpoint),
-  byUser:       index('PushSubscription_userId_idx').on(t.userId),
-}))
-
 export const fcmTokens = pgTable('FcmToken', {
   id:         text('id').primaryKey().$defaultFn(createId),
   userId:     text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -446,19 +421,6 @@ export const reminders = pgTable('Reminder', {
   byDuePending: index('Reminder_dueAt_deliveredAt_idx').on(t.dueAt, t.deliveredAt),
   byTarget:     index('Reminder_targetUserId_idx').on(t.targetUserId),
   byCreator:    index('Reminder_creatorId_idx').on(t.creatorId),
-}))
-
-export const bookmarks = pgTable('Bookmark', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-
-  targetId:  text('targetId').notNull(),
-  kind:      text('kind').notNull(),
-  note:      text('note'),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqUserTarget:  uniqueIndex('Bookmark_userId_targetId_kind_key').on(t.userId, t.targetId, t.kind),
-  byUserCreated:   index('Bookmark_userId_createdAt_idx').on(t.userId, t.createdAt.desc()),
 }))
 
 export const notifications = pgTable('Notification', {

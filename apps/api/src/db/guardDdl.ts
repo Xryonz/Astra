@@ -59,6 +59,7 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmailExpiresAt" timestamp (3
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "poll" text;
 
 DROP TABLE IF EXISTS "MessageEdit";
+DROP TABLE IF EXISTS "PushSubscription";
 
 CREATE TABLE IF NOT EXISTS "ChannelRead" (
   "id" text PRIMARY KEY NOT NULL,
@@ -107,16 +108,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "UserBlock_blockerId_blockedId_key" ON "UserBl
 CREATE INDEX IF NOT EXISTS "UserBlock_blockerId_idx" ON "UserBlock" USING btree ("blockerId");
 CREATE INDEX IF NOT EXISTS "UserBlock_blockedId_idx" ON "UserBlock" USING btree ("blockedId");
 
-CREATE TABLE IF NOT EXISTS "Bookmark" (
-  "id" text PRIMARY KEY NOT NULL,
-  "userId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-  "targetId" text NOT NULL,
-  "kind" text NOT NULL,
-  "note" text,
-  "createdAt" timestamp (3) NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "Bookmark_userId_targetId_kind_key" ON "Bookmark" USING btree ("userId", "targetId", "kind");
-CREATE INDEX IF NOT EXISTS "Bookmark_userId_createdAt_idx" ON "Bookmark" USING btree ("userId", "createdAt" DESC);
+DROP TABLE IF EXISTS "Bookmark";
 
 ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "isPrivate" boolean NOT NULL DEFAULT false;
 
@@ -190,18 +182,7 @@ ALTER TABLE "User" DROP COLUMN IF EXISTS "spotifyRefreshToken";
 ALTER TABLE "User" DROP COLUMN IF EXISTS "spotifyConnectedAt";
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerTextColor" text;
 
-CREATE TABLE IF NOT EXISTS "ProfileNote" (
-  "id"            text PRIMARY KEY NOT NULL,
-  "profileUserId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-  "authorId"      text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-  "content"       text NOT NULL,
-  "pinned"        boolean NOT NULL DEFAULT false,
-  "createdAt"     timestamp (3) NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS "ProfileNote_profileUserId_createdAt_idx"
-  ON "ProfileNote"("profileUserId", "createdAt" DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS "ProfileNote_profileUserId_authorId_key"
-  ON "ProfileNote"("profileUserId", "authorId");
+DROP TABLE IF EXISTS "ProfileNote";
 
 CREATE TABLE IF NOT EXISTS "ChannelCategory" (
   "id" text PRIMARY KEY NOT NULL,

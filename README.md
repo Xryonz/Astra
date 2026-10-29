@@ -9,18 +9,19 @@ reações, enquetes, busca, notificações, XP e missões.
 | Cliente | Onde | Stack | Estado |
 |---|---|---|---|
 | **Desktop** | `mobile-native/desktopApp` | Kotlin · Compose Multiplatform/JVM | **fase ativa** |
-| **Android** | branch `arquivo/android` | Kotlin · Jetpack Compose | arquivado |
-| **Web** | branch `arquivo/web` | React 19 · Vite | arquivado |
+| **Android** | `mobile-native/app` | Kotlin · Jetpack Compose | versões de teste |
+| **Web** | etiqueta `arquivo/web` | React 19 · Vite | arquivado |
 
 O desktop é onde o trabalho acontece hoje. O web serviu de mapa: o que ele já
 resolvia virou o alvo de paridade dos clientes nativos. Saiu do ar e saiu da branch
-principal em 14/09/2026, e vive em `arquivo/web` com o histórico inteiro.
+principal em 14/09/2026; o ponto em que saiu fica na etiqueta `arquivo/web`, com o
+histórico inteiro.
 
-O Android saiu da branch principal em 06/09/2026 e vive em `arquivo/android`, com
-o histórico inteiro. **Nenhuma release traz APK**, e o `APK/README.md` diz isso a quem
-vai procurar: a última compilação que chegou a existir é muito anterior à versão do
-desktop, e entregá-la seria passar um Astra atrasado por atual. A release do desktop
-publica só o que o app usa: o pacote e o hash dele.
+O Android saiu da branch principal em 06/09/2026 e voltou em 19/09/2026; o ponto em
+que saiu fica na etiqueta `arquivo/android`. Por enquanto ele publica **só versões de
+teste**: pré-lançamentos `android-teste-v…`, que nunca aparecem como a versão atual do
+Astra. Não há download oficial de Android, e o `APK/README.md` diz isso a quem vai
+procurar. A release do desktop publica só o que o app usa: o pacote e o hash dele.
 
 O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
 processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo
@@ -83,12 +84,12 @@ aplicativo e morre com ele.
   significaria superfície nativa no processo do aplicativo, e uma falha ali derruba a
   janela inteira. Aqui, o pior caso é a chamada cair — o Astra continua de pé
 
-**Android** (arquivado na branch `arquivo/android`)
+**Android** (`mobile-native/app`, versões de teste)
 - Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
 - Hilt (DI/KSP) · Room (cache offline-first) · DataStore · Baseline Profile
 - LiveKit Android · FCM (push)
 
-**Web** (branch `arquivo/web`, arquivado)
+**Web** (etiqueta `arquivo/web`, arquivado)
 - React 19 · Vite 8 · TypeScript · Tailwind v4 · shadcn/ui · motion/react
 - Zustand · React Query 5 · React Router 6
 
@@ -243,12 +244,11 @@ cd mobile-native
 ./gradlew :desktopApp:zipDistributable     # zip distribuível
 ```
 
-**Android** (arquivado — só na branch `arquivo/android`):
+**Android** (o módulo só entra no build com `-Pastra.android=1`):
 
 ```bash
-git switch arquivo/android
 cd mobile-native
-./gradlew :app:assembleDebug
+./gradlew -Pastra.android=1 :app:assembleDebug
 ```
 
 ---

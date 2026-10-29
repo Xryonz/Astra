@@ -520,7 +520,10 @@ fun main(args: Array<String>) {
         marcoDoArranque("composição iniciada")
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         var resgate by remember { mutableStateOf(0) }
-        val state = rememberWindowState(width = 1280.dp, height = 820.dp)
+        val state = rememberWindowState(
+            position = WindowPosition(Alignment.Center),
+            size = remember { tamanhoInicialDaJanela() },
+        )
         val transparentWindow = remember {
             val p = GlobalContext.get().get<DesktopPrefs>().state.value
             p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia &&

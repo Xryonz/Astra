@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.ArrowDown
@@ -77,7 +79,10 @@ private fun BotaoDeDirecao(direcao: DirecaoDoDegrade, selecionada: Boolean, aoTo
             .border(1.dp, if (selecionada) Obsidian.accent else Obsidian.borderDim, FormaDoBotaoDeDirecao)
             .hoverable(interacao)
             .clickable(interactionSource = interacao, indication = null, role = Role.RadioButton, onClick = aoTocar)
-            .semantics { selected = selecionada },
+            .semantics {
+                selected = selecionada
+                toggleableState = ToggleableState(selecionada)
+            },
         contentAlignment = Alignment.Center,
     ) {
         LIcon(

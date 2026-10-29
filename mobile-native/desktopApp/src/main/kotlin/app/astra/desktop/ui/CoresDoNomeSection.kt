@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -383,7 +385,10 @@ private fun PastilhaDeMovimento(rotulo: String, selecionada: Boolean, aoTocar: (
             )
             .hoverable(interacao)
             .clickable(interactionSource = interacao, indication = null, role = Role.RadioButton, onClick = aoTocar)
-            .semantics { selected = selecionada }
+            .semantics {
+                selected = selecionada
+                toggleableState = ToggleableState(selecionada)
+            }
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
         Text(
@@ -416,6 +421,7 @@ private fun Amostra(hex: String?, nome: String, selecionada: Boolean, aoTocar: (
             .semantics {
                 contentDescription = nome
                 selected = selecionada
+                toggleableState = ToggleableState(selecionada)
             },
         contentAlignment = Alignment.Center,
     ) {

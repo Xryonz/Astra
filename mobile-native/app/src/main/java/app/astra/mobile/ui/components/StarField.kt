@@ -233,8 +233,6 @@ float vnoise(float2 p) {
 float fbm(float2 p) {
     float v = 0.0;
     float a = 0.5;
-    // 3 oitavas (era 4): -25% de ALU por pixel, diferenca visual imperceptivel
-    // no alpha ~0.16 em que a aurora vive.
     for (int k = 0; k < 3; k++) {
         v += a * vnoise(p);
         p *= 2.0;
@@ -261,8 +259,6 @@ half4 main(float2 fragCoord) {
     float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
     float aur = (c1 + c2) * fall * 0.16;
 
-    // Efeito de toque COMPACTO (pedido do user): glow ~do tamanho do dedo e
-    // anel que expande pouco (~9% da tela) e morre rapido (~0.6s).
     float2 asp = float2(iResolution.x / iResolution.y, 1.0);
     float dT = distance(uv * asp, touchPos * asp);
     float fx = touchGlow * exp(-dT * 28.0) * 0.30;

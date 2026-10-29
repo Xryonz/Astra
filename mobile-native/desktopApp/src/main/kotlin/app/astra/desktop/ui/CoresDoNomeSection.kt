@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -56,9 +57,19 @@ import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
+private class CorPredefinida(val hex: String, val nome: String)
+
 private val PREDEFINIDAS = listOf(
-    "#c9a96e", "#9b7ac4", "#6aaeca", "#ca7a9b", "#6ec99b",
-    "#e07a7a", "#7ac4c4", "#c4c47a", "#c47aaa", "#7ac4a0",
+    CorPredefinida("#c9a96e", "dourado"),
+    CorPredefinida("#9b7ac4", "lavanda"),
+    CorPredefinida("#6aaeca", "azul-céu"),
+    CorPredefinida("#ca7a9b", "rosa-antigo"),
+    CorPredefinida("#6ec99b", "menta"),
+    CorPredefinida("#e07a7a", "coral"),
+    CorPredefinida("#7ac4c4", "turquesa"),
+    CorPredefinida("#c4c47a", "oliva"),
+    CorPredefinida("#c47aaa", "orquídea"),
+    CorPredefinida("#7ac4a0", "verde-água"),
 )
 
 private enum class Movimento(val rotulo: String) {
@@ -300,9 +311,9 @@ private fun CabecaDaConstelacao(
 @Composable
 private fun EscolhaDeCor(selecionada: String?, comNenhuma: Boolean, aoEscolher: (String?) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (comNenhuma) Amostra(null, selecionada = selecionada == null) { aoEscolher(null) }
-        PREDEFINIDAS.forEach { hex ->
-            Amostra(hex, selecionada = selecionada == hex) { aoEscolher(hex) }
+        if (comNenhuma) Amostra(null, "sem segunda cor", selecionada = selecionada == null) { aoEscolher(null) }
+        PREDEFINIDAS.forEach { cor ->
+            Amostra(cor.hex, cor.nome, selecionada = selecionada == cor.hex) { aoEscolher(cor.hex) }
         }
     }
 }
@@ -379,7 +390,7 @@ private fun PastilhaDeMovimento(rotulo: String, selecionada: Boolean, aoTocar: (
 }
 
 @Composable
-private fun Amostra(hex: String?, selecionada: Boolean, aoTocar: () -> Unit) {
+private fun Amostra(hex: String?, nome: String, selecionada: Boolean, aoTocar: () -> Unit) {
     val interacao = remember { MutableInteractionSource() }
     val cor = hex?.let { lerCorDoNome(it)?.solida }
     Box(
@@ -394,7 +405,11 @@ private fun Amostra(hex: String?, selecionada: Boolean, aoTocar: () -> Unit) {
                 CircleShape,
             )
             .hoverable(interacao)
-            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar),
+            .clickable(interactionSource = interacao, indication = null, onClick = aoTocar)
+            .semantics {
+                contentDescription = nome
+                selected = selecionada
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (hex == null) {

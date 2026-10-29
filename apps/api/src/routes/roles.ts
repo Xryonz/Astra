@@ -24,10 +24,6 @@ const CreateRoleSchema = z.object({
 
 const UpdateRoleSchema = CreateRoleSchema.partial()
 
-const PositionSchema = z.object({
-  positions: z.array(z.object({ id: z.string(), position: z.number().int().min(0) })).max(50),
-})
-
 async function canManageRoles(userId: string, serverId: string) {
   const m = await getMemberPerms(userId, serverId)
   return m.isOwner || m.permissions.has(PERMS.MANAGE_ROLES)
@@ -130,27 +126,6 @@ rolesRouter.patch(
 
     void cargosDoServidorMudaram(serverId)
     res.json({ data: { ...updated, permissions: safeParseArr(updated.permissions) } })
-  })
-)
-
-rolesRouter.patch(
-  '/:serverId/roles/positions/batch',
-  requireAuth,
-  validate(PositionSchema),
-  asyncHandler(async (req: Request, res: Response) => {
-    const { serverId } = req.params
-    if (!(await canManageRoles(req.userId!, serverId)))
-      return res.status(403).json({ error: 'Sem permissão para reordenar cargos' })
-
-    const { positions } = req.body as z.infer<typeof PositionSchema>
-    await db.transaction(async (tx) => {
-      for (const p of positions) {
-        await tx.update(roles).set({ position: p.position })
-          .where(and(eq(roles.id, p.id), eq(roles.serverId, serverId)))
-      }
-    })
-    void cargosDoServidorMudaram(serverId)
-    res.json({ data: { ok: true } })
   })
 )
 

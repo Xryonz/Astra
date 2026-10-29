@@ -3,11 +3,11 @@ import type { Request } from '../lib/requisicao'
 import { and, desc, eq, inArray, like, ne, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
-import { users, servers, serverMembers, profileNotes, friendships, messages } from '../db/schema'
+import { users, servers, serverMembers, friendships, messages } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { UpdateProfileSchema, ProfileNoteSchema, RecortarFotoSchema } from '@astra/types'
+import { UpdateProfileSchema, RecortarFotoSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
 import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
 import { recortarFoto, AnimacaoGrandeDemais } from '../lib/recorteDeFoto'
@@ -46,24 +46,6 @@ function isDataUriTooLarge(url: string | null | undefined): boolean {
   const bytes = url.length * 0.75
   return bytes > 10 * 1024 * 1024
 }
-
-router.get(
-  '/lookup',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const raw = String(req.query.ids ?? '')
-    const ids = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 50)
-    if (ids.length === 0) return res.json({ data: [] })
-    const rows = await db.select({
-      id:          users.id,
-      username:    users.username,
-      displayName: users.displayName,
-      avatarUrl:   users.avatarUrl,
-      bannerColor: users.bannerColor,
-    }).from(users).where(inArray(users.id, ids))
-    res.json({ data: rows })
-  })
-)
 
 router.get(
   '/me/foto-perdida',
@@ -342,147 +324,6 @@ router.get(
     }
 
     res.json({ data: { user, mutualServers, mutualFriends, mutualFriendsList } })
-  })
-)
-
-router.get(
-  '/by-username/:username',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { username } = req.params
-    const [u] = await db.select({
-      id: users.id, username: users.username, displayName: users.displayName,
-      avatarUrl: users.avatarUrl, bio: users.bio,
-      bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
-      isBot: users.isBot,
-      customStatus: users.customStatus,
-    }).from(users).where(eq(users.username, username)).limit(1)
-    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' })
-
-    const liveStatus = await getUserStatus(u.id)
-    const effectiveStatus =
-      !liveStatus ? 'OFFLINE'
-      : liveStatus === 'INVISIBLE' && u.id !== req.userId ? 'OFFLINE'
-      : liveStatus
-    res.json({ data: { ...u, effectiveStatus } })
-  })
-)
-
-router.get(
-  '/:userId/notes',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const targetId = req.params.userId
-    const rows = await db.select({
-      id:        profileNotes.id,
-      content:   profileNotes.content,
-      pinned:    profileNotes.pinned,
-      createdAt: profileNotes.createdAt,
-      authorId:        users.id,
-      authorUsername:  users.username,
-      authorDisplay:   users.displayName,
-      authorAvatar:    users.avatarUrl,
-    })
-      .from(profileNotes)
-      .innerJoin(users, eq(users.id, profileNotes.authorId))
-      .where(eq(profileNotes.profileUserId, targetId))
-      .orderBy(desc(profileNotes.pinned), desc(profileNotes.createdAt))
-      .limit(40)
-
-    const items = rows.map((r) => ({
-      id:        r.id,
-      content:   r.content,
-      pinned:    r.pinned,
-      createdAt: r.createdAt.toISOString(),
-      author: {
-        id: r.authorId, username: r.authorUsername,
-        displayName: r.authorDisplay, avatarUrl: r.authorAvatar,
-      },
-    }))
-    res.json({ data: items })
-  })
-)
-
-router.post(
-  '/:userId/notes',
-  requireAuth,
-  validate(ProfileNoteSchema),
-  asyncHandler(async (req: Request, res: Response) => {
-    const targetId = req.params.userId
-    const me       = req.userId!
-    if (targetId === me) return res.status(400).json({ error: 'Não é possível escrever no próprio mural' })
-
-    const [a, b] = me < targetId ? [me, targetId] : [targetId, me]
-    const [friendRow] = await db.select({ id: friendships.id })
-      .from(friendships)
-      .where(and(
-        eq(friendships.userAId, a), eq(friendships.userBId, b),
-        eq(friendships.status, 'accepted'),
-      )).limit(1)
-    if (!friendRow) return res.status(403).json({ error: 'Apenas amigos podem deixar nota' })
-
-    const { content } = req.body as { content: string }
-    const trimmed = content.trim()
-    if (!trimmed) return res.status(400).json({ error: 'Nota vazia' })
-
-    const [existing] = await db.select({ id: profileNotes.id })
-      .from(profileNotes)
-      .where(and(eq(profileNotes.profileUserId, targetId), eq(profileNotes.authorId, me)))
-      .limit(1)
-
-    if (existing) {
-      await db.update(profileNotes)
-        .set({ content: trimmed, createdAt: new Date() })
-        .where(eq(profileNotes.id, existing.id))
-      return res.json({ data: { id: existing.id, content: trimmed, updated: true } })
-    }
-
-    const [inserted] = await db.insert(profileNotes).values({
-      profileUserId: targetId,
-      authorId:      me,
-      content:       trimmed,
-    }).returning({ id: profileNotes.id })
-    res.json({ data: { id: inserted.id, content: trimmed, updated: false } })
-  })
-)
-
-router.delete(
-  '/notes/:noteId',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const noteId = req.params.noteId
-    const me     = req.userId!
-    const [note] = await db.select({
-      id: profileNotes.id, authorId: profileNotes.authorId, profileUserId: profileNotes.profileUserId,
-    }).from(profileNotes).where(eq(profileNotes.id, noteId)).limit(1)
-    if (!note) return res.status(404).json({ error: 'Nota não encontrada' })
-    if (note.authorId !== me && note.profileUserId !== me) {
-      return res.status(403).json({ error: 'Sem permissão' })
-    }
-    await db.delete(profileNotes).where(eq(profileNotes.id, noteId))
-    res.json({ data: { ok: true } })
-  })
-)
-
-router.patch(
-  '/notes/:noteId/pin',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const noteId = req.params.noteId
-    const me     = req.userId!
-    const [note] = await db.select({
-      id: profileNotes.id, pinned: profileNotes.pinned, profileUserId: profileNotes.profileUserId,
-    }).from(profileNotes).where(eq(profileNotes.id, noteId)).limit(1)
-    if (!note) return res.status(404).json({ error: 'Nota não encontrada' })
-    if (note.profileUserId !== me) return res.status(403).json({ error: 'Apenas o dono do mural' })
-
-    if (!note.pinned) {
-      await db.update(profileNotes).set({ pinned: false })
-        .where(eq(profileNotes.profileUserId, me))
-    }
-    await db.update(profileNotes).set({ pinned: !note.pinned })
-      .where(eq(profileNotes.id, noteId))
-    res.json({ data: { pinned: !note.pinned } })
   })
 )
 

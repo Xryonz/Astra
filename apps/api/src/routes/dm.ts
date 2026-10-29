@@ -119,29 +119,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  router.post(
-    '/open/:username',
-    requireAuth,
-    asyncHandler(async (req: Request, res: Response) => {
-      const [target] = await db.select({
-        id: users.id, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl, bio: users.bio,
-      }).from(users).where(eq(users.username, req.params.username)).limit(1)
-
-      if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
-      if (target.id === req.userId) return res.status(400).json({ error: 'Você não pode abrir um DM consigo mesmo' })
-      if (await haBloqueio(req.userId!, target.id)) {
-        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
-      }
-      if (!(await aceitaSussurroNovo(req.userId!, target.id))) {
-        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
-      }
-
-      const conversation = await getOrCreateConversation(req.userId!, target.id)
-      res.json({ data: { conversationId: conversation.id, otherUser: target } })
-    })
-  )
-
   router.get(
     '/:conversationId/messages',
     requireAuth,

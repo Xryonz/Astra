@@ -6,8 +6,8 @@ import { users, dmConversations, directMessages, channels, messages, serverMembe
 import { notify, resumoDaMensagem } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity, redis, vozKeys, VOZ_TTL_SEGUNDOS } from '../lib/redis'
-import { trackMessage, isUserMuted, muteUser, getMuteExpiry, duracaoDoSilencio } from '../lib/spamDetector'
-import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
+import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
+import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
@@ -21,19 +21,6 @@ import { registrarChamadasDeSussurro } from '../lib/dmCalls'
 import { entregarSussurro } from '../lib/realtime'
 
 const userSockets = new Map<string, Set<string>>()
-
-const STATUS_DB_TTL_MS = 5_000
-const lastStatusDbWrite = new Map<string, { at: number; status: string }>()
-function shouldPersistStatus(userId: string, status: string): boolean {
-  const prev = lastStatusDbWrite.get(userId)
-  const now  = Date.now()
-
-  if (!prev || prev.status !== status || now - prev.at > STATUS_DB_TTL_MS) {
-    lastStatusDbWrite.set(userId, { at: now, status })
-    return true
-  }
-  return false
-}
 
 import { salasQueMeVeem } from '../lib/quemMeVe'
 
@@ -122,19 +109,6 @@ export function setupSocket(io: Server) {
     const broadcastStatus = chosenStatus === 'INVISIBLE' ? 'OFFLINE' : chosenStatus
     void avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: broadcastStatus })
 
-    socket.on('set_status', async (newStatus: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE') => {
-      if (!['ONLINE','IDLE','DND','INVISIBLE'].includes(newStatus)) return
-      socket.data.status = newStatus
-      await setUserOnline(userId, newStatus)
-
-      if (shouldPersistStatus(userId, newStatus)) {
-        try { await db.update(users).set({ status: newStatus }).where(eq(users.id, userId)) } catch {}
-      }
-      const out = newStatus === 'INVISIBLE' ? 'OFFLINE' : newStatus
-      await avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: out })
-      socket.emit('presence_update', { userId, status: newStatus })
-    })
-
     socket.join(`user:${userId}`)
 
     try {
@@ -177,7 +151,7 @@ export function setupSocket(io: Server) {
     socket.on('join_channel', async (channelId: string) => {
       if (typeof channelId !== 'string' || !channelId) return
       const ok = await userCanAccessChannel(userId, channelId)
-      if (!ok) { socket.emit('join_denied', { channelId, reason: 'not_a_member' }); return }
+      if (!ok) return
       socket.join(`channel:${channelId}`)
     })
     socket.on('leave_channel', (channelId: string) => {
@@ -189,7 +163,7 @@ export function setupSocket(io: Server) {
     socket.on('join_dm', async (conversationId: string) => {
       if (typeof conversationId !== 'string' || !conversationId) return
       const ok = await userCanAccessDM(userId, conversationId)
-      if (!ok) { socket.emit('join_denied', { conversationId, reason: 'not_a_participant' }); return }
+      if (!ok) return
       socket.join(`dm:${conversationId}`)
     })
     socket.on('leave_dm', (conversationId: string) => {
@@ -223,42 +197,6 @@ export function setupSocket(io: Server) {
       const room = `dm:${conversationId}`
       if (!socket.rooms.has(room)) return
       socket.to(room).emit('dm_user_stopped_typing', { userId, conversationId })
-    })
-
-    socket.on('check_message', async (payload: { channelId: string; serverId: string }) => {
-      const { channelId, serverId } = payload
-      if (!channelId || !serverId) return
-
-      const muted = await isUserMuted(userId, serverId)
-      if (muted) {
-        const secs = await getMuteExpiry(userId, serverId)
-        socket.emit('message_blocked', { channelId, reason: 'muted', secondsLeft: secs })
-        return
-      }
-
-      const { spamDetected } = await trackMessage(userId, channelId)
-      if (spamDetected) {
-        const botId = await getBotId()
-        if (botId) {
-          await muteUser(userId, serverId, botId)
-          const botMsg = {
-            id: `bot-mute-${randomUUID()}`,
-            content: `🔇 **@${socket.data.username}** foi silenciado por **${duracaoDoSilencio()}** por spam.`,
-            channelId, edited: false, createdAt: new Date().toISOString(),
-
-            authorId: botId,
-
-            authorColor: null, reactions: [], mentions: [],
-            author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: personaDoDia().avatar },
-          }
-          io.to(`channel:${channelId}`).emit('new_message', botMsg)
-        }
-        const secs = await getMuteExpiry(userId, serverId)
-        socket.emit('message_blocked', { channelId, reason: 'spam', secondsLeft: secs })
-        return
-      }
-
-      socket.emit('message_allowed', { channelId })
     })
 
     socket.on('fast_send_text', async (

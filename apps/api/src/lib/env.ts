@@ -21,10 +21,6 @@ const EnvSchema = z.object({
   GROQ_API_KEY:      z.string().min(1).optional(),
   GEMINI_API_KEY:    z.string().min(1).optional(),
 
-  VAPID_PUBLIC_KEY:  z.string().optional(),
-  VAPID_PRIVATE_KEY: z.string().optional(),
-  VAPID_SUBJECT:     z.string().default('mailto:dev@astra.local'),
-
   FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
 
   BREVO_API_KEY: z.string().optional(),

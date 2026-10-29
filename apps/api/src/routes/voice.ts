@@ -23,16 +23,6 @@ const TokenSchema = z.object({
   roomId:   z.string().min(1).max(64),
 })
 
-router.get('/config', requireAuth, asyncHandler(async (_req: Request, res: Response) => {
-
-  res.json({
-    data: {
-      enabled: !!(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET),
-      url:     env.LIVEKIT_URL ?? null,
-    },
-  })
-}))
-
 router.post('/token', requireAuth, validate(TokenSchema), asyncHandler(async (req: Request, res: Response) => {
   if (!env.LIVEKIT_URL || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) {
     return res.status(503).json({ error: 'Chamadas não configuradas no servidor' })

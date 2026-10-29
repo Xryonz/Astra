@@ -67,10 +67,6 @@ export const RecortarFotoSchema = z.object({
   }),
 })
 
-export const ProfileNoteSchema = z.object({
-  content: z.string().min(1, 'Nota vazia').max(120, 'Máx 120 caracteres'),
-})
-
 export const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Senha atual obrigatória'),
   newPassword: z

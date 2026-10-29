@@ -82,12 +82,6 @@ export async function isUserMuted(
   return true
 }
 
-export async function unmuteUser(userId: string, serverId: string): Promise<void> {
-  await db.delete(mutedMembers)
-    .where(and(eq(mutedMembers.userId, userId), eq(mutedMembers.serverId, serverId)))
-  try { await redis.del(muteKey(userId, serverId)) } catch {  }
-}
-
 export async function getMuteExpiry(userId: string, serverId: string): Promise<number> {
   if (!serverId || typeof serverId !== 'string') return 0
 

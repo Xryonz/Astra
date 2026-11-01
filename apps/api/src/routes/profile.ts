@@ -52,7 +52,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const [eu] = await db.select({ avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, req.userId!)).limit(1)
-    if (!eu || eu.avatarUrl) return res.json({ data: { endereco: null } })
+    if (!eu || eu.avatarUrl !== null) return res.json({ data: { endereco: null } })
     const [ultima] = await db.select({ endereco: messages.authorAvatarUrl })
       .from(messages)
       .where(and(eq(messages.authorId, req.userId!), like(messages.authorAvatarUrl, '/uploads/%')))

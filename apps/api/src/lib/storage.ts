@@ -153,6 +153,10 @@ function mimeExt(mime: string): string {
   }
 }
 
+function chaveNova(ext: string): string {
+  return `${crypto.randomBytes(16).toString('hex')}.${ext}`
+}
+
 const DATA_URI_RE = /^data:([\w.+-]+\/[\w.+-]+)?(;base64)?,(.*)$/s
 
 export function bytesDoDataUri(value: string): Buffer | null {
@@ -175,19 +179,31 @@ export async function persistDataUri<T extends string | null | undefined>(value:
   if (mime.startsWith('image/') && mime !== 'image/gif' && mime !== 'image/webp') {
     try {
       body = await sharp(input)
-        .webp({ quality: 92, effort: 6, alphaQuality: 100, smartSubsample: true })
+        .webp({ quality: 92, effort: 4, alphaQuality: 100, smartSubsample: true })
         .toBuffer()
       outMime = 'image/webp'
       ext = 'webp'
     } catch {  }
   }
 
-  const key = `${crypto.randomBytes(16).toString('hex')}.${ext}`
-  return putAttachment(key, body, outMime)
+  return putAttachment(chaveNova(ext), body, outMime)
 }
 
 const LADO_DE_EXIBICAO = 256
 export const LADO_DO_BANNER = 1280
+
+async function reduzirParaExibicao(bruto: Buffer, lado: number): Promise<Buffer | null> {
+  try {
+    const { width = 0, height = 0 } = await sharp(bruto).metadata()
+    if (width <= lado && height <= lado) return null
+    return await sharp(bruto)
+      .resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 90, effort: 4, alphaQuality: 100, smartSubsample: true })
+      .toBuffer()
+  } catch {
+    return null
+  }
+}
 
 export async function persistImagemDeExibicao(
   value: string | null | undefined,
@@ -195,29 +211,15 @@ export async function persistImagemDeExibicao(
 ): Promise<{ url: string | null; original: string | null }> {
   if (!value) return { url: value ?? null, original: null }
 
-  const original = await persistDataUri(value)
-  if (typeof original !== 'string') return { url: null, original: null }
+  const m = DATA_URI_RE.exec(value)
+  const mime = m?.[1] || 'image/png'
+  const bruto = m && mime !== 'image/gif' ? bytesDoDataUri(value) : null
+  const pequeno = bruto && await reduzirParaExibicao(bruto, lado)
+  if (!bruto || !pequeno) return { url: await persistDataUri(value), original: null }
 
-  if (!value.startsWith('data:')) return { url: original, original: null }
-  if (original.endsWith('.gif')) return { url: original, original: null }
-
-  try {
-    const m = DATA_URI_RE.exec(value)
-    if (!m) return { url: original, original: null }
-    const bruto = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
-
-    const { width = 0, height = 0 } = await sharp(bruto).metadata()
-    if (width <= lado && height <= lado) return { url: original, original: null }
-
-    const pequeno = await sharp(bruto)
-      .resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 90, effort: 6, alphaQuality: 100, smartSubsample: true })
-      .toBuffer()
-
-    const key = `${crypto.randomBytes(16).toString('hex')}.webp`
-    const url = await putAttachment(key, pequeno, 'image/webp')
-    return { url, original }
-  } catch {
-    return { url: original, original: null }
-  }
+  const [url, original] = await Promise.all([
+    putAttachment(chaveNova('webp'), pequeno, 'image/webp'),
+    putAttachment(chaveNova(mimeExt(mime)), bruto, mime),
+  ])
+  return { url, original }
 }

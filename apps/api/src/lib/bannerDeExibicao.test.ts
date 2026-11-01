@@ -66,6 +66,19 @@ describe('banner em versão média', () => {
     expect(inteira.width).toBe(2560)
   })
 
+  it('guarda a original exatamente como chegou, sem recomprimir', async () => {
+    const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
+    const entrada = await dataUriDeImagem(2560, 853, 'png')
+
+    const { url, original } = await persistImagemDeExibicao(entrada, LADO_DO_BANNER)
+
+    await medir(url!)
+    await medir(original!)
+    expect(original!.endsWith('.png')).toBe(true)
+    const gravada = await fs.readFile(path.resolve(process.cwd(), 'uploads', original!.slice('/uploads/'.length)))
+    expect(gravada.equals(Buffer.from(entrada.split(',')[1], 'base64'))).toBe(true)
+  })
+
   it('arte de cores chapadas, com PNG mais leve que o WebP reduzido, também ganha versão média', async () => {
     const { persistImagemDeExibicao, LADO_DO_BANNER } = await carregarStorageSemBucket()
 

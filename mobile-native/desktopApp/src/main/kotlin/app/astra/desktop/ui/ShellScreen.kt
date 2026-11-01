@@ -407,7 +407,7 @@ fun ShellScreen(
                         FirstStepsCard(
                             hasServer = state.servers.isNotEmpty(),
                             hasDm = state.dms.isNotEmpty(),
-                            hasAvatar = state.me?.avatarUrl != null,
+                            hasAvatar = !state.me?.avatarUrl.isNullOrBlank(),
                             onDismiss = {
                                 onbStore.setUiPref("checklist:${session.userId}", "0")
                                 checklistActive = false

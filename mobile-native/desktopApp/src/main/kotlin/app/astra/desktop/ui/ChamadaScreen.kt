@@ -89,7 +89,7 @@ fun ChamadaScreen(
                         .border(1.dp, Obsidian.borderDim, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (chamada.avatarUrl != null) {
+                    if (!chamada.avatarUrl.isNullOrBlank()) {
                         AstraImage(
                             url = chamada.avatarUrl,
                             contentDescription = chamada.nome,

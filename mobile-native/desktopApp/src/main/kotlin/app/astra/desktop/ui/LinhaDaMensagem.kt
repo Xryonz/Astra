@@ -36,14 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
@@ -104,32 +102,6 @@ internal fun falasPorMensagem(
     return porMensagem
 }
 
-private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean) {
-    val inteira: Boolean get() = acimaCompleto && abaixoCompleto
-}
-
-private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>): MedidaDaFala {
-    var acima = 0f
-    var acimaCompleto = true
-    var abaixo = 0f
-    var abaixoCompleto = true
-    var passou = false
-    for (id in ids) {
-        if (id == eu) {
-            passou = true
-            continue
-        }
-        val altura = alturas[id]
-        when {
-            altura == null && passou -> abaixoCompleto = false
-            altura == null -> acimaCompleto = false
-            passou -> abaixo += altura
-            else -> acima += altura
-        }
-    }
-    return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
-}
-
 private fun maiorLargura(ids: List<String>, larguras: Map<String, Int>): Int =
     ids.maxOfOrNull { larguras[it] ?: 0 } ?: 0
 
@@ -139,63 +111,30 @@ private fun DrawScope.direitaDaFala(ids: List<String>, larguras: Map<String, Int
     return minOf(size.width, (INICIO_DO_TEXTO + RECUO_DA_LINHA).toPx() + conteudo)
 }
 
-private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala, direita: Float) {
+private fun DrawScope.fundoDaMensagem(tamanho: Size, mencionaVoce: Boolean) {
+    drawOutline(FormaDoFundoDaMensagem.createOutline(tamanho, layoutDirection, this), Obsidian.overlay)
+    if (mencionaVoce && Obsidian.altoContraste) contornoDaMencao(tamanho)
+}
+
+private fun DrawScope.contornoDaMencao(tamanho: Size) {
     val traco = 1.dp.toPx()
-    val meio = traco / 2f
-    val raio = CANTO_DA_SEMIBORDA.toPx()
-    val alto = size.height
-    val deitada = maxOf(direita * PONTA_DEITADA, raio)
-    val tetoEmPe = maxOf(raio, PONTA_EM_PE_MAXIMA.toPx())
-    val emPeSemTeto = (fala.acima + alto + fala.abaixo) * PONTA_EM_PE
-    if (emPeSemTeto < tetoEmPe && !fala.inteira) return
-    val emPe = emPeSemTeto.coerceIn(raio, tetoEmPe)
-    val estilo = Stroke(width = traco, cap = StrokeCap.Round)
-    if (abre) {
-        drawPath(
-            Path().apply {
-                moveTo(meio, minOf(meio + emPe, alto))
-                lineTo(meio, meio + raio)
-                quadraticTo(meio, meio, meio + raio, meio)
-                lineTo(meio + deitada, meio)
-            },
-            cor,
-            style = estilo,
+    val dentro = Size(tamanho.width - traco, tamanho.height - traco)
+    translate(traco / 2f, traco / 2f) {
+        drawOutline(
+            FormaDoFundoDaMensagem.createOutline(dentro, layoutDirection, this),
+            Obsidian.accent.copy(alpha = ALFA_DA_MENCAO),
+            style = Stroke(traco),
         )
-    } else if (fala.acimaCompleto) {
-        val de = (raio - fala.acima).coerceAtLeast(0f)
-        val ate = (emPe - fala.acima).coerceAtMost(alto)
-        if (ate > de) drawLine(cor, Offset(meio, de), Offset(meio, ate), traco)
-    }
-    val x = direita - meio
-    if (fecha) {
-        val y = alto - meio
-        drawPath(
-            Path().apply {
-                moveTo(x, maxOf(y - emPe, 0f))
-                lineTo(x, y - raio)
-                quadraticTo(x, y, x - raio, y)
-                lineTo(x - deitada, y)
-            },
-            cor,
-            style = estilo,
-        )
-    } else if (fala.abaixoCompleto) {
-        val fundo = alto + fala.abaixo
-        val de = (fundo - emPe).coerceAtLeast(0f)
-        val ate = (fundo - raio).coerceAtMost(alto)
-        if (ate > de) drawLine(cor, Offset(x, de), Offset(x, ate), traco)
     }
 }
 
-private val CANTO_DA_SEMIBORDA = 8.dp
+private val CANTO_DA_FALA = 8.dp
+private val FormaDoFundoDaMensagem = RoundedCornerShape(CANTO_DA_FALA)
 private val MARGEM_DA_FALA = 14.dp
 private val RECUO_DA_LINHA = 12.dp
 private val LARGURA_DO_AVATAR = 34.dp
 private val ESPACO_ATE_O_TEXTO = 10.dp
 private val INICIO_DO_TEXTO = RECUO_DA_LINHA + LARGURA_DO_AVATAR + ESPACO_ATE_O_TEXTO
-private val PONTA_EM_PE_MAXIMA = 120.dp
-private const val PONTA_DEITADA = 0.25f
-private const val PONTA_EM_PE = 0.5f
 private const val ALFA_DA_MENCAO = 0.7f
 private const val RESPIRO_DA_CARTA = 0.75f
 
@@ -205,8 +144,6 @@ internal fun MessageRow(
     abreOCartao: Boolean,
     fechaOCartao: Boolean,
     idsDaFala: List<String>,
-    alturas: Map<String, Int>,
-    aoMedir: (Int) -> Unit,
     larguras: Map<String, Int>,
     aoMedirLargura: (Int) -> Unit,
     isChannel: Boolean,
@@ -279,46 +216,35 @@ internal fun MessageRow(
     val dens = LocalMsgDensity.current
     val respiroDaCarta = (dens.topDp * RESPIRO_DA_CARTA).dp
     val espacoEntreCartas = (dens.groupedTopDp * 2).dp
-    val corDaSemiborda = when {
-        meMencionou -> Obsidian.accent.copy(alpha = ALFA_DA_MENCAO)
-        msg.mine -> Obsidian.borderMid
-        else -> Obsidian.borderDim
-    }
+    val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
+    val comFundo = showPill || meMencionou
     val formaDoRealce = RoundedCornerShape(
-        topStart = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        topEnd = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        bottomStart = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        bottomEnd = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
+        topStart = if (abreOCartao) CANTO_DA_FALA else 0.dp,
+        topEnd = if (abreOCartao) CANTO_DA_FALA else 0.dp,
+        bottomStart = if (fechaOCartao) CANTO_DA_FALA else 0.dp,
+        bottomEnd = if (fechaOCartao) CANTO_DA_FALA else 0.dp,
     )
     Box(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = MARGEM_DA_FALA)
             .padding(top = if (abreOCartao) espacoEntreCartas else 0.dp)
-            .onSizeChanged { aoMedir(it.height) }
             .graphicsLayer {
                 alpha = opacidade * (if (msg.pending) 0.55f else 1f)
             }
             .drawBehind {
-                val direita = direitaDaFala(idsDaFala, larguras)
+                val tamanho = Size(direitaDaFala(idsDaFala, larguras), size.height)
+                if (comFundo) fundoDaMensagem(tamanho, meMencionou)
                 if (realce > 0f) {
                     val aceso = Obsidian.accentDim
                     drawOutline(
-                        formaDoRealce.createOutline(Size(direita, size.height), layoutDirection, this),
+                        formaDoRealce.createOutline(tamanho, layoutDirection, this),
                         aceso.copy(alpha = aceso.alpha * realce),
                     )
                 }
-                semibordas(
-                    abreOCartao,
-                    fechaOCartao,
-                    corDaSemiborda,
-                    medirFala(idsDaFala, msg.id, alturas),
-                    direita,
-                )
             }
             .hoverable(interaction),
     ) {
-        val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -499,7 +425,7 @@ private fun ActionPill(
         modifier
             .shadow(6.dp, RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.overlay)
+            .background(Obsidian.hover)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .padding(2.dp),
     ) {
@@ -527,7 +453,7 @@ private fun PillButton(
             .background(
                 when {
                     hov && danger -> Obsidian.danger.copy(alpha = 0.25f)
-                    hov -> Obsidian.hover
+                    hov -> Obsidian.active
                     else -> Color.Transparent
                 },
             )

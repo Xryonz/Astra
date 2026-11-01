@@ -380,7 +380,6 @@ fun ChatView(
         }
     val meuId = LocalMinhaConta.current.id
     val falas = remember(linhas, primeiraNaoLida, meuId) { falasPorMensagem(linhas, primeiraNaoLida, meuId) }
-    val alturas = remember(target.id) { mutableStateMapOf<String, Int>() }
     val larguras = remember(target.id) { mutableStateMapOf<String, Int>() }
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
@@ -426,8 +425,6 @@ fun ChatView(
                                 abreOCartao = abre,
                                 fechaOCartao = fecha,
                                 idsDaFala = falas[msg.id].orEmpty(),
-                                alturas = alturas,
-                                aoMedir = { altura -> if (alturas[msg.id] != altura) alturas[msg.id] = altura },
                                 larguras = larguras,
                                 aoMedirLargura = { largura -> if (larguras[msg.id] != largura) larguras[msg.id] = largura },
                                 isChannel = isChannel,
@@ -569,7 +566,7 @@ fun ChatView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Obsidian.raised)
+                            .background(Obsidian.overlay)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -648,7 +645,9 @@ fun ChatView(
                     draft = picked.name.substringBefore(" <") + " "
                 }
                 if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                val placeholder = if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…"
+                val placeholder = remember(target) {
+                    comEmojisRetos(if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…")
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -75,7 +76,7 @@ fun SeletorDeTela(
             .popupReveal(originX = 0.5f, originY = 1f)
             .width(480.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.raised)
+            .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
             .padding(12.dp),
     ) {
@@ -168,9 +169,9 @@ private fun AbaDaFonte(rotulo: String, ativa: Boolean, aoClicar: () -> Unit) {
             .clip(RoundedCornerShape(6.dp))
             .background(
                 when {
-                    ativa -> Obsidian.overlay
+                    ativa -> Obsidian.active
                     sobre -> Obsidian.hover
-                    else -> Obsidian.raised
+                    else -> Color.Transparent
                 },
             )
             .hoverable(interacao)
@@ -193,7 +194,7 @@ private fun BotaoDeParar(aoClicar: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(if (sobre) Obsidian.hover else Obsidian.overlay)
+            .background(if (sobre) Obsidian.active else Obsidian.hover)
             .border(1.dp, Obsidian.danger.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
             .hoverable(interacao)
             .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
@@ -233,7 +234,7 @@ private fun CartaoDaFonte(
         Modifier
             .width(LarguraDoCartao)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (sobre) Obsidian.hover else Obsidian.overlay)
+            .background(if (sobre) Obsidian.active else Obsidian.hover)
             .border(
                 1.dp,
                 if (noAr) Obsidian.accent else Obsidian.borderDim,

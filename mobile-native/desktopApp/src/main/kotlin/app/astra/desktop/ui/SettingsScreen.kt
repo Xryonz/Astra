@@ -377,7 +377,7 @@ fun SettingsScreen(
                                 .clickScale(hov, formaDoFoco = FormaDeBotao)
                                 .clip(FormaDeBotao)
                                 .background(if (h) Obsidian.hover else Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderMid, FormaDeBotao)
+                                .bordaNoAltoContraste(FormaDeBotao)
                                 .hoverable(hov)
                                 .clickable(interactionSource = hov, indication = null) { tentarFechar() },
                             contentAlignment = Alignment.Center,

@@ -173,7 +173,7 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
             .height(18.dp)
             .widthIn(min = 18.dp)
             .clip(RoundedCornerShape(9.dp))
-            .background(if (destaque) Color.White else Obsidian.raised)
+            .background(if (destaque) Color.White else Obsidian.hover)
             .padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {

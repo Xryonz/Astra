@@ -872,12 +872,7 @@ private fun RailItem(
         tween(140),
     )
     val borderColor by animateColorAsState(
-        when {
-            active -> Obsidian.accent.copy(alpha = 0.55f)
-            !Obsidian.altoContraste -> Color.Transparent
-            hovered -> Obsidian.borderMid
-            else -> Obsidian.borderDim
-        },
+        bordaDoItem(Obsidian.accent.copy(alpha = 0.55f).takeIf { active }, hovered),
         tween(140),
     )
     Box(

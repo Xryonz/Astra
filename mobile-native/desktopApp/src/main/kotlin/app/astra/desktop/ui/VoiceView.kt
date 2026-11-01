@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
@@ -297,7 +298,7 @@ fun VoiceView(
                             Modifier
                                 .popupReveal(originX = 0.5f, originY = 1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Obsidian.raised)
+                                .background(Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
                                 .padding(4.dp),
                         ) {
@@ -410,7 +411,7 @@ fun VoiceView(
                                 .popupReveal(originX = 0.5f, originY = 1f)
                                 .width(230.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Obsidian.raised)
+                                .background(Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
                                 .padding(10.dp),
                         ) {
@@ -501,7 +502,7 @@ private fun CallSettingsPanel(
         Modifier
             .width(240.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.raised)
+            .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
             .padding(8.dp),
     ) {
@@ -643,8 +644,8 @@ private fun FaixaDoFirewall() {
             .widthIn(max = 560.dp)
             .fillMaxWidth()
             .clip(forma)
-            .background(Obsidian.raised)
-            .border(1.dp, Obsidian.borderDim, forma)
+            .background(Obsidian.overlay)
+            .bordaNoAltoContraste(forma)
             .padding(horizontal = 14.dp, vertical = 11.dp),
     ) {
         Text(texto, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp))
@@ -652,7 +653,7 @@ private fun FaixaDoFirewall() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AcaoDaFaixa(
                 rotulo = if (liberando) "liberando…" else "liberar de vez",
-                cor = Obsidian.accent,
+                cor = Obsidian.text1,
                 habilitado = !liberando,
             ) {
                 liberando = true
@@ -703,13 +704,16 @@ private enum class CallTone { Normal, Active, Danger }
 private val ALTURA_DO_BOTAO = 46.dp
 private val RAIO_DO_BOTAO = 23.dp
 private val LARGURA_DA_SETA = 30.dp
+private const val TINTA_DE_PERIGO = 0.14f
+private const val TINTA_DE_PERIGO_ACESA = 0.22f
 
 @Composable
 private fun corDaBorda(tone: CallTone) = animateColorAsState(
-    when (tone) {
-        CallTone.Danger -> Obsidian.danger
-        CallTone.Active -> Obsidian.accent
-        CallTone.Normal -> Obsidian.borderMid
+    when {
+        tone == CallTone.Active -> Obsidian.accent
+        !Obsidian.altoContraste -> Color.Transparent
+        tone == CallTone.Danger -> Obsidian.danger
+        else -> Obsidian.borderMid
     },
     tween(140),
 ).value
@@ -722,9 +726,13 @@ private fun corDoGlifo(tone: CallTone, habilitado: Boolean) = when {
 }
 
 @Composable
-private fun fundoDoBotao(aceso: Boolean) = animateColorAsState(
-    if (aceso) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f),
-    tween(140),
+private fun fundoDoBotao(tone: CallTone, aceso: Boolean) = animateColorAsState(
+    when {
+        tone == CallTone.Danger -> lerp(Obsidian.overlay, Obsidian.danger, if (aceso) TINTA_DE_PERIGO_ACESA else TINTA_DE_PERIGO)
+        aceso -> Obsidian.hover
+        else -> Obsidian.overlay
+    },
+    if (LocalReduceMotion.current) snap() else tween(140),
 ).value
 
 @Composable
@@ -744,11 +752,11 @@ private fun CallSplitButton(
     val borda = corDaBorda(tone)
     val glifo = corDoGlifo(tone, habilitado)
 
-    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro)) {
+    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro).background(Obsidian.overlay)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val daTela = remember { MutableInteractionSource() }
             val sobreATela by daTela.collectIsHoveredAsState()
-            val fundoDaTela = fundoDoBotao(sobreATela)
+            val fundoDaTela = fundoDoBotao(tone, sobreATela)
             Box(
                 Modifier
                     .size(ALTURA_DO_BOTAO)
@@ -772,7 +780,7 @@ private fun CallSplitButton(
 
             val daSeta = remember { MutableInteractionSource() }
             val sobreASeta by daSeta.collectIsHoveredAsState()
-            val fundoDaSeta = fundoDoBotao(sobreASeta || setaAberta)
+            val fundoDaSeta = fundoDoBotao(tone, sobreASeta || setaAberta)
             Box(
                 Modifier
                     .width(LARGURA_DA_SETA)
@@ -814,7 +822,7 @@ private fun CallIconButton(
         if (hovered) Obsidian.danger else Obsidian.danger.copy(alpha = 0.82f),
         tween(140),
     )
-    val bg = if (preenchido) fundoCheio else fundoDoBotao(hovered)
+    val bg = if (preenchido) fundoCheio else fundoDoBotao(tone, hovered)
     Box {
         Box(
             Modifier
@@ -840,7 +848,7 @@ private fun NumerosDaTela(minha: String, deQuemAssisto: String?) {
             .popupReveal(originX = 0.5f, originY = 1f)
             .width(250.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.raised)
+            .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
@@ -1030,7 +1038,7 @@ private fun ParticipantTile(
     val podeTrocar = tile.transmitindo && (!tile.emCartaz || tile.isMe)
 
     val borderColor by animateColorAsState(
-        if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
+        bordaDoItem(Obsidian.accent.takeIf { tile.speaking }, comOMouse = false),
         tween(140),
     )
     val swell = animateFloatAsState(
@@ -1042,7 +1050,7 @@ private fun ParticipantTile(
         modifier
             .graphicsLayer { scaleX = swell.value; scaleY = swell.value }
             .clip(RoundedCornerShape(14.dp))
-            .background(if (tile.emCartaz) Obsidian.overlay else Obsidian.raised.copy(alpha = 0.5f))
+            .background(if (tile.emCartaz) Obsidian.hover else Obsidian.overlay)
             .border(1.dp, borderColor, RoundedCornerShape(14.dp))
             .then(
                 if (podeTrocar) {
@@ -1071,7 +1079,7 @@ private fun ParticipantTile(
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
                 })
             }
-            DesktopAvatar(tile.avatarUrl, tile.label, retrato.value.toInt())
+            DesktopAvatar(tile.avatarUrl, tile.label, retrato.value.toInt(), fundo = Obsidian.active)
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1094,7 +1102,7 @@ private fun ParticipantTile(
             Text(
                 tile.label,
                 style = TextStyle(
-                    color = if (tile.speaking) Obsidian.accent else Obsidian.text2,
+                    color = if (tile.speaking) Obsidian.text1 else Obsidian.text2,
                     fontSize = 12.sp,
                     fontFamily = tile.fonte?.let { profileFontFamily(it) },
                 ),

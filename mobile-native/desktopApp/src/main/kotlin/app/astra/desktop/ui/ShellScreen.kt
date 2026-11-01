@@ -803,6 +803,13 @@ internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
 internal fun Modifier.bordaNoAltoContraste(forma: Shape): Modifier =
     if (Obsidian.altoContraste) this.border(1.dp, Obsidian.borderMid, forma) else this
 
+internal fun bordaDoItem(selecao: Color?, comOMouse: Boolean, emRepouso: Color = Obsidian.borderDim): Color = when {
+    selecao != null -> selecao
+    !Obsidian.altoContraste -> Color.Transparent
+    comOMouse -> Obsidian.borderMid
+    else -> emRepouso
+}
+
 private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
     val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)
         .coerceIn(LARGURA_SIDEBAR, LARGURA_SIDEBAR_MAXIMA)

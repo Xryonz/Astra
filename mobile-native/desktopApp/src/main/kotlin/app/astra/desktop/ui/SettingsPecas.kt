@@ -196,11 +196,11 @@ internal fun NavRow(icon: ImageVector, label: String, sub: String, active: Boole
         tween(120),
     )
     val border by animateColorAsState(
-        when {
-            active -> Obsidian.accent.copy(alpha = 0.45f)
-            hovered -> Obsidian.borderMid
-            else -> Obsidian.borderDim.copy(alpha = 0.55f)
-        },
+        bordaDoItem(
+            selecao = Obsidian.accent.copy(alpha = 0.45f).takeIf { active },
+            comOMouse = hovered,
+            emRepouso = Obsidian.borderDim.copy(alpha = 0.55f),
+        ),
         tween(120),
     )
     Row(

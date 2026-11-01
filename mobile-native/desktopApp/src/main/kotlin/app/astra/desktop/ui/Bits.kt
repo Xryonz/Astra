@@ -189,7 +189,7 @@ fun LIcon(
 }
 
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false) {
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false, fundo: Color = Obsidian.overlay) {
     val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !fotoSabidamenteParada(url) &&
         !LocalReduceMotion.current
     val sobre = remember { MutableInteractionSource() }
@@ -202,7 +202,7 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = fal
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().clip(CircleShape).background(Obsidian.overlay),
+            modifier = Modifier.fillMaxSize().clip(CircleShape).background(fundo),
             contentAlignment = Alignment.Center,
         ) {
             if (!url.isNullOrBlank() && !imagemMorreu(url)) {

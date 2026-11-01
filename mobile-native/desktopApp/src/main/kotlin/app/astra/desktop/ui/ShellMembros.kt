@@ -3,7 +3,6 @@ package app.astra.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -72,7 +71,7 @@ internal fun MembersPanel(
             .fillMaxHeight()
             .clip(forma)
             .panelSurface(Obsidian.base, 0.62f)
-            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), forma),
+            .bordaNoAltoContraste(forma),
     ) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
             items(rows, key = { row -> row.key }) { row ->

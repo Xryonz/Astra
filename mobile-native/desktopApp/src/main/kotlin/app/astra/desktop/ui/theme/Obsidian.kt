@@ -46,9 +46,9 @@ object Obsidian {
         void = afundar(bg.voidC)
         base = lerp(bg.voidC, bg.raisedC, 0.4f)
         raised = bg.raisedC
-        overlay = lift(bg.raisedC, 0.028f)
-        hover = lift(bg.raisedC, 0.055f)
-        active = lift(bg.raisedC, 0.085f)
+        overlay = lift(bg.raisedC, 0.045f)
+        hover = lift(bg.raisedC, 0.075f)
+        active = lift(bg.raisedC, 0.105f)
         accent = a
         accentDim = a.copy(alpha = 0.2f)
         ultimoRaised = bg.raisedC
@@ -65,13 +65,14 @@ object Obsidian {
         borderMid = if (alto) clarear(r, 2.70f, 0.310f) else clarear(r, 1.85f, 0.17f)
     }
 
-    private var altoContraste = false
+    var altoContraste by mutableStateOf(false)
+        private set
     private var ultimoRaised = Color(0xFF0F0F24)
 }
 
 private val TEXT1_PADRAO = Color(0xFFE4E4EB)
 private val TEXT2_PADRAO = Color(0xFFC0C0C6)
-private val TEXT3_PADRAO = Color(0xFF8C8C94)
+private val TEXT3_PADRAO = Color(0xFF93939B)
 
 private const val FUNDO_MAIS_FUNDO = 0.45f
 

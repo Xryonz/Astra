@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -679,9 +680,10 @@ private fun EstrelaDaRail(
         if (reduzir) snap() else tween(ENTRADA_DO_CARTAO_MS, easing = EaseOutStd),
         label = "estrelaPresente",
     )
-    val borda by animateColorAsState(
-        if (hovered) Obsidian.borderMid else Obsidian.borderDim,
-        tween(140),
+    val veu by animateFloatAsState(
+        if (hovered) 1f else 0f,
+        if (reduzir) snap() else tween(VEU_MS),
+        label = "veuDaEstrela",
     )
     val formaDoCartao = RoundedCornerShape(CANTO_DO_CARTAO)
     val formaDaEstrela = RoundedCornerShape(CANTO_DA_ESTRELA)
@@ -731,7 +733,11 @@ private fun EstrelaDaRail(
                         else -> Obsidian.raised
                     },
                 )
-                .border(1.dp, borda, formaDaEstrela)
+                .bordaNoAltoContraste(formaDaEstrela)
+                .drawWithContent {
+                    drawContent()
+                    if (veu > 0f) drawRect(Color.White.copy(alpha = ALFA_DO_VEU * veu))
+                }
                 .hoverable(interaction)
                 .clickable(interactionSource = interaction, indication = null, onClick = aoTocar)
                 .semantics { if (nomeAcessivel != null) contentDescription = nomeAcessivel },
@@ -780,6 +786,8 @@ private val TRACO_DO_FIO = 3.dp
 private val VAO_DO_FIO = 4.dp
 private const val ALFA_DO_FIO_TRACEJADO = 0.7f
 private const val ALFA_SILENCIADA = 0.45f
+private const val ALFA_DO_VEU = 0.07f
+private const val VEU_MS = 140
 private const val ESCALA_INICIAL = 0.9f
 private const val ENTRADA_DO_CARTAO_MS = 200
 private const val SAIDA_DO_CARTAO_MS = 150
@@ -866,6 +874,7 @@ private fun RailItem(
     val borderColor by animateColorAsState(
         when {
             active -> Obsidian.accent.copy(alpha = 0.55f)
+            !Obsidian.altoContraste -> Color.Transparent
             hovered -> Obsidian.borderMid
             else -> Obsidian.borderDim
         },
@@ -1004,7 +1013,7 @@ internal fun ServerHeaderBanner(srv: ServerDto) {
             .padding(horizontal = 8.dp, vertical = 8.dp)
             .aspectRatio(ServerBannerAspect)
             .clip(forma)
-            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), forma),
+            .bordaNoAltoContraste(forma),
     ) {
         if (!srv.bannerUrl.isNullOrBlank()) {
             ProfileBanner(

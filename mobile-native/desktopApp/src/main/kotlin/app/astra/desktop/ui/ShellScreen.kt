@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -438,7 +439,7 @@ fun ShellScreen(
                 .fillMaxSize()
                 .padding(RESPIRO_DA_JANELA)
                 .clip(FORMA_DO_SHELL)
-                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), FORMA_DO_SHELL),
+                .bordaNoAltoContraste(FORMA_DO_SHELL),
         ) {
         Row(Modifier.fillMaxSize()) {
         val podeConfigurar: (String) -> Boolean = { id ->
@@ -796,14 +797,11 @@ private val ALTURA_DO_RODAPE = 62.dp
 
 @Composable
 internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
-    if (LocalFundoLiso.current) this.background(sobreOFundoLiso(bg, alpha, Obsidian.void))
+    if (LocalFundoLiso.current) this.background(bg)
     else this.background(bg.copy(alpha = alpha))
 
-private fun sobreOFundoLiso(cor: Color, alfa: Float, fundo: Color) = Color(
-    red = fundo.red + (cor.red - fundo.red) * alfa,
-    green = fundo.green + (cor.green - fundo.green) * alfa,
-    blue = fundo.blue + (cor.blue - fundo.blue) * alfa,
-)
+internal fun Modifier.bordaNoAltoContraste(forma: Shape): Modifier =
+    if (Obsidian.altoContraste) this.border(1.dp, Obsidian.borderMid, forma) else this
 
 private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
     val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)

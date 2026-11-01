@@ -194,6 +194,7 @@ fun VoiceView(
                             isMe = true, muted = !micOn, surdo = ensurdecido,
                             transmitindo = transmitindo,
                             emCartaz = quemMostra == CallNaSala.EU,
+                            nomeNoRetrato = me?.displayName ?: me?.username,
                         ),
                     )
                     connected.others.forEach { p ->
@@ -948,6 +949,7 @@ private data class Tile(
     val transmitindo: Boolean = false,
     val emCartaz: Boolean = false,
     val fonte: String? = null,
+    val nomeNoRetrato: String? = null,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1079,7 +1081,7 @@ private fun ParticipantTile(
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
                 })
             }
-            DesktopAvatar(tile.avatarUrl, tile.label, retrato.value.toInt(), fundo = Obsidian.active)
+            DesktopAvatar(tile.avatarUrl, tile.nomeNoRetrato ?: tile.label, retrato.value.toInt(), fundo = Obsidian.active)
             }
         }
         Spacer(Modifier.height(8.dp))

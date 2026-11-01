@@ -90,7 +90,6 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.dto.ServerDto
 import coil3.compose.AsyncImage
 import com.composables.icons.lucide.Bell
@@ -291,91 +290,29 @@ internal fun Rail(
                     }
                 }) {
                 if (confirmLeave) {
-                    Popup(
-                        onDismissRequest = { confirmLeave = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        Column(
-                            Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                                .padding(14.dp),
-                        ) {
-                            Text(
-                                "sair de ${srv.name}?",
-                                style = Tipo.corpo,
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "ficar",
-                                    style = Tipo.descricao,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                                        .clickable { confirmLeave = false }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "sair",
-                                    style = Tipo.erro,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
-                                        .clickable {
-                                            confirmLeave = false
-                                            onLeaveServer(srv.id)
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                            }
-                        }
-                    }
+                    Confirmacao(
+                        titulo = "sair de ${srv.name}",
+                        consequencia = "você deixa de ver esta constelação, mas pode voltar se receber um convite.",
+                        acao = "sair",
+                        cancelar = "ficar",
+                        aoConfirmar = {
+                            confirmLeave = false
+                            onLeaveServer(srv.id)
+                        },
+                        aoFechar = { confirmLeave = false },
+                    )
                 }
                 if (confirmDelete) {
-                    Popup(
-                        onDismissRequest = { confirmDelete = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        Column(
-                            Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                                .padding(14.dp),
-                        ) {
-                            Text(
-                                "excluir ${srv.name}? A constelação é apagada para todos, e não há como desfazer.",
-                                style = Tipo.corpo,
-                                modifier = Modifier.widthIn(max = 240.dp),
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "cancelar",
-                                    style = Tipo.descricao,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                                        .clickable { confirmDelete = false }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "excluir",
-                                    style = Tipo.erro,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
-                                        .clickable {
-                                            confirmDelete = false
-                                            onDeleteServer(srv.id)
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                            }
-                        }
-                    }
+                    Confirmacao(
+                        titulo = "excluir ${srv.name}",
+                        consequencia = "a constelação é apagada para todos, e não há como desfazer.",
+                        acao = "excluir",
+                        aoConfirmar = {
+                            confirmDelete = false
+                            onDeleteServer(srv.id)
+                        },
+                        aoFechar = { confirmDelete = false },
+                    )
                 }
                 val novidade = srv.id in constelacoesComNovidade
                 val acabouDeChegar = carregado && conhecidas?.contains(srv.id) == false

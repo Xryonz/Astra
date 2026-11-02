@@ -292,7 +292,7 @@ internal fun Rail(
                 if (confirmLeave) {
                     Confirmacao(
                         titulo = "sair de ${srv.name}",
-                        consequencia = "você deixa de ver esta constelação, mas pode voltar se receber um convite.",
+                        consequencia = AO_SAIR_DA_CONSTELACAO,
                         acao = "sair",
                         cancelar = "ficar",
                         aoConfirmar = {
@@ -305,7 +305,7 @@ internal fun Rail(
                 if (confirmDelete) {
                     Confirmacao(
                         titulo = "excluir ${srv.name}",
-                        consequencia = "a constelação é apagada para todos, e não há como desfazer.",
+                        consequencia = AO_EXCLUIR_A_CONSTELACAO,
                         acao = "excluir",
                         aoConfirmar = {
                             confirmDelete = false

@@ -228,7 +228,7 @@ fun UserFooter(
                     .clip(CircleShape)
                     .clickable(onClick = onAbrirJornada),
             ) {
-                DesktopAvatar(me?.avatarUrl, name, 30)
+                DesktopAvatar(me?.avatarUrl, name, 30, fundo = Obsidian.hover)
                 MoedasDeXp(xpStore)
                 AnimacaoDeArtista(
                     arquivo = "eclipse",

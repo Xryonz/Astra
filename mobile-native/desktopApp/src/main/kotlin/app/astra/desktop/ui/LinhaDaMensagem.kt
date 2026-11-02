@@ -303,7 +303,13 @@ internal fun MessageRow(
                 }
             } else {
                 ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, LARGURA_DO_AVATAR.value.toInt(), animar = hovered)
+                    DesktopAvatar(
+                        msg.authorAvatar,
+                        msg.authorName,
+                        LARGURA_DO_AVATAR.value.toInt(),
+                        animar = hovered,
+                        fundo = Obsidian.hover,
+                    )
                 }
                 Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
                 PilulaJuntoDoTexto(

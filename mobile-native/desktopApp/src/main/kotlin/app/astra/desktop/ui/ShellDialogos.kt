@@ -84,6 +84,10 @@ enum class LarguraDoDialogo(val medida: Dp) { ESTREITA(360.dp), MEDIA(440.dp) }
 val TextoDoDialogo: TextStyle
     get() = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp)
 
+internal const val AO_SAIR_DA_CONSTELACAO = "você deixa de ver as órbitas e as mensagens dela até entrar de novo."
+internal const val AO_EXCLUIR_A_CONSTELACAO =
+    "a constelação some para todos os membros, com as órbitas e as mensagens. Não há como desfazer."
+
 @Composable
 fun Confirmacao(
     titulo: String,

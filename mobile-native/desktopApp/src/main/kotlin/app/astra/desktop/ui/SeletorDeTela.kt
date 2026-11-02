@@ -277,7 +277,7 @@ private fun CartaoDaFonte(
             if (noAr) {
                 Text(
                     "  ·  no ar",
-                    style = TextStyle(color = Obsidian.accent, fontSize = 10.sp),
+                    style = TextStyle(color = Obsidian.text1, fontSize = 10.sp),
                 )
             }
         }

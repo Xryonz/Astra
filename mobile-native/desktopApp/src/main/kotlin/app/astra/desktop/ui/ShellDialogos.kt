@@ -65,14 +65,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -88,6 +83,10 @@ enum class LarguraDoDialogo(val medida: Dp) { ESTREITA(360.dp), MEDIA(440.dp) }
 
 val TextoDoDialogo: TextStyle
     get() = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp)
+
+internal const val AO_SAIR_DA_CONSTELACAO = "você deixa de ver as órbitas e as mensagens dela até entrar de novo."
+internal const val AO_EXCLUIR_A_CONSTELACAO =
+    "a constelação some para todos os membros, com as órbitas e as mensagens. Não há como desfazer."
 
 @Composable
 fun Confirmacao(
@@ -160,7 +159,7 @@ internal fun Dialogo(
     val fecharAgora by rememberUpdatedState(fechar)
     if (fechado) return
     Popup(
-        popupPositionProvider = JanelaDoDialogo,
+        popupPositionProvider = CobrindoAJanela,
         onDismissRequest = { if (dispensavel) fecharAgora() },
         properties = PopupProperties(focusable = true),
     ) {
@@ -377,15 +376,6 @@ internal fun EscolhaDoDialogo(rotulo: String, ativa: Boolean, onClick: () -> Uni
         }
         Text(rotulo, style = TextStyle(color = cor, fontSize = 12.sp))
     }
-}
-
-private object JanelaDoDialogo : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
 }
 
 private val FormaDoDialogo = RoundedCornerShape(8.dp)

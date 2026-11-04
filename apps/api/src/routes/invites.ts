@@ -1,6 +1,5 @@
 import { Router, Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import crypto from 'crypto'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
@@ -9,7 +8,6 @@ import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { saudarNovoMembro } from '../lib/botAvisos'
 import { authLimiter } from '../middleware/rateLimiter'
-import { PERMS, getMemberPerms } from '../lib/permissions'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { membroEntrou } from '../lib/membros'
 
@@ -73,27 +71,6 @@ router.post(
     ])
 
     res.json({ data: { ...server, channels: chRows, _count: { members: countRow?.count ?? 0 } } })
-  })
-)
-
-router.post(
-  '/:serverId/regenerate',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { serverId } = req.params
-
-    const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.memberId && !m.isOwner) return res.status(403).json({ error: 'Você não é membro' })
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
-      return res.status(403).json({ error: 'Sem permissão para gerar um convite novo' })
-    }
-
-    const newCode = crypto.randomUUID()
-    const [updated] = await db.update(servers).set({ inviteCode: newCode })
-      .where(eq(servers.id, serverId))
-      .returning({ inviteCode: servers.inviteCode })
-
-    res.json({ data: { inviteCode: updated.inviteCode } })
   })
 )
 

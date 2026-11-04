@@ -42,7 +42,7 @@ import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AstraTabs
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.ListSkeleton
@@ -74,7 +74,7 @@ fun FriendsScreen(
         viewModel.added.collect { showAdd = false }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Estrelas",

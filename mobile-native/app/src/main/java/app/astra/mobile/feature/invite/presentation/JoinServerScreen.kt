@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -47,7 +47,7 @@ fun JoinServerScreen(
         viewModel.joined.collect { (id, name) -> onJoined(id, name) }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = AstraCopy.Action.joinServer,

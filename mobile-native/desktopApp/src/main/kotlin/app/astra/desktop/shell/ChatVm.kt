@@ -5,6 +5,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
 import app.astra.desktop.net.insistir
+import app.astra.desktop.net.tipoPelaExtensao
 import app.astra.desktop.voice.CompressorDeVideo
 import app.astra.desktop.voice.PreparoDoVideo
 import app.astra.desktop.voice.VoiceLog
@@ -38,7 +39,6 @@ import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -584,16 +584,7 @@ class ChatVm(
 
     private fun mimeOf(f: File): String? {
         runCatching { Files.probeContentType(f.toPath()) }.getOrNull()?.let { return it }
-        return when (f.extension.lowercase()) {
-            "png" -> "image/png"; "jpg", "jpeg" -> "image/jpeg"; "gif" -> "image/gif"
-            "webp" -> "image/webp"; "avif" -> "image/avif"
-            "mp4" -> "video/mp4"; "webm" -> "video/webm"; "mov" -> "video/quicktime"
-            "mp3" -> "audio/mpeg"; "wav" -> "audio/wav"; "ogg" -> "audio/ogg"
-            "m4a" -> "audio/x-m4a"; "aac" -> "audio/aac"
-            "pdf" -> "application/pdf"; "txt" -> "text/plain"
-            "zip" -> "application/zip"; "json" -> "application/json"
-            else -> null
-        }
+        return tipoPelaExtensao(f)
     }
 
     fun typing() {

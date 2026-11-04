@@ -8,7 +8,6 @@ import (
 )
 
 var (
-	kernel32              = windows.NewLazySystemDLL("kernel32.dll")
 	procPegarTemposDoProc = kernel32.NewProc("GetProcessTimes")
 	procProcessoAtual     = kernel32.NewProc("GetCurrentProcess")
 )

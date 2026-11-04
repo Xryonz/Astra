@@ -1,13 +1,12 @@
 import { Router, Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import { Server as SocketServer } from 'socket.io'
 import { and, eq, gt, isNull, isNotNull, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { channels, serverMembers, channelReads, dmConversations, notifications, messages } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 
-export function createReadsRouter(io: SocketServer) {
+export function createReadsRouter() {
   const router = Router()
 
   router.post(
@@ -43,13 +42,6 @@ export function createReadsRouter(io: SocketServer) {
           sql`(${notifications.payload}::jsonb ->> 'channelId') = ${channelId}`,
         ))
         .returning({ id: notifications.id })
-
-      if (marked.length > 0) {
-        io.to(`user:${req.userId}`).emit('notifications_read', {
-          ids:   marked.map((m) => m.id),
-          scope: { channelId },
-        })
-      }
 
       res.json({ data: { channelId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
     })
@@ -125,14 +117,6 @@ export function createReadsRouter(io: SocketServer) {
         .set(isA ? { lastReadByA: now } : { lastReadByB: now })
         .where(eq(dmConversations.id, conversationId))
 
-      const otherId = isA ? conv.userBId : conv.userAId
-      io.to(`user:${otherId}`).emit('dm_read', {
-        conversationId,
-        readerId:   req.userId,
-        readerSide: isA ? 'A' : 'B',
-        lastReadAt: now.toISOString(),
-      })
-
       const marked = await db.update(notifications)
         .set({ readAt: now })
         .where(and(
@@ -141,13 +125,6 @@ export function createReadsRouter(io: SocketServer) {
           sql`(${notifications.payload}::jsonb ->> 'conversationId') = ${conversationId}`,
         ))
         .returning({ id: notifications.id })
-
-      if (marked.length > 0) {
-        io.to(`user:${req.userId}`).emit('notifications_read', {
-          ids:   marked.map((m) => m.id),
-          scope: { conversationId },
-        })
-      }
 
       res.json({ data: { conversationId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
     })

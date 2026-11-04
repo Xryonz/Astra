@@ -119,15 +119,6 @@ func (c *Codificador) DefinirPerdaEsperada(porcento int) error {
 	return c.controlar(ctlSetPacketLoss, porcento)
 }
 
-func (c *Codificador) consultar(pedido int) (int, error) {
-	var valor int32
-	r, _, _ := procControlar.Call(c.st, uintptr(pedido), uintptr(unsafe.Pointer(&valor)))
-	if int32(r) != opusOK {
-		return 0, fmt.Errorf("opus_encoder_ctl(%d) devolveu %d", pedido, int32(r))
-	}
-	return int(valor), nil
-}
-
 func (c *Codificador) Codificar(pcm []int16, saida []byte) (int, error) {
 	if len(pcm) == 0 {
 		return 0, errors.New("quadro de áudio vazio")

@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"runtime"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -19,9 +17,6 @@ var (
 var (
 	iidDispositivoDXGI = guid(0x54EC77FA, 0x1377, 0x44E6,
 		[8]byte{0x8C, 0x32, 0x88, 0xFD, 0x5F, 0x44, 0xC8, 0x4C})
-
-	iidAdaptador = guid(0x2411E7E1, 0x12AC, 0x4CCF,
-		[8]byte{0xBD, 0x14, 0x97, 0x98, 0xE8, 0x53, 0x4D, 0xC9})
 
 	iidSaidaDeVideo1 = guid(0x00CDDEA8, 0x939B, 0x4B83,
 		[8]byte{0xA3, 0x40, 0xA6, 0x85, 0x22, 0x66, 0x66, 0xCC})
@@ -300,44 +295,4 @@ func (t *Tela) Fechar() {
 	t.contexto.soltar()
 	t.dispositivo.soltar()
 	t.duplicacao, t.contexto, t.dispositivo = 0, 0, 0
-}
-
-func MedirTela(monitor int, duracao time.Duration) (quadros int, largura, altura, hz int, err error) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	if err = abrirCOM(); err != nil {
-		return
-	}
-	defer fecharCOM()
-
-	t, err := AbrirTela(monitor)
-	if err != nil {
-		return
-	}
-	defer t.Fechar()
-
-	largura, altura = t.Tamanho()
-	hz = t.Hz()
-
-	fim := time.Now().Add(duracao)
-	for time.Now().Before(fim) {
-		textura, e := t.ProximoQuadro(100)
-		if e != nil {
-			if _, perdeu := e.(ErroDeAcessoPerdido); perdeu {
-				if err = t.Remontar(monitor); err != nil {
-					return
-				}
-				continue
-			}
-			err = e
-			return
-		}
-		if textura == 0 {
-			continue
-		}
-		quadros++
-		textura.soltar()
-		t.SoltarQuadro()
-	}
-	return
 }

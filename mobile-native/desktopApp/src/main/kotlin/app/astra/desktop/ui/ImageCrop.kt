@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.mobile.core.network.dto.RecorteDaFotoDto
 import app.astra.shared.AstraShared
 import app.astra.desktop.ui.theme.Text
@@ -102,7 +103,6 @@ object ImageCrop {
     private const val HARD_MAX = 10_000_000
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
-    private val plain by lazy { OkHttpClient() }
 
     const val TETO_DA_ANIMACAO = 9_000_000
 
@@ -218,7 +218,7 @@ object ImageCrop {
         val nosso = abs.startsWith(AstraShared.BASE_URL.trimEnd('/'))
         val motivos = mutableListOf<String>()
         if (nosso) get(http, abs, motivos)?.let { return it }
-        get(plain, abs, motivos)?.let { return it }
+        get(ClienteCompartilhado.base, abs, motivos)?.let { return it }
         throw java.io.IOException(motivos.joinToString(" / ").ifBlank { "sem resposta" })
     }
 

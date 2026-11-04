@@ -1,24 +1,14 @@
 import java.nio.file.Files;
 import org.jetbrains.skia.*;
 
-// A CONVERSÃO DE COR DO SHADER, CONFERIDA COM NÚMERO.
-//
-// Monta um quadro NV12 sintético com cores conhecidas, passa pelo MESMO SkSL que o app
-// usa, e lê os pixels que saem. É o único jeito de conferir três coisas que só falham
-// visualmente — e que, falhando, mandam procurar defeito no decodificador:
-//
-//   1. a conta de coluna do plano de cor (`floor(x/2)*2`);
-//   2. as dimensões da imagem de cor (largura CHEIA, altura pela metade);
-//   3. a faixa: estúdio (16..235) contra cheia (0..255).
 public class ProvaDasCores {
 
-    static final int L = 8, A = 4; // pequeno de propósito: dá para conferir à mão
-    static final int PASSO = 16;   // MAIOR que a largura, que é o caso que quebra
+    static final int L = 8, A = 4;
+    static final int PASSO = 16;
 
     public static void main(String[] args) throws Exception {
         String sksl = Files.readString(java.nio.file.Path.of(args[0]));
 
-        // Quatro cores, uma por bloco 2x2 na horizontal, para cada par de linhas.
         int[][] cores = {
             {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 255},
         };
@@ -69,9 +59,6 @@ public class ProvaDasCores {
             int r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, bl = px & 0xFF;
             int[] c = cores[i];
             int dr = Math.abs(r - c[0]), dg = Math.abs(g - c[1]), db = Math.abs(bl - c[2]);
-            // TOLERÂNCIA DE 10: o caminho passa por arredondamento em três lugares (a
-            // conta de luma, o byte, e a volta no shader). Fora disso não é
-            // arredondamento — é a faixa errada ou o plano lido do lugar errado.
             boolean ok = dr <= 10 && dg <= 10 && db <= 10;
             if (!ok) erros++;
             System.out.printf("  x=%d  %3d,%3d,%3d   ->   %3d,%3d,%3d  %s%n",
@@ -81,7 +68,6 @@ public class ProvaDasCores {
         if (erros != 0) System.exit(1);
     }
 
-    // BT.709, faixa estúdio — o inverso exato do que o shader faz.
     static double yf(int[] c) {
         return 0.2126 * c[0] / 255.0 + 0.7152 * c[1] / 255.0 + 0.0722 * c[2] / 255.0;
     }

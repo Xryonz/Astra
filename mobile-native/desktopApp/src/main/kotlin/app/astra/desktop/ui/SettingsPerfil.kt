@@ -278,9 +278,9 @@ internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): 
                 displayName = draft.displayName.trim().ifBlank { null },
                 pronouns = draft.pronouns.trim(),
                 bio = draft.bio.trim(),
-                avatarUrl = draft.avatarUrl,
+                avatarUrl = imagemQueMudou(draft.avatarUrl, original.avatarUrl),
                 statusEmoji = draft.statusEmoji,
-                bannerUrl = draft.bannerUrl ?: "",
+                bannerUrl = imagemQueMudou(draft.bannerUrl, original.bannerUrl),
                 bannerColor = draft.bannerColor,
                 bannerPositionY = draft.bannerPositionY,
                 bannerScale = draft.bannerScale,
@@ -292,6 +292,9 @@ internal suspend fun salvarPerfil(draft: ProfileDraft, original: ProfileDraft): 
         Unit
     }
 }
+
+private fun imagemQueMudou(nova: String?, salva: String?): String? =
+    nova.orEmpty().takeIf { it != salva.orEmpty() }
 
 internal fun saveErrorMessage(t: Throwable?): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"

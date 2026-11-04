@@ -30,6 +30,11 @@ val dadosDaChave = Properties().apply {
 
 composeCompiler {
     stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+
+    if (providers.gradleProperty("composeReports").isPresent) {
+        reportsDestination.set(layout.buildDirectory.dir("compose_reports"))
+        metricsDestination.set(layout.buildDirectory.dir("compose_metrics"))
+    }
 }
 
 android {
@@ -157,7 +162,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.lucide.icons)
-    implementation(libs.haze)
     implementation(libs.androidx.browser)
     implementation(libs.rikkaui.foundation)
     implementation(libs.rikkaui.components)

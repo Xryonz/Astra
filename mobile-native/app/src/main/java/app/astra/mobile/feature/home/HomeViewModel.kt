@@ -9,8 +9,6 @@ import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.push.PushRegistrar
-import app.astra.mobile.core.realtime.ConnectionState
-import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.core.voice.SalasDeVoz
 import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.channel.domain.ChannelRepository
@@ -25,7 +23,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -34,7 +31,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    socketManager: SocketManager,
     private val serverRepository: ServerRepository,
     private val channelRepository: ChannelRepository,
     private val dmRepository: DmRepository,
@@ -48,10 +44,6 @@ class HomeViewModel @Inject constructor(
     private val salasDeVoz: SalasDeVoz,
 ) : ViewModel() {
 
-    fun registerPush() = pushRegistrar.register()
-
-    val socketState: StateFlow<ConnectionState> = socketManager.state
-
     private val _state = MutableStateFlow(HomeUiState())
     val state = _state.asStateFlow()
 
@@ -64,6 +56,7 @@ class HomeViewModel @Inject constructor(
     private var channelPrefModes: Map<String, String> = emptyMap()
 
     init {
+        pushRegistrar.register()
         load()
         refreshNotifications()
         observeIncoming()
@@ -394,15 +387,6 @@ class HomeViewModel @Inject constructor(
     private suspend fun reloadServers() {
         serverRepository.servers().onSuccess { servers -> _state.update { it.copy(servers = servers) } }
     }
-    private fun manage(block: suspend () -> Result<Unit>) {
-        viewModelScope.launch {
-            block()
-                .onSuccess { reloadServers() }
-                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Ação falhou") } }
-        }
-    }
-    fun createChannel(serverId: String, name: String, isVoice: Boolean) =
-        manage { serverRepository.createChannel(serverId, name, isVoice) }
     fun clearManageError() = _state.update { it.copy(manageError = null) }
 
     fun leaveServer(serverId: String) {
@@ -444,28 +428,6 @@ class HomeViewModel @Inject constructor(
                 _state.update {
                     if (convId in it.mutedConvs) it else it.copy(unread = it.unread + convId)
                 }
-            }
-        }
-    }
-
-    fun setServerMuted(serverId: String, muted: Boolean) {
-        val prev = _state.value
-        val srvChannelIds = prev.servers.firstOrNull { it.id == serverId }?.channels?.map { it.id }.orEmpty()
-        val inheriting = srvChannelIds.filter { channelPrefModes[it] == null }.toSet()
-        _state.update {
-            val mutedChannels = if (muted) it.mutedChannels + inheriting else it.mutedChannels - inheriting
-            it.copy(
-                mutedServers = if (muted) it.mutedServers + serverId else it.mutedServers - serverId,
-                mutedChannels = mutedChannels,
-                channelUnread = if (muted) it.channelUnread - mutedChannels else it.channelUnread,
-            )
-        }
-        viewModelScope.launch {
-            try {
-                if (muted) notificationsApi.setServerNotifPref(serverId, NotifModeRequest("mute"))
-                else notificationsApi.clearServerNotifPref(serverId)
-            } catch (_: Exception) {
-                _state.update { it.copy(mutedServers = prev.mutedServers, mutedChannels = prev.mutedChannels) }
             }
         }
     }

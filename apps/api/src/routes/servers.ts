@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
-import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
+import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, serverBans, messages } from '../db/schema'
 import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -16,7 +16,6 @@ import { AUDIT, audit } from '../lib/audit'
 import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
-import { unmuteUser } from '../lib/spamDetector'
 import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
@@ -306,72 +305,6 @@ serversRouter.post(
   })
 )
 
-const AddFriendSchema = z.object({
-  friendUserId: z.string().min(1, 'friendUserId obrigatório'),
-})
-
-serversRouter.post(
-  '/:serverId/add-friend',
-  requireAuth,
-  validate(AddFriendSchema),
-  asyncHandler(async (req: Request, res: Response) => {
-    const { serverId } = req.params
-    const { friendUserId } = req.body as { friendUserId: string }
-    const callerId = req.userId!
-
-    const [callerMember] = await db.select({ id: serverMembers.id })
-      .from(serverMembers)
-      .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, callerId)))
-      .limit(1)
-    if (!callerMember) return res.status(403).json({ error: 'Você não é membro deste servidor' })
-
-    const [a, b] = callerId < friendUserId ? [callerId, friendUserId] : [friendUserId, callerId]
-    const [friendship] = await db.select({ id: friendships.id, status: friendships.status })
-      .from(friendships)
-      .where(and(eq(friendships.userAId, a), eq(friendships.userBId, b)))
-      .limit(1)
-    if (!friendship || friendship.status !== 'accepted') {
-      return res.status(403).json({ error: 'Você só pode adicionar amigos aceitos' })
-    }
-
-    const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
-      .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, friendUserId)))
-      .limit(1)
-    if (banned) return res.status(403).json({ error: 'Esse amigo está banido do servidor' })
-
-    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
-      .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, friendUserId)))
-      .limit(1)
-    if (already) return res.status(409).json({ error: 'Esse amigo já é membro' })
-
-    const [server] = await db.select({ id: servers.id, name: servers.name, isGroup: servers.isGroup })
-      .from(servers).where(eq(servers.id, serverId)).limit(1)
-    if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
-
-    await db.insert(serverMembers).values({ userId: friendUserId, serverId })
-    void invalidateMembersCache(serverId)
-    joinedServer(friendUserId, serverId)
-    void membroEntrou(serverId, friendUserId)
-    void saudarNovoMembro(serverId, friendUserId)
-    await db.insert(notifications).values({
-      userId: friendUserId,
-      type:   'server_invite',
-      payload: JSON.stringify({
-        serverId,
-        serverName: server.name,
-        isGroup:    server.isGroup,
-        addedBy:    callerId,
-      }),
-    })
-    void audit({
-      serverId, actorId: callerId, action: AUDIT.SERVER_UPDATE,
-      targetId: friendUserId, metadata: { kind: 'add_friend' },
-    })
-
-    res.json({ data: { ok: true, friendUserId } })
-  })
-)
-
 const RoleSchema = z.object({ role: z.enum(['ADMIN', 'MEMBER']) })
 
 serversRouter.patch(
@@ -397,28 +330,6 @@ serversRouter.patch(
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
     membroMudouDeCargo(serverId, memberId, role)
     res.json({ data: { id: memberId, role } })
-  })
-)
-
-serversRouter.delete(
-  '/:serverId/members/:memberId/mute',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { serverId, memberId } = req.params
-
-    const requester = await getMemberPerms(req.userId!, serverId)
-    if (!requester.memberId) return res.status(403).json({ error: 'Você não é membro' })
-    if (!requester.isOwner && !requester.permissions.has(PERMS.MANAGE_MESSAGES))
-      return res.status(403).json({ error: 'Sem permissão para remover o silenciamento' })
-
-    const [target] = await db.select({ userId: serverMembers.userId })
-      .from(serverMembers)
-      .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId)))
-      .limit(1)
-    if (!target) return res.status(404).json({ error: 'Membro não encontrado' })
-
-    await unmuteUser(target.userId, serverId)
-    res.json({ data: { memberId, muted: false } })
   })
 )
 
@@ -507,32 +418,6 @@ serversRouter.delete(
   })
 )
 
-serversRouter.post(
-  '/join/:inviteCode',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const [server] = await db.select().from(servers)
-      .where(eq(servers.inviteCode, req.params.inviteCode)).limit(1)
-    if (!server) return res.status(404).json({ error: 'Convite inválido' })
-
-    const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
-      .where(and(eq(serverBans.userId, req.userId!), eq(serverBans.serverId, server.id)))
-      .limit(1)
-    if (banned) return res.status(403).json({ error: 'Você está banido deste servidor' })
-
-    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
-      .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, server.id)))
-      .limit(1)
-    if (already) return res.status(409).json({ error: 'Você já é membro deste servidor' })
-
-    await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id })
-    void invalidateMembersCache(server.id)
-    void membroEntrou(server.id, req.userId!)
-    void saudarNovoMembro(server.id, req.userId!)
-    res.json({ data: server })
-  })
-)
-
 serversRouter.get(
   '/:serverId/members',
   requireAuth,
@@ -609,50 +494,6 @@ serversRouter.patch(
     res.json({ data: { nameColor: updated.nameColor } })
   })
 )
-
-serversRouter.get(
-  '/:serverId/audit',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { serverId } = req.params
-    const limit = Math.min(Number(req.query.limit) || 50, 200)
-
-    const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER))
-      return res.status(403).json({ error: 'Sem permissão para ver o registro de auditoria' })
-
-    const rows = await db.select({
-      id:        auditLogs.id,
-      action:    auditLogs.action,
-      actorId:   auditLogs.actorId,
-      targetId:  auditLogs.targetId,
-      metadata:  auditLogs.metadata,
-      createdAt: auditLogs.createdAt,
-      actor: {
-        id:          users.id,
-        username:    users.username,
-        displayName: users.displayName,
-        avatarUrl:   users.avatarUrl,
-      },
-    })
-      .from(auditLogs)
-      .innerJoin(users, eq(users.id, auditLogs.actorId))
-      .where(eq(auditLogs.serverId, serverId))
-      .orderBy(sql`${auditLogs.createdAt} DESC`)
-      .limit(limit)
-
-    const shaped = rows.map((r) => ({
-      ...r,
-      metadata: safeParseObj(r.metadata),
-    }))
-    res.json({ data: shaped })
-  })
-)
-
-function safeParseObj(raw: unknown): Record<string, unknown> {
-  if (typeof raw !== 'string') return {}
-  try { const v = JSON.parse(raw); return v && typeof v === 'object' ? v as Record<string, unknown> : {} } catch { return {} }
-}
 
 serversRouter.get(
   '/:serverId/me',

@@ -38,7 +38,6 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
-import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.MemberRoleDto

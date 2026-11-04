@@ -33,7 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
@@ -58,7 +58,7 @@ fun ServerBansScreen(
         }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Banimentos",

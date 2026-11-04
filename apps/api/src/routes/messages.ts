@@ -428,8 +428,6 @@ export function createMessagesRouter(io: SocketServer) {
               }).catch(() => {})
             }
           } catch (err) {
-
-            // eslint-disable-next-line no-console
             console.error('[messages POST] background work failed:', err)
           }
         })()

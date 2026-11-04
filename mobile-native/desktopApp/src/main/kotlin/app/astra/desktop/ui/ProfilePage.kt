@@ -17,10 +17,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -55,18 +52,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
-import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -80,14 +71,9 @@ import app.astra.mobile.core.network.dto.UserBadgesDto
 import app.astra.mobile.core.network.dto.UserDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import coil3.compose.AsyncImage
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import app.astra.desktop.ui.theme.Tipo
 
 val LARGURA_PAGINA_PERFIL = 840.dp
@@ -106,15 +92,6 @@ private fun Modifier.veuNoPe(): Modifier = drawWithContent {
         topLeft = Offset(0f, size.height - h),
         size = Size(size.width, h),
     )
-}
-
-private object CenterFill : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -159,7 +136,7 @@ fun ProfilePage(
     }
 
     Popup(
-        popupPositionProvider = CenterFill,
+        popupPositionProvider = CobrindoAJanela,
         onDismissRequest = { requestClose() },
         properties = PopupProperties(focusable = true),
         onPreviewKeyEvent = { e ->

@@ -10,12 +10,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.feature.namecolors.presentation.NameColorsSection
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 
 @Composable
 fun AparenciaScreen(onBack: () -> Unit) {
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Aparência", onBack = onBack)
             AppearanceSection()
@@ -26,7 +26,7 @@ fun AparenciaScreen(onBack: () -> Unit) {
 
 @Composable
 fun CoresDoNomeScreen(onBack: () -> Unit) {
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Cores do nome", onBack = onBack)
             NameColorsSection()

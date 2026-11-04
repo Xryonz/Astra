@@ -47,7 +47,6 @@ import discoverRouter                    from './routes/discover'
 import uploadRouter, { UPLOAD_DIR }      from './routes/upload'
 import { startRetentionWorker }          from './lib/retentionWorker'
 import pushRouter                        from './routes/push'
-import { initPush }                      from './lib/push'
 import { initFcm }                       from './lib/fcm'
 import { initMailer }                    from './lib/mailer'
 import { naoDeixarDormir }               from './lib/naoDormir'
@@ -152,7 +151,7 @@ app.use('/api/servers',  serversRouter)
 app.use('/api/servers',  channelsRouter)
 app.use('/api/channels/:channelId/messages', createMessagesRouter(io))
 app.use('/api/channels/:channelId/polls',    createPollsRouter(io))
-app.use('/api',                              createReadsRouter(io))
+app.use('/api',                              createReadsRouter())
 app.use('/api/dm', createDMRouter(io))
 app.use('/api/sounds', createSoundsRouter(io))
 app.use('/api/stickers', stickersRouter)
@@ -270,7 +269,6 @@ httpServer.listen(env.PORT, async () => {
     for (const id of ids) void eventoDeMissao(id, 'call')
   })
   logger.info('Xp', 'Relogio de call iniciado (1min)')
-  initPush()
   void initFcm()
   initMailer()
   naoDeixarDormir()

@@ -59,15 +59,6 @@ interface NotificationsApi {
     @GET("api/servers/notification-prefs")
     suspend fun serverNotifPrefs(): ApiEnvelope<List<ServerNotifPrefDto>>
 
-    @PUT("api/servers/{id}/notification-pref")
-    suspend fun setServerNotifPref(
-        @Path("id") serverId: String,
-        @Body body: NotifModeRequest,
-    ): ApiEnvelope<ServerNotifPrefDto>
-
-    @DELETE("api/servers/{id}/notification-pref")
-    suspend fun clearServerNotifPref(@Path("id") serverId: String): ApiEnvelope<ServerNotifPrefDto>
-
     @POST("api/push/test")
     suspend fun pushTest()
 

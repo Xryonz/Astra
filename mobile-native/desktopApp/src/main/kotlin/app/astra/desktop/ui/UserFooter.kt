@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -208,8 +207,8 @@ fun UserFooter(
             .fillMaxSize()
             .padding(horizontal = 7.dp, vertical = 7.dp)
             .clip(forma)
-            .background(Obsidian.void.copy(alpha = 0.72f))
-            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.65f), forma)
+            .background(Obsidian.overlay)
+            .bordaNoAltoContraste(forma)
             .hoverable(hoverCartao)
             .onGloballyPositioned { PisoDoPet.caixa = it.boundsInWindow() }
             .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
@@ -229,17 +228,17 @@ fun UserFooter(
                     .clip(CircleShape)
                     .clickable(onClick = onAbrirJornada),
             ) {
-                DesktopAvatar(me?.avatarUrl, name, 30)
+                DesktopAvatar(me?.avatarUrl, name, 30, fundo = Obsidian.hover)
                 MoedasDeXp(xpStore)
                 AnimacaoDeArtista(
                     arquivo = "eclipse",
                     vez = eclipses,
                     luz = Obsidian.text1,
-                    fundo = Obsidian.void,
+                    fundo = Obsidian.overlay,
                     cores = ::escuroViraFundo,
                     quadros = 0..QUADRO_DO_ECLIPSE_TOTAL,
                     modifier = Modifier.size(30.dp),
-                    apagaJunto = Modifier.background(Obsidian.void, CircleShape),
+                    apagaJunto = Modifier.background(Obsidian.overlay, CircleShape),
                 )
                 AnimacaoDeArtista(
                     arquivo = "lua-de-sangue",
@@ -259,8 +258,8 @@ fun UserFooter(
                 status = status,
                 size = 11.dp,
                 bordered = true,
-                borderColor = Obsidian.void,
-                cutoutColor = Obsidian.void,
+                borderColor = Obsidian.overlay,
+                cutoutColor = Obsidian.overlay,
                 modifier = Modifier.align(Alignment.BottomEnd),
             )
             if (profileOpen && me != null) {

@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
@@ -23,7 +22,7 @@ object Servidor {
     val esperandoHa: StateFlow<Int> = _esperandoHa
 
     private val cliente by lazy {
-        OkHttpClient.Builder()
+        ClienteCompartilhado.base.newBuilder()
             .connectTimeout(6, TimeUnit.SECONDS)
             .readTimeout(6, TimeUnit.SECONDS)
             .callTimeout(8, TimeUnit.SECONDS)

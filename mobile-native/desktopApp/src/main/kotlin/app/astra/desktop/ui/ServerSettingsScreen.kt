@@ -588,8 +588,7 @@ private fun OverviewSection(
     if (confirmDanger) {
         Confirmacao(
             titulo = if (isOwner) "excluir ${server.name}" else "sair de ${server.name}",
-            consequencia = if (isOwner) "a constelação some para todos os membros, com as órbitas e as mensagens. Não há como desfazer."
-            else "você deixa de ver as órbitas e as mensagens dela até entrar de novo.",
+            consequencia = if (isOwner) AO_EXCLUIR_A_CONSTELACAO else AO_SAIR_DA_CONSTELACAO,
             acao = if (isOwner) "excluir" else "sair",
             aoConfirmar = {
                 confirmDanger = false

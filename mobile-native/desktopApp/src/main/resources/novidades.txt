@@ -1,7 +1,9 @@
-versao 1.0.57
-As janelas seguem um desenho único: título, uma frase que explica a consequência e botões à direita.
-Os campos de texto ficam mais escuros que a janela, e a borda acende enquanto você digita.
-Os botões perderam o contorno: a ação principal ganha um fundo discreto, e as de perigo ficam em vermelho suave.
-No login e na tela de entrada, o botão principal é branco e não muda mais de cor com o tema.
-Pelo teclado, o foco não se perde enquanto um botão espera o servidor, e o leitor de tela anuncia os erros.
-Os textos do aplicativo foram revisados, sem travessões e com um tom mais direto.
+versao 1.0.58
+A transmissão de tela voltou a funcionar. Desde setembro, a maioria das tentativas falhava logo ao começar.
+Painéis, mensagens, configurações, Amigos e a call se separam pelo fundo, sem contornos. No alto contraste, as bordas continuam.
+Ao passar o mouse, a mensagem ganha um fundo discreto, e as que mencionam você ficam sempre com fundo.
+Salvar foto e banner ficou mais rápido, e remover a foto do perfil passou a funcionar.
+Em Cores do nome, o degradê pode seguir oito direções, e o leitor de tela anuncia cada cor e cada troca.
+Sair e excluir uma constelação pedem confirmação na mesma janela das outras ações graves.
+A janela abre inteira dentro da área útil da tela, e os emojis do texto de exemplo da caixa de mensagem ficam retos.
+Por dentro, o Astra passa a usar o Java 25.

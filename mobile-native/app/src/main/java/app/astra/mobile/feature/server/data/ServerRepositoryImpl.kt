@@ -4,7 +4,6 @@ import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.VoiceApi
-import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.ServerDto
@@ -133,16 +132,6 @@ class ServerRepositoryImpl @Inject constructor(
         throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Não foi possível salvar a constelação"))
-    }
-
-    override suspend fun createChannel(serverId: String, name: String, isVoice: Boolean): Result<Unit> = try {
-        val type = if (isVoice) "VOICE" else "TEXT"
-        serverApi.createChannel(serverId, CreateChannelRequest(name.trim(), type))
-        Result.success(Unit)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(apiError(e, "Não foi possível criar o canal"))
     }
 
     override suspend fun leaveServer(serverId: String): Result<Unit> = try {

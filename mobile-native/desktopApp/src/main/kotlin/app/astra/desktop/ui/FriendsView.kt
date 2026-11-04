@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,7 +15,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -77,6 +81,8 @@ import retrofit2.HttpException
 import app.astra.desktop.ui.theme.Tipo
 
 private enum class FriendsTab(val label: String) { FRIENDS("Amigos"), PENDING("Pendentes"), ADD("Adicionar") }
+
+private val ALTURA_DO_ENVIO_DE_AMIGO = 38.dp
 
 private fun presenceRank(p: String): Int = when (p.uppercase()) {
     "ONLINE" -> 0; "IDLE" -> 1; "DND" -> 2; else -> 3
@@ -230,11 +236,21 @@ private fun TabPill(
     onClick: () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
+    val comOMouse by src.collectIsHoveredAsState()
+    val transicao = if (LocalReduceMotion.current) snap<Color>() else tween(130)
     val bg by animateColorAsState(
-        if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.4f), tween(130), label = "tabBg",
+        when {
+            active -> Obsidian.active
+            comOMouse -> Obsidian.overlay
+            else -> Color.Transparent
+        },
+        transicao,
+        label = "tabBg",
     )
     val borderC by animateColorAsState(
-        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, tween(130), label = "tabBorder",
+        bordaDoItem(Obsidian.accent.copy(alpha = 0.55f).takeIf { active }, comOMouse),
+        transicao,
+        label = "tabBorder",
     )
     Row(
         Modifier
@@ -242,6 +258,7 @@ private fun TabPill(
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .border(1.dp, borderC, RoundedCornerShape(8.dp))
+            .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -265,7 +282,7 @@ private fun FriendsList(
     onRemove: (String) -> Unit,
 ) {
     when {
-        loading && items.isEmpty() -> Center("carregando amigos…")
+        loading && items.isEmpty() -> AvisoNoCentro("carregando amigos…")
         items.isEmpty() -> EmptyHint("nenhum amigo ainda. Use a aba Adicionar.")
         else -> {
             val online = items.count { presenceRank(it.presence) < 3 }
@@ -310,6 +327,8 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
                 userStatus(f.presence),
                 bordered = true,
                 size = 13.dp,
+                borderColor = Obsidian.raised,
+                cutoutColor = Obsidian.raised,
                 modifier = Modifier.align(Alignment.BottomEnd).graphicsLayer {
                     val v = pulse?.value ?: 1f
                     alpha = v; scaleX = v; scaleY = v
@@ -336,9 +355,9 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        RowIconButton(Lucide.MessageCircle, tint = Obsidian.accent, onClick = onMessage)
+        RowIconButton(Lucide.MessageCircle, tint = Obsidian.accent, rotulo = "abrir sussurro", onClick = onMessage)
         Spacer(Modifier.width(4.dp))
-        RowIconButton(Lucide.UserMinus, tint = Obsidian.danger, onClick = onRemove)
+        RowIconButton(Lucide.UserMinus, tint = Obsidian.danger, rotulo = "remover amigo", onClick = onRemove)
     }
 }
 
@@ -362,9 +381,9 @@ private fun PendingLists(
         } else {
             items(incoming, key = { it.friendshipId }) { p ->
                 PendingRow(p, trailing = {
-                    RowIconButton(Lucide.Check, tint = Obsidian.accent) { onAccept(p.friendshipId) }
+                    RowIconButton(Lucide.Check, tint = Obsidian.accent, rotulo = "aceitar pedido") { onAccept(p.friendshipId) }
                     Spacer(Modifier.width(4.dp))
-                    RowIconButton(Lucide.X, tint = Obsidian.danger) { onDrop(p.friendshipId) }
+                    RowIconButton(Lucide.X, tint = Obsidian.danger, rotulo = "recusar pedido") { onDrop(p.friendshipId) }
                 })
             }
         }
@@ -426,10 +445,12 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
             Box(
                 Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .height(ALTURA_DO_ENVIO_DE_AMIGO)
+                    .clip(FormaDeBotao)
                     .background(Obsidian.base)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .border(1.dp, Obsidian.borderDim, FormaDeBotao)
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.CenterStart,
             ) {
                 if (value.isEmpty()) {
                     Text("nome de usuário", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
@@ -444,34 +465,27 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
                 )
             }
             Spacer(Modifier.width(8.dp))
-            val canSend = !busy && value.trim().isNotEmpty()
-            val src = remember { MutableInteractionSource() }
-            Row(
-                Modifier
-                    .clickScale(src)
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, if (canSend) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(10.dp))
-                    .clickable(interactionSource = src, indication = null, enabled = canSend) {
-                        busy = true
-                        msg = null
-                        onSend(SendFriendRequest(username = value.trim())) { ok, code ->
-                            busy = false
-                            msg = when {
-                                ok -> "pedido enviado" to true
-                                code == 404 -> "usuário não encontrado" to false
-                                code == 400 -> "confira os dados" to false
-                                else -> "não foi possível enviar. Tente de novo." to false
-                            }
-                            if (ok) value = ""
+            BotaoDeDialogo(
+                rotulo = if (busy) "enviando…" else "enviar",
+                tipo = TipoDeBotao.PRINCIPAL,
+                onClick = {
+                    busy = true
+                    msg = null
+                    onSend(SendFriendRequest(username = value.trim())) { ok, code ->
+                        busy = false
+                        msg = when {
+                            ok -> "pedido enviado" to true
+                            code == 404 -> "usuário não encontrado" to false
+                            code == 400 -> "confira os dados" to false
+                            else -> "não foi possível enviar. Tente de novo." to false
                         }
+                        if (ok) value = ""
                     }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LIcon(Lucide.UserPlus, tint = if (canSend) Obsidian.accent else Obsidian.text3, size = 15.dp)
-                Spacer(Modifier.width(7.dp))
-                Text(if (busy) "enviando…" else "enviar", style = TextStyle(color = if (canSend) Obsidian.accent else Obsidian.text3, fontSize = 13.sp))
-            }
+                },
+                modifier = Modifier.height(ALTURA_DO_ENVIO_DE_AMIGO).bordaNoAltoContraste(FormaDeBotao),
+                ligado = !busy && value.trim().isNotEmpty(),
+                icone = Lucide.UserPlus,
+            )
         }
         msg?.let { (text, ok) ->
             Spacer(Modifier.height(10.dp))
@@ -492,29 +506,30 @@ private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector,
 }
 
 @Composable
-private fun RowIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+private fun RowIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    rotulo: String,
+    onClick: () -> Unit,
+) {
     val src = remember { MutableInteractionSource() }
+    val comOMouse by src.collectIsHoveredAsState()
     Box(
         Modifier
             .size(32.dp)
             .clickScale(src)
             .clip(FormaDeBotao)
-            .border(1.dp, Obsidian.borderDim, FormaDeBotao)
+            .background(if (comOMouse) Obsidian.hover else Obsidian.overlay)
+            .bordaNoAltoContraste(FormaDeBotao)
+            .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = tint, size = 15.dp)
+        LIcon(icon, tint = tint, size = 15.dp, rotulo = rotulo)
     }
 }
 
 @Composable
 private fun Muted(text: String) {
     Text(text, style = Tipo.descricao, modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp))
-}
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-    }
 }

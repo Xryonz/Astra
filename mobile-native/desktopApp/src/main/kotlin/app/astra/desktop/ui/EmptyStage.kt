@@ -52,7 +52,7 @@ fun EmptyStage(isServer: Boolean) {
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                if (isServer) "para abrir a conversa" else "ou comece uma nova",
+                if (isServer) "para abrir a conversa" else "ou comece um novo",
                 style = Tipo.descricao,
             )
             Spacer(Modifier.height(20.dp))

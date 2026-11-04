@@ -1,20 +1,3 @@
-# Mede CPU e RAM do Astra por FASE, pra saber onde o custo realmente mora.
-#
-# Por que assim: o encoder de video roda DENTRO do Astra.exe (nativo do webrtc) e a
-# captura roda no ffmpeg.exe (processo separado). Entao comparando as fases da pra
-# separar as tres coisas sem profiler nenhum:
-#
-#   parado      -> UI/aurora
-#   em call     -> UI + audio
-#   transmitindo-> UI + audio + ENCODER (Astra.exe)  +  CAPTURA (ffmpeg.exe)
-#
-#   encoder ~= (transmitindo - em call) do Astra.exe
-#   captura  =  ffmpeg.exe
-#
-# Uso:
-#   powershell -ExecutionPolicy Bypass -File tools\medir-desempenho.ps1
-# Ele pergunta a fase, mede 30s, e no fim imprime a tabela + salva um CSV.
-
 $ErrorActionPreference = 'Stop'
 $cores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
 $csv   = Join-Path $PSScriptRoot 'astra-medicao.csv'
@@ -26,7 +9,6 @@ Write-Host "$cores nucleos logicos. Cada fase mede 30 segundos." -ForegroundColo
 Write-Host ""
 
 function Medir([string]$fase, [int]$segundos = 30) {
-  # CPU total do processo em segundos; a diferenca no intervalo vira % da maquina.
   function Snapshot {
     $r = @{}
     foreach ($n in @('Astra', 'ffmpeg')) {
@@ -74,7 +56,6 @@ foreach ($f in $fases) {
 
 $linhas | Export-Csv -Path $csv -NoTypeInformation -Encoding utf8
 
-# Conta final: quanto e encoder, quanto e captura.
 $astraCall  = ($linhas | Where-Object { $_.fase -eq 'em_call'      -and $_.processo -eq 'Astra'  }).cpu_pct
 $astraTx    = ($linhas | Where-Object { $_.fase -eq 'transmitindo' -and $_.processo -eq 'Astra'  }).cpu_pct
 $ffTx       = ($linhas | Where-Object { $_.fase -eq 'transmitindo' -and $_.processo -eq 'ffmpeg' }).cpu_pct

@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	kernel32                    = windows.NewLazySystemDLL("kernel32.dll")
 	procSetProcessInformation   = kernel32.NewProc("SetProcessInformation")
 	procSetThreadExecutionState = kernel32.NewProc("SetThreadExecutionState")
 

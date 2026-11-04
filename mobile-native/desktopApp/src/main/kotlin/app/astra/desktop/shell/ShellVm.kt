@@ -62,7 +62,6 @@ import app.astra.mobile.core.network.dto.UpdateChannelKeepRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.VoicePresenceEventDto
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay

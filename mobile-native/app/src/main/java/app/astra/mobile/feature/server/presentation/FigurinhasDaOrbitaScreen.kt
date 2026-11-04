@@ -42,7 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -76,7 +76,7 @@ fun FigurinhasDaOrbitaScreen(
         escolhida = readImageBytes(contexto, uri)
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Figurinhas",

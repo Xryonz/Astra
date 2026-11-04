@@ -1,46 +1,65 @@
-# Astra — clientes nativos (Kotlin + Compose)
+# Astra — clientes nativos (Kotlin)
 
-Projeto Gradle com os dois clientes nativos: `:app` (Android) e `:desktopApp`
-(Compose Multiplatform/JVM), sobre `:shared` (rede + DTOs, Kotlin/JVM puro — **não**
-é KMP, e a UI não é compartilhada).
+Projeto Gradle à parte (rootProject `AstraMobile`) com os dois clientes nativos do Astra,
+os dois sobre a mesma API.
 
-O híbrido React/Capacitor que existia na raiz foi **removido**; o web em
-`apps/web` seguiu como app de navegador e referência de paridade.
+| Módulo | O que é |
+| --- | --- |
+| `:desktopApp` | o app de Windows, em Compose Multiplatform (JVM) |
+| `:app` | o app de Android, em Jetpack Compose |
+| `:shared` | rede (interfaces do Retrofit) e DTOs, em Kotlin/JVM puro |
+| `:baselineprofile` | o perfil de arranque do Android |
 
-## Stack
-- **Kotlin 2.0.21 (K2)** · **Jetpack Compose** (Material3) · **Coroutines**
-- **Hilt** (DI, via KSP) · **Retrofit + kotlinx.serialization + OkHttp** (rede)
-- **WebSocket** (chat realtime — OkHttp WebSocket) · **Coil** (imagens) · **DataStore** (storage local)
-- Toolchain: Gradle 8.11.1 · AGP 8.7.2 · compileSdk 35 · minSdk 24 · JDK 17
+O `:shared` não é KMP e não tem interface: cada app tem as próprias telas, e paridade entre
+eles é reescrita, não reuso. A voz e a transmissão de tela do desktop rodam num programa à
+parte, o `astra-voz.exe`, escrito em Go em `sidecar-voz/`.
 
-## Arquitetura — Clean Architecture (MVVM)
-Fluxo de dependência: `presentation → domain → data`. Domain não conhece ninguém.
+## Pilha
 
+- **Comum:** Kotlin 2.3.21 (KSP 2.3.9) · Gradle 9.4.1 · AGP 9.2.0 · bytecode Java 17 ·
+  Retrofit 2.11 + OkHttp 4.12 + kotlinx.serialization · Coil 3.5 · socket.io-client 2.1 ·
+  Lucide · RikkaUI
+- **Desktop:** Compose Multiplatform 1.12.2 · Koin 4.1 · JNA 5.14 (sessão cifrada com DPAPI).
+  Compilado e empacotado com JDK 25.
+- **Android:** Compose (BOM 2026.06.01) · Hilt 2.60 · Room 2.8 · DataStore · Media3 · Firebase
+  Messaging (notificações) · LiveKit Android 2.26 · compileSdk 36, minSdk 24, targetSdk 35.
+  Compilado com JDK 21.
+
+## Estrutura
+
+- `desktopApp/src/main/kotlin/app/astra/desktop/`: `ui/` (telas e peças), `shell/` (os
+  ViewModels), `voice/` (a conversa com o programa de voz), `net/`, `auth/`, `prefs/`,
+  `profile/`, `update/` (atualização automática), `di/` e `xp/`.
+- `app/src/main/java/app/astra/mobile/`: `feature/<área>/`, com `data`, `domain` e
+  `presentation` em cada área; `core/` (rede, banco, notificações e voz); `session/`; `ui/`
+  (tema e peças).
+
+## Como montar
+
+Da raiz do repositório:
+
+```powershell
+# desktop, rodando
+.\mobile-native\gradlew.bat -p mobile-native :desktopApp:run
+
+# desktop, só compilando
+.\mobile-native\gradlew.bat -p mobile-native :desktopApp:compileKotlin
+
+# Android (precisa do SDK do Android)
+.\mobile-native\gradlew.bat -p mobile-native :app:assembleRelease "-Pastra.android=1"
 ```
-app/src/main/java/app/astra/mobile/
-├─ core/                # infra transversal (network, di, util)
-├─ data/                # implementações: DTOs, Retrofit services, repositories impl, mappers
-├─ domain/              # model puro + interfaces de repository + use cases (sem Android)
-└─ presentation/        # Composables (telas) + ViewModels + navegação + ui/theme
-```
-- **domain** não importa Android/Retrofit — só Kotlin puro. Define `interface XRepository` e use cases.
-- **data** implementa os repositories (Retrofit/DataStore), mapeia DTO ↔ model.
-- **presentation** = `@Composable` + `ViewModel` (StateFlow). ViewModel chama use cases.
-- **Hilt** liga tudo: `@Module`s em `core/di` provêm Retrofit, OkHttp, repositories.
 
-## Como abrir
-1. Android Studio → **Open** → selecione a pasta `mobile-native/` (NÃO a raiz do repo).
-2. Deixe o Gradle sincronizar (1ª vez baixa AGP/Compose/Hilt — precisa de internet).
-3. Defina o backend: em `app/build.gradle.kts`, troque `BASE_URL` pela URL real da API.
-4. Run no emulador/aparelho. Milestone 1 = tela vazia com o tema Astra (dark/âmbar).
+O módulo Android só entra no projeto com `-Pastra.android=1`. No PowerShell, esse argumento
+vai entre aspas: sem elas, ele é partido no ponto.
 
-> Scaffold gerado sem build local (sem Android Studio no ambiente do Claude).
-> A 1ª sync pode pedir 1 ajuste de versão — reporta o erro que eu corrijo.
+Os dois apps falam com a API publicada: `AstraShared.BASE_URL` no desktop e
+`BuildConfig.BASE_URL` no Android.
 
-## Roadmap (ver também /docs/ASTRA-ROADMAP.md)
-- [x] M1: fundação (Gradle, Compose, Hilt, tema Astra, app roda vazio)
-- [ ] M2: camada de rede (Retrofit + OkHttp + interceptor de auth + DataStore de token)
-- [ ] M3: slice vertical de Auth (login → /api/auth, ViewModel, tela Compose)
-- [ ] M4: realtime (WebSocket) + lista de DMs
-- [ ] M5: servidores/canais/mensagens
-- [ ] M6: voz/vídeo (LiveKit Android SDK)
+## Propriedades do Gradle
+
+- `astraVersion`, em `gradle.properties`: a versão do desktop. Mudá-la na `main` dispara a
+  publicação de uma versão nova.
+- `-Pastra.aec3=1`: monta o programa de voz com o cancelador de eco interno (48 kHz), como na
+  versão publicada. Sem ela, o eco é cancelado pelo Windows, a 16 kHz.
+- `-Pastra.canal=estavel`: o canal da versão publicada. O padrão é `dev`.
+- `-Pjfr`: liga a gravação de voo do Java no app.

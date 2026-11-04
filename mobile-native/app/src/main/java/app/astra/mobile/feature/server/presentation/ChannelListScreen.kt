@@ -35,7 +35,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.server.domain.model.Channel
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.ListSkeleton
@@ -54,7 +54,7 @@ fun ChannelListScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = viewModel.serverName,

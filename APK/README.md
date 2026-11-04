@@ -19,13 +19,10 @@ Downloads oficiais do Astra. Os arquivos ficam nos **[Releases do GitHub](https:
 
 ## 📱 Mobile (Android)
 
-**Não há download de Android, e é melhor dizer isso do que deixar você procurar.**
+**Não há download oficial de Android, e é melhor dizer isso do que deixar você procurar.**
 
-O cliente Android existe, funciona e está arquivado na branch `arquivo/android` com o histórico
-inteiro — mas nenhuma release traz APK, e a última compilação que chegou a existir é de uma versão
-bem anterior à do desktop. Instalar aquilo seria entregar um Astra atrasado se passando por atual.
-
-O trabalho hoje é todo no desktop. Quando o Android voltar, o download aparece aqui.
+O cliente Android existe e voltou a ser desenvolvido, mas por enquanto só sai em versões de teste,
+feitas para quem está testando. Quando houver uma versão oficial, o download aparece aqui.
 
 ---
 

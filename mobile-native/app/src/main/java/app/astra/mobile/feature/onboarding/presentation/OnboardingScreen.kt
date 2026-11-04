@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -46,7 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.ConstellationGraphic
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseOutSoft
@@ -89,7 +88,7 @@ fun OnboardingScreen(
 
     BackHandler { if (page > 0) page-- else finish() }
 
-    CosmicBackground(interactive = true) {
+    TelaCheia {
         Column(
             Modifier
                 .fillMaxSize()

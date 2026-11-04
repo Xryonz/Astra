@@ -111,8 +111,6 @@ type bufferDeSaida struct {
 	duracao int64
 }
 
-const temMaisSaida = 0x01000000
-
 type CapturaComEco struct {
 	objeto objeto
 	buffer *BufferDeMidia

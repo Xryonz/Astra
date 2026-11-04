@@ -50,7 +50,7 @@ import app.astra.mobile.ui.components.AbaDeExpressao
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EmojiPickerSheet
@@ -132,7 +132,7 @@ fun DmChatScreen(
         }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
             EditorialTopBar(
                 title = viewModel.otherName,

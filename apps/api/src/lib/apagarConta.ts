@@ -1,8 +1,8 @@
 import { eq, or } from 'drizzle-orm'
 import { db } from './../db'
 import {
-  bookmarks, channelNotifPrefs, channelReads, fcmTokens, friendships,
-  mutedMembers, notifications, profileNotes, pushSubscriptions, refreshTokens, reminders,
+  channelNotifPrefs, channelReads, fcmTokens, friendships,
+  mutedMembers, notifications, refreshTokens, reminders,
   serverMembers, serverNotifPrefs, servers, userBlocks, users,
 } from '../db/schema'
 
@@ -36,18 +36,15 @@ export async function virarLapide(userId: string): Promise<void> {
   }).where(eq(users.id, userId))
 
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
   await db.delete(fcmTokens).where(eq(fcmTokens.userId, userId))
   await db.delete(serverMembers).where(eq(serverMembers.userId, userId))
   await db.delete(channelNotifPrefs).where(eq(channelNotifPrefs.userId, userId))
   await db.delete(serverNotifPrefs).where(eq(serverNotifPrefs.userId, userId))
   await db.delete(channelReads).where(eq(channelReads.userId, userId))
-  await db.delete(bookmarks).where(eq(bookmarks.userId, userId))
   await db.delete(reminders).where(
     or(eq(reminders.creatorId, userId), eq(reminders.targetUserId, userId)),
   )
   await db.delete(notifications).where(eq(notifications.userId, userId))
-  await db.delete(profileNotes).where(eq(profileNotes.authorId, userId))
   await db.delete(mutedMembers).where(eq(mutedMembers.userId, userId))
   await db.delete(friendships).where(
     or(eq(friendships.userAId, userId), eq(friendships.userBId, userId)),

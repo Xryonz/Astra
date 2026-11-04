@@ -14,12 +14,12 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "vapid:gen": "web-push generate-vapid-keys --json"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@astra/types": "*",
     "@aws-sdk/client-s3": "^3.1068.0",
+    "@livekit/protocol": "^1.46.3",
     "@sentry/node": "^10.55.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^2.4.3",
@@ -27,7 +27,6 @@
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
@@ -43,7 +42,6 @@
     "prom-client": "^15.1.3",
     "sharp": "^0.35.4",
     "socket.io": "^4.7.5",
-    "web-push": "^3.6.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -58,7 +56,7 @@
     "@types/passport": "^1.0.16",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/pg": "^8.11.0",
-    "@types/web-push": "^3.6.4",
+    "drizzle-kit": "^0.31.10",
     "ioredis-mock": "^8.13.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5",

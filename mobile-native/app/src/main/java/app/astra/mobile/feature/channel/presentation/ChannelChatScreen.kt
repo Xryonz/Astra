@@ -19,22 +19,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,11 +56,10 @@ import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AbaDeExpressao
-import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EditingBanner
@@ -126,7 +120,7 @@ fun ChannelChatScreen(
 
     var membrosAbertos by remember { mutableStateOf(false) }
 
-    CosmicBackground {
+    TelaCheia {
         Column(
             Modifier
                 .fillMaxSize()

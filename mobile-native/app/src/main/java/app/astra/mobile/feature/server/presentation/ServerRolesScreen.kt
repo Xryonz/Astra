@@ -45,7 +45,7 @@ import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AstraSwitch
 import app.astra.mobile.ui.components.comVibracaoDeChave
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -79,7 +79,7 @@ fun ServerRolesScreen(
         }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(title = "Cargos", onBack = onBack)
 

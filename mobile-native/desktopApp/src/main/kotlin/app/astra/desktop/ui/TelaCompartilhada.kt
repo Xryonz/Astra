@@ -33,21 +33,12 @@ uniform shader brilho;
 uniform shader cor;
 
 half4 main(float2 p) {
-    // O canal alfa porque as duas imagens sobem como ALPHA_8: um byte por amostra, e
-    // o Skia o entrega no alfa.
     float y = brilho.eval(p).a;
 
-    // A amostra de cor cobre um quadrado de 2x2 pixels. A linha é a metade da de
-    // brilho; a coluna é o par (U,V) que começa em `floor(x/2)*2`.
     float2 c = float2(floor(p.x * 0.5) * 2.0, floor(p.y * 0.5));
     float u = cor.eval(float2(c.x + 0.5, c.y + 0.5)).a - 0.5;
     float v = cor.eval(float2(c.x + 1.5, c.y + 0.5)).a - 0.5;
 
-    // BT.709, faixa ESTUDIO — que é o que o H.264 usa por padrão em alta definição, e
-    // o que o compressor do Windows produz sem receber ordem em contrário. O brilho
-    // vive entre 16 e 235 e a cor entre 16 e 240, então os dois são esticados de volta
-    // antes da conta. Tratar como faixa cheia deixaria a imagem lavada; o contrário,
-    // dura demais — é a diferença que se vê nos cinzas, não nas cores fortes.
     y = (y - 0.0627) * 1.1644;
     u = u * 1.1384;
     v = v * 1.1384;

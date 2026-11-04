@@ -204,6 +204,9 @@ object PermissoesWindows {
     private fun apelido(binario: java.io.File): String =
         if (binario.name.contains("voz", ignoreCase = true)) "a voz" else "o Astra"
 
+    private fun apelidoComPor(binario: java.io.File): String =
+        if (binario.name.contains("voz", ignoreCase = true)) "pela voz" else "pelo Astra"
+
     fun rede(): Checagem {
         if (System.getProperty("jpackage.app-path") == null) {
             return Checagem(
@@ -244,7 +247,7 @@ object PermissoesWindows {
             )
             semRegra.isNotEmpty() -> Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
-                "O Windows ainda vai perguntar por ${semRegra.joinToString(" e ", transform = ::apelido)} " +
+                "O Windows ainda vai perguntar ${semRegra.joinToString(" e ", transform = ::apelidoComPor)} " +
                     "na primeira call. Liberar agora resolve isso antes e vale também para as próximas versões.",
                 "windowsdefender://network/",
                 podeResolver = true,

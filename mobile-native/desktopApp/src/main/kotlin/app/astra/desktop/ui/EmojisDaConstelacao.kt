@@ -17,6 +17,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
 import app.astra.desktop.CacheDeSucesso
 import app.astra.mobile.core.network.EmojiApi
@@ -24,6 +28,7 @@ import app.astra.mobile.core.network.dto.EmojiDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.context.GlobalContext
+import java.text.BreakIterator
 
 internal val REGEX_EMOJI_PERSONALIZADO = Regex(":([A-Za-z0-9_]{2,32}):")
 
@@ -132,6 +137,19 @@ internal fun AnnotatedString.Builder.appendComEmojis(s: String, emojis: EmojisDa
         i = m.range.last + 1
     }
     append(s.substring(i))
+}
+
+internal fun comEmojisRetos(texto: String): AnnotatedString = buildAnnotatedString {
+    val simbolos = BreakIterator.getCharacterInstance().apply { setText(texto) }
+    var inicio = simbolos.first()
+    var fim = simbolos.next()
+    while (fim != BreakIterator.DONE) {
+        val simbolo = texto.substring(inicio, fim)
+        val emoji = simbolo.codePoints().anyMatch { ehGlifoDeEmoji(it) }
+        if (emoji) withStyle(SpanStyle(fontStyle = FontStyle.Normal)) { append(simbolo) } else append(simbolo)
+        inicio = fim
+        fim = simbolos.next()
+    }
 }
 
 private fun ehGlifoDeEmoji(cp: Int): Boolean = when (cp) {

@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,19 +66,7 @@ internal fun PetPalco(
     var quadro by remember(anim, pet) { mutableStateOf(0) }
     if (passo != null && !reduzir && naFrente) {
         LaunchedEffect(anim, pet) {
-            val nanosPorQuadro = 1_000_000_000L / passo.fps
-            var acumulado = 0L
-            var anterior = 0L
-            while (true) {
-                withFrameNanos { agora ->
-                    if (anterior != 0L) acumulado += agora - anterior
-                    anterior = agora
-                }
-                if (acumulado >= nanosPorQuadro) {
-                    quadro = (quadro + acumulado / nanosPorQuadro).toInt() % passo.quadros
-                    acumulado %= nanosPorQuadro
-                }
-            }
+            tocarNoRitmo(passo.fps) { quadro = (quadro + 1) % passo.quadros }
         }
     }
 

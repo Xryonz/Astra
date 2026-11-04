@@ -1,22 +1,13 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -29,7 +20,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -37,16 +27,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
-import app.astra.mobile.core.network.dto.CallLogDto
-import com.composables.icons.lucide.ChevronDown
-import com.composables.icons.lucide.Phone
-import com.composables.icons.lucide.PhoneMissed
-import com.composables.icons.lucide.Video
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -73,23 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
@@ -100,58 +69,25 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.composables.icons.lucide.CircleAlert
-import com.composables.icons.lucide.CloudOff
-import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.FileImage
 import com.composables.icons.lucide.FileText
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Minus
-import com.composables.icons.lucide.Pencil
-import com.composables.icons.lucide.Pin
-import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.Reply
-import com.composables.icons.lucide.SmilePlus
-import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.X
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatMessage
@@ -160,43 +96,31 @@ import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
-import app.astra.mobile.core.network.UnfurlApi
-import app.astra.mobile.core.network.dto.AttachmentDto
-import app.astra.mobile.core.network.dto.CartaoDeLinkDto
 import app.astra.mobile.core.network.dto.EmojiDto
-import app.astra.mobile.core.network.dto.ReactionDto
-import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
-import app.astra.shared.AstraShared
-import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import app.astra.desktop.AreaDeTransferencia
-import java.awt.Desktop
 import java.awt.datatransfer.DataFlavor
 import java.io.File
-import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 import app.astra.desktop.ui.theme.Tipo
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
-private const val FADE_MS = 340
-private const val REALCE_MS = 150
-private const val REALCE_PAUSA_MS = 300L
+internal const val FADE_MS = 340
+internal const val REALCE_MS = 150
+internal const val REALCE_PAUSA_MS = 300L
 
-private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
+internal val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
 
-private fun hhmm(iso: String?): String =
+internal fun hhmm(iso: String?): String =
     iso?.let { runCatching { HHMM.format(Instant.parse(it)) }.getOrNull() } ?: ""
 
 private val DIA_DO_MES = DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))
@@ -204,11 +128,9 @@ private val DIA_COM_ANO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", L
 
 private const val JANELA_DO_GRUPO_MIN = 5L
 
-private val LARGURA_DO_TRACO = 28.dp
+internal const val KIND_PASSAGEM_DE_TURNO = "passagem"
 
-private const val KIND_PASSAGEM_DE_TURNO = "passagem"
-
-private sealed interface LinhaDoChat {
+internal sealed interface LinhaDoChat {
     data class Dia(val chave: String, val rotulo: String) : LinhaDoChat
     data class Fala(val msg: ChatMessage, val agrupada: Boolean) : LinhaDoChat
     data class Passagem(val id: String, val texto: String) : LinhaDoChat
@@ -458,7 +380,6 @@ fun ChatView(
         }
     val meuId = LocalMinhaConta.current.id
     val falas = remember(linhas, primeiraNaoLida, meuId) { falasPorMensagem(linhas, primeiraNaoLida, meuId) }
-    val alturas = remember(target.id) { mutableStateMapOf<String, Int>() }
     val larguras = remember(target.id) { mutableStateMapOf<String, Int>() }
     Column(Modifier.fillMaxSize()) {
         EsperaNoTopo(state.loading && !state.acordando)
@@ -504,8 +425,6 @@ fun ChatView(
                                 abreOCartao = abre,
                                 fechaOCartao = fecha,
                                 idsDaFala = falas[msg.id].orEmpty(),
-                                alturas = alturas,
-                                aoMedir = { altura -> if (alturas[msg.id] != altura) alturas[msg.id] = altura },
                                 larguras = larguras,
                                 aoMedirLargura = { largura -> if (larguras[msg.id] != largura) larguras[msg.id] = largura },
                                 isChannel = isChannel,
@@ -543,23 +462,26 @@ fun ChatView(
         EscopoProprio {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
             val reduzirMovimento = LocalReduceMotion.current
-            AnimatedVisibility(
-                visible = state.typing.isNotEmpty(),
-                enter = expandVertically(tween(if (reduzirMovimento) 0 else 140, easing = EaseOutStd)) +
-                    fadeIn(tween(if (reduzirMovimento) 0 else 120)),
-                exit = shrinkVertically(tween(if (reduzirMovimento) 0 else 120, easing = EaseOutStd)) +
-                    fadeOut(tween(if (reduzirMovimento) 0 else 80)),
-            ) {
-                Row(Modifier.height(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TypingDots(Obsidian.accent)
-                    Spacer(Modifier.width(6.dp))
-                    val names = state.typing.values.toList()
-                    val label = when (names.size) {
-                        1 -> "${names[0]} está digitando…"
-                        2 -> "${names[0]} e ${names[1]} estão digitando…"
-                        else -> "várias pessoas estão digitando…"
+            val digitando = state.typing.values.toList()
+            var ultimosDigitando by remember(target.id) { mutableStateOf(digitando) }
+            if (digitando.isNotEmpty()) ultimosDigitando = digitando
+            Column(Modifier.height(16.dp)) {
+                AnimatedVisibility(
+                    visible = digitando.isNotEmpty(),
+                    enter = fadeIn(tween(if (reduzirMovimento) 0 else 120)),
+                    exit = fadeOut(tween(if (reduzirMovimento) 0 else 80)),
+                ) {
+                    Row(Modifier.height(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TypingDots(Obsidian.accent)
+                        Spacer(Modifier.width(6.dp))
+                        val names = ultimosDigitando
+                        val label = when (names.size) {
+                            1 -> "${names[0]} está digitando…"
+                            2 -> "${names[0]} e ${names[1]} estão digitando…"
+                            else -> "várias pessoas estão digitando…"
+                        }
+                        Text(label, style = Tipo.apoio)
                     }
-                    Text(label, style = Tipo.apoio)
                 }
             }
             if (state.error != null && state.messages.isNotEmpty()) {
@@ -644,7 +566,7 @@ fun ChatView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Obsidian.raised)
+                            .background(Obsidian.overlay)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -723,7 +645,9 @@ fun ChatView(
                     draft = picked.name.substringBefore(" <") + " "
                 }
                 if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                val placeholder = if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…"
+                val placeholder = remember(target) {
+                    comEmojisRetos(if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…")
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -851,698 +775,7 @@ private fun EscopoProprio(conteudo: @Composable () -> Unit) {
 private fun ehColar(e: KeyEvent): Boolean =
     (e.isCtrlPressed && e.key == Key.V) || (e.isShiftPressed && e.key == Key.Insert)
 
-private fun mencionaVoce(msg: ChatMessage, meuId: String?): Boolean = meuId != null && meuId in msg.mentions
-
-private fun abreUmCartao(
-    fala: LinhaDoChat.Fala,
-    anterior: LinhaDoChat.Fala?,
-    primeiraNaoLida: String?,
-    meuId: String?,
-): Boolean =
-    anterior == null || !fala.agrupada ||
-        fala.msg.call != null || anterior.msg.call != null ||
-        fala.msg.id == primeiraNaoLida ||
-        mencionaVoce(fala.msg, meuId) || mencionaVoce(anterior.msg, meuId)
-
-private fun falasPorMensagem(
-    linhas: List<LinhaDoChat>,
-    primeiraNaoLida: String?,
-    meuId: String?,
-): Map<String, List<String>> {
-    val porMensagem = HashMap<String, List<String>>()
-    var atual = ArrayList<String>()
-    linhas.forEachIndexed { i, linha ->
-        if (linha !is LinhaDoChat.Fala) return@forEachIndexed
-        if (abreUmCartao(linha, linhas.getOrNull(i - 1) as? LinhaDoChat.Fala, primeiraNaoLida, meuId)) atual = ArrayList()
-        atual += linha.msg.id
-        porMensagem[linha.msg.id] = atual
-    }
-    return porMensagem
-}
-
-private class MedidaDaFala(val acima: Float, val acimaCompleto: Boolean, val abaixo: Float, val abaixoCompleto: Boolean) {
-    val inteira: Boolean get() = acimaCompleto && abaixoCompleto
-}
-
-private fun medirFala(ids: List<String>, eu: String, alturas: Map<String, Int>): MedidaDaFala {
-    var acima = 0f
-    var acimaCompleto = true
-    var abaixo = 0f
-    var abaixoCompleto = true
-    var passou = false
-    for (id in ids) {
-        if (id == eu) {
-            passou = true
-            continue
-        }
-        val altura = alturas[id]
-        when {
-            altura == null && passou -> abaixoCompleto = false
-            altura == null -> acimaCompleto = false
-            passou -> abaixo += altura
-            else -> acima += altura
-        }
-    }
-    return MedidaDaFala(acima, acimaCompleto, abaixo, abaixoCompleto)
-}
-
-private fun maiorLargura(ids: List<String>, larguras: Map<String, Int>): Int =
-    ids.maxOfOrNull { larguras[it] ?: 0 } ?: 0
-
-private fun DrawScope.direitaDaFala(ids: List<String>, larguras: Map<String, Int>): Float {
-    val conteudo = maiorLargura(ids, larguras)
-    if (conteudo == 0) return size.width
-    return minOf(size.width, (INICIO_DO_TEXTO + RECUO_DA_LINHA).toPx() + conteudo)
-}
-
-private fun DrawScope.semibordas(abre: Boolean, fecha: Boolean, cor: Color, fala: MedidaDaFala, direita: Float) {
-    val traco = 1.dp.toPx()
-    val meio = traco / 2f
-    val raio = CANTO_DA_SEMIBORDA.toPx()
-    val alto = size.height
-    val deitada = maxOf(direita * PONTA_DEITADA, raio)
-    val tetoEmPe = maxOf(raio, PONTA_EM_PE_MAXIMA.toPx())
-    val emPeSemTeto = (fala.acima + alto + fala.abaixo) * PONTA_EM_PE
-    if (emPeSemTeto < tetoEmPe && !fala.inteira) return
-    val emPe = emPeSemTeto.coerceIn(raio, tetoEmPe)
-    val estilo = Stroke(width = traco, cap = StrokeCap.Round)
-    if (abre) {
-        drawPath(
-            Path().apply {
-                moveTo(meio, minOf(meio + emPe, alto))
-                lineTo(meio, meio + raio)
-                quadraticTo(meio, meio, meio + raio, meio)
-                lineTo(meio + deitada, meio)
-            },
-            cor,
-            style = estilo,
-        )
-    } else if (fala.acimaCompleto) {
-        val de = (raio - fala.acima).coerceAtLeast(0f)
-        val ate = (emPe - fala.acima).coerceAtMost(alto)
-        if (ate > de) drawLine(cor, Offset(meio, de), Offset(meio, ate), traco)
-    }
-    val x = direita - meio
-    if (fecha) {
-        val y = alto - meio
-        drawPath(
-            Path().apply {
-                moveTo(x, maxOf(y - emPe, 0f))
-                lineTo(x, y - raio)
-                quadraticTo(x, y, x - raio, y)
-                lineTo(x - deitada, y)
-            },
-            cor,
-            style = estilo,
-        )
-    } else if (fala.abaixoCompleto) {
-        val fundo = alto + fala.abaixo
-        val de = (fundo - emPe).coerceAtLeast(0f)
-        val ate = (fundo - raio).coerceAtMost(alto)
-        if (ate > de) drawLine(cor, Offset(x, de), Offset(x, ate), traco)
-    }
-}
-
-private val CANTO_DA_SEMIBORDA = 8.dp
-private val MARGEM_DA_FALA = 14.dp
-private val RECUO_DA_LINHA = 12.dp
-private val LARGURA_DO_AVATAR = 34.dp
-private val ESPACO_ATE_O_TEXTO = 10.dp
-private val INICIO_DO_TEXTO = RECUO_DA_LINHA + LARGURA_DO_AVATAR + ESPACO_ATE_O_TEXTO
-private val PONTA_EM_PE_MAXIMA = 120.dp
-private const val PONTA_DEITADA = 0.25f
-private const val PONTA_EM_PE = 0.5f
-private const val ALFA_DA_MENCAO = 0.7f
-private const val RESPIRO_DA_CARTA = 0.75f
-
-@Composable
-private fun MessageRow(
-    msg: ChatMessage,
-    abreOCartao: Boolean,
-    fechaOCartao: Boolean,
-    idsDaFala: List<String>,
-    alturas: Map<String, Int>,
-    aoMedir: (Int) -> Unit,
-    larguras: Map<String, Int>,
-    aoMedirLargura: (Int) -> Unit,
-    isChannel: Boolean,
-    highlighted: Boolean,
-    editing: Boolean,
-    myId: String?,
-    onReply: () -> Unit,
-    onReact: (String) -> Unit,
-    onStartEdit: () -> Unit,
-    onSaveEdit: (String) -> Unit,
-    onCancelEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onPin: () -> Unit,
-    onVote: (String) -> Unit,
-    onClosePoll: () -> Unit,
-    onRetry: () -> Unit,
-    onJumpTo: (String) -> Unit,
-    onStartDm: (String, String) -> Unit,
-) {
-    msg.call?.let { c ->
-        LinhaDeChamada(c, minha = msg.mine)
-        return
-    }
-
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val pillInteraction = remember { MutableInteractionSource() }
-    val pillHovered by pillInteraction.collectIsHoveredAsState()
-    var pickerOpen by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
-
-    val grouped = !abreOCartao
-    val meMencionou = mencionaVoce(msg, LocalMinhaConta.current.id)
-    val opacidade = if (!msg.deleting) 1f else {
-        val sumindo = remember { Animatable(1f) }
-        LaunchedEffect(Unit) { sumindo.animateTo(0f, tween(FADE_MS)) }
-        sumindo.value
-    }
-    val realce = if (!highlighted) 0f else {
-        val aceso = remember { Animatable(0f) }
-        LaunchedEffect(Unit) {
-            aceso.animateTo(1f, tween(REALCE_MS))
-            delay(REALCE_PAUSA_MS)
-            aceso.animateTo(0f, tween(REALCE_MS))
-        }
-        aceso.value
-    }
-    EditorialContextMenu(entries = {
-        buildList {
-            add(MenuEntry.Item("responder", icon = Lucide.Reply) { onReply() })
-            if (isChannel) add(MenuEntry.EmojiSub("reagir", QUICK_EMOJIS) { onReact(it) })
-            add(MenuEntry.Separator)
-            if (msg.content.isNotBlank()) {
-                add(MenuEntry.Item("copiar texto", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.content)) })
-            }
-            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.id)) })
-            if (isChannel) {
-                val rotuloDoAlfinete = if (msg.pinned) "desafixar mensagem" else "fixar mensagem"
-                add(MenuEntry.Item(rotuloDoAlfinete, icon = Lucide.Pin) { onPin() })
-            }
-            if (isChannel && msg.mine && msg.content.isNotBlank()) {
-                add(MenuEntry.Item("editar", icon = Lucide.Pencil) { onStartEdit() })
-            }
-            if (msg.mine) {
-                add(MenuEntry.Separator)
-                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { onDelete() })
-            }
-        }
-    }) {
-    val dens = LocalMsgDensity.current
-    val respiroDaCarta = (dens.topDp * RESPIRO_DA_CARTA).dp
-    val espacoEntreCartas = (dens.groupedTopDp * 2).dp
-    val corDaSemiborda = when {
-        meMencionou -> Obsidian.accent.copy(alpha = ALFA_DA_MENCAO)
-        msg.mine -> Obsidian.borderMid
-        else -> Obsidian.borderDim
-    }
-    val formaDoRealce = RoundedCornerShape(
-        topStart = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        topEnd = if (abreOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        bottomStart = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-        bottomEnd = if (fechaOCartao) CANTO_DA_SEMIBORDA else 0.dp,
-    )
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MARGEM_DA_FALA)
-            .padding(top = if (abreOCartao) espacoEntreCartas else 0.dp)
-            .onSizeChanged { aoMedir(it.height) }
-            .graphicsLayer {
-                alpha = opacidade * (if (msg.pending) 0.55f else 1f)
-            }
-            .drawBehind {
-                val direita = direitaDaFala(idsDaFala, larguras)
-                if (realce > 0f) {
-                    val aceso = Obsidian.accentDim
-                    drawOutline(
-                        formaDoRealce.createOutline(Size(direita, size.height), layoutDirection, this),
-                        aceso.copy(alpha = aceso.alpha * realce),
-                    )
-                }
-                semibordas(
-                    abreOCartao,
-                    fechaOCartao,
-                    corDaSemiborda,
-                    medirFala(idsDaFala, msg.id, alturas),
-                    direita,
-                )
-            }
-            .hoverable(interaction),
-    ) {
-        val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
-        val pilula: @Composable () -> Unit = {
-            if (showPill) {
-                val visible = remember { MutableTransitionState(false).apply { targetState = true } }
-                AnimatedVisibility(
-                    visibleState = visible,
-                    enter = fadeIn(tween(150)) + slideInVertically(tween(150)) { it / 2 },
-                ) {
-                    ActionPill(
-                        canReact = isChannel,
-                        canEdit = isChannel && msg.mine && msg.content.isNotBlank(),
-                        canDelete = msg.mine,
-                        onReply = onReply,
-                        onReact = { pickerOpen = true },
-                        onEdit = onStartEdit,
-                        onDelete = onDelete,
-                        modifier = Modifier.hoverable(pillInteraction),
-                    )
-                    if (pickerOpen) {
-                        Popup(
-                            popupPositionProvider = SobOAlvo,
-                            onDismissRequest = { pickerOpen = false },
-                            properties = PopupProperties(focusable = true),
-                        ) {
-                            PopupReveal(originX = 0f, originY = 0f) {
-                                ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = RECUO_DA_LINHA)
-                .padding(
-                    top = if (grouped) dens.groupedTopDp.dp else respiroDaCarta,
-                    bottom = if (fechaOCartao) respiroDaCarta else 2.dp,
-                ),
-            verticalAlignment = Alignment.Top,
-        ) {
-            if (grouped) {
-                Box(Modifier.width(LARGURA_DO_AVATAR), contentAlignment = Alignment.CenterEnd) {
-                    if (hovered) {
-                        Text(hhmm(msg.createdAt), style = Tipo.nota)
-                    }
-                }
-                Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
-                PilulaJuntoDoTexto(
-                    Modifier.weight(1f),
-                    pilula = pilula,
-                    aoMedirConteudo = aoMedirLargura,
-                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
-                ) {
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
-                }
-            } else {
-                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, LARGURA_DO_AVATAR.value.toInt(), animar = hovered)
-                }
-                Spacer(Modifier.width(ESPACO_ATE_O_TEXTO))
-                PilulaJuntoDoTexto(
-                    Modifier.weight(1f),
-                    pilula = pilula,
-                    aoMedirConteudo = aoMedirLargura,
-                    larguraDaFala = { maiorLargura(idsDaFala, larguras) },
-                ) {
-                    msg.replyTo?.let { ref ->
-                        ReplyRef(ref, onJumpTo)
-                    }
-                    Row {
-                        val fonte = profileFontFamily(msg.authorFont)
-                        NomeColorido(
-                            texto = msg.authorName,
-                            cor = LocalCoresDeCargo.current[msg.authorId],
-                            padrao = Obsidian.text1,
-                            fontSize = if (fonte == DmSerif) 17.sp else 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = fonte,
-                            modifier = Modifier.alignByBaseline().weight(1f, fill = false),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(hhmm(msg.createdAt), style = Tipo.nota, modifier = Modifier.alignByBaseline())
-                    }
-                    Spacer(Modifier.height(2.dp))
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
-                }
-            }
-        }
-
-    }
-    }
-}
-
-private object SobOAlvo : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = anchorBounds.left
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val abaixo = anchorBounds.bottom + 6
-        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - popupContentSize.height - 6).coerceAtLeast(0)
-        return IntOffset(x, y)
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ContentBlock(
-    msg: ChatMessage,
-    editing: Boolean,
-    myId: String?,
-    onReact: (String) -> Unit,
-    onSaveEdit: (String) -> Unit,
-    onCancelEdit: () -> Unit,
-    onVote: (String) -> Unit = {},
-    onClosePoll: () -> Unit = {},
-    onRetry: () -> Unit = {},
-) {
-    val scale = LocalMsgFontScale.current
-    msg.poll?.let { poll ->
-        PollBlock(
-            poll = poll,
-            myId = myId,
-            podeEncerrar = msg.mine,
-            onVote = onVote,
-            onClose = onClosePoll,
-        )
-        return
-    }
-    if (editing) {
-        EditField(msg.content, onSaveEdit, onCancelEdit)
-    } else if (msg.content.isNotBlank() || msg.edited) {
-        val segments = remember(msg.content) { parseSegments(msg.content) }
-        val meuUsuario = LocalMinhaConta.current.usuario
-        val aoClicarNaMencao = LocalMencaoClicavel.current
-        val emojis = LocalEmojisDaSala.current
-        val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
-        val fator = if (realce.soEmoji) 2f else 1f
-        val corpo = (15 * scale * fator).sp
-        val linha = ((if (realce.temPersonalizado) 24 else 22) * scale * fator).sp
-        if (segments.size == 1 && segments[0] is Seg.Txt) {
-            Text(
-                text = remember(msg.content, msg.edited, meuUsuario, emojis) {
-                    buildAnnotatedString {
-                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao, emojis)
-                        if (msg.edited) {
-                            withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
-                        }
-                    }
-                },
-                style = TextStyle(color = Obsidian.text2, fontSize = corpo, lineHeight = linha),
-                inlineContent = emojis.inline,
-            )
-        } else {
-            segments.forEachIndexed { i, seg ->
-                if (i > 0) Spacer(Modifier.height(4.dp))
-                when (seg) {
-                    is Seg.Txt -> Text(
-                        text = remember(seg.s, meuUsuario, emojis) {
-                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao, emojis) }
-                        },
-                        style = TextStyle(color = Obsidian.text2, fontSize = corpo, lineHeight = linha),
-                        inlineContent = emojis.inline,
-                    )
-                    is Seg.Code -> CodeBox(seg)
-                }
-            }
-            if (msg.edited) {
-                Text("(editado)", style = Tipo.nota)
-            }
-        }
-    }
-    if (msg.attachments.isEmpty() && !msg.pending) {
-        val link = remember(msg.content) { primeiroLink(msg.content) }
-        if (link != null) {
-            Spacer(Modifier.height(6.dp))
-            PreviaDeLink(link)
-        }
-    }
-    msg.attachments.forEach { att ->
-        Spacer(Modifier.height(4.dp))
-        AttachmentBlock(att)
-    }
-    if (msg.reactions.isNotEmpty()) {
-        Spacer(Modifier.height(4.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            msg.reactions.forEach { r ->
-                ReactionChip(
-                    reaction = r,
-                    mine = myId != null && myId in r.users,
-                    onClick = { onReact(r.emoji) },
-                )
-            }
-        }
-    }
-    if (msg.failed) {
-        Spacer(Modifier.height(3.dp))
-        val src = remember { MutableInteractionSource() }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LIcon(Lucide.CircleAlert, tint = Obsidian.danger, size = 12.dp)
-            Spacer(Modifier.width(5.dp))
-            Text("não enviada", style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
-            Text(" · ", style = Tipo.apoio)
-            Text(
-                "tentar de novo",
-                style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
-                modifier = Modifier
-                    .clickable(interactionSource = src, indication = null, onClick = onRetry),
-            )
-        }
-    }
-}
-
-@Composable
-private fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
-    val perdida = c.status != "ended"
-    val cor = if (perdida) Obsidian.danger else Obsidian.text3
-    val texto = when {
-        !perdida -> "chamada de " + duracaoCurta(c.durationSec)
-        minha -> "ninguém atendeu"
-        else -> "chamada perdida"
-    }
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
-        Row(
-            Modifier.padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LIcon(
-                if (c.video) Lucide.Video else if (perdida) Lucide.PhoneMissed else Lucide.Phone,
-                tint = cor, size = 12.dp,
-            )
-            Spacer(Modifier.width(7.dp))
-            Text(texto, style = TextStyle(color = cor, fontSize = 11.sp, fontFamily = DmMono))
-        }
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
-    }
-}
-
-private fun duracaoCurta(seg: Int): String = when {
-    seg < 60 -> "${seg}s"
-    seg < 3600 -> "${seg / 60} min"
-    else -> "${seg / 3600}h ${(seg % 3600) / 60}min"
-}
-
-private val FIGURINHA_DP = 150.dp
-
-@Composable
-private fun AttachmentBlock(att: AttachmentDto) {
-    if (att.sticker == true) {
-        val w = att.width ?: 0
-        val h = att.height ?: 0
-        val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
-        AstraImage(
-            url = att.url,
-            contentDescription = att.name,
-            modifier = if (proporcao != null) {
-                Modifier.sizeIn(maxWidth = FIGURINHA_DP, maxHeight = FIGURINHA_DP).aspectRatio(proporcao)
-            } else {
-                Modifier.size(FIGURINHA_DP)
-            },
-            contentScale = ContentScale.Fit,
-        )
-        return
-    }
-    if (att.type?.startsWith("image/") == true) {
-        val openImage = LocalOpenImage.current
-        val w = att.width ?: 0
-        val h = att.height ?: 0
-        val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
-        AstraImage(
-            url = att.thumbUrl ?: att.url,
-            contentDescription = att.name,
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .heightIn(max = 240.dp)
-                .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { openImage(att.url) },
-            contentScale = ContentScale.Fit,
-            blurhash = att.blurhash,
-            proporcaoBlur = proporcao ?: 1.5f,
-        )
-    } else {
-        val src = remember { MutableInteractionSource() }
-        val hov by src.collectIsHoveredAsState()
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (hov) Obsidian.hover else Obsidian.raised)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .hoverable(src)
-                .clickable(interactionSource = src, indication = null) { openAttachment(att.url) }
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LIcon(Lucide.FileText, tint = Obsidian.text2, size = 15.dp)
-            Spacer(Modifier.width(7.dp))
-            Column {
-                Text(
-                    att.name ?: "arquivo",
-                    style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 220.dp),
-                )
-                att.size?.let {
-                    Text(sizeLabel(it), style = Tipo.nota)
-                }
-            }
-        }
-    }
-}
-
-private val REGEX_LINK = Regex("""https?://[^\s<>"']{4,512}""")
-
-private fun primeiroLink(texto: String): String? =
-    REGEX_LINK.find(texto)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'')
-        ?.takeIf { it.length > 10 }
-
-private const val CARTOES_LEMBRADOS = 120
-
-private val cartoesVistos = object : LinkedHashMap<String, CartaoDeLinkDto?>(16, 0.75f, true) {
-    override fun removeEldestEntry(eldest: Map.Entry<String, CartaoDeLinkDto?>) =
-        size > CARTOES_LEMBRADOS
-}
-
-@Composable
-private fun PreviaDeLink(url: String) {
-    val api = remember { GlobalContext.get().get<UnfurlApi>() }
-    val cartao by produceState(cartoesVistos[url], url) {
-        if (cartoesVistos.containsKey(url)) return@produceState
-        val achado = runCatching { api.cartao(url).data }.getOrNull()
-        cartoesVistos[url] = achado
-        value = achado
-    }
-    val c = cartao ?: return
-    if (c.titulo == null && c.descricao == null && c.imagem == null) return
-
-    val fonte = remember { MutableInteractionSource() }
-    val hover by fonte.collectIsHoveredAsState()
-    Row(
-        Modifier
-            .widthIn(max = 420.dp)
-            .clickScale(fonte)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (hover) Obsidian.hover else Obsidian.base)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .hoverable(fonte)
-            .clickable(interactionSource = fonte, indication = null) { openAttachment(c.url) }
-            .padding(10.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            c.site?.let {
-                Text(it, style = Tipo.nota)
-                Spacer(Modifier.height(3.dp))
-            }
-            c.titulo?.let {
-                Text(it, style = Tipo.rotulo.copy(color = Obsidian.accent), maxLines = 2)
-                Spacer(Modifier.height(3.dp))
-            }
-            c.descricao?.let { Text(it, style = Tipo.apoio, maxLines = 3) }
-        }
-        c.imagem?.let {
-            Spacer(Modifier.width(10.dp))
-            AsyncImage(
-                model = it,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(6.dp)),
-            )
-        }
-    }
-}
-
-private fun openAttachment(url: String) {
-    val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
-    runCatching { Desktop.getDesktop().browse(URI(abs)) }
-}
-
-private sealed interface Seg {
-    data class Txt(val s: String) : Seg
-    data class Code(val lang: String?, val s: String) : Seg
-}
-
-private fun parseSegments(content: String): List<Seg> {
-    if ("```" !in content) return listOf(Seg.Txt(content))
-    val out = mutableListOf<Seg>()
-    var i = 0
-    while (true) {
-        val start = content.indexOf("```", i)
-        if (start < 0) {
-            if (i < content.length) out += Seg.Txt(content.substring(i))
-            break
-        }
-        val end = content.indexOf("```", start + 3)
-        if (end < 0) {
-            out += Seg.Txt(content.substring(i))
-            break
-        }
-        if (start > i) out += Seg.Txt(content.substring(i, start).trim('\n'))
-        val inner = content.substring(start + 3, end)
-        val nl = inner.indexOf('\n')
-        val lang = if (nl > 0) {
-            inner.substring(0, nl).trim().takeIf { it.isNotBlank() && it.length <= 20 && ' ' !in it }
-        } else {
-            null
-        }
-        val code = if (lang != null) inner.substring(nl + 1) else inner
-        out += Seg.Code(lang, code.trim('\n'))
-        i = end + 3
-    }
-    return out.filter { it !is Seg.Txt || it.s.isNotBlank() }
-}
-
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
-    s: String,
-    meuUsuario: String? = null,
-    aoClicar: MencaoClicavel,
-    emojis: EmojisDaSala,
-) {
-    var i = 0
-    while (true) {
-        val a = s.indexOf('`', i)
-        val b = if (a >= 0) s.indexOf('`', a + 1) else -1
-        if (a < 0 || b < 0) {
-            appendComMencoes(s.substring(i), meuUsuario, aoClicar, emojis)
-            return
-        }
-        appendComMencoes(s.substring(i, a), meuUsuario, aoClicar, emojis)
-        withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
-            append(s.substring(a + 1, b))
-        }
-        i = b + 1
-    }
-}
+internal fun mencionaVoce(msg: ChatMessage, meuId: String?): Boolean = meuId != null && meuId in msg.mentions
 
 private val REGEX_MENCAO_ABERTA = Regex("@([A-Za-z0-9_]*)$")
 
@@ -1633,324 +866,6 @@ private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
     }
 }
 
-private val REGEX_MENCAO = Regex("@([A-Za-z0-9_]+)")
-
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
-    s: String,
-    meuUsuario: String?,
-    aoClicar: MencaoClicavel,
-    emojis: EmojisDaSala,
-) {
-    var i = 0
-    for (m in REGEX_MENCAO.findAll(s)) {
-        appendComEmojis(s.substring(i, m.range.first), emojis)
-        val usuario = m.groupValues[1]
-        val minha = !meuUsuario.isNullOrBlank() && usuario.equals(meuUsuario, ignoreCase = true)
-        val repouso = SpanStyle(
-            color = Obsidian.accent,
-            fontWeight = FontWeight.Medium,
-            background = if (minha) Obsidian.accent.copy(alpha = 0.16f) else Color.Transparent,
-        )
-        val aceso = repouso.copy(background = Obsidian.accent.copy(alpha = if (minha) 0.30f else 0.14f))
-        withLink(
-            LinkAnnotation.Clickable(
-                tag = usuario,
-                styles = TextLinkStyles(style = repouso, hoveredStyle = aceso, pressedStyle = aceso),
-            ) { aoClicar.abrir(usuario) },
-        ) { append(m.value) }
-        i = m.range.last + 1
-    }
-    appendComEmojis(s.substring(i), emojis)
-}
-
-@Composable
-private fun CodeBox(code: Seg.Code) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.base)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
-    ) {
-        SelectionContainer {
-            Text(
-                code.s,
-                style = TextStyle(
-                    color = Obsidian.text2,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    fontFamily = DmMono,
-                ),
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                    .padding(top = if (code.lang != null) 8.dp else 0.dp),
-            )
-        }
-        code.lang?.let {
-            Text(
-                it,
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
-                modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-        }
-    }
-}
-
-private fun sizeLabel(bytes: Long): String = when {
-    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
-    bytes >= 1024 -> "${bytes / 1024} KB"
-    else -> "$bytes B"
-}
-
-@Composable
-private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -> Unit) {
-    var draft by remember { mutableStateOf(TextFieldValue(original, TextRange(original.length))) }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    BasicTextField(
-        value = draft,
-        onValueChange = { draft = it },
-        textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp, lineHeight = 22.sp),
-        cursorBrush = SolidColor(Obsidian.accent),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(Obsidian.raised)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .focusRequester(focus)
-            .onPreviewKeyEvent { e ->
-                when {
-                    e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed -> {
-                        if (draft.text.isNotBlank()) onSave(draft.text)
-                        true
-                    }
-                    e.type == KeyEventType.KeyDown && e.key == Key.Escape -> {
-                        onCancel()
-                        true
-                    }
-                    else -> false
-                }
-            },
-    )
-    Spacer(Modifier.height(2.dp))
-    Text("enter salva · esc cancela", style = Tipo.nota)
-}
-
-@Composable
-private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Unit) {
-    val scale = remember { Animatable(0f) }
-    LaunchedEffect(reaction.count) {
-        if (scale.value > 0f) scale.snapTo(0.75f)
-        scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-    }
-    val src = remember { MutableInteractionSource() }
-    Row(
-        modifier = Modifier
-            .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (mine) Obsidian.active else Obsidian.raised)
-            .border(1.dp, if (mine) Obsidian.borderMid else Obsidian.borderDim, RoundedCornerShape(999.dp))
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 7.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(reaction.emoji, style = TextStyle(fontSize = 12.sp))
-        Spacer(Modifier.width(4.dp))
-        Text(
-            "${reaction.count}",
-            style = TextStyle(color = if (mine) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
-        )
-    }
-}
-
-@Composable
-private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    Row(
-        modifier = Modifier
-            .widthIn(max = 420.dp)
-            .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) }
-            .padding(bottom = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)
-        Spacer(Modifier.width(5.dp))
-        NomeColorido(
-            texto = ref.authorName ?: "alguém",
-            cor = ref.authorId?.let { LocalCoresDeCargo.current[it] },
-            padrao = Obsidian.accent,
-            fontSize = 11.sp,
-            modifier = Modifier.widthIn(max = 200.dp),
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = ref.authorFont?.let { profileFontFamily(it) },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            ref.content,
-            style = Tipo.apoio,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun PilulaJuntoDoTexto(
-    modifier: Modifier = Modifier,
-    pilula: @Composable () -> Unit,
-    aoMedirConteudo: (Int) -> Unit,
-    larguraDaFala: () -> Int,
-    conteudo: @Composable ColumnScope.() -> Unit,
-) {
-    val densidade = LocalDensity.current
-    val respiro = with(densidade) { 8.dp.roundToPx() }
-    val subida = with(densidade) { 10.dp.roundToPx() }
-    val recuo = with(densidade) { RECUO_DA_LINHA.roundToPx() }
-    Layout(
-        contents = listOf({ Column(Modifier.onSizeChanged { aoMedirConteudo(it.width) }, content = conteudo) }, pilula),
-        modifier = modifier,
-    ) { (medidosConteudo, medidosPilula), constraints ->
-        val conteudoMedido = medidosConteudo.first().measure(constraints.copy(minWidth = 0))
-        val pilulaMedida = medidosPilula.firstOrNull()?.measure(Constraints())
-        val largura = constraints.maxWidth
-        layout(largura, conteudoMedido.height) {
-            conteudoMedido.place(0, 0)
-            if (pilulaMedida != null) {
-                val larguraDaPilula = pilulaMedida.width
-                val borda = recuo + minOf(maxOf(larguraDaFala(), conteudoMedido.width), largura)
-                val aoLado = conteudoMedido.width + respiro
-                val encostaNaBorda = aoLado + larguraDaPilula + respiro > borda
-                val cabeDepoisDaBorda = borda + respiro + larguraDaPilula <= largura
-                val x = if (encostaNaBorda && cabeDepoisDaBorda) borda + respiro else aoLado
-                pilulaMedida.place(x.coerceAtMost(largura - larguraDaPilula).coerceAtLeast(0), -subida)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionPill(
-    canReact: Boolean,
-    canEdit: Boolean,
-    canDelete: Boolean,
-    onReply: () -> Unit,
-    onReact: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier
-            .shadow(6.dp, RoundedCornerShape(8.dp))
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .padding(2.dp),
-    ) {
-        PillButton(Lucide.Reply, "responder", onReply)
-        if (canReact) PillButton(Lucide.SmilePlus, "reagir", onReact)
-        if (canEdit) PillButton(Lucide.Pencil, "editar", onEdit)
-        if (canDelete) PillButton(Lucide.Trash2, "excluir", onDelete, danger = true)
-    }
-}
-
-@Composable
-private fun PillButton(
-    icon: ImageVector,
-    rotulo: String,
-    onClick: () -> Unit,
-    danger: Boolean = false,
-) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(26.dp)
-            .clickScale(src)
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                when {
-                    hov && danger -> Obsidian.danger.copy(alpha = 0.25f)
-                    hov -> Obsidian.hover
-                    else -> Color.Transparent
-                },
-            )
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(
-            icon,
-            tint = if (danger && hov) Obsidian.danger else Obsidian.text2,
-            size = 15.dp,
-            rotulo = rotulo,
-        )
-    }
-}
-
-@Composable
-internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = emptyList()) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(
-        Modifier
-            .shadow(8.dp, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(6.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            QUICK_EMOJIS.forEach { e -> EmojiCell(e) { onPick(e) } }
-            EmojiCell(
-                if (expanded) Lucide.Minus else Lucide.Plus,
-                if (expanded) "menos emojis" else "mais emojis",
-            ) { expanded = !expanded }
-        }
-        if (expanded) {
-            Spacer(Modifier.height(4.dp))
-            EmojiPicker(onPick = onPick, personalizados = personalizados)
-        }
-    }
-}
-
-@Composable
-private fun EmojiCell(glyph: String, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (hov) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(glyph, style = TextStyle(fontSize = 15.sp, color = Obsidian.text1))
-    }
-}
-
-@Composable
-private fun EmojiCell(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp))
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (hov) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(icon, tint = Obsidian.text2, size = 16.dp, rotulo = rotulo)
-    }
-}
-
 @Composable
 private fun HoverGlyph(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -2021,196 +936,3 @@ private fun EstrelaDeEnviar(acesa: Boolean, envios: Int, onClick: () -> Unit) {
 private const val TROCA_DA_ESTRELA_MS = 180
 private const val QUADRO_FINAL_DO_BRILHO = 23
 private const val VELOCIDADE_DO_BRILHO = 2.5f
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-    }
-}
-
-@Composable
-private fun SeparadorDoChat(rotulo: String) {
-    val traco = Obsidian.borderDim.copy(alpha = 0.7f)
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
-        Text(rotulo, style = Tipo.nota, modifier = Modifier.padding(horizontal = 12.dp))
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
-    }
-}
-
-@Composable
-private fun MarcaDeNovasMensagens() {
-    val accent = Obsidian.accent
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
-        Text(
-            "novas mensagens",
-            style = Tipo.nota.copy(color = accent),
-            modifier = Modifier.padding(horizontal = 10.dp),
-        )
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
-    }
-}
-
-@Composable
-private fun VoltarAoPresente(
-    visivel: Boolean,
-    novas: Int,
-    modifier: Modifier = Modifier,
-    aoTocar: () -> Unit,
-) {
-    val reduzir = LocalReduceMotion.current
-    var congelada by remember { mutableIntStateOf(novas) }
-    LaunchedEffect(visivel, novas) { if (visivel) congelada = novas }
-    val exibidas = if (visivel) novas else congelada
-    AnimatedVisibility(
-        visible = visivel,
-        enter = fadeIn(tween(if (reduzir) 0 else 120)) +
-            slideInVertically(tween(if (reduzir) 0 else 140, easing = EaseOutStd)) { it / 2 },
-        exit = fadeOut(tween(if (reduzir) 0 else 90)),
-        modifier = modifier,
-    ) {
-        val fonte = remember { MutableInteractionSource() }
-        val hover by fonte.collectIsHoveredAsState()
-        Row(
-            Modifier
-                .clickScale(fonte)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (hover) Obsidian.hover else Obsidian.overlay)
-                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .hoverable(fonte)
-                .clickable(interactionSource = fonte, indication = null, onClick = aoTocar)
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LIcon(Lucide.ChevronDown, tint = if (exibidas > 0) Obsidian.accent else Obsidian.text2, size = 14.dp)
-            Spacer(Modifier.width(6.dp))
-            Text(
-                when (exibidas) {
-                    0 -> "voltar ao presente"
-                    1 -> "1 nova mensagem"
-                    else -> "$exibidas novas mensagens"
-                },
-                style = Tipo.rotulo,
-            )
-        }
-    }
-}
-
-private fun instanteDe(m: ChatMessage): Instant? =
-    m.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
-
-private fun instanteDaMaisRecente(mensagens: List<ChatMessage>): Instant? =
-    mensagens.lastOrNull { !it.pending && !it.failed }?.let(::instanteDe)
-
-private fun contarNovas(mensagens: List<ChatMessage>, vista: Instant?): Int {
-    if (vista == null) return 0
-    var novas = 0
-    for (i in mensagens.indices.reversed()) {
-        val m = mensagens[i]
-        if (m.pending || m.failed) continue
-        val quando = instanteDe(m) ?: continue
-        if (!quando.isAfter(vista)) break
-        if (!m.mine && m.kind != KIND_PASSAGEM_DE_TURNO) novas++
-    }
-    return novas
-}
-
-@Composable
-private fun EmptyChat() {
-    val accent = Obsidian.accent
-    val phase = if (LocalReduceMotion.current) {
-        remember { mutableStateOf(0f) }
-    } else {
-        rememberInfiniteTransition(label = "emptyDots").animateFloat(
-            initialValue = 0f,
-            targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(tween(1150, easing = LinearEasing)),
-            label = "dotsPhase",
-        )
-    }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Canvas(Modifier.size(width = 62.dp, height = 28.dp)) {
-                val ph = phase.value
-                val r = 4.5.dp.toPx()
-                val gap = 16.dp.toPx()
-                val baseY = size.height - r
-                val startX = size.width / 2f - gap
-                repeat(3) { i ->
-                    val lift = sin(ph - i * 0.7f).coerceAtLeast(0f)
-                    drawCircle(
-                        color = accent.copy(alpha = 0.38f + 0.34f * lift),
-                        radius = r * (0.88f + 0.16f * lift),
-                        center = Offset(startX + i * gap, baseY - lift * 11.dp.toPx()),
-                    )
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "nenhuma mensagem ainda. Comece a conversa.",
-                style = Tipo.descricao,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AcordandoOServidor() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TypingDots(Obsidian.accent)
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "o servidor está acordando",
-                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "isto pode levar até um minuto depois de um tempo parado",
-                style = Tipo.apoio,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-        ) {
-            LIcon(Lucide.CloudOff, tint = Obsidian.text3, size = 20.dp, rotulo = null)
-            Spacer(Modifier.height(12.dp))
-            Text(motivo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
-            if (podeTentar) {
-                Spacer(Modifier.height(14.dp))
-                val src = remember { MutableInteractionSource() }
-                Text(
-                    "tentar de novo",
-                    style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickScale(src)
-                        .background(Obsidian.overlay)
-                        .clickable(interactionSource = src, indication = null, onClick = onRetry)
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                )
-            }
-        }
-    }
-}

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +43,6 @@ import app.astra.desktop.voice.FonteDeAparelhos
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.X
 
 @Composable
 internal fun PermissionsSection(onTestarAviso: () -> Unit) {
@@ -77,29 +75,29 @@ internal fun VoiceSection(
     prefs: DesktopPrefs,
     aparelhos: FonteDeAparelhos,
 ) {
+    BlocoDaTransmissao(p, prefs)
+    if (Canal.ehDeDesenvolvimento) {
+        SettingsDivider()
+        BlocoDoDiagnosticoDaCall()
+    }
+    SettingsDivider()
+    BlocoDosDispositivos(p, prefs, aparelhos)
+    SettingsDivider()
+    BlocoDoMicrofone(p, prefs)
+}
+
+@Composable
+private fun BlocoDaTransmissao(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Transmissão de tela",
-        "Vale ao iniciar a transmissão. A qualidade inicial depende da força do computador: " +
-            "com quatro núcleos ou menos, começa em 540p, porque aqui quem comprime o vídeo " +
-            "é o processador.",
+        "Vale ao iniciar a transmissão. Quem comprime o vídeo é a placa; num computador sem " +
+            "aceleração de vídeo, a imagem fica em até 720p, mesmo na opção de 1080p.",
     )
     RadioList(
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
     )
-
-    SettingsDivider()
-    TituloExplicavel(
-        "Motor de vídeo novo",
-        "Comprime a transmissão na placa de vídeo, sem trazer o quadro para o processador. " +
-            "Vale a partir da próxima chamada. Uma chamada em andamento não muda.",
-    )
-    ToggleRow(
-        "Usar o motor novo",
-        "em teste. Sem o pacote ou sem placa compatível, a chamada segue pelo caminho de sempre",
-        p.motorNovo,
-        prefs::setMotorNovo,
-    )
+    Spacer(Modifier.height(10.dp))
     ToggleRow(
         "Transmitir em duas qualidades",
         "em teste. Manda a tela cheia e uma versão menor ao mesmo tempo, para que quem está com " +
@@ -108,21 +106,23 @@ internal fun VoiceSection(
         p.duasCamadas,
         prefs::setDuasCamadas,
     )
+}
 
-    if (Canal.ehDeDesenvolvimento) {
-        SettingsDivider()
-        Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: em silêncio. A lista abaixo mostra até onde a conexão chegou; a etapa que faltar é a causa.",
-            style = Tipo.apoio,
-            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
-        )
-        Spacer(Modifier.height(10.dp))
-        VoicePassos()
-    }
+@Composable
+private fun BlocoDoDiagnosticoDaCall() {
+    Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: em silêncio. A lista abaixo mostra até onde a conexão chegou; a etapa que faltar é a causa.",
+        style = Tipo.apoio,
+        modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
+    )
+    Spacer(Modifier.height(10.dp))
+    VoicePassos()
+}
 
-    SettingsDivider()
+@Composable
+private fun BlocoDosDispositivos(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, aparelhos: FonteDeAparelhos) {
     Text("Dispositivos", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
@@ -148,31 +148,30 @@ internal fun VoiceSection(
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
+}
 
-    SettingsDivider()
+@Composable
+private fun BlocoDoMicrofone(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    ToggleRow("Cancelamento de eco", "evita que o áudio dos outros volte pelo seu microfone, com alguma perda de qualidade", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Cancelamento de eco", "evita que o áudio dos outros volte pelo seu microfone", p.micEchoCancel, prefs::setMicEchoCancel)
     ToggleRow("Supressão de ruído", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Ganho automático", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
     Spacer(Modifier.height(10.dp))
     Text(
         if (p.micEchoCancel) {
-            "o cancelador do Windows trabalha a 16 kHz, e a sua voz sai de lá nessa taxa: " +
-                "limpa, porém sem os agudos. Desligado, ela sobe para 48 kHz, a taxa cheia. " +
-                "Quem usa fone não tem eco para cancelar, então desligar só melhora."
+            "o eco é cancelado dentro do próprio Astra, e a sua voz sai a 48 kHz, a taxa cheia. " +
+                "Quem usa fone não tem eco para cancelar, mas desligar aqui também desliga os " +
+                "dois ajustes acima."
         } else {
-            "sua voz está indo a 48 kHz, a taxa cheia. Em compensação os dois ajustes acima " +
-                "não têm efeito: no Windows os três vivem no mesmo componente, e sem ele o " +
-                "microfone entra cru. Se alguém reclamar de ouvir a própria voz de volta, " +
-                "é isto que precisa voltar."
+            "sua voz está indo a 48 kHz sem nenhum tratamento: os dois ajustes acima só " +
+                "funcionam junto do cancelamento de eco, e sem ele o microfone entra cru. Se " +
+                "alguém reclamar de ouvir a própria voz de volta, é isto que precisa voltar."
         },
         style = Tipo.apoio,
         modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
     )
-    Spacer(Modifier.height(12.dp))
-    MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(10.dp))
     Text(
         "os ajustes do microfone valem na hora, mesmo com a call aberta. O som corta " +
             "por um instante enquanto o microfone reabre.",

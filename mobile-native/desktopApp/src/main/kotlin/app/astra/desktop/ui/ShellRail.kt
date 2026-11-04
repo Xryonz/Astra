@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -89,7 +90,6 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.ui.theme.Tipo
 import app.astra.mobile.core.network.dto.ServerDto
 import coil3.compose.AsyncImage
 import com.composables.icons.lucide.Bell
@@ -290,91 +290,29 @@ internal fun Rail(
                     }
                 }) {
                 if (confirmLeave) {
-                    Popup(
-                        onDismissRequest = { confirmLeave = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        Column(
-                            Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                                .padding(14.dp),
-                        ) {
-                            Text(
-                                "sair de ${srv.name}?",
-                                style = Tipo.corpo,
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "ficar",
-                                    style = Tipo.descricao,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                                        .clickable { confirmLeave = false }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "sair",
-                                    style = Tipo.erro,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
-                                        .clickable {
-                                            confirmLeave = false
-                                            onLeaveServer(srv.id)
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                            }
-                        }
-                    }
+                    Confirmacao(
+                        titulo = "sair de ${srv.name}",
+                        consequencia = AO_SAIR_DA_CONSTELACAO,
+                        acao = "sair",
+                        cancelar = "ficar",
+                        aoConfirmar = {
+                            confirmLeave = false
+                            onLeaveServer(srv.id)
+                        },
+                        aoFechar = { confirmLeave = false },
+                    )
                 }
                 if (confirmDelete) {
-                    Popup(
-                        onDismissRequest = { confirmDelete = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        Column(
-                            Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-                                .padding(14.dp),
-                        ) {
-                            Text(
-                                "excluir ${srv.name}? A constelação é apagada para todos, e não há como desfazer.",
-                                style = Tipo.corpo,
-                                modifier = Modifier.widthIn(max = 240.dp),
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "cancelar",
-                                    style = Tipo.descricao,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                                        .clickable { confirmDelete = false }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "excluir",
-                                    style = Tipo.erro,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
-                                        .clickable {
-                                            confirmDelete = false
-                                            onDeleteServer(srv.id)
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                )
-                            }
-                        }
-                    }
+                    Confirmacao(
+                        titulo = "excluir ${srv.name}",
+                        consequencia = AO_EXCLUIR_A_CONSTELACAO,
+                        acao = "excluir",
+                        aoConfirmar = {
+                            confirmDelete = false
+                            onDeleteServer(srv.id)
+                        },
+                        aoFechar = { confirmDelete = false },
+                    )
                 }
                 val novidade = srv.id in constelacoesComNovidade
                 val acabouDeChegar = carregado && conhecidas?.contains(srv.id) == false
@@ -679,9 +617,10 @@ private fun EstrelaDaRail(
         if (reduzir) snap() else tween(ENTRADA_DO_CARTAO_MS, easing = EaseOutStd),
         label = "estrelaPresente",
     )
-    val borda by animateColorAsState(
-        if (hovered) Obsidian.borderMid else Obsidian.borderDim,
-        tween(140),
+    val veu by animateFloatAsState(
+        if (hovered) 1f else 0f,
+        if (reduzir) snap() else tween(VEU_MS),
+        label = "veuDaEstrela",
     )
     val formaDoCartao = RoundedCornerShape(CANTO_DO_CARTAO)
     val formaDaEstrela = RoundedCornerShape(CANTO_DA_ESTRELA)
@@ -731,7 +670,11 @@ private fun EstrelaDaRail(
                         else -> Obsidian.raised
                     },
                 )
-                .border(1.dp, borda, formaDaEstrela)
+                .bordaNoAltoContraste(formaDaEstrela)
+                .drawWithContent {
+                    drawContent()
+                    if (veu > 0f) drawRect(Color.White.copy(alpha = ALFA_DO_VEU * veu))
+                }
                 .hoverable(interaction)
                 .clickable(interactionSource = interaction, indication = null, onClick = aoTocar)
                 .semantics { if (nomeAcessivel != null) contentDescription = nomeAcessivel },
@@ -780,6 +723,8 @@ private val TRACO_DO_FIO = 3.dp
 private val VAO_DO_FIO = 4.dp
 private const val ALFA_DO_FIO_TRACEJADO = 0.7f
 private const val ALFA_SILENCIADA = 0.45f
+private const val ALFA_DO_VEU = 0.07f
+private const val VEU_MS = 140
 private const val ESCALA_INICIAL = 0.9f
 private const val ENTRADA_DO_CARTAO_MS = 200
 private const val SAIDA_DO_CARTAO_MS = 150
@@ -864,11 +809,7 @@ private fun RailItem(
         tween(140),
     )
     val borderColor by animateColorAsState(
-        when {
-            active -> Obsidian.accent.copy(alpha = 0.55f)
-            hovered -> Obsidian.borderMid
-            else -> Obsidian.borderDim
-        },
+        bordaDoItem(Obsidian.accent.copy(alpha = 0.55f).takeIf { active }, hovered),
         tween(140),
     )
     Box(
@@ -1004,7 +945,7 @@ internal fun ServerHeaderBanner(srv: ServerDto) {
             .padding(horizontal = 8.dp, vertical = 8.dp)
             .aspectRatio(ServerBannerAspect)
             .clip(forma)
-            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), forma),
+            .bordaNoAltoContraste(forma),
     ) {
         if (!srv.bannerUrl.isNullOrBlank()) {
             ProfileBanner(

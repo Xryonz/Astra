@@ -1,14 +1,16 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -42,6 +44,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -51,6 +54,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.AvisosNaTela
 import app.astra.desktop.EscopoSupervisionado
@@ -68,6 +72,7 @@ import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.PreCarregadorDeImagens
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.Acesso
 import app.astra.desktop.voice.LeituraDoCaminho
@@ -402,7 +407,7 @@ fun ShellScreen(
                         FirstStepsCard(
                             hasServer = state.servers.isNotEmpty(),
                             hasDm = state.dms.isNotEmpty(),
-                            hasAvatar = state.me?.avatarUrl != null,
+                            hasAvatar = !state.me?.avatarUrl.isNullOrBlank(),
                             onDismiss = {
                                 onbStore.setUiPref("checklist:${session.userId}", "0")
                                 checklistActive = false
@@ -434,7 +439,7 @@ fun ShellScreen(
                 .fillMaxSize()
                 .padding(RESPIRO_DA_JANELA)
                 .clip(FORMA_DO_SHELL)
-                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), FORMA_DO_SHELL),
+                .bordaNoAltoContraste(FORMA_DO_SHELL),
         ) {
         Row(Modifier.fillMaxSize()) {
         val podeConfigurar: (String) -> Boolean = { id ->
@@ -573,10 +578,15 @@ fun ShellScreen(
             leiturasAoEntrar = state.leiturasAoEntrar,
             modifier = Modifier.weight(1f),
         )
+        val reduzirMovimento = LocalReduceMotion.current
+        val deslizeDoPainel = with(LocalDensity.current) { 10.dp.roundToPx() }
+        val saiuDaConstelacao = state.selection !is Selection.Server
         AnimatedVisibility(
             visible = state.selection is Selection.Server && state.membersOpen,
-            enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
-            exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
+            enter = if (reduzirMovimento) EnterTransition.None else
+                slideInHorizontally(tween(200, easing = EaseOutStd)) { deslizeDoPainel } + fadeIn(tween(200)),
+            exit = if (reduzirMovimento || saiuDaConstelacao) ExitTransition.None else
+                slideOutHorizontally(tween(120, easing = EaseOutStd)) { deslizeDoPainel } + fadeOut(tween(120)),
         ) {
             MembersPanel(
                 members = state.members,
@@ -787,14 +797,18 @@ private val ALTURA_DO_RODAPE = 62.dp
 
 @Composable
 internal fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
-    if (LocalFundoLiso.current) this.background(sobreOFundoLiso(bg, alpha, Obsidian.void))
+    if (LocalFundoLiso.current) this.background(bg)
     else this.background(bg.copy(alpha = alpha))
 
-private fun sobreOFundoLiso(cor: Color, alfa: Float, fundo: Color) = Color(
-    red = fundo.red + (cor.red - fundo.red) * alfa,
-    green = fundo.green + (cor.green - fundo.green) * alfa,
-    blue = fundo.blue + (cor.blue - fundo.blue) * alfa,
-)
+internal fun Modifier.bordaNoAltoContraste(forma: Shape): Modifier =
+    if (Obsidian.altoContraste) this.border(1.dp, Obsidian.borderMid, forma) else this
+
+internal fun bordaDoItem(selecao: Color?, comOMouse: Boolean, emRepouso: Color = Obsidian.borderDim): Color = when {
+    selecao != null -> selecao
+    !Obsidian.altoContraste -> Color.Transparent
+    comOMouse -> Obsidian.borderMid
+    else -> emRepouso
+}
 
 private fun Modifier.larguraDaColunaDasOrbitas(): Modifier = layout { medivel, limites ->
     val sidebar = (LARGURA_SIDEBAR + (limites.maxWidth.toDp() - ONDE_A_SIDEBAR_COMECA_A_CRESCER) * CRESCIMENTO_DA_SIDEBAR)

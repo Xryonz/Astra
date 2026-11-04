@@ -71,7 +71,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
-        val motorNovo: Boolean = false,
         val duasCamadas: Boolean = false,
         val avisoDiscreto: Boolean = false,
         val somDeAviso: Boolean = true,
@@ -85,7 +84,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
-        val micSensitivity: Float = 0f,
         val audioInput: String? = null,
         val audioOutput: String? = null,
         val volumeDoMicrofone: Int = 100,
@@ -197,10 +195,8 @@ class DesktopPrefs(private val store: SessionStore) {
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
-        motorNovo = store.uiPref("motorNovo") == "1",
         duasCamadas = store.uiPref("duasCamadas") == "1",
         micAutoGain = store.uiPref("micAutoGain") != "0",
-        micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
         volumeDoMicrofone = store.uiPref("volumeDoMicrofone")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
@@ -360,11 +356,6 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(micEchoCancel = v) }
     }
 
-    fun setMotorNovo(v: Boolean) {
-        persist("motorNovo", v)
-        _state.update { it.copy(motorNovo = v) }
-    }
-
     fun setDuasCamadas(v: Boolean) {
         persist("duasCamadas", v)
         _state.update { it.copy(duasCamadas = v) }
@@ -373,12 +364,6 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setMicAutoGain(v: Boolean) {
         persist("micAutoGain", v)
         _state.update { it.copy(micAutoGain = v) }
-    }
-
-    fun setMicSensitivity(v: Float) {
-        val c = v.coerceIn(0f, 1f)
-        anotar("micSensitivity", c.toString())
-        _state.update { it.copy(micSensitivity = c) }
     }
 
     fun setAudioInput(v: String?) {

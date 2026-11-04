@@ -25,8 +25,6 @@ interface ServerRepository {
 
     suspend fun voicePresence(channelIds: List<String>): Result<Map<String, List<String>>>
 
-    suspend fun createChannel(serverId: String, name: String, isVoice: Boolean): Result<Unit>
-
     suspend fun leaveServer(serverId: String): Result<Unit>
 
     suspend fun podeArrumarOrbitas(serverId: String): Boolean

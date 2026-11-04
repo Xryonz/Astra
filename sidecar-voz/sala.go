@@ -13,6 +13,7 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/interceptor/pkg/gcc"
+	"github.com/pion/interceptor/pkg/twcc"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
@@ -144,31 +145,13 @@ func (s *Sala) Entrar(url, token string) error {
 		},
 	}
 
-	medidor, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
-		return gcc.NewSendSideBWE(
-			gcc.SendSideBWEPacer(gcc.NewNoOpPacer()),
-			gcc.SendSideBWEInitialBitrate(bandaInicialDoGcc),
-			gcc.SendSideBWEMinBitrate(bandaMinima*1000),
-			gcc.SendSideBWEMaxBitrate(bandaMaximaDoGcc),
-		)
-	})
+	interceptadores, err := interceptadoresDaSala(s.medirABanda)
 	if err != nil {
-		return fmt.Errorf("medir o congestionamento: %w", err)
+		return err
 	}
-	medidor.OnNewPeerConnection(func(_ string, e cc.BandwidthEstimator) {
-		s.mu.Lock()
-		s.banda = e
-		s.bandaMedida = false
-		s.mu.Unlock()
-		e.OnTargetBitrateChange(func(int) {
-			s.mu.Lock()
-			s.bandaMedida = true
-			s.mu.Unlock()
-		})
-	})
 
 	quarto, err := lksdk.ConnectToRoomWithToken(url, token, retorno,
-		lksdk.WithInterceptors([]interceptor.Factory{medidor}),
+		lksdk.WithInterceptors(interceptadores),
 		lksdk.WithIncludeDefaultInterceptors(true),
 	)
 	if err != nil {
@@ -196,6 +179,40 @@ func (s *Sala) Entrar(url, token string) error {
 		s.saida.Manda(Evento{Ev: EvEstado, Par: rp.Identity(), V: "connected"})
 	}
 	return nil
+}
+
+func interceptadoresDaSala(aoMedir func(cc.BandwidthEstimator)) ([]interceptor.Factory, error) {
+	medidor, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
+		return gcc.NewSendSideBWE(
+			gcc.SendSideBWEPacer(gcc.NewNoOpPacer()),
+			gcc.SendSideBWEInitialBitrate(bandaInicialDoGcc),
+			gcc.SendSideBWEMinBitrate(bandaMinima*1000),
+			gcc.SendSideBWEMaxBitrate(bandaMaximaDoGcc),
+		)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("medir o congestionamento: %w", err)
+	}
+	medidor.OnNewPeerConnection(func(_ string, e cc.BandwidthEstimator) { aoMedir(e) })
+
+	numeracao, err := twcc.NewHeaderExtensionInterceptor()
+	if err != nil {
+		return nil, fmt.Errorf("numerar os pacotes para o congestionamento: %w", err)
+	}
+
+	return []interceptor.Factory{medidor, numeracao}, nil
+}
+
+func (s *Sala) medirABanda(e cc.BandwidthEstimator) {
+	s.mu.Lock()
+	s.banda = e
+	s.bandaMedida = false
+	s.mu.Unlock()
+	e.OnTargetBitrateChange(func(int) {
+		s.mu.Lock()
+		s.bandaMedida = true
+		s.mu.Unlock()
+	})
 }
 
 func adiantaVoltar(motivo lksdk.DisconnectionReason) bool {

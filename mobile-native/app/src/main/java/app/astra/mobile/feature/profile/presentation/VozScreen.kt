@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.data.QualidadeAoAssistir
 import app.astra.mobile.core.data.QualidadeAoTransmitir
 import app.astra.mobile.ui.LocalAppPrefs
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -48,7 +47,7 @@ fun VozScreen(
 ) {
     val prefs = LocalAppPrefs.current
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Voz", onBack = onBack)
 

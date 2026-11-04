@@ -44,13 +44,6 @@ object Instalacao {
         }
     }
 
-    val noLugarCerto: Boolean
-        get() {
-            val onde = imagem ?: return false
-            val devia = fixa ?: return false
-            return mesmaPasta(onde, devia)
-        }
-
     val exeFixo: File? get() = fixa?.let { File(it, EXECUTAVEL) }
 
     fun palcoPara(versao: String): File? {

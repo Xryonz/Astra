@@ -46,7 +46,7 @@ import app.astra.mobile.core.update.EstadoDaVersao
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraButtonVariant
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.Rotulo
 import app.astra.mobile.ui.theme.astraColors
@@ -63,7 +63,7 @@ fun TelaSobre(onBack: () -> Unit) {
     val navegador = LocalUriHandler.current
     val forma = RoundedCornerShape(8.dp)
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Sobre", onBack = onBack)
 

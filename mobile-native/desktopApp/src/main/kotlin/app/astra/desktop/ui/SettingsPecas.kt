@@ -8,7 +8,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -197,11 +196,11 @@ internal fun NavRow(icon: ImageVector, label: String, sub: String, active: Boole
         tween(120),
     )
     val border by animateColorAsState(
-        when {
-            active -> Obsidian.accent.copy(alpha = 0.45f)
-            hovered -> Obsidian.borderMid
-            else -> Obsidian.borderDim.copy(alpha = 0.55f)
-        },
+        bordaDoItem(
+            selecao = Obsidian.accent.copy(alpha = 0.45f).takeIf { active },
+            comOMouse = hovered,
+            emRepouso = Obsidian.borderDim.copy(alpha = 0.55f),
+        ),
         tween(120),
     )
     Row(

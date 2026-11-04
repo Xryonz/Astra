@@ -15,12 +15,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import app.astra.mobile.ui.components.ConstellationGraphic
 import app.astra.mobile.ui.components.CosmicBackdrop
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -37,7 +33,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.components.LocalCena
 import app.astra.mobile.ui.components.LocalPalco

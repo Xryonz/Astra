@@ -15,7 +15,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,6 +40,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
+import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.AtividadePublicador
 import app.astra.desktop.net.Servidor
@@ -69,7 +69,7 @@ import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
 import app.astra.desktop.ui.DesenhoDaJanela
 import app.astra.desktop.ui.Quadros
-import app.astra.desktop.ui.contandoQuadros
+import app.astra.desktop.ui.MedindoCadaQuadro
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
 import app.astra.desktop.ui.LocalFundoLiso
@@ -208,6 +208,11 @@ private fun placaQueDesenha(componente: java.awt.Component): String? {
     }
     if (componente !is java.awt.Container) return null
     return componente.components.firstNotNullOfOrNull { placaQueDesenha(it) }
+}
+
+private fun semBufferDuploDoSwing(janela: javax.swing.JFrame) {
+    janela.rootPane.isDoubleBuffered = false
+    (janela.contentPane as? javax.swing.JComponent)?.isDoubleBuffered = false
 }
 
 private fun writeDiagnostics() = runCatching {
@@ -515,7 +520,10 @@ fun main(args: Array<String>) {
         marcoDoArranque("composição iniciada")
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         var resgate by remember { mutableStateOf(0) }
-        val state = rememberWindowState(width = 1280.dp, height = 820.dp)
+        val state = rememberWindowState(
+            position = WindowPosition(Alignment.Center),
+            size = remember { tamanhoInicialDaJanela() },
+        )
         val transparentWindow = remember {
             val p = GlobalContext.get().get<DesktopPrefs>().state.value
             p.windowTransparent && !p.performanceMode && janelaAceitaTransparencia &&
@@ -685,6 +693,8 @@ fun main(args: Array<String>) {
             marcoDoArranque(Arranque.MARCO_JANELA)
             MaximizadaDentroDaAreaUtil()
             remember { Vigia.janelaCriada() }
+            remember { semBufferDuploDoSwing(window) }
+            MedindoCadaQuadro()
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
                 Arranque.marcar("composição da janela pronta")
@@ -711,7 +721,12 @@ fun main(args: Array<String>) {
                     .components {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
-                        add(OkHttpNetworkFetcherFactory(cacheStrategy = { ErroGuardadoPorPouco() }))
+                        add(
+                            OkHttpNetworkFetcherFactory(
+                                callFactory = { ClienteCompartilhado.base },
+                                cacheStrategy = { ErroGuardadoPorPouco() },
+                            ),
+                        )
                         add(DecodificadorNitido.Fabrica())
                     }
                     .memoryCache {
@@ -830,7 +845,7 @@ fun main(args: Array<String>) {
                         LocalWindowActive provides (naTela && janelaComFoco),
                         LocalJanelaNaTela provides naTela,
                     ) {
-                    Box(Modifier.fillMaxSize().contandoQuadros()) {
+                    Box(Modifier.fillMaxSize()) {
                     var aquecido by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { Quadros.medirParaArquivo(this) }
                     val auroraPulse = remember { Animatable(0f) }

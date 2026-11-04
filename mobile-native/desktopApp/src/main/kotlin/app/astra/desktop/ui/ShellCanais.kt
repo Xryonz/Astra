@@ -3,7 +3,6 @@ package app.astra.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -151,7 +150,7 @@ internal fun OrbitItem(
             }
         }
         if (isUnread) UnreadPill(ch.id, Modifier.align(Alignment.CenterStart), chave = unreadCount)
-        if (dSt != null && dragCtx != null && dSt.dragging &&
+        if (dSt != null && dSt.dragging &&
             dSt.section == dragCtx.section && dSt.id != ch.id && dSt.targetIndex == dragCtx.index
         ) {
             Box(
@@ -174,7 +173,7 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
             .height(18.dp)
             .widthIn(min = 18.dp)
             .clip(RoundedCornerShape(9.dp))
-            .background(if (destaque) Color.White else Obsidian.raised)
+            .background(if (destaque) Color.White else Obsidian.hover)
             .padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {

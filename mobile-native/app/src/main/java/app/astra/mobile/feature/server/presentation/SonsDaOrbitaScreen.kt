@@ -38,7 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.network.dto.ServerSoundDto
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AuthErrorBox
-import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.TelaCheia
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.TextoDeApoio
@@ -69,7 +69,7 @@ fun SonsDaOrbitaScreen(
         uri?.let { viewModel.adicionar(it) }
     }
 
-    CosmicBackground {
+    TelaCheia {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = "Sons",

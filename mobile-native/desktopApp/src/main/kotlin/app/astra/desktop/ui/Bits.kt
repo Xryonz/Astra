@@ -11,13 +11,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -87,6 +85,10 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 val FormaDeBotao = RoundedCornerShape(8.dp)
 
+private const val APERTO_MS = 90
+private const val SOLTURA_MS = 320
+private const val ENTRADA_DO_POP_MS = 240
+
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
@@ -96,29 +98,27 @@ fun Modifier.clickScale(
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
-    var focado by remember { mutableStateOf(false) }
-    val modoDeEntrada = LocalInputModeManager.current
+    val duracao = if (pressed) APERTO_MS else SOLTURA_MS
     val escala = animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+        animationSpec = tween(durationMillis = duracao, easing = EaseOutStd),
         label = "clickScale",
     )
     val brilho = animateFloatAsState(
         targetValue = if (pressed && !reduce) 1f else 0f,
-        animationSpec = tween(durationMillis = if (pressed) 90 else 320),
+        animationSpec = tween(durationMillis = duracao),
         label = "clickGlow",
     )
-    val corDoFoco = Obsidian.accent
-    return onFocusChanged { focado = it.isFocused }
-        .graphicsLayer { scaleX = escala.value; scaleY = escala.value }
+    val corDoBrilho = Obsidian.accent
+    return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
         .drawBehind {
             val aceso = brilho.value
             if (aceso <= 0.01f) return@drawBehind
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        corDoFoco.copy(alpha = 0.34f * aceso),
-                        corDoFoco.copy(alpha = 0.10f * aceso),
+                        corDoBrilho.copy(alpha = 0.34f * aceso),
+                        corDoBrilho.copy(alpha = 0.10f * aceso),
                         Color.Transparent,
                     ),
                     center = center,
@@ -127,14 +127,23 @@ fun Modifier.clickScale(
                 radius = size.minDimension * 0.95f,
             )
         }
+        .anelDeFoco(formaDoFoco, folgaDoFoco)
+}
+
+@Composable
+fun Modifier.anelDeFoco(forma: Shape = RoundedCornerShape(8.dp), folga: Dp = 0.dp): Modifier {
+    var focado by remember { mutableStateOf(false) }
+    val modoDeEntrada = LocalInputModeManager.current
+    val corDoFoco = Obsidian.accent
+    return onFocusChanged { focado = it.isFocused }
         .drawWithContent {
             drawContent()
             if (!focado || modoDeEntrada.inputMode != InputMode.Keyboard) return@drawWithContent
             val traco = Stroke(width = 2.dp.toPx())
-            val folga = folgaDoFoco.toPx()
-            val area = Size(size.width + folga * 2, size.height + folga * 2)
-            translate(-folga, -folga) {
-                when (val contorno = formaDoFoco.createOutline(area, layoutDirection, this)) {
+            val folgaPx = folga.toPx()
+            val area = Size(size.width + folgaPx * 2, size.height + folgaPx * 2)
+            translate(-folgaPx, -folgaPx) {
+                when (val contorno = forma.createOutline(area, layoutDirection, this)) {
                     is Outline.Rectangle -> drawRect(corDoFoco, size = area, style = traco)
                     is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
                     is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
@@ -180,7 +189,7 @@ fun LIcon(
 }
 
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false) {
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = false, fundo: Color = Obsidian.overlay) {
     val podeAnimar = !url.isNullOrBlank() && mightAnimate(url) && !fotoSabidamenteParada(url) &&
         !LocalReduceMotion.current
     val sobre = remember { MutableInteractionSource() }
@@ -193,7 +202,7 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, animar: Boolean = fal
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().clip(CircleShape).background(Obsidian.overlay),
+            modifier = Modifier.fillMaxSize().clip(CircleShape).background(fundo),
             contentAlignment = Alignment.Center,
         ) {
             if (!url.isNullOrBlank() && !imagemMorreu(url)) {
@@ -369,7 +378,7 @@ fun PopIn(content: @Composable () -> Unit) {
     AnimatedVisibility(
         visibleState = vis,
         enter = if (semMovimento) EnterTransition.None else scaleIn(
-            animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
+            animationSpec = tween(ENTRADA_DO_POP_MS, easing = EaseOutStd),
             initialScale = 0.4f,
         ) + fadeIn(tween(120)),
         exit = if (semMovimento) ExitTransition.None else

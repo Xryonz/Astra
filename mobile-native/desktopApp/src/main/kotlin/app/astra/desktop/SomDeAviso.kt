@@ -1,10 +1,8 @@
 package app.astra.desktop
 
-import java.util.concurrent.Executors
+import app.astra.desktop.voice.SomPronto
 import java.util.concurrent.atomic.AtomicLong
 import javax.sound.sampled.AudioFormat
-import javax.sound.sampled.AudioSystem
-import javax.sound.sampled.SourceDataLine
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -21,18 +19,14 @@ private const val TRAVA_MS = 1_200L
 
 private val ultimaVez = AtomicLong(0L)
 
-private val toca by lazy {
-    Executors.newSingleThreadExecutor { r ->
-        Thread(r, "astra-som").apply { isDaemon = true }
-    }
-}
+private val aviso = SomPronto(AudioFormat(TAXA, 16, 1, true, false), ::construirOnda)
 
 fun tocarAvisoDeMensagem() {
     val agora = System.currentTimeMillis()
     val anterior = ultimaVez.get()
     if (agora - anterior < TRAVA_MS) return
     if (!ultimaVez.compareAndSet(anterior, agora)) return
-    toca.execute { runCatching { emitir(construirOnda()) } }
+    aviso.tocar()
 }
 
 private fun construirOnda(): ByteArray {
@@ -56,16 +50,4 @@ private fun construirOnda(): ByteArray {
         saida[i * 2 + 1] = ((amostra shr 8) and 0xFF).toByte()
     }
     return saida
-}
-
-private fun emitir(pcm: ByteArray) {
-    val formato = AudioFormat(TAXA, 16, 1, true, false)
-    val linha = AudioSystem.getLine(javax.sound.sampled.DataLine.Info(SourceDataLine::class.java, formato))
-        as SourceDataLine
-    linha.open(formato)
-    linha.start()
-    linha.write(pcm, 0, pcm.size)
-    linha.drain()
-    linha.stop()
-    linha.close()
 }

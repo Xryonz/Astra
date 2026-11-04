@@ -92,7 +92,6 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     }
 
     Canvas(modifier.fillMaxSize()) {
-        Quadros.marcar()
         Quadros.cronometrar("estrelas") {
         val w = size.width
         val h = size.height

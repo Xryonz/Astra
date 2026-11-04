@@ -98,7 +98,7 @@ tasks.matching {
 }.configureEach { dependsOn(compilarSidecarVoz) }
 
 tasks.withType<AbstractJLinkTask>().configureEach {
-    freeArgs.add("--include-locales=pt-BR,en")
+    freeArgs.add("--include-locales=pt,en")
 }
 
 tasks.register("zipDistributable") {
@@ -141,11 +141,13 @@ compose.desktop {
         mainClass = "app.astra.desktop.MainKt"
         jvmArgs += "-Dastra.version=$astraVersion"
         jvmArgs += "-Dastra.canal=${providers.gradleProperty("astra.canal").orNull ?: "dev"}"
+        jvmArgs += "-Dsun.java2d.d3d=false"
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
         val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
         if (gcProfile == "zgc") {
             jvmArgs += "-XX:+UseZGC"
-            jvmArgs += "-XX:+ZGenerational"
         } else {
+            jvmArgs += "-XX:+UseG1GC"
             jvmArgs += "-XX:MaxGCPauseMillis=8"
             jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
         }
@@ -197,6 +199,7 @@ compose.desktop {
                 "jdk.management",
                 "jdk.accessibility",
                 "jdk.localedata",
+                "jdk.jfr",
             )
             appResourcesRootDir.set(project.file("appResources"))
             windows {

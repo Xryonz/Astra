@@ -29,17 +29,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
@@ -139,8 +135,8 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         Spacer(Modifier.height(14.dp))
 
         when {
-            loading && results.isEmpty() -> Center("procurando constelações…")
-            error != null && results.isEmpty() -> Center(error!!)
+            loading && results.isEmpty() -> AvisoNoCentro("procurando constelações…")
+            error != null && results.isEmpty() -> AvisoNoCentro(error!!)
             results.isEmpty() -> DiscoverEmptyMap(query)
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 240.dp),
@@ -254,13 +250,6 @@ private fun DiscoverCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
     }
 }
 

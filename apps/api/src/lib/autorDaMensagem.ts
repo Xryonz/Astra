@@ -18,11 +18,16 @@ export function autorComoEra<T extends Autor>(
   return { ...autor, displayName: nome ?? autor.displayName, avatarUrl: guardada ?? autor.avatarUrl }
 }
 
-export function identidadeParaGuardar(autor: {
-  displayName?: string | null
-  username?: string | null
-  avatarUrl?: string | null
-} | null | undefined) {
+export function identidadeParaGuardar(
+  autor:
+    | {
+        displayName?: string | null
+        username?: string | null
+        avatarUrl?: string | null
+      }
+    | null
+    | undefined,
+) {
   return {
     authorName: autor?.displayName ?? autor?.username ?? null,
     authorAvatarUrl: autor?.avatarUrl ?? null,

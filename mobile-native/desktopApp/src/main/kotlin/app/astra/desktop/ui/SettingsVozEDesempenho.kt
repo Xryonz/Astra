@@ -240,7 +240,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
         }
         LabeledControl("FPS das animações", "teto de quadros das estrelas; a aurora fica em até 30") {
             SegmentedRow(
-                listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
+                listOf("60" to UiFps.CAP60, "30" to UiFps.CAP30),
                 p.uiFps, prefs::setUiFps,
             )
         }

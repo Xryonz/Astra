@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, eq, gt, isNull, isNotNull, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db'
@@ -15,86 +15,93 @@ export function createReadsRouter() {
     asyncHandler(async (req: Request, res: Response) => {
       const { channelId } = req.params
 
-      const [row] = await db.select({ membershipId: serverMembers.id })
+      const [row] = await db
+        .select({ membershipId: serverMembers.id })
         .from(channels)
-        .innerJoin(serverMembers, and(
-          eq(serverMembers.serverId, channels.serverId),
-          eq(serverMembers.userId,   req.userId!),
-        ))
+        .innerJoin(
+          serverMembers,
+          and(eq(serverMembers.serverId, channels.serverId), eq(serverMembers.userId, req.userId!)),
+        )
         .where(eq(channels.id, channelId))
         .limit(1)
       if (!row) return res.status(403).json({ error: 'Acesso negado' })
 
       const now = new Date()
 
-      await db.insert(channelReads)
+      await db
+        .insert(channelReads)
         .values({ userId: req.userId!, channelId, lastReadAt: now })
         .onConflictDoUpdate({
           target: [channelReads.userId, channelReads.channelId],
-          set:    { lastReadAt: now },
+          set: { lastReadAt: now },
         })
 
-      const marked = await db.update(notifications)
+      const marked = await db
+        .update(notifications)
         .set({ readAt: now })
-        .where(and(
-          eq(notifications.userId, req.userId!),
-          isNull(notifications.readAt),
-          sql`(${notifications.payload}::jsonb ->> 'channelId') = ${channelId}`,
-        ))
+        .where(
+          and(
+            eq(notifications.userId, req.userId!),
+            isNull(notifications.readAt),
+            sql`(${notifications.payload}::jsonb ->> 'channelId') = ${channelId}`,
+          ),
+        )
         .returning({ id: notifications.id })
 
       res.json({ data: { channelId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
-    })
+    }),
   )
 
   router.get(
     '/reads/channels',
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
-      const rows = await db.select({
-        channelId:  channelReads.channelId,
-        lastReadAt: channelReads.lastReadAt,
-      })
+      const rows = await db
+        .select({
+          channelId: channelReads.channelId,
+          lastReadAt: channelReads.lastReadAt,
+        })
         .from(channelReads)
         .where(eq(channelReads.userId, req.userId!))
 
       const map: Record<string, string> = {}
       for (const r of rows) map[r.channelId] = r.lastReadAt.toISOString()
       res.json({ data: map })
-    })
+    }),
   )
 
   router.get(
     '/reads/channels/counts',
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
-      const rows = await db.select({
-        channelId: channels.id,
-        cnt:       sql<number>`count(${messages.id})::int`,
-      })
+      const rows = await db
+        .select({
+          channelId: channels.id,
+          cnt: sql<number>`count(${messages.id})::int`,
+        })
         .from(channels)
-        .innerJoin(serverMembers, and(
-          eq(serverMembers.serverId, channels.serverId),
-          eq(serverMembers.userId,   req.userId!),
-        ))
-        .leftJoin(channelReads, and(
-          eq(channelReads.channelId, channels.id),
-          eq(channelReads.userId,    req.userId!),
-        ))
-        .innerJoin(messages, and(
-          eq(messages.channelId, channels.id),
-          isNull(messages.deletedAt),
-          isNull(messages.kind),
-          ne(messages.authorId, req.userId!),
-          or(isNull(channelReads.lastReadAt), gt(messages.createdAt, channelReads.lastReadAt)),
-        ))
+        .innerJoin(
+          serverMembers,
+          and(eq(serverMembers.serverId, channels.serverId), eq(serverMembers.userId, req.userId!)),
+        )
+        .leftJoin(channelReads, and(eq(channelReads.channelId, channels.id), eq(channelReads.userId, req.userId!)))
+        .innerJoin(
+          messages,
+          and(
+            eq(messages.channelId, channels.id),
+            isNull(messages.deletedAt),
+            isNull(messages.kind),
+            ne(messages.authorId, req.userId!),
+            or(isNull(channelReads.lastReadAt), gt(messages.createdAt, channelReads.lastReadAt)),
+          ),
+        )
         .where(or(eq(channels.isPrivate, false), isNotNull(channelReads.lastReadAt)))
         .groupBy(channels.id)
 
       const map: Record<string, number> = {}
       for (const r of rows) if (r.cnt > 0) map[r.channelId] = r.cnt
       res.json({ data: map })
-    })
+    }),
   )
 
   router.post(
@@ -103,44 +110,53 @@ export function createReadsRouter() {
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
 
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
       const now = new Date()
       const isA = conv.userAId === req.userId
-      await db.update(dmConversations)
+      await db
+        .update(dmConversations)
         .set(isA ? { lastReadByA: now } : { lastReadByB: now })
         .where(eq(dmConversations.id, conversationId))
 
-      const marked = await db.update(notifications)
+      const marked = await db
+        .update(notifications)
         .set({ readAt: now })
-        .where(and(
-          eq(notifications.userId, req.userId!),
-          isNull(notifications.readAt),
-          sql`(${notifications.payload}::jsonb ->> 'conversationId') = ${conversationId}`,
-        ))
+        .where(
+          and(
+            eq(notifications.userId, req.userId!),
+            isNull(notifications.readAt),
+            sql`(${notifications.payload}::jsonb ->> 'conversationId') = ${conversationId}`,
+          ),
+        )
         .returning({ id: notifications.id })
 
       res.json({ data: { conversationId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
-    })
+    }),
   )
 
   router.get(
     '/reads/dm',
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
-      const convs = await db.select({
-        id:          dmConversations.id,
-        userAId:     dmConversations.userAId,
-        userBId:     dmConversations.userBId,
-        lastReadByA: dmConversations.lastReadByA,
-        lastReadByB: dmConversations.lastReadByB,
-      })
+      const convs = await db
+        .select({
+          id: dmConversations.id,
+          userAId: dmConversations.userAId,
+          userBId: dmConversations.userBId,
+          lastReadByA: dmConversations.lastReadByA,
+          lastReadByB: dmConversations.lastReadByB,
+        })
         .from(dmConversations)
         .where(or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)))
 
@@ -148,12 +164,12 @@ export function createReadsRouter() {
       for (const c of convs) {
         const isA = c.userAId === req.userId
         map[c.id] = {
-          mine:  (isA ? c.lastReadByA : c.lastReadByB)?.toISOString() ?? null,
+          mine: (isA ? c.lastReadByA : c.lastReadByB)?.toISOString() ?? null,
           other: (isA ? c.lastReadByB : c.lastReadByA)?.toISOString() ?? null,
         }
       }
       res.json({ data: map })
-    })
+    }),
   )
 
   return router

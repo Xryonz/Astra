@@ -96,7 +96,9 @@ describe('ficha do canal', () => {
 
   it('leitura em voo nao ressuscita a ficha velha depois da mudanca', async () => {
     let abrir = () => {}
-    banco.portao = new Promise<void>((resolve) => { abrir = resolve })
+    banco.portao = new Promise<void>((resolve) => {
+      abrir = resolve
+    })
 
     const emVoo = fichaDoCanal(CANAL)
     while (banco.idas === 0) await new Promise((r) => setTimeout(r, 0))

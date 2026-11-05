@@ -20,7 +20,6 @@ export function generateAccessToken(userId: string): { token: string; jti: strin
 }
 
 export function generateRefreshToken(userId: string): string {
-
   const jti = crypto.randomUUID()
   return jwt.sign({ userId, jti }, env.JWT_REFRESH_SECRET, {
     expiresIn: '7d',

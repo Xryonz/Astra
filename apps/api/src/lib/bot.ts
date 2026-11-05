@@ -7,55 +7,78 @@ import { redis } from './redis'
 import { env } from './env'
 import { logger } from './logger'
 import { profileChanged } from './realtime'
+import { DESEJOS_NA_JANELA, DESEJO_MAXIMO, DESEJO_MINIMO, limparDesejo, podeDesejar } from './desejo'
 import {
-  DESEJOS_NA_JANELA,
-  DESEJO_MAXIMO,
-  DESEJO_MINIMO,
-  limparDesejo,
-  podeDesejar,
-} from './desejo'
-import {
-  pushTurn, getHistory, countTurns, getSummary, setSummary, clearMemory,
-  consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
+  pushTurn,
+  getHistory,
+  countTurns,
+  getSummary,
+  setSummary,
+  clearMemory,
+  consumeTokens,
+  consumeToolCall,
+  SUMMARY_TRIGGER,
+  WORKING_WINDOW,
+  type MemoryTurn,
 } from './botMemory'
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
 import {
-  shipp, moeda, dado, escolha, sorteio, quemMandou, revelar,
-  ranking, perfilXp, lembrete, resumoDoDia,
+  shipp,
+  moeda,
+  dado,
+  escolha,
+  sorteio,
+  quemMandou,
+  revelar,
+  ranking,
+  perfilXp,
+  lembrete,
+  resumoDoDia,
 } from './botDiversao'
-import {
-  chamarIa, gerarTexto, IA_LIGADA, MODELO_CONVERSA, MODELO_RESUMO,
-  type BlocoIa, type FerramentaIa,
-} from './ia'
+import { chamarIa, gerarTexto, IA_LIGADA, MODELO_CONVERSA, MODELO_RESUMO, type BlocoIa, type FerramentaIa } from './ia'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
-export const BOT_USERNAME    = 'astra_bot'
+export const BOT_USERNAME = 'astra_bot'
 export const BOT_DISPLAYNAME = 'Astra'
-export const BOT_EMAIL       = 'bot@astra.internal'
+export const BOT_EMAIL = 'bot@astra.internal'
 
 export interface Persona {
-  chave:   'sparkle' | 'sparxie'
-  nome:    string
+  chave: 'sparkle' | 'sparxie'
+  nome: string
   prefixo: string
-  emoji:   string
-  avatar:  string
-  banner:  string
+  emoji: string
+  avatar: string
+  banner: string
   bannerCor: string
   bannerZoom: number
   bannerY: number
-  tom:     string
+  tom: string
 }
 
 const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
-  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
-  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 250, bannerY: 50,
+  chave: 'sparkle',
+  nome: 'Sparkle',
+  prefixo: '/sparkle',
+  emoji: '✦',
+  avatar: `${raizPublica}/static/bot/sparkle.jpg`,
+  banner: `${raizPublica}/static/bot/sparkle.gif`,
+  bannerCor: '#3a1030',
+  bannerZoom: 250,
+  bannerY: 50,
   tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto, porque a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
-  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
-  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 250, bannerY: 50,
+  chave: 'sparxie',
+  nome: 'Sparxie',
+  prefixo: '/sparxie',
+  emoji: '✧',
+  avatar: `${raizPublica}/static/bot/sparxie.jpg`,
+  banner: `${raizPublica}/static/bot/sparxie.gif`,
+  bannerCor: '#3d1730',
+  bannerZoom: 250,
+  bannerY: 50,
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
@@ -86,17 +109,16 @@ export function semPrefixo(content: string): string {
 
 export async function personaComAjustes(base: Persona = personaDoDia()): Promise<Persona> {
   try {
-    const [ajuste] = await db.select().from(botPersonas)
-      .where(eq(botPersonas.chave, base.chave)).limit(1)
+    const [ajuste] = await db.select().from(botPersonas).where(eq(botPersonas.chave, base.chave)).limit(1)
     if (!ajuste) return base
     return {
       ...base,
-      nome:      ajuste.displayName ?? base.nome,
-      avatar:    ajuste.avatarUrl ?? base.avatar,
-      banner:    ajuste.bannerUrl ?? base.banner,
+      nome: ajuste.displayName ?? base.nome,
+      avatar: ajuste.avatarUrl ?? base.avatar,
+      banner: ajuste.bannerUrl ?? base.banner,
       bannerCor: ajuste.bannerColor ?? base.bannerCor,
       bannerZoom: ajuste.bannerScale ?? base.bannerZoom,
-      bannerY:   ajuste.bannerPositionY ?? base.bannerY,
+      bannerY: ajuste.bannerPositionY ?? base.bannerY,
     }
   } catch {
     return base
@@ -106,26 +128,38 @@ export async function personaComAjustes(base: Persona = personaDoDia()): Promise
 export async function sincronizaPersona(botId: string): Promise<Persona> {
   const persona = await personaComAjustes()
   try {
-    const [atual] = await db.select({
-      username: users.username, displayFont: users.displayFont,
-      displayName: users.displayName, avatarUrl: users.avatarUrl,
-      bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
-      bannerScale: users.bannerScale, bannerPositionY: users.bannerPositionY,
-    }).from(users).where(eq(users.id, botId)).limit(1)
-    const mudou = atual && (
-      atual.displayName !== persona.nome ||
-      atual.avatarUrl !== persona.avatar ||
-      atual.bannerUrl !== persona.banner ||
-      atual.bannerColor !== persona.bannerCor ||
-      atual.bannerScale !== persona.bannerZoom ||
-      atual.bannerPositionY !== persona.bannerY
-    )
+    const [atual] = await db
+      .select({
+        username: users.username,
+        displayFont: users.displayFont,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        bannerUrl: users.bannerUrl,
+        bannerColor: users.bannerColor,
+        bannerScale: users.bannerScale,
+        bannerPositionY: users.bannerPositionY,
+      })
+      .from(users)
+      .where(eq(users.id, botId))
+      .limit(1)
+    const mudou =
+      atual &&
+      (atual.displayName !== persona.nome ||
+        atual.avatarUrl !== persona.avatar ||
+        atual.bannerUrl !== persona.banner ||
+        atual.bannerColor !== persona.bannerCor ||
+        atual.bannerScale !== persona.bannerZoom ||
+        atual.bannerPositionY !== persona.bannerY)
     if (mudou) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({
-          displayName: persona.nome, avatarUrl: persona.avatar,
-          bannerUrl: persona.banner, bannerColor: persona.bannerCor,
-          bannerScale: persona.bannerZoom, bannerPositionY: persona.bannerY,
+          displayName: persona.nome,
+          avatarUrl: persona.avatar,
+          bannerUrl: persona.banner,
+          bannerColor: persona.bannerCor,
+          bannerScale: persona.bannerZoom,
+          bannerPositionY: persona.bannerY,
         })
         .where(eq(users.id, botId))
       profileChanged(botId, {
@@ -145,21 +179,23 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
 const MAX_TOOL_ITERATIONS = 5
 
 export async function initBot(): Promise<string> {
-  const [existing] = await db.select({ id: users.id }).from(users)
-    .where(eq(users.username, BOT_USERNAME)).limit(1)
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.username, BOT_USERNAME)).limit(1)
   if (existing) return existing.id
 
   const botId = createId()
-  const [bot] = await db.insert(users).values({
-    id:          botId,
-    email:       BOT_EMAIL,
-    username:    BOT_USERNAME,
-    coordinate:  generateCoordinate(botId),
-    displayName: BOT_DISPLAYNAME,
-    isBot:       true,
-    bio:         'Bot oficial da Astra. Memória de 24h. Use /astra <pergunta>',
-    avatarUrl:   personaDoDia().avatar,
-  }).returning({ id: users.id })
+  const [bot] = await db
+    .insert(users)
+    .values({
+      id: botId,
+      email: BOT_EMAIL,
+      username: BOT_USERNAME,
+      coordinate: generateCoordinate(botId),
+      displayName: BOT_DISPLAYNAME,
+      isBot: true,
+      bio: 'Bot oficial da Astra. Memória de 24h. Use /astra <pergunta>',
+      avatarUrl: personaDoDia().avatar,
+    })
+    .returning({ id: users.id })
 
   logger.info('Bot', `Conta criada: ${bot.id}`)
   return bot.id
@@ -168,8 +204,7 @@ export async function initBot(): Promise<string> {
 export async function getBotId(): Promise<string | null> {
   const cached = await redis.get('bot:userId')
   if (cached) return cached
-  const [bot] = await db.select({ id: users.id }).from(users)
-    .where(eq(users.username, BOT_USERNAME)).limit(1)
+  const [bot] = await db.select({ id: users.id }).from(users).where(eq(users.username, BOT_USERNAME)).limit(1)
   if (bot) await redis.set('bot:userId', bot.id)
   return bot?.id ?? null
 }
@@ -202,12 +237,12 @@ export function semMarcaDeCodigo(texto: string): string {
 
 export interface AskBotOpts {
   userMessage: string
-  ctx:         BotContext
+  ctx: BotContext
 }
 
 export interface AskBotResult {
-  text:       string
-  toolsUsed:  string[]
+  text: string
+  toolsUsed: string[]
   truncated?: 'tokens' | 'tools' | 'loop'
 }
 
@@ -221,7 +256,11 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   const tokCheck = await consumeTokens(ctx.userId, estTokens)
   if (!tokCheck.allowed) {
     botInvocationsTotal.inc({ status: 'rate_limited' })
-    return { text: `Você usou todo seu limite diário comigo (${100_000} tokens). Tente de novo amanhã.`, toolsUsed: [], truncated: 'tokens' }
+    return {
+      text: `Você usou todo seu limite diário comigo (${100_000} tokens). Tente de novo amanhã.`,
+      toolsUsed: [],
+      truncated: 'tokens',
+    }
   }
 
   const nowMs = Date.now()
@@ -256,18 +295,19 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 
     if (res.error) {
       logger.error('Bot', `IA falhou: ${res.error.message}`)
-      finalText = res.error.type === 'limite'
-        ? 'Estou com muita gente falando comigo agora ✧ tenta de novo daqui a pouco?'
-        : 'Tive um problema técnico. Tente reformular?'
+      finalText =
+        res.error.type === 'limite'
+          ? 'Estou com muita gente falando comigo agora ✧ tenta de novo daqui a pouco?'
+          : 'Tive um problema técnico. Tente reformular?'
       break
     }
 
     if (res.usage) {
-      const inTok    = res.usage.input_tokens ?? 0
-      const outTok   = res.usage.output_tokens ?? 0
-      const cacheRd  = res.usage.cache_read_input_tokens ?? 0
-      if (inTok)   botTokensTotal.inc({ kind: 'input'      }, inTok)
-      if (outTok)  botTokensTotal.inc({ kind: 'output'     }, outTok)
+      const inTok = res.usage.input_tokens ?? 0
+      const outTok = res.usage.output_tokens ?? 0
+      const cacheRd = res.usage.cache_read_input_tokens ?? 0
+      if (inTok) botTokensTotal.inc({ kind: 'input' }, inTok)
+      if (outTok) botTokensTotal.inc({ kind: 'output' }, outTok)
       if (cacheRd) botTokensTotal.inc({ kind: 'cache_read' }, cacheRd)
       const realTokens = inTok + outTok
 
@@ -280,7 +320,10 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     const toolBlocks = blocks.filter((b) => b.type === 'tool_use' && b.name && b.id)
 
     if (textBlocks.length > 0) {
-      finalText = textBlocks.map((b) => b.text).join('\n').trim()
+      finalText = textBlocks
+        .map((b) => b.text)
+        .join('\n')
+        .trim()
     }
 
     if (res.stop_reason !== 'tool_use' || toolBlocks.length === 0) {
@@ -327,7 +370,7 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   const total = await countTurns(ctx.userId, ctx.channelId)
   if (total >= SUMMARY_TRIGGER) {
     void maybeSummarize(ctx.userId, ctx.channelId).catch((e) =>
-      logger.error('Bot', `summarize falhou: ${(e as Error).message}`)
+      logger.error('Bot', `summarize falhou: ${(e as Error).message}`),
     )
   }
 
@@ -336,63 +379,91 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 }
 
 interface ComandoBot {
-  sufixo:      string
+  sufixo: string
   description: string
-  category:    string
-  args?:       string   
-  exemplo?:    string   
-  so?:         'sparxie' 
+  category: string
+  args?: string
+  exemplo?: string
+  so?: 'sparxie'
 }
 
 const COMANDOS: ComandoBot[] = [
   {
-    sufixo: '', category: 'Conversa', args: '<sua pergunta>',
+    sufixo: '',
+    category: 'Conversa',
+    args: '<sua pergunta>',
     description: 'conversa comigo; lembro das últimas 24h deste canal',
     exemplo: 'do que a gente falou ontem?',
   },
-  { sufixo: 'ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
-  { sufixo: 'reset',  category: 'Conversa',    description: 'apaga minha memória deste canal' },
-  { sufixo: 'ping',   category: 'Utilitários', description: 'testa a latência' },
+  { sufixo: 'ajuda', category: 'Utilitários', description: 'mostra esta lista' },
+  { sufixo: 'reset', category: 'Conversa', description: 'apaga minha memória deste canal' },
+  { sufixo: 'ping', category: 'Utilitários', description: 'testa a latência' },
   { sufixo: 'status', category: 'Utilitários', description: 'status da plataforma' },
-  { sufixo: 'mute',   category: 'Moderação',   description: 'verifica se você está silenciado' },
+  { sufixo: 'mute', category: 'Moderação', description: 'verifica se você está silenciado' },
   {
-    sufixo: 'quem mandou', category: 'Diversão',
+    sufixo: 'quem mandou',
+    category: 'Diversão',
     description: 'sorteia uma mensagem antiga daqui e a galera adivinha quem escreveu',
   },
   { sufixo: 'revelar', category: 'Diversão', description: 'conta quem tinha mandado' },
   {
-    sufixo: 'shipp', category: 'Diversão', args: '@um @outro',
-    description: 'mede a compatibilidade', exemplo: 'shipp @ana @bia',
+    sufixo: 'shipp',
+    category: 'Diversão',
+    args: '@um @outro',
+    description: 'mede a compatibilidade',
+    exemplo: 'shipp @ana @bia',
   },
   {
-    sufixo: 'sorteio', category: 'Diversão', args: '[@marcados]',
+    sufixo: 'sorteio',
+    category: 'Diversão',
+    args: '[@marcados]',
     description: 'sorteia entre os marcados, ou entre a constelação inteira',
   },
   { sufixo: 'moeda', category: 'Diversão', description: 'cara ou coroa' },
   {
-    sufixo: 'dado', category: 'Diversão', args: '<2d6>',
-    description: 'rola dados', exemplo: 'dado 2d6',
+    sufixo: 'dado',
+    category: 'Diversão',
+    args: '<2d6>',
+    description: 'rola dados',
+    exemplo: 'dado 2d6',
   },
   {
-    sufixo: 'escolha', category: 'Diversão', args: '<a, b, c>',
-    description: 'escolho por você', exemplo: 'escolha pizza, sushi, hambúrguer',
+    sufixo: 'escolha',
+    category: 'Diversão',
+    args: '<a, b, c>',
+    description: 'escolho por você',
+    exemplo: 'escolha pizza, sushi, hambúrguer',
   },
   { sufixo: 'ranking', category: 'Progressão', description: 'top 10 por nível desta constelação' },
   {
-    sufixo: 'perfil', category: 'Progressão', args: '[@alguém]',
-    description: 'nível, brilho e estrelas', exemplo: 'perfil @ana',
+    sufixo: 'perfil',
+    category: 'Progressão',
+    args: '[@alguém]',
+    description: 'nível, brilho e estrelas',
+    exemplo: 'perfil @ana',
   },
   {
-    sufixo: 'lembrete', category: 'Utilitários', args: '<quando> <o quê>',
-    description: 'te chamo depois', exemplo: 'lembrete 20min terminar o trabalho',
+    sufixo: 'lembrete',
+    category: 'Utilitários',
+    args: '<quando> <o quê>',
+    description: 'te chamo depois',
+    exemplo: 'lembrete 20min terminar o trabalho',
   },
   { sufixo: 'resumo', category: 'Utilitários', description: 'o que rolou hoje nesta órbita' },
   {
-    sufixo: 'desejo', category: 'Fim de semana', args: '<seu desejo>', so: 'sparxie',
+    sufixo: 'desejo',
+    category: 'Fim de semana',
+    args: '<seu desejo>',
+    so: 'sparxie',
     description: 'joga um desejo na estrela cadente',
     exemplo: 'desejo passar de ano',
   },
-  { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa para o fim de semana', so: 'sparxie' },
+  {
+    sufixo: 'festa',
+    category: 'Fim de semana',
+    description: 'sorteia um programa para o fim de semana',
+    so: 'sparxie',
+  },
 ]
 
 export function chaveDoComando(sufixo: string): string {
@@ -401,8 +472,8 @@ export function chaveDoComando(sufixo: string): string {
 
 export function catalogoDeComandos(): Array<{ chave: string; rotulo: string; categoria: string; descricao: string }> {
   return COMANDOS.map((c) => ({
-    chave:     chaveDoComando(c.sufixo),
-    rotulo:    c.sufixo || 'conversa',
+    chave: chaveDoComando(c.sufixo),
+    rotulo: c.sufixo || 'conversa',
     categoria: c.category,
     descricao: c.description,
   }))
@@ -411,27 +482,35 @@ export function catalogoDeComandos(): Array<{ chave: string; rotulo: string; cat
 export async function comandosDesligados(serverId?: string): Promise<ReadonlySet<string>> {
   if (!serverId) return new Set()
   try {
-    const [s] = await db.select({ lista: servers.botDisabledCommands })
-      .from(servers).where(eq(servers.id, serverId)).limit(1)
+    const [s] = await db
+      .select({ lista: servers.botDisabledCommands })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1)
     if (!s?.lista) return new Set()
-    return new Set(s.lista.split(',').map((x: string) => x.trim()).filter(Boolean))
+    return new Set(
+      s.lista
+        .split(',')
+        .map((x: string) => x.trim())
+        .filter(Boolean),
+    )
   } catch {
     return new Set()
   }
 }
 
-export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; description: string; category: string }> {
+export function comandosDeHoje(
+  agora: Date = new Date(),
+): Array<{ name: string; description: string; category: string }> {
   const p = personaDoDia(agora)
-  return COMANDOS
-    .filter((c) => !c.so || c.so === p.chave)
-    .map((c) => {
-      const base = c.sufixo ? `${p.prefixo} ${c.sufixo}` : p.prefixo
-      return {
-        name:        c.args ? `${base} ${c.args}` : base,
-        description: c.exemplo ? `${c.description} · ex.: ${p.prefixo} ${c.exemplo}` : c.description,
-        category:    c.category,
-      }
-    })
+  return COMANDOS.filter((c) => !c.so || c.so === p.chave).map((c) => {
+    const base = c.sufixo ? `${p.prefixo} ${c.sufixo}` : p.prefixo
+    return {
+      name: c.args ? `${base} ${c.args}` : base,
+      description: c.exemplo ? `${c.description} · ex.: ${p.prefixo} ${c.exemplo}` : c.description,
+      category: c.category,
+    }
+  })
 }
 
 const PROGRAMAS_DE_FDS = [
@@ -447,21 +526,22 @@ const PROGRAMAS_DE_FDS = [
 export async function handleBotCommand(
   content: string,
   extras: {
-    username: string; isMuted: boolean; muteSecondsLeft: number
-    userId?: string; channelId?: string
+    username: string
+    isMuted: boolean
+    muteSecondsLeft: number
+    userId?: string
+    channelId?: string
     serverId?: string
   },
 ): Promise<string | null> {
   const persona = personaDoDia()
-  const arg     = semPrefixo(content)
-  const lower   = arg.toLowerCase()
-  const verbo   = lower.split(/\s+/)[0] ?? ''
+  const arg = semPrefixo(content)
+  const lower = arg.toLowerCase()
+  const verbo = lower.split(/\s+/)[0] ?? ''
 
   const desligados = await comandosDesligados(extras.serverId)
   if (desligados.size > 0) {
-    const conhecido = COMANDOS.find((c) =>
-      c.sufixo !== '' && (lower === c.sufixo || lower.startsWith(`${c.sufixo} `)),
-    )
+    const conhecido = COMANDOS.find((c) => c.sufixo !== '' && (lower === c.sufixo || lower.startsWith(`${c.sufixo} `)))
     const chave = conhecido ? chaveDoComando(conhecido.sufixo) : 'conversa'
     if (desligados.has(chave)) {
       return conhecido
@@ -472,23 +552,24 @@ export async function handleBotCommand(
 
   const chamou = prefixoUsado(content)
   const trocado =
-    (chamou === '/sparkle' && persona.chave === 'sparxie') ||
-    (chamou === '/sparxie' && persona.chave === 'sparkle')
+    (chamou === '/sparkle' && persona.chave === 'sparxie') || (chamou === '/sparxie' && persona.chave === 'sparkle')
   const nota = trocado
     ? `\n\n_(${chamou === '/sparkle' ? 'a Sparkle folga sexta e sábado' : 'a Sparxie só aparece sexta e sábado'}. Quem responde agora sou eu, ${persona.nome} ${persona.emoji}. Use \`${persona.prefixo}\`.)_`
     : ''
 
   if (verbo === 'help' || verbo === 'ajuda') {
-    return [
-      `**${persona.nome} ${persona.emoji}: comandos de hoje**`,
-      ...comandosDeHoje().map((c) => `\`${c.name}\`: ${c.description}`),
-      '',
-      ehTurnoDaSparxie()
-        ? '_Sexta e sábado são meus: os comandos de festa e desejo só existem agora._'
-        : '_Sexta e sábado quem atende é a Sparxie, com comandos que só rolam no turno dela._',
-      '',
-      'Tenho ferramentas para buscar mensagens, resumir o canal e consultar informações de membros. Pergunta naturalmente.',
-    ].join('\n') + nota
+    return (
+      [
+        `**${persona.nome} ${persona.emoji}: comandos de hoje**`,
+        ...comandosDeHoje().map((c) => `\`${c.name}\`: ${c.description}`),
+        '',
+        ehTurnoDaSparxie()
+          ? '_Sexta e sábado são meus: os comandos de festa e desejo só existem agora._'
+          : '_Sexta e sábado quem atende é a Sparxie, com comandos que só rolam no turno dela._',
+        '',
+        'Tenho ferramentas para buscar mensagens, resumir o canal e consultar informações de membros. Pergunta naturalmente.',
+      ].join('\n') + nota
+    )
   }
 
   if (verbo === 'reset') {
@@ -497,16 +578,20 @@ export async function handleBotCommand(
     return '✓ Memória limpa neste canal.' + nota
   }
 
-  if (verbo === 'ping')   return `🏓 Pong, @${extras.username}!` + nota
+  if (verbo === 'ping') return `🏓 Pong, @${extras.username}!` + nota
   if (verbo === 'status') return '✅ Todos os sistemas operacionais.' + nota
 
   const resto = arg.slice(verbo.length).trim()
   const precisaDeSala = extras.serverId && extras.channelId
   switch (verbo) {
-    case 'moeda':   return moeda() + nota
-    case 'dado':    return dado(resto) + nota
-    case 'escolha': return escolha(resto) + nota
-    case 'shipp':   return (await shipp(resto)) + nota
+    case 'moeda':
+      return moeda() + nota
+    case 'dado':
+      return dado(resto) + nota
+    case 'escolha':
+      return escolha(resto) + nota
+    case 'shipp':
+      return (await shipp(resto)) + nota
     case 'sorteio':
       if (!extras.serverId) return null
       return (await sorteio(extras.serverId, resto)) + nota
@@ -568,7 +653,6 @@ export async function handleBotCommand(
 }
 
 function historyToMessages(history: MemoryTurn[]): any[] {
-
   const out: any[] = []
   let lastRole: 'user' | 'assistant' | null = null
   for (const t of history) {
@@ -587,11 +671,9 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
   if (history.length <= WORKING_WINDOW) return
 
   const toSummarize = history.slice(0, history.length - WORKING_WINDOW)
-  const cutoffTs    = toSummarize[toSummarize.length - 1].ts
+  const cutoffTs = toSummarize[toSummarize.length - 1].ts
 
-  const transcript = toSummarize.map((t) =>
-    `[${t.role === 'user' ? 'USER' : 'ASTRA'}]: ${t.content}`
-  ).join('\n')
+  const transcript = toSummarize.map((t) => `[${t.role === 'user' ? 'USER' : 'ASTRA'}]: ${t.content}`).join('\n')
 
   const text = await gerarTexto(
     MODELO_RESUMO,
@@ -601,11 +683,16 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
   )
   if (!text) return
 
-  await setSummary(userId, channelId, {
-    text,
-    turnsCovered: toSummarize.length,
-    createdAt:    Date.now(),
-  }, cutoffTs + 1)
+  await setSummary(
+    userId,
+    channelId,
+    {
+      text,
+      turnsCovered: toSummarize.length,
+      createdAt: Date.now(),
+    },
+    cutoffTs + 1,
+  )
 
   logger.info('Bot', `summarized ${toSummarize.length} turns for ${userId}@${channelId}`)
 }

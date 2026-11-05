@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
-import {
-  attachRealtime, joinedServer, presenceChanged,
-  serverGone, leftServer, profileChanged,
-} from './realtime'
+import { attachRealtime, joinedServer, presenceChanged, serverGone, leftServer, profileChanged } from './realtime'
 import { salasQueMeVeem } from './quemMeVe'
 
 vi.mock('./quemMeVe', () => ({ salasQueMeVeem: vi.fn() }))
@@ -11,14 +8,19 @@ const quemMeVe = vi.mocked(salasQueMeVeem)
 
 function fakeIo() {
   const emit = vi.fn()
-  const to = vi.fn(function encadeia() { return { to, emit } })
+  const to = vi.fn(function encadeia() {
+    return { to, emit }
+  })
   const global = vi.fn()
   return { io: { to, emit: global } as unknown as SocketServer, to, emit, global }
 }
 
 describe('avisos de constelacao', () => {
   let f: ReturnType<typeof fakeIo>
-  beforeEach(() => { f = fakeIo(); attachRealtime(f.io) })
+  beforeEach(() => {
+    f = fakeIo()
+    attachRealtime(f.io)
+  })
 
   it('fui adicionado -> sala PESSOAL, nao a da constelacao', () => {
     joinedServer('u9', 'srv1')
@@ -129,7 +131,9 @@ describe('sem io (boot, testes, worker)', () => {
 describe('o aviso nunca derruba quem chamou', () => {
   it('emissao que estoura vira log, nao promessa rejeitada', async () => {
     const f = fakeIo()
-    f.emit.mockImplementation(() => { throw new Error('adaptador caiu') })
+    f.emit.mockImplementation(() => {
+      throw new Error('adaptador caiu')
+    })
     attachRealtime(f.io)
     quemMeVe.mockReset()
     quemMeVe.mockResolvedValue(['user:u1', 'server:s1'])
@@ -138,7 +142,9 @@ describe('o aviso nunca derruba quem chamou', () => {
 
   it('o plano B tambem nao pode rejeitar', async () => {
     const f = fakeIo()
-    f.global.mockImplementation(() => { throw new Error('adaptador caiu') })
+    f.global.mockImplementation(() => {
+      throw new Error('adaptador caiu')
+    })
     attachRealtime(f.io)
     quemMeVe.mockReset()
     quemMeVe.mockResolvedValue(null)

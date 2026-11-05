@@ -11,10 +11,7 @@ import { renderMetrics, metricsContentType } from '../lib/metrics'
 const PING_TIMEOUT_MS = 1500
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout ${ms}ms`)), ms)),
-  ])
+  return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout ${ms}ms`)), ms))])
 }
 
 async function checkDb(): Promise<{ ok: boolean; latencyMs?: number; error?: string }> {
@@ -30,7 +27,11 @@ async function checkDb(): Promise<{ ok: boolean; latencyMs?: number; error?: str
 async function checkRedis(): Promise<{ ok: boolean; latencyMs?: number; error?: string }> {
   const start = Date.now()
   try {
-    await withTimeout(redis.ping().then(() => undefined), PING_TIMEOUT_MS, 'redis')
+    await withTimeout(
+      redis.ping().then(() => undefined),
+      PING_TIMEOUT_MS,
+      'redis',
+    )
     return { ok: true, latencyMs: Date.now() - start }
   } catch (e: any) {
     return { ok: false, error: e?.message ?? 'unknown' }
@@ -47,23 +48,22 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
   const [db, rd] = await Promise.all([checkDb(), checkRedis()])
   const ok = db.ok && rd.ok
   res.status(ok ? 200 : 503).json({
-    status:    ok ? 'ok' : 'degraded',
-    ts:        new Date().toISOString(),
-    uptimeS:   Math.round(process.uptime()),
+    status: ok ? 'ok' : 'degraded',
+    ts: new Date().toISOString(),
+    uptimeS: Math.round(process.uptime()),
     release,
-    voiceCfg:  !!env.LIVEKIT_URL,
-    mailCfg:   isMailEnabled(),
+    voiceCfg: !!env.LIVEKIT_URL,
+    mailCfg: isMailEnabled(),
     mailFalta,
-    storage:   storageMode,
+    storage: storageMode,
     storageFalta,
-    botCfg:    IA_LIGADA,
-    botIa:     IA_PROVEDOR,
-    checks:    { db, redis: rd },
+    botCfg: IA_LIGADA,
+    botIa: IA_PROVEDOR,
+    checks: { db, redis: rd },
   })
 })
 
 healthRouter.get('/metrics', async (req, res) => {
-
   if (env.NODE_ENV === 'production') {
     if (!env.METRICS_TOKEN) {
       return res.status(404).json({ error: 'metrics disabled' })

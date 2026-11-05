@@ -8,7 +8,7 @@ const where = vi.fn(() => ({ returning }))
 const set = vi.fn(() => ({ where }))
 const update = vi.fn(() => ({ set }))
 
-vi.mock('../db', () => ({ db: { update: (...a: unknown[]) => update(...a as []) } }))
+vi.mock('../db', () => ({ db: { update: (...a: unknown[]) => update(...(a as [])) } }))
 vi.mock('./realtime', () => ({ missaoConcluida: vi.fn() }))
 vi.mock('./redis', () => ({ redis: { sadd: vi.fn(), expire: vi.fn(), incrby: vi.fn(), set: vi.fn() } }))
 vi.mock('./logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }))

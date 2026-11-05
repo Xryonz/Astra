@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
@@ -16,22 +16,28 @@ const router = Router()
 router.get(
   '/:code',
   asyncHandler(async (req: Request, res: Response) => {
-    const [server] = await db.select({
-      id:         servers.id,
-      name:       servers.name,
-      iconUrl:    servers.iconUrl,
-      bannerUrl:  servers.bannerUrl,
-      isGroup:    servers.isGroup,
-      inviteCode: servers.inviteCode,
-    }).from(servers).where(eq(servers.inviteCode, req.params.code)).limit(1)
+    const [server] = await db
+      .select({
+        id: servers.id,
+        name: servers.name,
+        iconUrl: servers.iconUrl,
+        bannerUrl: servers.bannerUrl,
+        isGroup: servers.isGroup,
+        inviteCode: servers.inviteCode,
+      })
+      .from(servers)
+      .where(eq(servers.inviteCode, req.params.code))
+      .limit(1)
 
     if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' })
 
-    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(serverMembers)
+      .where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
 
     res.json({ data: { ...server, _count: { members: count } } })
-  })
+  }),
 )
 
 router.post(
@@ -40,8 +46,7 @@ router.post(
   requireAuth,
   requireEmailVerified,
   asyncHandler(async (req: Request, res: Response) => {
-    const [server] = await db.select().from(servers)
-      .where(eq(servers.inviteCode, req.params.code)).limit(1)
+    const [server] = await db.select().from(servers).where(eq(servers.inviteCode, req.params.code)).limit(1)
     if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' })
 
     if (server.isGroup) {
@@ -50,12 +55,16 @@ router.post(
       })
     }
 
-    const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
+    const [banned] = await db
+      .select({ id: serverBans.id })
+      .from(serverBans)
       .where(and(eq(serverBans.userId, req.userId!), eq(serverBans.serverId, server.id)))
       .limit(1)
     if (banned) return res.status(403).json({ error: 'Você está banido deste servidor' })
 
-    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [already] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, server.id)))
       .limit(1)
     if (already) return res.status(409).json({ error: 'Você já é membro deste servidor' })
@@ -67,11 +76,14 @@ router.post(
 
     const [chRows, [countRow]] = await Promise.all([
       db.select().from(channels).where(eq(channels.serverId, server.id)).orderBy(asc(channels.createdAt)),
-      db.select({ count: sql<number>`count(*)::int` }).from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(serverMembers)
+        .where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT)),
     ])
 
     res.json({ data: { ...server, channels: chRows, _count: { members: countRow?.count ?? 0 } } })
-  })
+  }),
 )
 
 export default router

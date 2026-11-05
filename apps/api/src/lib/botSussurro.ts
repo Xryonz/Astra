@@ -7,16 +7,21 @@ import { messagesSentTotal } from './metrics'
 import { entregarSussurro } from './realtime'
 
 interface Pedido {
-  io:             SocketServer
+  io: SocketServer
   conversationId: string
-  userId:         string
-  receiverId:     string
-  content:        string
-  username:       string
+  userId: string
+  receiverId: string
+  content: string
+  username: string
 }
 
 export async function responderNoSussurro({
-  io, conversationId, userId, receiverId, content, username,
+  io,
+  conversationId,
+  userId,
+  receiverId,
+  content,
+  username,
 }: Pedido): Promise<void> {
   try {
     const botId = await getBotId()
@@ -26,12 +31,18 @@ export async function responderNoSussurro({
 
     const sala = `dm:${conversationId}`
     io.to(sala).emit('dm_user_typing', {
-      userId: botId, username: 'astra_bot', conversationId,
+      userId: botId,
+      username: 'astra_bot',
+      conversationId,
     })
     let texto: string
     try {
       const comando = await handleBotCommand(content, {
-        username, isMuted: false, muteSecondsLeft: 0, userId, channelId: conversationId,
+        username,
+        isMuted: false,
+        muteSecondsLeft: 0,
+        userId,
+        channelId: conversationId,
       })
 
       if (comando) {
@@ -45,30 +56,41 @@ export async function responderNoSussurro({
         })
         texto = r.text
         if (r.truncated === 'tokens') texto += '\n\n_(seu limite diário foi atingido)_'
-        if (r.truncated === 'tools')  texto += '\n\n_(limite diário de ferramentas atingido)_'
+        if (r.truncated === 'tools') texto += '\n\n_(limite diário de ferramentas atingido)_'
       }
     } finally {
       io.to(sala).emit('dm_user_stopped_typing', { userId: botId, conversationId })
     }
     if (!texto.trim()) return
 
-    const [linha] = await db.insert(directMessages).values({
-      content: texto, senderId: botId, receiverId: userId, conversationId,
-      attachments: '[]',
-    }).returning()
+    const [linha] = await db
+      .insert(directMessages)
+      .values({
+        content: texto,
+        senderId: botId,
+        receiverId: userId,
+        conversationId,
+        attachments: '[]',
+      })
+      .returning()
 
     const autor = {
-      id: botId, username: 'astra_bot',
-      displayName: persona.nome, avatarUrl: persona.avatar, displayFont: null,
+      id: botId,
+      username: 'astra_bot',
+      displayName: persona.nome,
+      avatarUrl: persona.avatar,
+      displayFont: null,
     }
 
     entregarSussurro(io, conversationId, [botId, userId], 'new_dm', {
-      ...linha, attachments: [], replyTo: null, author: autor,
+      ...linha,
+      attachments: [],
+      replyTo: null,
+      author: autor,
     })
     messagesSentTotal.inc({ kind: 'dm' })
 
-    await db.update(dmConversations).set({ updatedAt: new Date() })
-      .where(eq(dmConversations.id, conversationId))
+    await db.update(dmConversations).set({ updatedAt: new Date() }).where(eq(dmConversations.id, conversationId))
   } catch (err) {
     console.error('[bot/sussurro]', err)
   }

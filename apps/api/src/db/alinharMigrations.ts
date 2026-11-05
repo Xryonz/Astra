@@ -41,10 +41,10 @@ export async function alinharMigrations(): Promise<void> {
     const atrasadas = arquivos.filter((m) => m.folderMillis > ate)
     if (atrasadas.length > 0) {
       for (const m of atrasadas) {
-        await pool.query(
-          `insert into "drizzle"."__drizzle_migrations" ("hash", "created_at") values ($1, $2)`,
-          [m.hash, m.folderMillis],
-        )
+        await pool.query(`insert into "drizzle"."__drizzle_migrations" ("hash", "created_at") values ($1, $2)`, [
+          m.hash,
+          m.folderMillis,
+        ])
       }
       logger.warn(
         'Migrations',

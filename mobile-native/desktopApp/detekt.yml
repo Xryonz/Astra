@@ -1,0 +1,15 @@
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'Composable'
+
+style:
+  MagicNumber:
+    ignoreAnnotated:
+      - 'Composable'
+  ReturnCount:
+    active: false
+
+complexity:
+  TooManyFunctions:
+    allowedFunctionsPerFile: 40

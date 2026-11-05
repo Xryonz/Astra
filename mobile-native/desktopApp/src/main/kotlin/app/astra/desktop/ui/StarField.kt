@@ -78,7 +78,6 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
             while (active.value) {
-                val inicioDoQuadro = System.nanoTime()
                 withFrameNanos { now ->
                     val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
                     acc += dt
@@ -86,7 +85,7 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
                     last = now
                     value = acc
                 }
-                esperarPeloTeto(fpsCap.value, inicioDoQuadro)
+                esperarPeloTeto(fpsCap.value)
             }
         }
     }

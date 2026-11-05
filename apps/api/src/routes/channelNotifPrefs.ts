@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
@@ -18,10 +18,13 @@ router.get(
   '/channels/notification-prefs',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const rows = await db.select({
-      channelId: channelNotifPrefs.channelId,
-      mode:      channelNotifPrefs.mode,
-    }).from(channelNotifPrefs).where(eq(channelNotifPrefs.userId, req.userId!))
+    const rows = await db
+      .select({
+        channelId: channelNotifPrefs.channelId,
+        mode: channelNotifPrefs.mode,
+      })
+      .from(channelNotifPrefs)
+      .where(eq(channelNotifPrefs.userId, req.userId!))
     res.json({ data: rows })
   }),
 )
@@ -37,14 +40,17 @@ router.put(
     const allowed = await userCanSeeChannel(req.userId!, channelId)
     if (!allowed) return res.status(403).json({ error: 'Acesso negado' })
 
-    await db.insert(channelNotifPrefs).values({
-      userId:    req.userId!,
-      channelId,
-      mode,
-    }).onConflictDoUpdate({
-      target: [channelNotifPrefs.userId, channelNotifPrefs.channelId],
-      set:    { mode },
-    })
+    await db
+      .insert(channelNotifPrefs)
+      .values({
+        userId: req.userId!,
+        channelId,
+        mode,
+      })
+      .onConflictDoUpdate({
+        target: [channelNotifPrefs.userId, channelNotifPrefs.channelId],
+        set: { mode },
+      })
 
     res.json({ data: { channelId, mode } })
   }),
@@ -55,10 +61,9 @@ router.delete(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { channelId } = req.params
-    await db.delete(channelNotifPrefs).where(and(
-      eq(channelNotifPrefs.userId,    req.userId!),
-      eq(channelNotifPrefs.channelId, channelId),
-    ))
+    await db
+      .delete(channelNotifPrefs)
+      .where(and(eq(channelNotifPrefs.userId, req.userId!), eq(channelNotifPrefs.channelId, channelId)))
     res.json({ data: { channelId, mode: 'all' } })
   }),
 )
@@ -67,10 +72,13 @@ router.get(
   '/servers/notification-prefs',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const rows = await db.select({
-      serverId: serverNotifPrefs.serverId,
-      mode:     serverNotifPrefs.mode,
-    }).from(serverNotifPrefs).where(eq(serverNotifPrefs.userId, req.userId!))
+    const rows = await db
+      .select({
+        serverId: serverNotifPrefs.serverId,
+        mode: serverNotifPrefs.mode,
+      })
+      .from(serverNotifPrefs)
+      .where(eq(serverNotifPrefs.userId, req.userId!))
     res.json({ data: rows })
   }),
 )
@@ -83,19 +91,24 @@ router.put(
     const { serverId } = req.params
     const { mode } = req.body as z.infer<typeof PrefSchema>
 
-    const [member] = await db.select({ userId: serverMembers.userId }).from(serverMembers)
+    const [member] = await db
+      .select({ userId: serverMembers.userId })
+      .from(serverMembers)
       .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, req.userId!)))
       .limit(1)
     if (!member) return res.status(403).json({ error: 'Acesso negado' })
 
-    await db.insert(serverNotifPrefs).values({
-      userId:   req.userId!,
-      serverId,
-      mode,
-    }).onConflictDoUpdate({
-      target: [serverNotifPrefs.userId, serverNotifPrefs.serverId],
-      set:    { mode },
-    })
+    await db
+      .insert(serverNotifPrefs)
+      .values({
+        userId: req.userId!,
+        serverId,
+        mode,
+      })
+      .onConflictDoUpdate({
+        target: [serverNotifPrefs.userId, serverNotifPrefs.serverId],
+        set: { mode },
+      })
 
     res.json({ data: { serverId, mode } })
   }),
@@ -106,10 +119,9 @@ router.delete(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    await db.delete(serverNotifPrefs).where(and(
-      eq(serverNotifPrefs.userId,   req.userId!),
-      eq(serverNotifPrefs.serverId, serverId),
-    ))
+    await db
+      .delete(serverNotifPrefs)
+      .where(and(eq(serverNotifPrefs.userId, req.userId!), eq(serverNotifPrefs.serverId, serverId)))
     res.json({ data: { serverId, mode: 'all' } })
   }),
 )
@@ -122,23 +134,22 @@ export async function getNotifModesFor(
   for (const id of userIds) out.set(id, 'all')
   if (userIds.length === 0) return out
 
-  const [ch] = await db.select({ serverId: channels.serverId })
-    .from(channels).where(eq(channels.id, channelId)).limit(1)
+  const [ch] = await db
+    .select({ serverId: channels.serverId })
+    .from(channels)
+    .where(eq(channels.id, channelId))
+    .limit(1)
 
   const [chRows, svRows] = await Promise.all([
-    db.select({ userId: channelNotifPrefs.userId, mode: channelNotifPrefs.mode })
+    db
+      .select({ userId: channelNotifPrefs.userId, mode: channelNotifPrefs.mode })
       .from(channelNotifPrefs)
-      .where(and(
-        eq(channelNotifPrefs.channelId, channelId),
-        inArray(channelNotifPrefs.userId, userIds),
-      )),
+      .where(and(eq(channelNotifPrefs.channelId, channelId), inArray(channelNotifPrefs.userId, userIds))),
     ch
-      ? db.select({ userId: serverNotifPrefs.userId, mode: serverNotifPrefs.mode })
+      ? db
+          .select({ userId: serverNotifPrefs.userId, mode: serverNotifPrefs.mode })
           .from(serverNotifPrefs)
-          .where(and(
-            eq(serverNotifPrefs.serverId, ch.serverId),
-            inArray(serverNotifPrefs.userId, userIds),
-          ))
+          .where(and(eq(serverNotifPrefs.serverId, ch.serverId), inArray(serverNotifPrefs.userId, userIds)))
       : Promise.resolve([] as { userId: string; mode: string }[]),
   ])
 

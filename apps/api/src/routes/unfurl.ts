@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'

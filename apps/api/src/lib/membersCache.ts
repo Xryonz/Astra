@@ -1,4 +1,3 @@
-
 import { db } from '../db'
 import { eq } from 'drizzle-orm'
 import { serverMembers, users } from '../db/schema'
@@ -8,16 +7,19 @@ const TTL_SECONDS = 60
 const key = (serverId: string) => `members:list:${serverId}`
 
 export interface CachedMember {
-  userId:   string
+  userId: string
   username: string
 }
 
 export async function getCachedMembers(serverId: string): Promise<CachedMember[]> {
   const cached = await redis.get(key(serverId))
   if (cached) {
-    try { return JSON.parse(cached) as CachedMember[] } catch {}
+    try {
+      return JSON.parse(cached) as CachedMember[]
+    } catch {}
   }
-  const rows = await db.select({ userId: serverMembers.userId, username: users.username })
+  const rows = await db
+    .select({ userId: serverMembers.userId, username: users.username })
     .from(serverMembers)
     .innerJoin(users, eq(users.id, serverMembers.userId))
     .where(eq(serverMembers.serverId, serverId))

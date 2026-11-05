@@ -3,10 +3,18 @@ import { IMAGEM_INDISPONIVEL, semAnexosPerdidos } from './anexosPerdidos'
 
 describe('semAnexosPerdidos', () => {
   it('troca o anexo do disco apagado pelo cartão de imagem indisponível', () => {
-    const [r] = semAnexosPerdidos([{
-      url: '/uploads/abc.png', thumbUrl: '/uploads/abc-t.webp', type: 'image/png',
-      name: 'foto.png', size: 1234, width: 4000, height: 3000, blurhash: 'LEHV6nWB2yk8',
-    }]) as Array<Record<string, unknown>>
+    const [r] = semAnexosPerdidos([
+      {
+        url: '/uploads/abc.png',
+        thumbUrl: '/uploads/abc-t.webp',
+        type: 'image/png',
+        name: 'foto.png',
+        size: 1234,
+        width: 4000,
+        height: 3000,
+        blurhash: 'LEHV6nWB2yk8',
+      },
+    ]) as Array<Record<string, unknown>>
     expect(r.url).toBe(IMAGEM_INDISPONIVEL)
     expect(r.type).toBe('image/png')
     expect(r.name).toBe('foto.png')
@@ -17,7 +25,9 @@ describe('semAnexosPerdidos', () => {
   })
 
   it('troca também vídeo e arquivo que moravam no disco apagado', () => {
-    const [r] = semAnexosPerdidos([{ url: '/uploads/clip.mp4', type: 'video/mp4', name: 'clip.mp4', size: 9 }]) as Array<Record<string, unknown>>
+    const [r] = semAnexosPerdidos([
+      { url: '/uploads/clip.mp4', type: 'video/mp4', name: 'clip.mp4', size: 9 },
+    ]) as Array<Record<string, unknown>>
     expect(r.url).toBe(IMAGEM_INDISPONIVEL)
     expect(r.type).toBe('image/png')
   })

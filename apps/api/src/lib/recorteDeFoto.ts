@@ -29,9 +29,7 @@ export async function recortarFoto(dataUri: string, recorte: Recorte): Promise<s
   const saida = await sharp(bytes, { animated: true })
     .extract({ left: recorte.x, top: recorte.y, width: lado, height: lado })
     .resize({ width: LADO_DA_FOTO, height: LADO_DA_FOTO, withoutEnlargement: true })
-    .webp(animada
-      ? { quality: 80, effort: 6 }
-      : { quality: 92, effort: 6, alphaQuality: 100, smartSubsample: true })
+    .webp(animada ? { quality: 80, effort: 6 } : { quality: 92, effort: 6, alphaQuality: 100, smartSubsample: true })
     .toBuffer()
   return `data:image/webp;base64,${saida.toString('base64')}`
 }

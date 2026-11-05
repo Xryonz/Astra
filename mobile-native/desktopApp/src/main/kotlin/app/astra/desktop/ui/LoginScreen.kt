@@ -8,11 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -403,6 +399,7 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
 }
 
 private const val LAST_EMAIL_KEY = "lastEmail"
+private const val VOLTA_DA_VARREDURA_DO_ENTRAR_MS = 1100
 
 private fun capsLockOn(): Boolean = runCatching {
     Toolkit.getDefaultToolkit().getLockingKeyState(AwtKeyEvent.VK_CAPS_LOCK)
@@ -495,14 +492,7 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
     val hovered by interaction.collectIsHoveredAsState()
     val shape = RoundedCornerShape(10.dp)
     val reduce = LocalReduceMotion.current
-    val sweep = if (!loading || reduce) 0f else {
-        rememberInfiniteTransition(label = "submit").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing)),
-            label = "submitSweep",
-        ).value
-    }
+    val sweep = if (!loading || reduce) 0f else faseDeEnfeite(VOLTA_DA_VARREDURA_DO_ENTRAR_MS, repouso = 0f).value
     Box(
         modifier = Modifier
             .fillMaxWidth()

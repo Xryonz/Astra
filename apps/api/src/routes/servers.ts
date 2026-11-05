@@ -1,10 +1,20 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
-import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, serverBans, messages } from '../db/schema'
+import {
+  servers,
+  serverMembers,
+  channels,
+  channelCategories,
+  channelRolePerms,
+  users,
+  roles,
+  serverBans,
+  messages,
+} from '../db/schema'
 import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -29,7 +39,8 @@ async function onlineCountByServer(serverIds: string[]): Promise<Map<string, num
   const result = new Map<string, number>()
   if (serverIds.length === 0) return result
   try {
-    const memberRows = await db.select({ serverId: serverMembers.serverId, userId: serverMembers.userId })
+    const memberRows = await db
+      .select({ serverId: serverMembers.serverId, userId: serverMembers.userId })
       .from(serverMembers)
       .where(inArray(serverMembers.serverId, serverIds))
     const uniqUserIds = [...new Set(memberRows.map((m) => m.userId))]
@@ -52,7 +63,9 @@ async function onlineCountByServer(serverIds: string[]): Promise<Map<string, num
 async function safeCategoryRows(serverIds: string[]) {
   if (serverIds.length === 0) return []
   try {
-    return await db.select().from(channelCategories)
+    return await db
+      .select()
+      .from(channelCategories)
       .where(inArray(channelCategories.serverId, serverIds))
       .orderBy(asc(channelCategories.position))
   } catch (e) {
@@ -62,8 +75,8 @@ async function safeCategoryRows(serverIds: string[]) {
 }
 
 async function listServersForUser(userId: string) {
-
-  const myMemberships = await db.select({ serverId: serverMembers.serverId })
+  const myMemberships = await db
+    .select({ serverId: serverMembers.serverId })
     .from(serverMembers)
     .where(eq(serverMembers.userId, userId))
 
@@ -72,8 +85,13 @@ async function listServersForUser(userId: string) {
 
   const [srvRows, chRows, countRows, catRows, onlineByServer] = await Promise.all([
     db.select().from(servers).where(inArray(servers.id, serverIds)).orderBy(asc(servers.createdAt)),
-    db.select().from(channels).where(inArray(channels.serverId, serverIds)).orderBy(asc(channels.position), asc(channels.createdAt)),
-    db.select({ serverId: serverMembers.serverId, count: sql<number>`count(*)::int` })
+    db
+      .select()
+      .from(channels)
+      .where(inArray(channels.serverId, serverIds))
+      .orderBy(asc(channels.position), asc(channels.createdAt)),
+    db
+      .select({ serverId: serverMembers.serverId, count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(and(inArray(serverMembers.serverId, serverIds), NAO_E_BOT))
       .groupBy(serverMembers.serverId),
@@ -84,10 +102,11 @@ async function listServersForUser(userId: string) {
   const channelIds = chRows.map((c) => c.id)
   let lastByChannel = new Map<string, Date>()
   if (channelIds.length > 0) {
-    const lastRows = await db.select({
-      channelId: messages.channelId,
-      lastAt:    sql<Date>`MAX(${messages.createdAt})`.as('lastAt'),
-    })
+    const lastRows = await db
+      .select({
+        channelId: messages.channelId,
+        lastAt: sql<Date>`MAX(${messages.createdAt})`.as('lastAt'),
+      })
       .from(messages)
       .where(and(inArray(messages.channelId, channelIds), isNull(messages.kind)))
       .groupBy(messages.channelId)
@@ -95,7 +114,7 @@ async function listServersForUser(userId: string) {
   }
 
   const visible = await filterVisibleChannels(userId, channelIds)
-  const channelsByServer = new Map<string, Array<typeof chRows[number] & { lastMessageAt: Date | null }>>()
+  const channelsByServer = new Map<string, Array<(typeof chRows)[number] & { lastMessageAt: Date | null }>>()
   for (const c of chRows) {
     if (!visible.has(c.id)) continue
     const enriched = { ...c, lastMessageAt: lastByChannel.get(c.id) ?? null }
@@ -104,7 +123,7 @@ async function listServersForUser(userId: string) {
     channelsByServer.set(c.serverId, arr)
   }
   const countByServer = new Map(countRows.map((r) => [r.serverId, r.count]))
-  const catsByServer = new Map<string, Array<typeof catRows[number]>>()
+  const catsByServer = new Map<string, Array<(typeof catRows)[number]>>()
   for (const c of catRows) {
     const arr = catsByServer.get(c.serverId) ?? []
     arr.push(c)
@@ -113,9 +132,9 @@ async function listServersForUser(userId: string) {
 
   return srvRows.map((s) => ({
     ...s,
-    channels:   channelsByServer.get(s.id) ?? [],
+    channels: channelsByServer.get(s.id) ?? [],
     categories: catsByServer.get(s.id) ?? [],
-    _count:     { members: countByServer.get(s.id) ?? 0, online: onlineByServer.get(s.id) ?? 0 },
+    _count: { members: countByServer.get(s.id) ?? 0, online: onlineByServer.get(s.id) ?? 0 },
   }))
 }
 
@@ -123,14 +142,24 @@ async function serverWithChannelsAndCount(serverId: string) {
   const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1)
   if (!srv) return null
   const [chRows, [countRow], catRows, onlineMap] = await Promise.all([
-    db.select().from(channels).where(eq(channels.serverId, serverId)).orderBy(asc(channels.position), asc(channels.createdAt)),
-    db.select({ count: sql<number>`count(*)::int` })
+    db
+      .select()
+      .from(channels)
+      .where(eq(channels.serverId, serverId))
+      .orderBy(asc(channels.position), asc(channels.createdAt)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(and(eq(serverMembers.serverId, serverId), NAO_E_BOT)),
     safeCategoryRows([serverId]),
     onlineCountByServer([serverId]),
   ])
-  return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0, online: onlineMap.get(serverId) ?? 0 } }
+  return {
+    ...srv,
+    channels: chRows,
+    categories: catRows,
+    _count: { members: countRow?.count ?? 0, online: onlineMap.get(serverId) ?? 0 },
+  }
 }
 
 serversRouter.get(
@@ -139,7 +168,7 @@ serversRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const list = await listServersForUser(req.userId!)
     res.json({ data: list })
-  })
+  }),
 )
 
 serversRouter.post(
@@ -155,13 +184,20 @@ serversRouter.post(
     const icone = await persistImagemDeExibicao(iconUrl ?? null)
 
     const server = await db.transaction(async (tx) => {
-      const [s] = await tx.insert(servers).values({
-        name, iconUrl: icone.url, iconFullUrl: icone.original, isGroup, ownerId: req.userId!,
-      }).returning()
+      const [s] = await tx
+        .insert(servers)
+        .values({
+          name,
+          iconUrl: icone.url,
+          iconFullUrl: icone.original,
+          isGroup,
+          ownerId: req.userId!,
+        })
+        .returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
       await tx.insert(channels).values([
-        { name: 'geral',    type: 'TEXT',  serverId: s.id, position: 0 },
-        { name: 'anuncios', type: 'TEXT',  serverId: s.id, position: 1 },
+        { name: 'geral', type: 'TEXT', serverId: s.id, position: 0 },
+        { name: 'anuncios', type: 'TEXT', serverId: s.id, position: 1 },
         { name: 'Sala de estar', type: 'VOICE', serverId: s.id, position: 2 },
       ])
       return s
@@ -171,20 +207,32 @@ serversRouter.post(
 
     const full = await serverWithChannelsAndCount(server.id)
     res.status(201).json({ data: full })
-  })
+  }),
 )
 
 const ALLOWED_ICON_HOSTS = [
-  'i.imgur.com','media.giphy.com','cdn.discordapp.com','media.tenor.com',
-  'i.postimg.cc','images.unsplash.com','lh3.googleusercontent.com',
-  'pbs.twimg.com','media.discordapp.net','cdn.jsdelivr.net','raw.githubusercontent.com',
+  'i.imgur.com',
+  'media.giphy.com',
+  'cdn.discordapp.com',
+  'media.tenor.com',
+  'i.postimg.cc',
+  'images.unsplash.com',
+  'lh3.googleusercontent.com',
+  'pbs.twimg.com',
+  'media.discordapp.net',
+  'cdn.jsdelivr.net',
+  'raw.githubusercontent.com',
 ]
 function isAllowedIcon(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
-  if (isOwnStorageUrl(url)) return true 
-  try { const { hostname } = new URL(url); return ALLOWED_ICON_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`)) }
-  catch { return false }
+  if (isOwnStorageUrl(url)) return true
+  try {
+    const { hostname } = new URL(url)
+    return ALLOWED_ICON_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
 }
 function isIconTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
@@ -197,15 +245,15 @@ function isBannerTooBig(url: string | null | undefined): boolean {
 }
 
 const UpdateServerSchema = z.object({
-  name:      z.string().min(1).max(100).optional(),
-  iconUrl:   z.string().optional().nullable(),
+  name: z.string().min(1).max(100).optional(),
+  iconUrl: z.string().optional().nullable(),
   bannerUrl: z.string().optional().nullable(),
   messageRetentionDays: z.number().int().min(0).max(365).optional().nullable(),
-  isPublic:    z.boolean().optional(),
+  isPublic: z.boolean().optional(),
   description: z.string().max(200).optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
-  bannerScale:     z.number().int().min(50).max(300).optional(),
-  iconScale:       z.number().int().min(100).max(300).optional(),
+  bannerScale: z.number().int().min(50).max(300).optional(),
+  iconScale: z.number().int().min(100).max(300).optional(),
   botDisabledCommands: z.array(z.string().max(40)).max(60).optional(),
   botNoticeChannelId: z.string().optional().nullable(),
 })
@@ -216,10 +264,29 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale, botNoticeChannelId, botDisabledCommands } = req.body as {
-      name?: string; iconUrl?: string | null; bannerUrl?: string | null
-      messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null
-      bannerPositionY?: number; bannerScale?: number; iconScale?: number; botDisabledCommands?: string[]
+    const {
+      name,
+      iconUrl,
+      bannerUrl,
+      messageRetentionDays,
+      isPublic,
+      description,
+      bannerPositionY,
+      bannerScale,
+      iconScale,
+      botNoticeChannelId,
+      botDisabledCommands,
+    } = req.body as {
+      name?: string
+      iconUrl?: string | null
+      bannerUrl?: string | null
+      messageRetentionDays?: number | null
+      isPublic?: boolean
+      description?: string | null
+      bannerPositionY?: number
+      bannerScale?: number
+      iconScale?: number
+      botDisabledCommands?: string[]
       botNoticeChannelId?: string | null
     }
 
@@ -235,7 +302,7 @@ serversRouter.patch(
     if (isBannerTooBig(bannerUrl)) return res.status(413).json({ error: 'Banner muito grande (max 8MB)' })
 
     const patch: Record<string, unknown> = {}
-    if (name      !== undefined) patch.name      = name
+    if (name !== undefined) patch.name = name
     if (iconUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(iconUrl)
       patch.iconUrl = url
@@ -247,8 +314,8 @@ serversRouter.patch(
       patch.bannerFullUrl = original
     }
     if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
-    if (bannerScale     !== undefined) patch.bannerScale     = bannerScale
-    if (iconScale       !== undefined) patch.iconScale       = iconScale
+    if (bannerScale !== undefined) patch.bannerScale = bannerScale
+    if (iconScale !== undefined) patch.iconScale = iconScale
     if (botDisabledCommands !== undefined) {
       const validas = new Set(catalogoDeComandos().map((c) => c.chave))
       const limpa = [...new Set(botDisabledCommands.filter((c) => validas.has(c)))]
@@ -256,12 +323,13 @@ serversRouter.patch(
     }
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
-    if (isPublic    !== undefined) patch.isPublic    = isPublic
+    if (isPublic !== undefined) patch.isPublic = isPublic
     if (description !== undefined) patch.description = description?.trim() || null
     if (botNoticeChannelId !== undefined) {
       const alvo = botNoticeChannelId?.trim() || null
       if (alvo) {
-        const [c] = await db.select({ id: channels.id })
+        const [c] = await db
+          .select({ id: channels.id })
           .from(channels)
           .where(and(eq(channels.id, alvo), eq(channels.serverId, serverId), eq(channels.type, 'TEXT')))
           .limit(1)
@@ -273,13 +341,16 @@ serversRouter.patch(
 
     await db.update(servers).set(patch).where(eq(servers.id, serverId))
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
-      targetId: serverId, metadata: { fields: Object.keys(patch) },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.SERVER_UPDATE,
+      targetId: serverId,
+      metadata: { fields: Object.keys(patch) },
     })
     void constelacaoMudou(serverId)
     const updated = await serverWithChannelsAndCount(serverId)
     res.json({ data: updated })
-  })
+  }),
 )
 
 serversRouter.post(
@@ -297,12 +368,15 @@ serversRouter.post(
     const newCode = createId()
     await db.update(servers).set({ inviteCode: newCode }).where(eq(servers.id, serverId))
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
-      targetId: serverId, metadata: { fields: ['inviteCode'] },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.SERVER_UPDATE,
+      targetId: serverId,
+      metadata: { fields: ['inviteCode'] },
     })
 
     res.json({ data: { inviteCode: newCode } })
-  })
+  }),
 )
 
 const RoleSchema = z.object({ role: z.enum(['ADMIN', 'MEMBER']) })
@@ -315,12 +389,16 @@ serversRouter.patch(
     const { serverId, memberId } = req.params
     const { role } = req.body as { role: 'ADMIN' | 'MEMBER' }
 
-    const [server] = await db.select({ ownerId: servers.ownerId }).from(servers)
-      .where(eq(servers.id, serverId)).limit(1)
+    const [server] = await db
+      .select({ ownerId: servers.ownerId })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1)
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
     if (server.ownerId !== req.userId) return res.status(403).json({ error: 'Apenas o dono pode mudar cargos' })
 
-    const [target] = await db.select({ id: serverMembers.id, role: serverMembers.role, userId: serverMembers.userId })
+    const [target] = await db
+      .select({ id: serverMembers.id, role: serverMembers.role, userId: serverMembers.userId })
       .from(serverMembers)
       .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId)))
       .limit(1)
@@ -330,7 +408,7 @@ serversRouter.patch(
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
     membroMudouDeCargo(serverId, memberId, role)
     res.json({ data: { id: memberId, role } })
-  })
+  }),
 )
 
 serversRouter.delete(
@@ -344,7 +422,8 @@ serversRouter.delete(
     if (!requester.isOwner && !requester.permissions.has(PERMS.KICK_MEMBERS))
       return res.status(403).json({ error: 'Sem permissão para remover membros' })
 
-    const [target] = await db.select({ id: serverMembers.id, role: serverMembers.role, userId: serverMembers.userId })
+    const [target] = await db
+      .select({ id: serverMembers.id, role: serverMembers.role, userId: serverMembers.userId })
       .from(serverMembers)
       .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId)))
       .limit(1)
@@ -363,11 +442,13 @@ serversRouter.delete(
     membroSaiu(serverId, target.userId)
     leftServer(target.userId, serverId, 'expulso')
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.MEMBER_KICK,
       targetId: target.userId,
     })
     res.json({ message: 'Membro removido' })
-  })
+  }),
 )
 
 serversRouter.delete(
@@ -376,8 +457,11 @@ serversRouter.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    const [server] = await db.select({ ownerId: servers.ownerId }).from(servers)
-      .where(eq(servers.id, serverId)).limit(1)
+    const [server] = await db
+      .select({ ownerId: servers.ownerId })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1)
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
 
     if (server.ownerId !== req.userId) {
@@ -387,7 +471,7 @@ serversRouter.delete(
     serverGone(serverId)
     await db.delete(servers).where(eq(servers.id, serverId))
     res.json({ message: 'Servidor excluído com sucesso' })
-  })
+  }),
 )
 
 serversRouter.delete(
@@ -396,8 +480,11 @@ serversRouter.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    const [server] = await db.select({ ownerId: servers.ownerId }).from(servers)
-      .where(eq(servers.id, serverId)).limit(1)
+    const [server] = await db
+      .select({ ownerId: servers.ownerId })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1)
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
 
     if (server.ownerId === req.userId) {
@@ -406,7 +493,9 @@ serversRouter.delete(
       })
     }
 
-    const [membership] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [membership] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (!membership) return res.status(404).json({ error: 'Você não é membro deste servidor' })
@@ -415,7 +504,7 @@ serversRouter.delete(
     void invalidateMembersCache(serverId)
     membroSaiu(serverId, req.userId!)
     res.json({ message: 'Você saiu do servidor' })
-  })
+  }),
 )
 
 serversRouter.get(
@@ -423,13 +512,15 @@ serversRouter.get(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const [me] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [me] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (!me) return res.status(403).json({ error: 'Acesso negado' })
 
     res.json({ data: await listarMembros(serverId) })
-  })
+  }),
 )
 
 serversRouter.post(
@@ -438,8 +529,7 @@ serversRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, username } = req.params
 
-    const [server] = await db.select({ id: servers.id }).from(servers)
-      .where(eq(servers.id, serverId)).limit(1)
+    const [server] = await db.select({ id: servers.id }).from(servers).where(eq(servers.id, serverId)).limit(1)
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
 
     const requester = await getMemberPerms(req.userId!, serverId)
@@ -447,16 +537,23 @@ serversRouter.post(
     if (!requester.isOwner && !requester.permissions.has(PERMS.MANAGE_SERVER))
       return res.status(403).json({ error: 'Sem permissão para adicionar membros' })
 
-    const [target] = await db.select({ id: users.id, displayName: users.displayName }).from(users)
-      .where(eq(users.username, username)).limit(1)
+    const [target] = await db
+      .select({ id: users.id, displayName: users.displayName })
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1)
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
 
-    const [tBan] = await db.select({ id: serverBans.id }).from(serverBans)
+    const [tBan] = await db
+      .select({ id: serverBans.id })
+      .from(serverBans)
       .where(and(eq(serverBans.userId, target.id), eq(serverBans.serverId, serverId)))
       .limit(1)
     if (tBan) return res.status(403).json({ error: 'Usuário está banido deste servidor' })
 
-    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [already] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, target.id), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (already) return res.status(409).json({ error: 'Usuário já é membro' })
@@ -467,7 +564,7 @@ serversRouter.post(
     void membroEntrou(serverId, target.id)
     void saudarNovoMembro(serverId, target.id)
     res.json({ message: `${target.displayName} adicionado com sucesso` })
-  })
+  }),
 )
 
 const NameColorSchema = z.object({
@@ -481,18 +578,21 @@ serversRouter.patch(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    const [member] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [member] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (!member) return res.status(403).json({ error: 'Você não é membro deste servidor' })
 
-    const [updated] = await db.update(serverMembers)
+    const [updated] = await db
+      .update(serverMembers)
       .set({ nameColor: req.body.nameColor })
       .where(eq(serverMembers.id, member.id))
       .returning({ nameColor: serverMembers.nameColor })
 
     res.json({ data: { nameColor: updated.nameColor } })
-  })
+  }),
 )
 
 serversRouter.get(
@@ -503,17 +603,21 @@ serversRouter.get(
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId && !m.isOwner) return res.status(403).json({ error: 'Você não é membro' })
 
-    const [meu] = await db.select({ nameColor: serverMembers.nameColor }).from(serverMembers)
+    const [meu] = await db
+      .select({ nameColor: serverMembers.nameColor })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
 
-    res.json({ data: {
-      isOwner:     m.isOwner,
-      isAdmin:     m.isAdmin,
-      permissions: Array.from(m.permissions),
-      nameColor:   meu?.nameColor ?? null,
-    } })
-  })
+    res.json({
+      data: {
+        isOwner: m.isOwner,
+        isAdmin: m.isAdmin,
+        permissions: Array.from(m.permissions),
+        nameColor: meu?.nameColor ?? null,
+      },
+    })
+  }),
 )
 
 export const channelsRouter = Router()
@@ -533,7 +637,8 @@ channelsRouter.post(
       return res.status(403).json({ error: 'Sem permissão para criar canais' })
 
     if (categoryId) {
-      const [cat] = await db.select({ id: channelCategories.id })
+      const [cat] = await db
+        .select({ id: channelCategories.id })
         .from(channelCategories)
         .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
         .limit(1)
@@ -543,21 +648,27 @@ channelsRouter.post(
     const [{ maxPos } = { maxPos: -1 }] = await db
       .select({ maxPos: sql<number>`COALESCE(MAX(${channels.position}), -1)::int` })
       .from(channels)
-      .where(and(
-        eq(channels.serverId, serverId),
-        categoryId ? eq(channels.categoryId, categoryId) : isNull(channels.categoryId),
-      ))
+      .where(
+        and(
+          eq(channels.serverId, serverId),
+          categoryId ? eq(channels.categoryId, categoryId) : isNull(channels.categoryId),
+        ),
+      )
 
-    const [channel] = await db.insert(channels)
+    const [channel] = await db
+      .insert(channels)
       .values({ name, type, serverId, position: (maxPos ?? -1) + 1, ...(categoryId ? { categoryId } : {}) })
       .returning()
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.CHANNEL_CREATE,
-      targetId: channel.id, metadata: { name, type, categoryId },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.CHANNEL_CREATE,
+      targetId: channel.id,
+      metadata: { name, type, categoryId },
     })
     void canalMudou(serverId, channel.id)
     res.status(201).json({ data: channel })
-  })
+  }),
 )
 
 channelsRouter.get(
@@ -566,24 +677,26 @@ channelsRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, channelId } = req.params
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS)) return res.status(403).json({ error: 'Sem permissão' })
 
-    const [ch] = await db.select({ id: channels.id, isPrivate: channels.isPrivate })
+    const [ch] = await db
+      .select({ id: channels.id, isPrivate: channels.isPrivate })
       .from(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
       .limit(1)
     if (!ch) return res.status(404).json({ error: 'Canal não encontrado' })
 
-    const perms = await db.select({ roleId: channelRolePerms.roleId })
-      .from(channelRolePerms).where(eq(channelRolePerms.channelId, channelId))
+    const perms = await db
+      .select({ roleId: channelRolePerms.roleId })
+      .from(channelRolePerms)
+      .where(eq(channelRolePerms.channelId, channelId))
     res.json({ data: { isPrivate: ch.isPrivate, roleIds: perms.map((p) => p.roleId) } })
-  })
+  }),
 )
 
 const VisibilitySchema = z.object({
   isPrivate: z.boolean(),
-  roleIds:   z.array(z.string()).max(50).optional(),
+  roleIds: z.array(z.string()).max(50).optional(),
 })
 
 channelsRouter.patch(
@@ -595,10 +708,10 @@ channelsRouter.patch(
     const { isPrivate, roleIds = [] } = req.body as z.infer<typeof VisibilitySchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS)) return res.status(403).json({ error: 'Sem permissão' })
 
-    const [ch] = await db.select({ id: channels.id })
+    const [ch] = await db
+      .select({ id: channels.id })
       .from(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
       .limit(1)
@@ -606,7 +719,9 @@ channelsRouter.patch(
 
     let validRoleIds: string[] = []
     if (roleIds.length > 0) {
-      const validRoles = await db.select({ id: roles.id }).from(roles)
+      const validRoles = await db
+        .select({ id: roles.id })
+        .from(roles)
         .where(and(eq(roles.serverId, serverId), inArray(roles.id, roleIds)))
       validRoleIds = validRoles.map((r) => r.id)
     }
@@ -615,25 +730,26 @@ channelsRouter.patch(
       await tx.update(channels).set({ isPrivate }).where(eq(channels.id, channelId))
       await tx.delete(channelRolePerms).where(eq(channelRolePerms.channelId, channelId))
       if (validRoleIds.length > 0) {
-        await tx.insert(channelRolePerms).values(
-          validRoleIds.map((roleId) => ({ channelId, roleId })),
-        )
+        await tx.insert(channelRolePerms).values(validRoleIds.map((roleId) => ({ channelId, roleId })))
       }
     })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
-      targetId: channelId, metadata: { isPrivate, roleIds: validRoleIds },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.CHANNEL_UPDATE,
+      targetId: channelId,
+      metadata: { isPrivate, roleIds: validRoleIds },
     })
     void canalMudou(serverId, channelId)
     res.json({ data: { isPrivate, roleIds: validRoleIds } })
-  })
+  }),
 )
 
 const UpdateChannelSchema = z.object({
-  name:       z.string().min(1).max(50).optional(),
+  name: z.string().min(1).max(50).optional(),
   categoryId: z.string().nullable().optional(),
-  position:   z.number().int().min(0).optional(),
+  position: z.number().int().min(0).optional(),
   botEnabled: z.boolean().nullable().optional(),
   botKeepReplies: z.boolean().optional(),
 })
@@ -646,18 +762,24 @@ channelsRouter.patch(
     const { name, categoryId, position, botEnabled, botKeepReplies } = req.body as z.infer<typeof UpdateChannelSchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS)) return res.status(403).json({ error: 'Sem permissão' })
 
     if (categoryId) {
-      const [cat] = await db.select({ id: channelCategories.id })
+      const [cat] = await db
+        .select({ id: channelCategories.id })
         .from(channelCategories)
         .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
         .limit(1)
       if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
     }
 
-    const set: Partial<{ name: string; categoryId: string | null; position: number; botEnabled: boolean | null; botKeepReplies: boolean }> = {}
+    const set: Partial<{
+      name: string
+      categoryId: string | null
+      position: number
+      botEnabled: boolean | null
+      botKeepReplies: boolean
+    }> = {}
     if (name !== undefined) set.name = name
     if (categoryId !== undefined) set.categoryId = categoryId
     if (position !== undefined) set.position = position
@@ -665,19 +787,30 @@ channelsRouter.patch(
     if (botKeepReplies !== undefined) set.botKeepReplies = botKeepReplies
     if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
-    const r = await db.update(channels)
+    const r = await db
+      .update(channels)
       .set(set)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
-      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position, botEnabled: channels.botEnabled, botKeepReplies: channels.botKeepReplies })
+      .returning({
+        id: channels.id,
+        name: channels.name,
+        categoryId: channels.categoryId,
+        position: channels.position,
+        botEnabled: channels.botEnabled,
+        botKeepReplies: channels.botKeepReplies,
+      })
     if (r.length === 0) return res.status(404).json({ error: 'Canal não encontrado' })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
-      targetId: channelId, metadata: { name, categoryId, position },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.CHANNEL_UPDATE,
+      targetId: channelId,
+      metadata: { name, categoryId, position },
     })
     void canalMudou(serverId, channelId)
     res.json({ data: r[0] })
-  })
+  }),
 )
 
 channelsRouter.delete(
@@ -691,18 +824,22 @@ channelsRouter.delete(
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão para excluir canais' })
 
-    const r = await db.delete(channels)
+    const r = await db
+      .delete(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
       .returning({ id: channels.id, name: channels.name })
     if (r.length === 0) return res.status(404).json({ error: 'Canal não encontrado' })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.CHANNEL_DELETE,
-      targetId: channelId, metadata: { name: r[0].name },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.CHANNEL_DELETE,
+      targetId: channelId,
+      metadata: { name: r[0].name },
     })
     canalSumiu(serverId, channelId)
     res.json({ message: 'Canal excluído' })
-  })
+  }),
 )
 
 const CreateCategorySchema = z.object({ name: z.string().min(1).max(50) })
@@ -719,19 +856,20 @@ channelsRouter.post(
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão para criar categorias' })
 
-    const existing = await db.select({ position: channelCategories.position })
-      .from(channelCategories).where(eq(channelCategories.serverId, serverId))
+    const existing = await db
+      .select({ position: channelCategories.position })
+      .from(channelCategories)
+      .where(eq(channelCategories.serverId, serverId))
     const nextPos = existing.length ? Math.max(...existing.map((e) => e.position)) + 1 : 0
 
-    const [cat] = await db.insert(channelCategories)
-      .values({ name, serverId, position: nextPos }).returning()
+    const [cat] = await db.insert(channelCategories).values({ name, serverId, position: nextPos }).returning()
     categoriaMudou(serverId, cat)
     res.status(201).json({ data: cat })
-  })
+  }),
 )
 
 const UpdateCategorySchema = z.object({
-  name:     z.string().min(1).max(50).optional(),
+  name: z.string().min(1).max(50).optional(),
   position: z.number().int().min(0).optional(),
   botEnabled: z.boolean().nullable().optional(),
 })
@@ -744,8 +882,7 @@ channelsRouter.patch(
     const { name, position, botEnabled } = req.body as z.infer<typeof UpdateCategorySchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS)) return res.status(403).json({ error: 'Sem permissão' })
 
     const set: Partial<{ name: string; position: number; botEnabled: boolean | null }> = {}
     if (name !== undefined) set.name = name
@@ -753,14 +890,15 @@ channelsRouter.patch(
     if (botEnabled !== undefined) set.botEnabled = botEnabled
     if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
-    const r = await db.update(channelCategories)
+    const r = await db
+      .update(channelCategories)
       .set(set)
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning()
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
     categoriaMudou(serverId, r[0])
     res.json({ data: r[0] })
-  })
+  }),
 )
 
 channelsRouter.delete(
@@ -770,14 +908,14 @@ channelsRouter.delete(
     const { serverId, categoryId } = req.params
 
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS)) return res.status(403).json({ error: 'Sem permissão' })
 
-    const r = await db.delete(channelCategories)
+    const r = await db
+      .delete(channelCategories)
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning({ id: channelCategories.id })
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
     categoriaSumiu(serverId, categoryId)
     res.json({ message: 'Categoria excluída' })
-  })
+  }),
 )

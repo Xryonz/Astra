@@ -1,8 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,6 +57,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
+import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.BadgeApi
@@ -79,6 +78,8 @@ import app.astra.desktop.ui.theme.Tipo
 val LARGURA_PAGINA_PERFIL = 840.dp
 val LARGURA_COLUNA_DO_CARTAO = 380.dp
 val ALTURA_PAGINA_PERFIL = 640.dp
+
+private const val ENTRADA_DO_PERFIL_MS = 260
 
 private fun Modifier.veuNoPe(): Modifier = drawWithContent {
     drawContent()
@@ -122,7 +123,7 @@ fun ProfilePage(
     var closing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (appear.value < 1f) {
-            appear.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow))
+            appear.animateTo(1f, tween(ENTRADA_DO_PERFIL_MS, easing = EaseSpring))
         }
     }
     fun requestClose() {

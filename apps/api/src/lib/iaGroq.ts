@@ -2,19 +2,19 @@ import type { BlocoIa, PedidoIa, RespostaIa } from './ia'
 
 const BASE = 'https://api.groq.com/openai/v1/chat/completions'
 
-export const GROQ_CONVERSA = process.env.GROQ_MODEL      ?? 'openai/gpt-oss-120b'
-export const GROQ_RESUMO   = process.env.GROQ_MODEL_FAST ?? 'openai/gpt-oss-20b'
+export const GROQ_CONVERSA = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b'
+export const GROQ_RESUMO = process.env.GROQ_MODEL_FAST ?? 'openai/gpt-oss-20b'
 
 interface ChamadaDeFerramenta {
-  id:       string
-  type:     'function'
+  id: string
+  type: 'function'
   function: { name: string; arguments: string }
 }
 
 interface MensagemOpenAi {
-  role:          'system' | 'user' | 'assistant' | 'tool'
-  content?:      string
-  tool_calls?:   ChamadaDeFerramenta[]
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content?: string
+  tool_calls?: ChamadaDeFerramenta[]
   tool_call_id?: string
 }
 
@@ -36,8 +36,8 @@ export function paraMensagens(system: string, mensagens: any[]): MensagemOpenAi[
       if (b?.type === 'text' && b.text) textos.push(b.text)
       else if (b?.type === 'tool_use' && b.name) {
         chamadas.push({
-          id:       b.id,
-          type:     'function',
+          id: b.id,
+          type: 'function',
           function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
         })
       } else if (b?.type === 'tool_result') {
@@ -58,15 +58,15 @@ export function paraMensagens(system: string, mensagens: any[]): MensagemOpenAi[
 
 export function corpoDoGroq(opts: PedidoIa): Record<string, unknown> {
   const corpo: Record<string, unknown> = {
-    model:                 opts.model,
-    messages:              paraMensagens(opts.system, opts.messages),
+    model: opts.model,
+    messages: paraMensagens(opts.system, opts.messages),
     max_completion_tokens: opts.maxTokens,
-    temperature:           0.7,
+    temperature: 0.7,
   }
   if (opts.model.startsWith('openai/gpt-oss')) corpo.reasoning_effort = 'low'
   if (opts.tools?.length) {
     corpo.tools = opts.tools.map((t) => ({
-      type:     'function',
+      type: 'function',
       function: { name: t.name, description: t.description, parameters: t.input_schema },
     }))
   }
@@ -77,9 +77,9 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
   let res: Response
   try {
     res = await fetch(BASE, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chave}` },
-      body:    JSON.stringify(corpoDoGroq(opts)),
+      body: JSON.stringify(corpoDoGroq(opts)),
     })
   } catch (e) {
     return { error: { type: 'rede', message: (e as Error).message } }
@@ -93,7 +93,7 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
     if ((res.status === 400 || res.status === 404) && /model/i.test(texto)) {
       return {
         error: {
-          type:    'modelo',
+          type: 'modelo',
           message: `modelo "${opts.model}" recusado pelo Groq — troque GROQ_MODEL/GROQ_MODEL_FAST. (${texto.slice(0, 160)})`,
         },
       }
@@ -101,9 +101,12 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
     return { error: { type: 'http', message: `HTTP ${res.status}: ${texto.slice(0, 200)}` } }
   }
 
-  const json = await res.json() as {
-    choices?: Array<{ message?: { content?: string | null; tool_calls?: ChamadaDeFerramenta[] }; finish_reason?: string }>
-    usage?:   { prompt_tokens?: number; completion_tokens?: number }
+  const json = (await res.json()) as {
+    choices?: Array<{
+      message?: { content?: string | null; tool_calls?: ChamadaDeFerramenta[] }
+      finish_reason?: string
+    }>
+    usage?: { prompt_tokens?: number; completion_tokens?: number }
   }
 
   const msg = json.choices?.[0]?.message
@@ -120,10 +123,10 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
   }
 
   return {
-    content:     blocos,
+    content: blocos,
     stop_reason: blocos.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn',
     usage: {
-      input_tokens:  json.usage?.prompt_tokens ?? 0,
+      input_tokens: json.usage?.prompt_tokens ?? 0,
       output_tokens: json.usage?.completion_tokens ?? 0,
     },
   }

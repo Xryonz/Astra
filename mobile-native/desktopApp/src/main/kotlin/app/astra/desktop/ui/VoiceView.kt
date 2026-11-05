@@ -1,10 +1,8 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -85,6 +83,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import kotlin.math.roundToInt
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.voice.AparelhoDeAudio
@@ -705,6 +704,7 @@ private enum class CallTone { Normal, Active, Danger }
 private val ALTURA_DO_BOTAO = 46.dp
 private val RAIO_DO_BOTAO = 23.dp
 private val LARGURA_DA_SETA = 30.dp
+private const val INCHAR_DE_QUEM_FALA_MS = 180
 private const val TINTA_DE_PERIGO = 0.14f
 private const val TINTA_DE_PERIGO_ACESA = 0.22f
 
@@ -1046,7 +1046,7 @@ private fun ParticipantTile(
     val swell = animateFloatAsState(
         targetValue = if (tile.speaking) 1.04f else 1f,
         animationSpec = if (reduce) snap()
-            else spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+            else tween(INCHAR_DE_QUEM_FALA_MS, easing = EaseSpring),
     )
     Column(
         modifier

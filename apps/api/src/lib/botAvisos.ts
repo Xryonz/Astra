@@ -9,26 +9,35 @@ import { getBotId, personaComAjustes, personaDoDia, personaPorChave, sincronizaP
 import { identidadeParaGuardar } from './autorDaMensagem'
 
 let io: SocketServer | null = null
-export function ligarAvisosDaBot(server: SocketServer) { io = server }
+export function ligarAvisosDaBot(server: SocketServer) {
+  io = server
+}
 
 async function canalDeAvisos(serverId: string): Promise<string | null> {
-  const [escolha] = await db.select({ id: servers.botNoticeChannelId })
-    .from(servers).where(eq(servers.id, serverId)).limit(1)
+  const [escolha] = await db
+    .select({ id: servers.botNoticeChannelId })
+    .from(servers)
+    .where(eq(servers.id, serverId))
+    .limit(1)
 
   if (escolha?.id) {
-    const [c] = await db.select({ id: channels.id })
+    const [c] = await db
+      .select({ id: channels.id })
       .from(channels)
-      .where(and(
-        eq(channels.id, escolha.id),
-        eq(channels.serverId, serverId),
-        eq(channels.type, 'TEXT'),
-        eq(channels.isPrivate, false),
-      ))
+      .where(
+        and(
+          eq(channels.id, escolha.id),
+          eq(channels.serverId, serverId),
+          eq(channels.type, 'TEXT'),
+          eq(channels.isPrivate, false),
+        ),
+      )
       .limit(1)
     if (c && (await botNaOrbita(c.id)).fala) return c.id
   }
 
-  const lista = await db.select({ id: channels.id })
+  const lista = await db
+    .select({ id: channels.id })
     .from(channels)
     .where(and(eq(channels.serverId, serverId), eq(channels.type, 'TEXT'), eq(channels.isPrivate, false)))
     .orderBy(asc(channels.position))
@@ -57,7 +66,8 @@ async function falar(
   botId: string,
   kind: string | null = null,
 ): Promise<void> {
-  const [linha] = await db.insert(messages)
+  const [linha] = await db
+    .insert(messages)
     .values({
       content: texto,
       channelId,
@@ -70,10 +80,15 @@ async function falar(
   io?.to(`channel:${channelId}`).emit('new_message', {
     ...linha,
     author: {
-      id: botId, username: 'astra_bot',
-      displayName: persona.nome, avatarUrl: persona.avatar,
+      id: botId,
+      username: 'astra_bot',
+      displayName: persona.nome,
+      avatarUrl: persona.avatar,
     },
-    reactions: [], mentions: [], attachments: [], replyTo: null,
+    reactions: [],
+    mentions: [],
+    attachments: [],
+    replyTo: null,
   })
 }
 
@@ -88,13 +103,21 @@ export async function saudarNovoMembro(serverId: string, userId: string): Promis
     const channelId = await canalDeAvisos(serverId)
     if (!channelId) return
 
-    const [pessoa] = await db.select({ username: users.username, displayName: users.displayName })
-      .from(users).where(eq(users.id, userId)).limit(1)
+    const [pessoa] = await db
+      .select({ username: users.username, displayName: users.displayName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
     if (!pessoa) return
 
     const persona = await sincronizaPersona(botId)
     const nome = pessoa.displayName || pessoa.username
-    await falar(channelId, `${nome} chegou na constelação. Boas-vindas! \`${persona.prefixo} ajuda\` mostra o que eu faço.`, persona, botId)
+    await falar(
+      channelId,
+      `${nome} chegou na constelação. Boas-vindas! \`${persona.prefixo} ajuda\` mostra o que eu faço.`,
+      persona,
+      botId,
+    )
   } catch (e) {
     logger.error('Bot', `saudacao falhou: ${(e as Error).message}`)
   }
@@ -112,8 +135,11 @@ export async function comemorarNivel(userId: string, channelId: string, nivel: n
     const regra = await botNaOrbita(channelId)
     if (!regra.fala) return
 
-    const [pessoa] = await db.select({ username: users.username, displayName: users.displayName })
-      .from(users).where(eq(users.id, userId)).limit(1)
+    const [pessoa] = await db
+      .select({ username: users.username, displayName: users.displayName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
     if (!pessoa) return
 
     const persona = await sincronizaPersona(botId)
@@ -129,7 +155,10 @@ const INTERVALO_CHECAGEM_MS = 5 * 60 * 1000
 export function chaveDoTurno(agora: Date): string {
   const p = personaDoDia(agora)
   const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   })
   const dia = 24 * 60 * 60 * 1000
   let inicio = new Date(agora)
@@ -161,8 +190,10 @@ export async function verificarTrocaDeTurno(): Promise<void> {
     if (!botId) return
     const sai = entra.chave === 'sparkle' ? 'sparxie' : 'sparkle'
 
-    const constelacoes = await db.select({ serverId: serverMembers.serverId })
-      .from(serverMembers).where(eq(serverMembers.userId, botId))
+    const constelacoes = await db
+      .select({ serverId: serverMembers.serverId })
+      .from(serverMembers)
+      .where(eq(serverMembers.userId, botId))
     if (constelacoes.length === 0) return
 
     const quemEntra = await sincronizaPersona(botId)
@@ -185,9 +216,8 @@ const VIRADA_PARA_SEXTA_E_SABADO = new Date('2026-08-09T19:27:23Z')
 
 export function chaveNaEpoca(instante: Date): Persona['chave'] {
   const dia = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(instante)
-  const daSparxie = instante < VIRADA_PARA_SEXTA_E_SABADO
-    ? dia === 'Sat' || dia === 'Sun'
-    : dia === 'Fri' || dia === 'Sat'
+  const daSparxie =
+    instante < VIRADA_PARA_SEXTA_E_SABADO ? dia === 'Sat' || dia === 'Sun' : dia === 'Fri' || dia === 'Sat'
   return daSparxie ? 'sparxie' : 'sparkle'
 }
 
@@ -200,13 +230,12 @@ export async function corrigirAutoriaAntigaDaBot(): Promise<void> {
   try {
     const botId = await getBotId()
     if (!botId) return
-    const antigas = await db.select({ id: messages.id, content: messages.content, createdAt: messages.createdAt })
+    const antigas = await db
+      .select({ id: messages.id, content: messages.content, createdAt: messages.createdAt })
       .from(messages)
-      .where(and(
-        eq(messages.authorId, botId),
-        isNull(messages.authorName),
-        gte(messages.createdAt, INICIO_DAS_PERSONAS),
-      ))
+      .where(
+        and(eq(messages.authorId, botId), isNull(messages.authorName), gte(messages.createdAt, INICIO_DAS_PERSONAS)),
+      )
     if (antigas.length === 0) return
 
     const porPersona: Record<Persona['chave'], string[]> = { sparkle: [], sparxie: [] }
@@ -216,11 +245,15 @@ export async function corrigirAutoriaAntigaDaBot(): Promise<void> {
       const ids = porPersona[chave]
       if (ids.length === 0) continue
       const persona = await personaComAjustes(personaPorChave(chave))
-      await db.update(messages)
+      await db
+        .update(messages)
         .set(identidadeParaGuardar({ displayName: persona.nome, avatarUrl: persona.avatar }))
         .where(inArray(messages.id, ids))
     }
-    logger.info('Bot', `autoria antiga corrigida: ${porPersona.sparkle.length} da Sparkle, ${porPersona.sparxie.length} da Sparxie`)
+    logger.info(
+      'Bot',
+      `autoria antiga corrigida: ${porPersona.sparkle.length} da Sparkle, ${porPersona.sparxie.length} da Sparxie`,
+    )
   } catch (e) {
     logger.error('Bot', `correcao da autoria antiga falhou: ${(e as Error).message}`)
   }
@@ -228,6 +261,8 @@ export async function corrigirAutoriaAntigaDaBot(): Promise<void> {
 
 export function agendarTrocaDeTurno(): void {
   void verificarTrocaDeTurno()
-  const t = setInterval(() => { void verificarTrocaDeTurno() }, INTERVALO_CHECAGEM_MS)
+  const t = setInterval(() => {
+    void verificarTrocaDeTurno()
+  }, INTERVALO_CHECAGEM_MS)
   t.unref?.()
 }

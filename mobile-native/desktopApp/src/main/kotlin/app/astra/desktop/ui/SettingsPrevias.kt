@@ -1,12 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -414,14 +409,12 @@ private fun AtividadePreview(ligado: Boolean) {
     }
 }
 
+private const val VOLTA_DO_AVISO_MS = 3400
+private const val FASE_COM_O_AVISO_INTEIRO = 0.5f
+
 @Composable
 private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
-    val t = rememberInfiniteTransition(label = "toast")
-    val cycle by t.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(3400, easing = LinearEasing), RepeatMode.Restart),
-        label = "toastCycle",
-    )
+    val cycle = if (reduceMotion) 0f else faseDeEnfeite(VOLTA_DO_AVISO_MS, repouso = FASE_COM_O_AVISO_INTEIRO).value
     var dx = 0f
     var a = 1f
     if (!reduceMotion) {
@@ -639,7 +632,7 @@ private fun gpuCost(p: DesktopPrefs.Prefs): Float {
     var c = 0.06f
     if (p.starsOn) c += 0.14f
     if (p.windowTransparent) c += 0.08f
-    val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
+    val mul = when (p.uiFps) { UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
     val aurora = if (p.auroraOn) 0.08f * 0.6f else 0f
     return (0.06f + (c - 0.06f) * mul + aurora).coerceIn(0.05f, 1f)
 }
@@ -649,7 +642,7 @@ private fun cpuCost(p: DesktopPrefs.Prefs): Float {
     var c = 0.05f
     if (p.starsOn) c += 0.07f
     if (!p.reduceMotionEff) c += 0.05f
-    val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
+    val mul = when (p.uiFps) { UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
     val aurora = if (p.auroraOn) 0.08f * 0.65f else 0f
     return (0.05f + (c - 0.05f) * mul + aurora).coerceIn(0.04f, 1f)
 }

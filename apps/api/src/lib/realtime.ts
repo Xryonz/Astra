@@ -4,9 +4,13 @@ import { logger } from './logger'
 
 let io: SocketServer | null = null
 
-export function attachRealtime(server: SocketServer) { io = server }
+export function attachRealtime(server: SocketServer) {
+  io = server
+}
 
-export function servidorDeSocket(): SocketServer | null { return io }
+export function servidorDeSocket(): SocketServer | null {
+  return io
+}
 
 export function joinedServer(userId: string, serverId: string) {
   io?.to(`user:${userId}`).emit('server_joined', { serverId })
@@ -19,11 +23,7 @@ export type PerfilPublico = {
   displayFont: string | null
 }
 
-export async function avisarQuemMeVe(
-  userId: string,
-  evento: string,
-  dados: unknown,
-): Promise<void> {
+export async function avisarQuemMeVe(userId: string, evento: string, dados: unknown): Promise<void> {
   const servidor = io
   if (!servidor) return
   try {

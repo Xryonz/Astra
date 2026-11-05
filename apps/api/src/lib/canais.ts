@@ -7,7 +7,8 @@ import { getCachedMembers } from './membersCache'
 import { esquecerFichaDoCanal } from './fichaDoCanal'
 
 async function ultimaMensagemDe(channelId: string): Promise<Date | null> {
-  const [linha] = await db.select({ quando: sql<Date | null>`MAX(${messages.createdAt})` })
+  const [linha] = await db
+    .select({ quando: sql<Date | null>`MAX(${messages.createdAt})` })
     .from(messages)
     .where(and(eq(messages.channelId, channelId), isNull(messages.kind)))
   return linha?.quando ?? null
@@ -19,7 +20,9 @@ export async function canalMudou(serverId: string, channelId: string): Promise<v
   const io = servidorDeSocket()
   if (!io) return
 
-  const [canal] = await db.select().from(channels)
+  const [canal] = await db
+    .select()
+    .from(channels)
     .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
     .limit(1)
   if (!canal) return
@@ -31,8 +34,7 @@ export async function canalMudou(serverId: string, channelId: string): Promise<v
     return
   }
 
-  const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers)
-    .where(eq(servers.id, serverId)).limit(1)
+  const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers).where(eq(servers.id, serverId)).limit(1)
   if (!srv) return
 
   const membros = (await getCachedMembers(serverId)).map((m) => m.userId)

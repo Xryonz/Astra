@@ -59,19 +59,27 @@ export async function setUserActivity(userId: string, texto: string): Promise<At
 }
 
 export async function clearUserActivity(userId: string): Promise<void> {
-  try { await redis.del(activityKeys.user(userId)) } catch {  }
+  try {
+    await redis.del(activityKeys.user(userId))
+  } catch {}
 }
 
 export async function setUserOnline(userId: string, status: PresenceStatus = 'ONLINE'): Promise<void> {
-  try { await redis.setex(presenceKeys.user(userId), PRESENCE_TTL, status) } catch {  }
+  try {
+    await redis.setex(presenceKeys.user(userId), PRESENCE_TTL, status)
+  } catch {}
 }
 
 export async function setUserOffline(userId: string): Promise<void> {
-  try { await redis.del(presenceKeys.user(userId)) } catch {  }
+  try {
+    await redis.del(presenceKeys.user(userId))
+  } catch {}
 }
 
 export async function refreshPresence(userId: string): Promise<void> {
-  try { await redis.expire(presenceKeys.user(userId), PRESENCE_TTL) } catch {  }
+  try {
+    await redis.expire(presenceKeys.user(userId), PRESENCE_TTL)
+  } catch {}
 }
 
 export async function getUserStatus(userId: string): Promise<PresenceStatus | null> {
@@ -96,8 +104,10 @@ function rememberBlacklist(jti: string, revoked: boolean, ttlMs: number): void {
 }
 
 export async function blacklistToken(jti: string, expiresInSeconds: number): Promise<void> {
-  rememberBlacklist(jti, true, expiresInSeconds * 1000) 
-  try { await redis.setex(`blacklist:token:${jti}`, expiresInSeconds, '1') } catch {  }
+  rememberBlacklist(jti, true, expiresInSeconds * 1000)
+  try {
+    await redis.setex(`blacklist:token:${jti}`, expiresInSeconds, '1')
+  } catch {}
 }
 
 export async function isTokenBlacklisted(jti: string): Promise<boolean> {

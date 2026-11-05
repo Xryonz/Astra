@@ -1,4 +1,3 @@
-
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dmConversations } from '../db/schema'
@@ -6,18 +5,23 @@ import { dmConversations } from '../db/schema'
 export async function getOrCreateConversation(userIdA: string, userIdB: string) {
   const [userAId, userBId] = [userIdA, userIdB].sort()
 
-  const [existing] = await db.select().from(dmConversations)
+  const [existing] = await db
+    .select()
+    .from(dmConversations)
     .where(and(eq(dmConversations.userAId, userAId), eq(dmConversations.userBId, userBId)))
     .limit(1)
   if (existing) return existing
 
-  const inserted = await db.insert(dmConversations)
+  const inserted = await db
+    .insert(dmConversations)
     .values({ userAId, userBId })
     .onConflictDoNothing({ target: [dmConversations.userAId, dmConversations.userBId] })
     .returning()
   if (inserted[0]) return inserted[0]
 
-  const [winner] = await db.select().from(dmConversations)
+  const [winner] = await db
+    .select()
+    .from(dmConversations)
     .where(and(eq(dmConversations.userAId, userAId), eq(dmConversations.userBId, userBId)))
     .limit(1)
   return winner

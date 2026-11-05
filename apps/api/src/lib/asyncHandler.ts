@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express'
+import type { Response, NextFunction } from 'express'
 import type { Request } from './requisicao'
 
 export const asyncHandler =

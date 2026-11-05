@@ -324,7 +324,6 @@ fun PetDoAstra(
         x = x.coerceIn(limiteEsq, limiteDir)
         alvoX = alvoX.coerceIn(limiteEsq, limiteDir)
         while (true) {
-            val inicio = System.nanoTime()
             if (congelado.value || segurando) {
                 snapshotFlow { congelado.value || segurando }.first { !it }
                 continue
@@ -374,7 +373,7 @@ fun PetDoAstra(
             quadroDaFolha = if (passoAtual == null) 0 else (tempos.naAnim * passoAtual.fps).toInt() % passoAtual.quadros
             olhoFechado = (tempos.piscada % 4.2f) < 0.13f
             if (folhas?.get(anim) == null) passoDoVetor = tempos.naAnim * 7f
-            esperarPeloTeto(FPS, inicio)
+            esperarPeloTeto(FPS)
         }
     }
 

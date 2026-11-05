@@ -6,14 +6,14 @@ function mkReq(body: any, query: any = {}, params: any = {}) {
   return { body, query, params, method: 'POST', path: '/test' } as any
 }
 function mkRes() {
-  const json   = vi.fn()
+  const json = vi.fn()
   const status = vi.fn().mockReturnValue({ json })
   return { status, json } as any
 }
 
 const Schema = z.object({
   name: z.string().min(2),
-  age:  z.number().int().positive().optional(),
+  age: z.number().int().positive().optional(),
 })
 
 describe('validate middleware', () => {
@@ -70,8 +70,10 @@ describe('validate middleware', () => {
 
   it('erro não-Zod (raro) é repassado pro next sem virar 400', () => {
     const Throwing = {
-      parse: () => { throw new Error('boom') },
-      safeParse: () => ({ success: false, error: new Error('boom') } as any),
+      parse: () => {
+        throw new Error('boom')
+      },
+      safeParse: () => ({ success: false, error: new Error('boom') }) as any,
     } as any
     const req = mkReq({})
     const res = mkRes()

@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
@@ -8,20 +8,20 @@ import { db } from '../db'
 import { users, refreshTokens } from '../db/schema'
 import { blacklistToken } from '../lib/redis'
 import { contarNaJanela } from '../lib/contagemNaJanela'
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-  hashToken,
-} from '../lib/jwt'
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } from '../lib/jwt'
 import { requireAuth } from '../middleware/auth'
 import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
 import {
-  RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema, VerifyEmailSchema,
-  ChangeEmailSchema, ChangeUsernameSchema,
+  RegisterSchema,
+  LoginSchema,
+  ChangePasswordSchema,
+  SetPasswordSchema,
+  VerifyEmailSchema,
+  ChangeEmailSchema,
+  ChangeUsernameSchema,
 } from '@astra/types'
 import { isMailEnabled, sendVerificationCode } from '../lib/mailer'
 import { createId } from '../db/cuid'
@@ -30,28 +30,28 @@ import { generateCoordinate } from '../lib/coordinate'
 const router = Router()
 
 const userSafeColumns = {
-  id:          users.id,
-  email:       users.email,
-  username:    users.username,
-  coordinate:  users.coordinate,
+  id: users.id,
+  email: users.email,
+  username: users.username,
+  coordinate: users.coordinate,
   displayName: users.displayName,
-  avatarUrl:   users.avatarUrl,
-  bio:         users.bio,
-  bannerUrl:   users.bannerUrl,
+  avatarUrl: users.avatarUrl,
+  bio: users.bio,
+  bannerUrl: users.bannerUrl,
   bannerColor: users.bannerColor,
   profileTheme: users.profileTheme,
   bannerPositionY: users.bannerPositionY,
-  bannerScale:     users.bannerScale,
-  bannerBorder:    users.bannerBorder,
+  bannerScale: users.bannerScale,
+  bannerBorder: users.bannerBorder,
   bannerTextColor: users.bannerTextColor,
-  pronouns:        users.pronouns,
-  statusEmoji:     users.statusEmoji,
-  customStatus:    users.customStatus,
-  displayFont:     users.displayFont,
-  dmPrivacy:       users.dmPrivacy,
-  onboardedAt:     users.onboardedAt,
+  pronouns: users.pronouns,
+  statusEmoji: users.statusEmoji,
+  customStatus: users.customStatus,
+  displayFont: users.displayFont,
+  dmPrivacy: users.dmPrivacy,
+  onboardedAt: users.onboardedAt,
   emailVerifiedAt: users.emailVerifiedAt,
-  createdAt:       users.createdAt,
+  createdAt: users.createdAt,
 }
 
 const EMAIL_CODE_TTL_MS = 15 * 60 * 1000
@@ -91,7 +91,8 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { email, username, displayName, password } = req.body
 
-    const [exists] = await db.select({ email: users.email, username: users.username })
+    const [exists] = await db
+      .select({ email: users.email, username: users.username })
       .from(users)
       .where(or(eq(users.email, email), eq(users.username, username)))
       .limit(1)
@@ -106,31 +107,37 @@ router.post(
 
     const emailCode = isMailEnabled() ? newEmailCode() : null
 
-    const [user] = await db.insert(users)
+    const [user] = await db
+      .insert(users)
       .values({
         id: newUserId,
-        email, username, displayName, passwordHash,
+        email,
+        username,
+        displayName,
+        passwordHash,
         coordinate: generateCoordinate(newUserId),
-        emailVerifiedAt:    emailCode ? null : new Date(),
+        emailVerifiedAt: emailCode ? null : new Date(),
         emailCode,
         emailCodeExpiresAt: emailCode ? new Date(Date.now() + EMAIL_CODE_TTL_MS) : null,
       })
       .returning(userSafeColumns)
 
-    if (emailCode) sendVerificationCode(email, emailCode).catch((e: any) =>
-      console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e))
+    if (emailCode)
+      sendVerificationCode(email, emailCode).catch((e: any) =>
+        console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e),
+      )
 
     const { token: accessToken } = generateAccessToken(user.id)
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken }       = await createRefreshToken(user.id, {
+    const { refreshToken } = await createRefreshToken(user.id, {
       userAgent: req.header('user-agent') ?? undefined,
-      ip:        req.ip,
+      ip: req.ip,
       deviceId,
     })
 
     res.status(201).json({ data: { user, accessToken, refreshToken } })
-  })
+  }),
 )
 
 router.post(
@@ -140,7 +147,8 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body
 
-    const [user] = await db.select({ ...userSafeColumns, passwordHash: users.passwordHash })
+    const [user] = await db
+      .select({ ...userSafeColumns, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.email, email))
       .limit(1)
@@ -157,15 +165,15 @@ router.post(
     const { token: accessToken } = generateAccessToken(user.id)
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken }       = await createRefreshToken(user.id, {
+    const { refreshToken } = await createRefreshToken(user.id, {
       userAgent: req.header('user-agent') ?? undefined,
-      ip:        req.ip,
+      ip: req.ip,
       deviceId,
     })
     const { passwordHash: _, ...userSafe } = user
 
     res.json({ data: { user: userSafe, accessToken, refreshToken } })
-  })
+  }),
 )
 
 router.post(
@@ -183,20 +191,28 @@ router.post(
 
     const tokenHash = hashToken(token)
 
-    const claimed = await db.update(refreshTokens)
+    const claimed = await db
+      .update(refreshTokens)
       .set({ revokedAt: new Date() })
-      .where(and(
-        eq(refreshTokens.token, tokenHash),
-        isNull(refreshTokens.revokedAt),
-        gt(refreshTokens.expiresAt, new Date()),
-      ))
+      .where(
+        and(
+          eq(refreshTokens.token, tokenHash),
+          isNull(refreshTokens.revokedAt),
+          gt(refreshTokens.expiresAt, new Date()),
+        ),
+      )
       .returning({ id: refreshTokens.id, userId: refreshTokens.userId })
 
     if (claimed.length === 0) {
-      const [seen] = await db.select({ userId: refreshTokens.userId, revokedAt: refreshTokens.revokedAt })
-        .from(refreshTokens).where(eq(refreshTokens.token, tokenHash)).limit(1)
+      const [seen] = await db
+        .select({ userId: refreshTokens.userId, revokedAt: refreshTokens.revokedAt })
+        .from(refreshTokens)
+        .where(eq(refreshTokens.token, tokenHash))
+        .limit(1)
       if (seen?.revokedAt && Date.now() - seen.revokedAt.getTime() > 30_000) {
-        await db.update(refreshTokens).set({ revokedAt: new Date() })
+        await db
+          .update(refreshTokens)
+          .set({ revokedAt: new Date() })
           .where(and(eq(refreshTokens.userId, seen.userId), isNull(refreshTokens.revokedAt)))
       }
       return res.status(401).json({ error: 'Refresh token inválido ou expirado' })
@@ -205,43 +221,41 @@ router.post(
     const { token: newAccessToken } = generateAccessToken(payload.userId)
     const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, {
       userAgent: req.header('user-agent') ?? undefined,
-      ip:        req.ip,
-      deviceId:  req.header('x-device-id') ?? undefined,
+      ip: req.ip,
+      deviceId: req.header('x-device-id') ?? undefined,
     })
 
     res.json({ data: { accessToken: newAccessToken, refreshToken: newRefreshToken } })
-  })
+  }),
 )
 
 router.post(
   '/logout',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-
     const refreshTokenRaw = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : ''
     if (refreshTokenRaw) {
       const tokenHash = hashToken(refreshTokenRaw)
-      await db.update(refreshTokens)
-        .set({ revokedAt: new Date() })
-        .where(eq(refreshTokens.token, tokenHash))
+      await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.token, tokenHash))
     }
     if (req.jti) await blacklistToken(req.jti, 15 * 60)
     res.json({ message: 'Logout realizado' })
-  })
+  }),
 )
 
 router.get(
   '/me',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.select({ ...userSafeColumns, status: users.status, passwordHash: users.passwordHash })
+    const [row] = await db
+      .select({ ...userSafeColumns, status: users.status, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
     if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
     const { passwordHash, status, ...user } = row
     res.json({ data: { user: { ...user, hasPassword: !!passwordHash, effectiveStatus: status ?? 'ONLINE' } } })
-  })
+  }),
 )
 
 router.post(
@@ -251,7 +265,8 @@ router.post(
   validate(ChangePasswordSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { currentPassword, newPassword } = req.body
-    const [user] = await db.select({ passwordHash: users.passwordHash })
+    const [user] = await db
+      .select({ passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
@@ -267,7 +282,7 @@ router.post(
     const passwordHash = await bcrypt.hash(newPassword, 12)
     await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
     res.json({ message: 'Senha alterada' })
-  })
+  }),
 )
 
 router.post(
@@ -282,7 +297,8 @@ router.post(
     const novo = String(req.body.newEmail).trim().toLowerCase()
     const { currentPassword } = req.body
 
-    const [user] = await db.select({ email: users.email, passwordHash: users.passwordHash })
+    const [user] = await db
+      .select({ email: users.email, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
@@ -290,24 +306,22 @@ router.post(
     if (!user.passwordHash) {
       return res.status(400).json({ error: 'Sua conta usa login Google e não tem senha.' })
     }
-    if (!await bcrypt.compare(currentPassword, user.passwordHash)) {
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
       return res.status(401).json({ error: 'Senha atual incorreta' })
     }
     if (novo === user.email.toLowerCase()) {
       return res.status(400).json({ error: 'Este já é o e-mail da sua conta' })
     }
 
-    const [ocupado] = await db.select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, novo))
-      .limit(1)
+    const [ocupado] = await db.select({ id: users.id }).from(users).where(eq(users.email, novo)).limit(1)
     if (ocupado) return res.status(409).json({ error: 'Este e-mail já está em uso' })
 
     const code = newEmailCode()
-    await db.update(users)
+    await db
+      .update(users)
       .set({
-        pendingEmail:          novo,
-        pendingEmailCode:      code,
+        pendingEmail: novo,
+        pendingEmailCode: code,
         pendingEmailExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
       })
       .where(eq(users.id, req.userId!))
@@ -315,7 +329,8 @@ router.post(
     try {
       await sendVerificationCode(novo, code)
     } catch (e: any) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
         .where(eq(users.id, req.userId!))
       console.error('[Mail] troca de e-mail falhou:', e?.message ?? e)
@@ -323,7 +338,7 @@ router.post(
     }
 
     res.json({ data: { pendingEmail: novo } })
-  })
+  }),
 )
 
 router.post(
@@ -333,11 +348,12 @@ router.post(
   validate(VerifyEmailSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { code } = req.body
-    const [user] = await db.select({
-      pendingEmail:          users.pendingEmail,
-      pendingEmailCode:      users.pendingEmailCode,
-      pendingEmailExpiresAt: users.pendingEmailExpiresAt,
-    })
+    const [user] = await db
+      .select({
+        pendingEmail: users.pendingEmail,
+        pendingEmailCode: users.pendingEmailCode,
+        pendingEmailExpiresAt: users.pendingEmailExpiresAt,
+      })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
@@ -350,7 +366,8 @@ router.post(
     }
     if (!mesmoCodigo(user.pendingEmailCode, code)) {
       if (await esgotouAsTentativas(req.userId!, 'trocar', user.pendingEmailExpiresAt)) {
-        await db.update(users)
+        await db
+          .update(users)
           .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
           .where(eq(users.id, req.userId!))
         return res.status(400).json({ error: MUITAS_TENTATIVAS })
@@ -358,31 +375,30 @@ router.post(
       return res.status(400).json({ error: 'Código incorreto' })
     }
 
-    const [ocupado] = await db.select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, user.pendingEmail))
-      .limit(1)
+    const [ocupado] = await db.select({ id: users.id }).from(users).where(eq(users.email, user.pendingEmail)).limit(1)
     if (ocupado) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
         .where(eq(users.id, req.userId!))
       return res.status(409).json({ error: 'Este e-mail já está em uso' })
     }
 
-    await db.update(users)
+    await db
+      .update(users)
       .set({
-        email:                 user.pendingEmail,
-        emailVerifiedAt:       new Date(),
-        emailCode:             null,
-        emailCodeExpiresAt:    null,
-        pendingEmail:          null,
-        pendingEmailCode:      null,
+        email: user.pendingEmail,
+        emailVerifiedAt: new Date(),
+        emailCode: null,
+        emailCodeExpiresAt: null,
+        pendingEmail: null,
+        pendingEmailCode: null,
         pendingEmailExpiresAt: null,
       })
       .where(eq(users.id, req.userId!))
 
     res.json({ data: { email: user.pendingEmail } })
-  })
+  }),
 )
 
 router.post(
@@ -393,24 +409,18 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const novo = String(req.body.username).trim().toLowerCase()
 
-    const [user] = await db.select({ username: users.username })
-      .from(users)
-      .where(eq(users.id, req.userId!))
-      .limit(1)
+    const [user] = await db.select({ username: users.username }).from(users).where(eq(users.id, req.userId!)).limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
     if (novo === user.username) {
       return res.status(400).json({ error: 'Este já é o seu nome de usuário' })
     }
 
-    const [ocupado] = await db.select({ id: users.id })
-      .from(users)
-      .where(eq(users.username, novo))
-      .limit(1)
+    const [ocupado] = await db.select({ id: users.id }).from(users).where(eq(users.username, novo)).limit(1)
     if (ocupado) return res.status(409).json({ error: 'Este nome de usuário já está em uso' })
 
     await db.update(users).set({ username: novo }).where(eq(users.id, req.userId!))
     res.json({ data: { username: novo } })
-  })
+  }),
 )
 
 router.post(
@@ -420,19 +430,24 @@ router.post(
   validate(VerifyEmailSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { code } = req.body
-    const [user] = await db.select({
-      emailVerifiedAt:    users.emailVerifiedAt,
-      emailCode:          users.emailCode,
-      emailCodeExpiresAt: users.emailCodeExpiresAt,
-    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [user] = await db
+      .select({
+        emailVerifiedAt: users.emailVerifiedAt,
+        emailCode: users.emailCode,
+        emailCodeExpiresAt: users.emailCodeExpiresAt,
+      })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
     if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
     if (!user.emailCode || !mesmoCodigo(user.emailCode, code)) {
-      if (user.emailCode && user.emailCodeExpiresAt
-        && await esgotouAsTentativas(req.userId!, 'verificar', user.emailCodeExpiresAt)) {
-        await db.update(users)
-          .set({ emailCode: null, emailCodeExpiresAt: null })
-          .where(eq(users.id, req.userId!))
+      if (
+        user.emailCode &&
+        user.emailCodeExpiresAt &&
+        (await esgotouAsTentativas(req.userId!, 'verificar', user.emailCodeExpiresAt))
+      ) {
+        await db.update(users).set({ emailCode: null, emailCodeExpiresAt: null }).where(eq(users.id, req.userId!))
         return res.status(400).json({ error: MUITAS_TENTATIVAS })
       }
       return res.status(400).json({ error: 'Código incorreto' })
@@ -440,11 +455,12 @@ router.post(
     if (!user.emailCodeExpiresAt || user.emailCodeExpiresAt < new Date()) {
       return res.status(400).json({ error: 'Código expirado. Peça um novo.' })
     }
-    await db.update(users)
+    await db
+      .update(users)
       .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
       .where(eq(users.id, req.userId!))
     res.json({ data: { verified: true } })
-  })
+  }),
 )
 
 router.post(
@@ -452,28 +468,35 @@ router.post(
   requireAuth,
   authLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const [user] = await db.select({
-      email:           users.email,
-      emailVerifiedAt: users.emailVerifiedAt,
-    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [user] = await db
+      .select({
+        email: users.email,
+        emailVerifiedAt: users.emailVerifiedAt,
+      })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
     if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
 
     if (!isMailEnabled()) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
         .where(eq(users.id, req.userId!))
       return res.json({ data: { verified: true } })
     }
 
     const code = newEmailCode()
-    await db.update(users)
+    await db
+      .update(users)
       .set({ emailCode: code, emailCodeExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS) })
       .where(eq(users.id, req.userId!))
     sendVerificationCode(user.email, code).catch((e: any) =>
-      console.error('[Mail] envio falhou (resend):', e?.response ?? e?.message ?? e))
+      console.error('[Mail] envio falhou (resend):', e?.response ?? e?.message ?? e),
+    )
     res.json({ data: { sent: true } })
-  })
+  }),
 )
 
 router.post(
@@ -483,7 +506,8 @@ router.post(
   validate(SetPasswordSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { newPassword } = req.body
-    const [user] = await db.select({ passwordHash: users.passwordHash })
+    const [user] = await db
+      .select({ passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
@@ -494,22 +518,26 @@ router.post(
     const passwordHash = await bcrypt.hash(newPassword, 12)
     await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
     res.json({ message: 'Senha criada' })
-  })
+  }),
 )
 
 router.post(
   '/onboarded',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.update(users)
+    const [row] = await db
+      .update(users)
       .set({ onboardedAt: new Date() })
       .where(and(eq(users.id, req.userId!), isNull(users.onboardedAt)))
       .returning({ onboardedAt: users.onboardedAt })
     if (row) return res.json({ data: { onboardedAt: row.onboardedAt } })
-    const [u] = await db.select({ onboardedAt: users.onboardedAt })
-      .from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [u] = await db
+      .select({ onboardedAt: users.onboardedAt })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     res.json({ data: { onboardedAt: u?.onboardedAt ?? new Date() } })
-  })
+  }),
 )
 
 router.post(
@@ -519,9 +547,14 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { confirmacao, password } = (req.body ?? {}) as { confirmacao?: string; password?: string }
 
-    const [u] = await db.select({
-      username: users.username, passwordHash: users.passwordHash,
-    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [u] = await db
+      .select({
+        username: users.username,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     if (!u) return res.status(404).json({ error: 'Usuário não encontrado' })
 
     if ((confirmacao ?? '').trim().toLowerCase() !== u.username.toLowerCase()) {
@@ -542,7 +575,7 @@ router.post(
 
     await virarLapide(req.userId!)
     res.json({ data: { apagada: true } })
-  })
+  }),
 )
 
 function parseDesktopState(raw: unknown): { port: number; nonce: string } | null {
@@ -568,19 +601,20 @@ router.get('/google', (req: Request, res: Response, next) => {
   passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next)
 })
 
-router.get(
-  '/google/callback',
-  (req: Request, res: Response, next) => {
-    const isMobile  = req.query.state === 'mobile'
-    const desktop   = parseDesktopState(req.query.state)
+router.get('/google/callback', (req: Request, res: Response, next) => {
+  const isMobile = req.query.state === 'mobile'
+  const desktop = parseDesktopState(req.query.state)
 
-    const desktopBase = desktop ? `http://127.0.0.1:${desktop.port}/callback` : null
-    const clientBase = isMobile ? 'astra://auth/callback' : desktopBase ?? `${process.env.CLIENT_URL}/auth/callback`
-    const loginUrl   = isMobile ? 'astra://login'         : desktopBase ?? `${process.env.CLIENT_URL}/login`
-    const sep        = desktop ? '?' : '#'
-    const nonceTail  = desktop ? `&nonce=${desktop.nonce}` : ''
+  const desktopBase = desktop ? `http://127.0.0.1:${desktop.port}/callback` : null
+  const clientBase = isMobile ? 'astra://auth/callback' : (desktopBase ?? `${process.env.CLIENT_URL}/auth/callback`)
+  const loginUrl = isMobile ? 'astra://login' : (desktopBase ?? `${process.env.CLIENT_URL}/login`)
+  const sep = desktop ? '?' : '#'
+  const nonceTail = desktop ? `&nonce=${desktop.nonce}` : ''
 
-    passport.authenticate('google', { session: false }, async (err: Error | null, user: { id: string } | false, info: { code?: string; email?: string } | undefined) => {
+  passport.authenticate(
+    'google',
+    { session: false },
+    async (err: Error | null, user: { id: string } | false, info: { code?: string; email?: string } | undefined) => {
       if (err) {
         return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
@@ -595,22 +629,23 @@ router.get(
         return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
       try {
-        await db.update(users)
+        await db
+          .update(users)
           .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
           .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
 
         const { refreshToken } = await createRefreshToken(user.id, {
           userAgent: req.header('user-agent') ?? undefined,
-          ip:        req.ip,
+          ip: req.ip,
         })
 
         res.redirect(`${clientBase}${sep}refresh=${encodeURIComponent(refreshToken)}${nonceTail}`)
       } catch (e) {
         next(e)
       }
-    })(req, res, next)
-  }
-)
+    },
+  )(req, res, next)
+})
 
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -627,20 +662,17 @@ function truncateIp(ip: string | undefined): string | null {
   return null
 }
 
-async function createRefreshToken(
-  userId: string,
-  meta?: { userAgent?: string; ip?: string; deviceId?: string },
-) {
-  const expiresAt    = new Date(Date.now() + REFRESH_TTL_MS)
+async function createRefreshToken(userId: string, meta?: { userAgent?: string; ip?: string; deviceId?: string }) {
+  const expiresAt = new Date(Date.now() + REFRESH_TTL_MS)
   const refreshToken = generateRefreshToken(userId)
-  const tokenHash    = hashToken(refreshToken)
+  const tokenHash = hashToken(refreshToken)
   await db.insert(refreshTokens).values({
-    token:      tokenHash,
+    token: tokenHash,
     userId,
     expiresAt,
-    userAgent:  meta?.userAgent?.slice(0, 256) ?? null,
-    ip:         truncateIp(meta?.ip),
-    deviceId:   meta?.deviceId?.slice(0, 128) ?? null,
+    userAgent: meta?.userAgent?.slice(0, 256) ?? null,
+    ip: truncateIp(meta?.ip),
+    deviceId: meta?.deviceId?.slice(0, 128) ?? null,
     lastUsedAt: new Date(),
   })
   return { refreshToken }
@@ -649,13 +681,10 @@ async function createRefreshToken(
 async function revokeDeviceSessions(userId: string, deviceId?: string) {
   const id = deviceId?.slice(0, 128)
   if (!id) return
-  await db.update(refreshTokens)
+  await db
+    .update(refreshTokens)
     .set({ revokedAt: new Date() })
-    .where(and(
-      eq(refreshTokens.userId, userId),
-      eq(refreshTokens.deviceId, id),
-      isNull(refreshTokens.revokedAt),
-    ))
+    .where(and(eq(refreshTokens.userId, userId), eq(refreshTokens.deviceId, id), isNull(refreshTokens.revokedAt)))
 }
 
 export default router

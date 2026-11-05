@@ -1,10 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
@@ -20,9 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +31,9 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import app.astra.desktop.ui.theme.Tipo
+
+private const val VOLTA_DA_ORBITA_MS = 13_000
+private const val FASE_PARADA_DA_ORBITA = 0.9f
 
 @Composable
 fun EmptyStage(isServer: Boolean) {
@@ -67,17 +62,7 @@ private fun OrbitGlyph() {
     val twoPi = (2.0 * PI).toFloat()
     val count = 12
     val tilt = (-12.0 * PI / 180.0).toFloat()
-    val reduceMotion = LocalReduceMotion.current
-    val phase: State<Float> = if (reduceMotion) {
-        remember { mutableStateOf(0.9f) }
-    } else {
-        rememberInfiniteTransition(label = "emptyOrbit").animateFloat(
-            initialValue = 0f,
-            targetValue = twoPi,
-            animationSpec = infiniteRepeatable(tween(13000, easing = LinearEasing)),
-            label = "emptyPhase",
-        )
-    }
+    val volta = faseDeEnfeite(VOLTA_DA_ORBITA_MS, repouso = FASE_PARADA_DA_ORBITA / twoPi)
 
     fun DrawScope.drawOrbit(ph: Float, front: Boolean) {
         val half = size.minDimension / 2f
@@ -103,9 +88,9 @@ private fun OrbitGlyph() {
     }
 
     Box(Modifier.size(118.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(118.dp)) { drawOrbit(phase.value, front = false) }
+        Canvas(Modifier.size(118.dp)) { drawOrbit(volta.value * twoPi, front = false) }
         Text("✦", style = TextStyle(color = accent.copy(alpha = 0.55f), fontSize = 24.sp))
-        Canvas(Modifier.size(118.dp)) { drawOrbit(phase.value, front = true) }
+        Canvas(Modifier.size(118.dp)) { drawOrbit(volta.value * twoPi, front = true) }
     }
 }
 

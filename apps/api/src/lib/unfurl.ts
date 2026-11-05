@@ -19,8 +19,11 @@ export interface CartaoDeLink {
 
 function decodificarEntidades(s: string): string {
   return s
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&amp;/g, '&')
 }
@@ -103,7 +106,8 @@ async function buscarPagina(inicial: URL): Promise<{ html: string; final: URL } 
 }
 
 function lerCartao(html: string, final: URL): CartaoDeLink | null {
-  const titulo = meta(html, ['og:title', 'twitter:title']) ??
+  const titulo =
+    meta(html, ['og:title', 'twitter:title']) ??
     decodificarEntidades(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '')
   const descricao = meta(html, ['og:description', 'twitter:description', 'description'])
   const imagemCrua = meta(html, ['og:image:secure_url', 'og:image', 'twitter:image'])

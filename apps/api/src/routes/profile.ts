@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, desc, eq, inArray, like, ne, or } from 'drizzle-orm'
 import { z } from 'zod'
@@ -32,7 +32,7 @@ const ALLOWED_HOSTS = [
 function isAllowedImageUrl(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
-  if (isOwnStorageUrl(url)) return true 
+  if (isOwnStorageUrl(url)) return true
   try {
     const { hostname } = new URL(url)
     return ALLOWED_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
@@ -53,13 +53,14 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const [eu] = await db.select({ avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, req.userId!)).limit(1)
     if (!eu || eu.avatarUrl !== null) return res.json({ data: { endereco: null } })
-    const [ultima] = await db.select({ endereco: messages.authorAvatarUrl })
+    const [ultima] = await db
+      .select({ endereco: messages.authorAvatarUrl })
       .from(messages)
       .where(and(eq(messages.authorId, req.userId!), like(messages.authorAvatarUrl, '/uploads/%')))
       .orderBy(desc(messages.createdAt))
       .limit(1)
     res.json({ data: { endereco: ultima?.endereco ?? null } })
-  })
+  }),
 )
 
 router.post(
@@ -76,14 +77,16 @@ router.post(
       foto = await recortarFoto(imagem, recorte)
     } catch (e) {
       if (e instanceof AnimacaoGrandeDemais) {
-        return res.status(413).json({ error: 'Animação longa demais para foto de perfil. Escolha um GIF mais curto ou menor.' })
+        return res
+          .status(413)
+          .json({ error: 'Animação longa demais para foto de perfil. Escolha um GIF mais curto ou menor.' })
       }
       return res.status(422).json({ error: 'Não foi possível ler essa imagem.' })
     }
     if (!foto) return res.status(422).json({ error: 'O enquadramento ficou fora da imagem.' })
     const { url } = await persistImagemDeExibicao(foto)
     res.json({ data: { url } })
-  })
+  }),
 )
 
 router.patch(
@@ -92,9 +95,21 @@ router.patch(
   validate(UpdateProfileSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const {
-      displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
-      bannerPositionY, bannerScale, bannerBorder, bannerTextColor,
-      pronouns, statusEmoji, displayFont, dmPrivacy,
+      displayName,
+      username,
+      bio,
+      avatarUrl,
+      bannerUrl,
+      bannerColor,
+      profileTheme,
+      bannerPositionY,
+      bannerScale,
+      bannerBorder,
+      bannerTextColor,
+      pronouns,
+      statusEmoji,
+      displayFont,
+      dmPrivacy,
     } = req.body
 
     if (bannerUrl && !isAllowedImageUrl(bannerUrl)) {
@@ -110,7 +125,9 @@ router.patch(
     }
 
     if (username) {
-      const [conflict] = await db.select({ id: users.id }).from(users)
+      const [conflict] = await db
+        .select({ id: users.id })
+        .from(users)
         .where(and(eq(users.username, username), ne(users.id, req.userId!)))
         .limit(1)
       if (conflict) return res.status(409).json({ error: 'Username já está em uso' })
@@ -118,8 +135,8 @@ router.patch(
 
     const update: Record<string, unknown> = {}
     if (displayName !== undefined) update.displayName = displayName
-    if (username    !== undefined) update.username    = username
-    if (bio         !== undefined) update.bio         = bio
+    if (username !== undefined) update.username = username
+    if (bio !== undefined) update.bio = bio
     if (avatarUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(avatarUrl)
       update.avatarUrl = url
@@ -130,32 +147,36 @@ router.patch(
       update.bannerUrl = url
       update.bannerFullUrl = original
     }
-    if (bannerColor  !== undefined) update.bannerColor  = bannerColor
+    if (bannerColor !== undefined) update.bannerColor = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme
     if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY
-    if (bannerScale     !== undefined) update.bannerScale     = bannerScale
-    if (bannerBorder    !== undefined) update.bannerBorder    = bannerBorder
+    if (bannerScale !== undefined) update.bannerScale = bannerScale
+    if (bannerBorder !== undefined) update.bannerBorder = bannerBorder
     if (bannerTextColor !== undefined) update.bannerTextColor = bannerTextColor
-    if (pronouns         !== undefined) update.pronouns         = pronouns
-    if (statusEmoji      !== undefined) update.statusEmoji      = statusEmoji
-    if (displayFont      !== undefined) update.displayFont      = displayFont
-    if (dmPrivacy        !== undefined) update.dmPrivacy        = dmPrivacy
+    if (pronouns !== undefined) update.pronouns = pronouns
+    if (statusEmoji !== undefined) update.statusEmoji = statusEmoji
+    if (displayFont !== undefined) update.displayFont = displayFont
+    if (dmPrivacy !== undefined) update.dmPrivacy = dmPrivacy
 
-    const [user] = await db.update(users).set(update)
-      .where(eq(users.id, req.userId!))
-      .returning({
-        id: users.id, email: users.email, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl,
-        bio: users.bio, bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
-        profileTheme: users.profileTheme,
-        bannerPositionY: users.bannerPositionY,
-        bannerScale:     users.bannerScale,
-        bannerBorder:    users.bannerBorder,
-        bannerTextColor: users.bannerTextColor,
-        pronouns: users.pronouns, statusEmoji: users.statusEmoji,
-        displayFont: users.displayFont,
-        dmPrivacy: users.dmPrivacy,
-      })
+    const [user] = await db.update(users).set(update).where(eq(users.id, req.userId!)).returning({
+      id: users.id,
+      email: users.email,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      bio: users.bio,
+      bannerUrl: users.bannerUrl,
+      bannerColor: users.bannerColor,
+      profileTheme: users.profileTheme,
+      bannerPositionY: users.bannerPositionY,
+      bannerScale: users.bannerScale,
+      bannerBorder: users.bannerBorder,
+      bannerTextColor: users.bannerTextColor,
+      pronouns: users.pronouns,
+      statusEmoji: users.statusEmoji,
+      displayFont: users.displayFont,
+      dmPrivacy: users.dmPrivacy,
+    })
 
     profileChanged(req.userId!, {
       username: user.username,
@@ -164,44 +185,60 @@ router.patch(
       displayFont: user.displayFont,
     })
     res.json({ data: { user } })
-  })
+  }),
 )
 
 router.get(
   '/presence',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
+    const ids = String(req.query.ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
-    const out: Record<string, 'ONLINE'|'IDLE'|'DND'|'OFFLINE'> = {}
+    const out: Record<string, 'ONLINE' | 'IDLE' | 'DND' | 'OFFLINE'> = {}
     let live: (string | null)[] = []
-    try { live = await redis.mget(ids.map((id) => presenceKeys.user(id))) } catch { live = [] }
+    try {
+      live = await redis.mget(ids.map((id) => presenceKeys.user(id)))
+    } catch {
+      live = []
+    }
     ids.forEach((id, i) => {
       const s = live[i]
       if (!s || s === 'INVISIBLE') out[id] = 'OFFLINE'
-      else out[id] = s as 'ONLINE'|'IDLE'|'DND'
+      else out[id] = s as 'ONLINE' | 'IDLE' | 'DND'
     })
     res.json({ data: out })
-  })
+  }),
 )
 
 router.get(
   '/activity',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
+    const ids = String(req.query.ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
     const out: Record<string, { text: string; since: number }> = {}
     let live: (string | null)[] = []
-    try { live = await redis.mget(ids.map((id) => activityKeys.user(id))) } catch { live = [] }
+    try {
+      live = await redis.mget(ids.map((id) => activityKeys.user(id)))
+    } catch {
+      live = []
+    }
     ids.forEach((id, i) => {
       const a = leAtividade(live[i])
       if (a) out[id] = { text: a.texto, since: a.desde }
     })
     res.json({ data: out })
-  })
+  }),
 )
 
 const PreferencesSchema = z.object({
@@ -212,15 +249,20 @@ router.get(
   '/preferences',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.select({ preferences: users.preferences })
-      .from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [row] = await db
+      .select({ preferences: users.preferences })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
     let parsed: Record<string, unknown> = {}
     if (row.preferences) {
-      try { parsed = JSON.parse(row.preferences) } catch {}
+      try {
+        parsed = JSON.parse(row.preferences)
+      } catch {}
     }
     res.json({ data: { preferences: parsed } })
-  })
+  }),
 )
 
 router.patch(
@@ -233,25 +275,24 @@ router.patch(
     if (serialized.length > 4096) {
       return res.status(413).json({ error: 'Preferências excedem 4KB' })
     }
-    await db.update(users).set({ preferences: serialized })
-      .where(eq(users.id, req.userId!))
+    await db.update(users).set({ preferences: serialized }).where(eq(users.id, req.userId!))
     res.json({ data: { preferences: payload } })
-  })
+  }),
 )
 
-const StatusSchema = z.object({ status: z.enum(['ONLINE','IDLE','DND','INVISIBLE']) })
+const StatusSchema = z.object({ status: z.enum(['ONLINE', 'IDLE', 'DND', 'INVISIBLE']) })
 
 router.patch(
   '/status',
   requireAuth,
   validate(StatusSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { status } = req.body as { status: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE' }
+    const { status } = req.body as { status: 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE' }
     await db.update(users).set({ status }).where(eq(users.id, req.userId!))
     await setUserOnline(req.userId!, status)
     presenceChanged(req.userId!, status)
     res.json({ data: { status } })
-  })
+  }),
 )
 
 router.get(
@@ -259,27 +300,36 @@ router.get(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const targetId = req.params.userId
-    const [user] = await db.select({
-      id: users.id, username: users.username, displayName: users.displayName,
-      avatarUrl: users.avatarUrl, bio: users.bio,
-      bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
-      profileTheme: users.profileTheme,
-      bannerPositionY: users.bannerPositionY,
-      bannerScale:     users.bannerScale,
-      bannerBorder:    users.bannerBorder,
-      bannerTextColor: users.bannerTextColor,
-      pronouns: users.pronouns, statusEmoji: users.statusEmoji,
-      customStatus: users.customStatus,
-      displayFont: users.displayFont,
-      isBot: users.isBot,
-      status: users.status,
-      createdAt: users.createdAt,
-    }).from(users).where(eq(users.id, targetId)).limit(1)
+    const [user] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        bio: users.bio,
+        bannerUrl: users.bannerUrl,
+        bannerColor: users.bannerColor,
+        profileTheme: users.profileTheme,
+        bannerPositionY: users.bannerPositionY,
+        bannerScale: users.bannerScale,
+        bannerBorder: users.bannerBorder,
+        bannerTextColor: users.bannerTextColor,
+        pronouns: users.pronouns,
+        statusEmoji: users.statusEmoji,
+        customStatus: users.customStatus,
+        displayFont: users.displayFont,
+        isBot: users.isBot,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
 
     const liveStatus = await getUserStatus(targetId)
     const isSelf = targetId === req.userId
-    let effectiveStatus: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE'|'OFFLINE'
+    let effectiveStatus: 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE' | 'OFFLINE'
     if (!liveStatus) effectiveStatus = 'OFFLINE'
     else if (liveStatus === 'INVISIBLE' && !isSelf) effectiveStatus = 'OFFLINE'
     else effectiveStatus = liveStatus
@@ -288,43 +338,66 @@ router.get(
     const [myMems, theirMems] = isSelf
       ? [[] as Array<{ serverId: string }>, [] as Array<{ serverId: string; role: string }>]
       : await Promise.all([
-        db.select({ serverId: serverMembers.serverId }).from(serverMembers).where(eq(serverMembers.userId, req.userId!)),
-        db.select({ serverId: serverMembers.serverId, role: serverMembers.role }).from(serverMembers).where(eq(serverMembers.userId, targetId)),
-      ])
+          db
+            .select({ serverId: serverMembers.serverId })
+            .from(serverMembers)
+            .where(eq(serverMembers.userId, req.userId!)),
+          db
+            .select({ serverId: serverMembers.serverId, role: serverMembers.role })
+            .from(serverMembers)
+            .where(eq(serverMembers.userId, targetId)),
+        ])
     const mySet = new Set(myMems.map((m) => m.serverId))
     const mutualIds = theirMems.map((m) => m.serverId).filter((id) => mySet.has(id))
 
-    let mutualServers: { id: string; name: string; iconUrl: string|null; isGroup: boolean; role: string }[] = []
+    let mutualServers: { id: string; name: string; iconUrl: string | null; isGroup: boolean; role: string }[] = []
     if (mutualIds.length > 0) {
-      const srvs = await db.select({ id: servers.id, name: servers.name, iconUrl: servers.iconUrl, isGroup: servers.isGroup })
-        .from(servers).where(inArray(servers.id, mutualIds))
+      const srvs = await db
+        .select({ id: servers.id, name: servers.name, iconUrl: servers.iconUrl, isGroup: servers.isGroup })
+        .from(servers)
+        .where(inArray(servers.id, mutualIds))
       const roleByServer = new Map(theirMems.map((m) => [m.serverId, m.role]))
       mutualServers = srvs.map((s) => ({ ...s, role: roleByServer.get(s.id) ?? 'MEMBER' }))
     }
 
     const amigosDe = async (id: string) => {
-      const rows = await db.select({ a: friendships.userAId, b: friendships.userBId })
+      const rows = await db
+        .select({ a: friendships.userAId, b: friendships.userBId })
         .from(friendships)
         .where(and(eq(friendships.status, 'accepted'), or(eq(friendships.userAId, id), eq(friendships.userBId, id))))
       return new Set(rows.map((r) => (r.a === id ? r.b : r.a)))
     }
     let mutualFriends = 0
-    let mutualFriendsList: Array<{ id: string; username: string; displayName: string | null; avatarUrl: string | null }> = []
+    let mutualFriendsList: Array<{
+      id: string
+      username: string
+      displayName: string | null
+      avatarUrl: string | null
+    }> = []
     const ROSTOS_EM_COMUM = 8
     if (!isSelf) {
       const [meus, deles] = await Promise.all([amigosDe(req.userId!), amigosDe(targetId)])
       const emComum: string[] = []
-      for (const id of deles) if (meus.has(id)) { mutualFriends++; emComum.push(id) }
+      for (const id of deles)
+        if (meus.has(id)) {
+          mutualFriends++
+          emComum.push(id)
+        }
       if (emComum.length > 0) {
-        mutualFriendsList = await db.select({
-          id: users.id, username: users.username,
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-        }).from(users).where(inArray(users.id, emComum.slice(0, ROSTOS_EM_COMUM)))
+        mutualFriendsList = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+          })
+          .from(users)
+          .where(inArray(users.id, emComum.slice(0, ROSTOS_EM_COMUM)))
       }
     }
 
     res.json({ data: { user, mutualServers, mutualFriends, mutualFriendsList } })
-  })
+  }),
 )
 
 export default router

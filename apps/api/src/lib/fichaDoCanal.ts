@@ -41,18 +41,10 @@ export async function fichaDoCanal(channelId: string): Promise<FichaDoCanal | nu
     .where(eq(channels.id, channelId))
     .limit(1)
 
-  const ficha: FichaDoCanal | null = linha?.serverId
-    ? { serverId: linha.serverId, isPrivate: !!linha.isPrivate }
-    : null
+  const ficha: FichaDoCanal | null = linha?.serverId ? { serverId: linha.serverId, isPrivate: !!linha.isPrivate } : null
 
   await redis
-    .set(
-      chaveDaFicha(channelId),
-      ficha ? JSON.stringify(ficha) : SEM_CANAL,
-      'EX',
-      VALIDADE_SEGUNDOS,
-      'NX',
-    )
+    .set(chaveDaFicha(channelId), ficha ? JSON.stringify(ficha) : SEM_CANAL, 'EX', VALIDADE_SEGUNDOS, 'NX')
     .catch(() => {})
 
   return ficha
@@ -60,7 +52,5 @@ export async function fichaDoCanal(channelId: string): Promise<FichaDoCanal | nu
 
 export async function esquecerFichaDoCanal(channelId: string): Promise<void> {
   if (typeof channelId !== 'string' || !channelId) return
-  await redis
-    .set(chaveDaFicha(channelId), RECEM_MUDADO, 'EX', BLOQUEIO_SEGUNDOS)
-    .catch(() => {})
+  await redis.set(chaveDaFicha(channelId), RECEM_MUDADO, 'EX', BLOQUEIO_SEGUNDOS).catch(() => {})
 }

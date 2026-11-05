@@ -1,35 +1,53 @@
 import { describe, it, expect } from 'vitest'
 import {
-  AttachmentSchema, SendMessageSchema, EditMessageSchema,
-  RegisterSchema, LoginSchema, MessageCursorSchema,
-  ChangeEmailSchema, ChangeUsernameSchema, UpdateProfileSchema,
+  AttachmentSchema,
+  SendMessageSchema,
+  EditMessageSchema,
+  RegisterSchema,
+  LoginSchema,
+  MessageCursorSchema,
+  ChangeEmailSchema,
+  ChangeUsernameSchema,
+  UpdateProfileSchema,
 } from '@astra/types'
 
 describe('AttachmentSchema — URL safety', () => {
   it('aceita http://', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'http://example.com/foo.png', type: 'image/png', name: 'foo.png', size: 100,
+      url: 'http://example.com/foo.png',
+      type: 'image/png',
+      name: 'foo.png',
+      size: 100,
     })
     expect(r.success).toBe(true)
   })
 
   it('aceita https://', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'https://cdn.example.com/foo.png', type: 'image/png', name: 'foo.png', size: 100,
+      url: 'https://cdn.example.com/foo.png',
+      type: 'image/png',
+      name: 'foo.png',
+      size: 100,
     })
     expect(r.success).toBe(true)
   })
 
   it('aceita path relativo (/uploads/...)', () => {
     const r = AttachmentSchema.safeParse({
-      url: '/uploads/abc123.png', type: 'image/png', name: 'abc.png', size: 100,
+      url: '/uploads/abc123.png',
+      type: 'image/png',
+      name: 'abc.png',
+      size: 100,
     })
     expect(r.success).toBe(true)
   })
 
   it('PRESERVA o blurhash (era descartado na validacao)', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'https://cdn.example.com/a.webp', type: 'image/webp', name: 'a.webp', size: 100,
+      url: 'https://cdn.example.com/a.webp',
+      type: 'image/webp',
+      name: 'a.webp',
+      size: 100,
       blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
     })
     expect(r.success).toBe(true)
@@ -38,7 +56,10 @@ describe('AttachmentSchema — URL safety', () => {
 
   it('PRESERVA a marca de figurinha', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'https://cdn.example.com/fig.webp', type: 'image/webp', name: 'susto', size: 0,
+      url: 'https://cdn.example.com/fig.webp',
+      type: 'image/webp',
+      name: 'susto',
+      size: 0,
       sticker: true,
     })
     expect(r.success).toBe(true)
@@ -47,42 +68,59 @@ describe('AttachmentSchema — URL safety', () => {
 
   it('PRESERVA a thumbUrl, com a mesma protecao de URL do url', () => {
     const ok = AttachmentSchema.safeParse({
-      url: 'https://cdn.example.com/a.webp', thumbUrl: 'https://cdn.example.com/a_t.webp',
-      type: 'image/webp', name: 'a.webp', size: 100,
+      url: 'https://cdn.example.com/a.webp',
+      thumbUrl: 'https://cdn.example.com/a_t.webp',
+      type: 'image/webp',
+      name: 'a.webp',
+      size: 100,
     })
     expect(ok.success && ok.data.thumbUrl).toBe('https://cdn.example.com/a_t.webp')
 
     const mau = AttachmentSchema.safeParse({
-      url: 'https://cdn.example.com/a.webp', thumbUrl: 'javascript:alert(1)',
-      type: 'image/webp', name: 'a.webp', size: 100,
+      url: 'https://cdn.example.com/a.webp',
+      thumbUrl: 'javascript:alert(1)',
+      type: 'image/webp',
+      name: 'a.webp',
+      size: 100,
     })
     expect(mau.success).toBe(false)
   })
 
   it('BLOQUEIA javascript: (XSS)', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'javascript:alert(1)', type: 'image/png', name: 'evil.png', size: 100,
+      url: 'javascript:alert(1)',
+      type: 'image/png',
+      name: 'evil.png',
+      size: 100,
     })
     expect(r.success).toBe(false)
   })
 
   it('BLOQUEIA data: (XSS via data URI)', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'data:text/html,<script>alert(1)</script>', type: 'image/png', name: 'x.png', size: 100,
+      url: 'data:text/html,<script>alert(1)</script>',
+      type: 'image/png',
+      name: 'x.png',
+      size: 100,
     })
     expect(r.success).toBe(false)
   })
 
   it('BLOQUEIA file://', () => {
     const r = AttachmentSchema.safeParse({
-      url: 'file:///etc/passwd', type: 'image/png', name: 'x.png', size: 100,
+      url: 'file:///etc/passwd',
+      type: 'image/png',
+      name: 'x.png',
+      size: 100,
     })
     expect(r.success).toBe(false)
   })
 
   it('size > 50MB rejeitado', () => {
     const r = AttachmentSchema.safeParse({
-      url: '/uploads/big.zip', type: 'application/zip', name: 'big.zip',
+      url: '/uploads/big.zip',
+      type: 'application/zip',
+      name: 'big.zip',
       size: 51 * 1024 * 1024,
     })
     expect(r.success).toBe(false)
@@ -90,15 +128,22 @@ describe('AttachmentSchema — URL safety', () => {
 
   it('size negativo rejeitado', () => {
     const r = AttachmentSchema.safeParse({
-      url: '/x.png', type: 'image/png', name: 'x.png', size: -1,
+      url: '/x.png',
+      type: 'image/png',
+      name: 'x.png',
+      size: -1,
     })
     expect(r.success).toBe(false)
   })
 
   it('width/height ridículos rejeitados (max 20k)', () => {
     const r = AttachmentSchema.safeParse({
-      url: '/x.png', type: 'image/png', name: 'x.png', size: 100,
-      width: 99_999, height: 50,
+      url: '/x.png',
+      type: 'image/png',
+      name: 'x.png',
+      size: 100,
+      width: 99_999,
+      height: 50,
     })
     expect(r.success).toBe(false)
   })
@@ -163,8 +208,10 @@ describe('EditMessageSchema', () => {
 
 describe('RegisterSchema', () => {
   const valid = {
-    email: 'foo@bar.com', username: 'fulano',
-    displayName: 'Fulano', password: 'SenhaForte123',
+    email: 'foo@bar.com',
+    username: 'fulano',
+    displayName: 'Fulano',
+    password: 'SenhaForte123',
   }
 
   it('payload válido (com maiúscula e número) passa', () => {
@@ -291,7 +338,10 @@ describe('ChangeUsernameSchema — mesmas regras do cadastro', () => {
     expect(nome.length).toBeLessThanOrEqual(32)
     expect(ChangeUsernameSchema.safeParse({ username: nome }).success).toBe(
       RegisterSchema.safeParse({
-        email: 'a@b.com', username: nome, displayName: 'A', password: 'Senha123',
+        email: 'a@b.com',
+        username: nome,
+        displayName: 'A',
+        password: 'Senha123',
       }).success,
     )
   })

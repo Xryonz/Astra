@@ -2,12 +2,12 @@ import type { BlocoIa, FerramentaIa, PedidoIa, RespostaIa } from './ia'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-export const GEMINI_CONVERSA = process.env.GEMINI_MODEL      ?? 'gemini-2.5-flash'
-export const GEMINI_RESUMO   = process.env.GEMINI_MODEL_FAST ?? 'gemini-2.5-flash-lite'
+export const GEMINI_CONVERSA = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
+export const GEMINI_RESUMO = process.env.GEMINI_MODEL_FAST ?? 'gemini-2.5-flash-lite'
 
 interface ParteGemini {
-  text?:             string
-  functionCall?:     { name: string; args?: Record<string, unknown> }
+  text?: string
+  functionCall?: { name: string; args?: Record<string, unknown> }
   functionResponse?: { name: string; response: Record<string, unknown> }
 }
 
@@ -65,21 +65,23 @@ export async function chamarGemini(chave: string, opts: PedidoIa): Promise<Respo
     generationConfig: { maxOutputTokens: opts.maxTokens, temperature: 0.7 },
   }
   if (opts.tools?.length) {
-    corpo.tools = [{
-      functionDeclarations: opts.tools.map((t: FerramentaIa) => ({
-        name:        t.name,
-        description: t.description,
-        parameters:  limparSchema(t.input_schema),
-      })),
-    }]
+    corpo.tools = [
+      {
+        functionDeclarations: opts.tools.map((t: FerramentaIa) => ({
+          name: t.name,
+          description: t.description,
+          parameters: limparSchema(t.input_schema),
+        })),
+      },
+    ]
   }
 
   let res: Response
   try {
     res = await fetch(`${BASE}/${opts.model}:generateContent`, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave },
-      body:    JSON.stringify(corpo),
+      body: JSON.stringify(corpo),
     })
   } catch (e) {
     return { error: { type: 'rede', message: (e as Error).message } }
@@ -89,7 +91,7 @@ export async function chamarGemini(chave: string, opts: PedidoIa): Promise<Respo
     return { error: { type: 'http', message: `HTTP ${res.status}: ${texto.slice(0, 200)}` } }
   }
 
-  const json = await res.json() as {
+  const json = (await res.json()) as {
     candidates?: Array<{ content?: { parts?: ParteGemini[] }; finishReason?: string }>
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number }
   }
@@ -102,19 +104,19 @@ export async function chamarGemini(chave: string, opts: PedidoIa): Promise<Respo
     else if (p.functionCall?.name) {
       blocos.push({
         type: 'tool_use',
-        id:    `fc_${chamou++}_${p.functionCall.name}`,
-        name:  p.functionCall.name,
+        id: `fc_${chamou++}_${p.functionCall.name}`,
+        name: p.functionCall.name,
         input: p.functionCall.args ?? {},
       })
     }
   }
 
   return {
-    content:     blocos,
+    content: blocos,
     stop_reason: blocos.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn',
     usage: {
-      input_tokens:            json.usageMetadata?.promptTokenCount ?? 0,
-      output_tokens:           json.usageMetadata?.candidatesTokenCount ?? 0,
+      input_tokens: json.usageMetadata?.promptTokenCount ?? 0,
+      output_tokens: json.usageMetadata?.candidatesTokenCount ?? 0,
       cache_read_input_tokens: json.usageMetadata?.cachedContentTokenCount ?? 0,
     },
   }

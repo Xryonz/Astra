@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import multer from 'multer'
 import path from 'path'
@@ -18,16 +18,31 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 if (process.env.NODE_ENV === 'production' && storageMode === 'local' && !process.env.UPLOAD_PERSISTENT) {
   console.warn(
     '[uploads] ⚠ Storage em filesystem local. Arquivos serão perdidos em cada redeploy.\n' +
-    '          Configure R2 (R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET/R2_PUBLIC_URL)\n' +
-    '          ou seta UPLOAD_PERSISTENT=1 se tem volume montado.',
+      '          Configure R2 (R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET/R2_PUBLIC_URL)\n' +
+      '          ou seta UPLOAD_PERSISTENT=1 se tem volume montado.',
   )
 }
 
 const ALLOWED_MIMES = new Set([
-  'image/png','image/jpeg','image/gif','image/webp','image/avif',
-  'video/mp4','video/webm','video/quicktime',
-  'audio/mpeg','audio/wav','audio/ogg','audio/webm','audio/mp4','audio/x-m4a','audio/aac',
-  'application/pdf','text/plain','application/zip','application/json',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/aac',
+  'application/pdf',
+  'text/plain',
+  'application/zip',
+  'application/json',
 ])
 
 function isMimeAllowed(raw: string): boolean {
@@ -36,18 +51,31 @@ function isMimeAllowed(raw: string): boolean {
 }
 
 const MIME_EXT: Record<string, string> = {
-  'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif',
-  'image/webp': '.webp', 'image/avif': '.avif',
-  'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov',
-  'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
-  'audio/webm': '.weba', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac',
-  'application/pdf': '.pdf', 'text/plain': '.txt', 'application/zip': '.zip', 'application/json': '.json',
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/avif': '.avif',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
+  'audio/mpeg': '.mp3',
+  'audio/wav': '.wav',
+  'audio/ogg': '.ogg',
+  'audio/webm': '.weba',
+  'audio/mp4': '.m4a',
+  'audio/x-m4a': '.m4a',
+  'audio/aac': '.aac',
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+  'application/zip': '.zip',
+  'application/json': '.json',
 }
 function extForMime(mime: string): string {
   return MIME_EXT[mime.split(';')[0].trim().toLowerCase()] ?? '.bin'
 }
 
-const MAX_FILE_SIZE  = 25 * 1024 * 1024
+const MAX_FILE_SIZE = 25 * 1024 * 1024
 const MAX_PER_REQUEST = 10
 
 const CHAVE_DOS_NOMES = crypto.createHmac('sha256', env.JWT_REFRESH_SECRET).update('nome-de-anexo').digest()
@@ -81,13 +109,13 @@ const THUMB_PX = 1280
 const THUMB_MIN_PX = 1400
 
 async function maybeTranscode(file: Express.Multer.File): Promise<{
-  buffer:   Buffer
-  mime:     string
-  ext:      string
-  width?:   number
-  height?:  number
+  buffer: Buffer
+  mime: string
+  ext: string
+  width?: number
+  height?: number
   blurhash?: string
-  thumb?:   Buffer
+  thumb?: Buffer
 }> {
   const mime = file.mimetype.split(';')[0].toLowerCase()
 
@@ -109,11 +137,11 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
     }
 
     return {
-      buffer:   file.buffer,
+      buffer: file.buffer,
       mime,
-      ext:      extForMime(mime),
-      width:    meta.width,
-      height:   meta.height,
+      ext: extForMime(mime),
+      width: meta.width,
+      height: meta.height,
       blurhash: await makeBlurhash(file.buffer),
       thumb,
     }
@@ -133,7 +161,8 @@ router.post(
     upload.array('files', MAX_PER_REQUEST)(req, res, (err: any) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Arquivo maior que 25MB' })
-        if (err.code === 'LIMIT_FILE_COUNT') return res.status(413).json({ error: `Máximo ${MAX_PER_REQUEST} arquivos` })
+        if (err.code === 'LIMIT_FILE_COUNT')
+          return res.status(413).json({ error: `Máximo ${MAX_PER_REQUEST} arquivos` })
         if (err.message === 'TYPE_NOT_ALLOWED') return res.status(415).json({ error: 'Tipo não permitido' })
         return res.status(400).json({ error: 'Falha no upload' })
       }
@@ -146,34 +175,39 @@ router.post(
 
     for (const f of files) {
       const head = f.buffer.subarray(0, 64).toString('latin1').toLowerCase().trimStart()
-      if (head.startsWith('<!doctype html') || head.startsWith('<html') || head.startsWith('<svg') || head.includes('<script')) {
+      if (
+        head.startsWith('<!doctype html') ||
+        head.startsWith('<html') ||
+        head.startsWith('<svg') ||
+        head.includes('<script')
+      ) {
         return res.status(415).json({ error: 'Conteúdo não permitido' })
       }
     }
 
-    const attachments = await Promise.all(files.map(async (f) => {
-      const processed = await maybeTranscode(f)
-      const id = crypto.createHmac('sha256', CHAVE_DOS_NOMES).update(processed.buffer).digest('hex')
-      const filename = `${id}${processed.ext}`
-      const [url, thumbUrl] = await Promise.all([
-        guardarSeNovo(filename, processed.buffer, processed.mime),
-        processed.thumb
-          ? guardarSeNovo(`${id}_t.webp`, processed.thumb, 'image/webp')
-          : Promise.resolve(undefined),
-      ])
-      return {
-        url,
-        thumbUrl,
-        type:     processed.mime,
-        name:     f.originalname,
-        size:     processed.buffer.length,
-        width:    processed.width,
-        height:   processed.height,
-        blurhash: processed.blurhash,
-      }
-    }))
+    const attachments = await Promise.all(
+      files.map(async (f) => {
+        const processed = await maybeTranscode(f)
+        const id = crypto.createHmac('sha256', CHAVE_DOS_NOMES).update(processed.buffer).digest('hex')
+        const filename = `${id}${processed.ext}`
+        const [url, thumbUrl] = await Promise.all([
+          guardarSeNovo(filename, processed.buffer, processed.mime),
+          processed.thumb ? guardarSeNovo(`${id}_t.webp`, processed.thumb, 'image/webp') : Promise.resolve(undefined),
+        ])
+        return {
+          url,
+          thumbUrl,
+          type: processed.mime,
+          name: f.originalname,
+          size: processed.buffer.length,
+          width: processed.width,
+          height: processed.height,
+          blurhash: processed.blurhash,
+        }
+      }),
+    )
     res.json({ data: { attachments } })
-  })
+  }),
 )
 
 export default router

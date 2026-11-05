@@ -2,9 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,6 +70,7 @@ import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
+import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
@@ -598,6 +597,8 @@ internal fun Modifier.categoryDrag(name: String, ctx: CategoryDragCtx?): Modifie
         }
 }
 
+private const val ENTRADA_DA_BOLHA_MS = 200
+
 @Composable
 private fun ChannelDragBubble(d: ChannelDragState) {
     if (d.id == null) return
@@ -606,7 +607,7 @@ private fun ChannelDragBubble(d: ChannelDragState) {
     val splat = remember(d.id) { Animatable(0f) }
     LaunchedEffect(d.id) {
         if (reduce) enter.snapTo(1f)
-        else enter.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
+        else enter.animateTo(1f, tween(ENTRADA_DA_BOLHA_MS, easing = EaseSpring))
     }
     LaunchedEffect(d.fadingOut) {
         if (d.fadingOut) {

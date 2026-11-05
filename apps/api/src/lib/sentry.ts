@@ -1,4 +1,3 @@
-
 import * as Sentry from '@sentry/node'
 import { env, release } from './env'
 import { logger } from './logger'
@@ -12,18 +11,14 @@ export function initSentry(): void {
     return
   }
   Sentry.init({
-    dsn:              env.SENTRY_DSN,
-    environment:      env.SENTRY_ENVIRONMENT ?? env.NODE_ENV,
-    release:          release ?? undefined,
+    dsn: env.SENTRY_DSN,
+    environment: env.SENTRY_ENVIRONMENT ?? env.NODE_ENV,
+    release: release ?? undefined,
     tracesSampleRate: env.SENTRY_TRACES_SAMPLE,
 
-    sendDefaultPii:   false,
+    sendDefaultPii: false,
 
-    ignoreErrors: [
-      /ECONNRESET/,
-      /EPIPE/,
-      /socket hang up/,
-    ],
+    ignoreErrors: [/ECONNRESET/, /EPIPE/, /socket hang up/],
   })
   initialized = true
   logger.info('Sentry', `inicializado (env=${env.SENTRY_ENVIRONMENT ?? env.NODE_ENV})`)
@@ -46,6 +41,10 @@ export const sentry = {
     if (!initialized) return
     Sentry.setUser(id ? { id } : null)
   },
-  isEnabled() { return initialized },
-  raw() { return Sentry },
+  isEnabled() {
+    return initialized
+  },
+  raw() {
+    return Sentry
+  },
 }

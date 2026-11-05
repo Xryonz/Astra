@@ -5,8 +5,8 @@ describe('dado', () => {
   it('entende os formatos que alguem realmente digita', () => {
     expect(dado('2d6')).toMatch(/\(2d6\)/)
     expect(dado('d20')).toMatch(/\(d20\)/)
-    expect(dado('')).toMatch(/\(d6\)/)      
-    expect(dado('3D10')).toMatch(/\(3d10\)/) 
+    expect(dado('')).toMatch(/\(d6\)/)
+    expect(dado('3D10')).toMatch(/\(3d10\)/)
   })
 
   it('recusa lixo com instrucao, nao com NaN', () => {

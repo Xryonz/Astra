@@ -12,38 +12,45 @@ export async function garantirBotNaConstelacao(serverId: string): Promise<void> 
   const botId = await getBotId()
   if (!botId) return
 
-  let [membro] = await db.select({ id: serverMembers.id })
+  let [membro] = await db
+    .select({ id: serverMembers.id })
     .from(serverMembers)
     .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, botId)))
     .limit(1)
 
   if (!membro) {
-    const [novo] = await db.insert(serverMembers)
+    const [novo] = await db
+      .insert(serverMembers)
       .values({ userId: botId, serverId, role: 'MEMBER' })
       .returning({ id: serverMembers.id })
     membro = novo
   }
   if (!membro) return
 
-  let [cargo] = await db.select({ id: roles.id })
+  let [cargo] = await db
+    .select({ id: roles.id })
     .from(roles)
     .where(and(eq(roles.serverId, serverId), eq(roles.name, NOME_CARGO)))
     .limit(1)
 
   if (!cargo) {
-    const [novo] = await db.insert(roles).values({
-      serverId,
-      name: NOME_CARGO,
-      color: COR_CARGO,
-      hoist: true,
-      position: 0,
-      permissions: '[]',
-    }).returning({ id: roles.id })
+    const [novo] = await db
+      .insert(roles)
+      .values({
+        serverId,
+        name: NOME_CARGO,
+        color: COR_CARGO,
+        hoist: true,
+        position: 0,
+        permissions: '[]',
+      })
+      .returning({ id: roles.id })
     cargo = novo
   }
   if (!cargo) return
 
-  const [temCargo] = await db.select({ id: memberRoles.id })
+  const [temCargo] = await db
+    .select({ id: memberRoles.id })
     .from(memberRoles)
     .where(and(eq(memberRoles.memberId, membro.id), eq(memberRoles.roleId, cargo.id)))
     .limit(1)
@@ -63,7 +70,7 @@ export async function garantirBotEmTodas(): Promise<void> {
       try {
         await garantirBotNaConstelacao(s.id)
         feitas++
-      } catch {  }
+      } catch {}
     }
     logger.info('Bot', `Bot garantida em ${feitas}/${todas.length} constelações.`)
   } catch (e) {

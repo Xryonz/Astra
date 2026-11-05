@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import {
-  HttpError, badRequest, unauthorized, forbidden, notFound,
-  conflict, tooLarge, unprocessable, rateLimited,
+  HttpError,
+  badRequest,
+  unauthorized,
+  forbidden,
+  notFound,
+  conflict,
+  tooLarge,
+  unprocessable,
+  rateLimited,
 } from './errors'
 
 describe('HttpError', () => {
@@ -29,14 +36,14 @@ describe('HttpError', () => {
 
 describe('helpers — produz status correto', () => {
   const cases: Array<[() => HttpError, number]> = [
-    [() => badRequest('x'),    400],
-    [() => unauthorized(),     401],
-    [() => forbidden(),        403],
-    [() => notFound(),         404],
-    [() => conflict('dup'),    409],
-    [() => tooLarge('big'),    413],
+    [() => badRequest('x'), 400],
+    [() => unauthorized(), 401],
+    [() => forbidden(), 403],
+    [() => notFound(), 404],
+    [() => conflict('dup'), 409],
+    [() => tooLarge('big'), 413],
     [() => unprocessable('x'), 422],
-    [() => rateLimited(),      429],
+    [() => rateLimited(), 429],
   ]
   for (const [fn, expected] of cases) {
     it(`status ${expected}`, () => {

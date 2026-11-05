@@ -20,14 +20,18 @@ async function esgotar(ip: string) {
 
 describe('limitador por endereco', () => {
   beforeAll(async () => {
-    const guardar = (...partes: unknown[]) => { avisos.push(partes.map(String).join(' ')) }
+    const guardar = (...partes: unknown[]) => {
+      avisos.push(partes.map(String).join(' '))
+    }
     vi.spyOn(console, 'error').mockImplementation(guardar)
     vi.spyOn(console, 'warn').mockImplementation(guardar)
     const { authLimiter } = await import('./rateLimiter')
     const app = express()
     app.set('trust proxy', 1)
     app.use(authLimiter)
-    app.get('/', (_req, res) => { res.json({ ok: true }) })
+    app.get('/', (_req, res) => {
+      res.json({ ok: true })
+    })
     servidor = app.listen(0)
     await new Promise<void>((pronto) => servidor.once('listening', () => pronto()))
     base = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}`

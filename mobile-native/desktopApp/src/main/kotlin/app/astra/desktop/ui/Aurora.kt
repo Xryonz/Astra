@@ -322,7 +322,7 @@ private fun relogioDaAurora(relogio: FloatArray, pronto: Boolean, peloProcessado
                 if (peloProcessador) {
                     delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
                 } else {
-                    esperarPeloTeto(tetoDaAurora(teto.value), inicio)
+                    esperarPeloTeto(tetoDaAurora(teto.value))
                 }
             }
         }

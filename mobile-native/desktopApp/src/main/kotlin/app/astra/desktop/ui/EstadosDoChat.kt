@@ -1,10 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -152,23 +147,16 @@ internal fun contarNovas(mensagens: List<ChatMessage>, vista: Instant?): Int {
     return novas
 }
 
+private const val VOLTA_DOS_PONTOS_MS = 1150
+
 @Composable
 internal fun EmptyChat() {
     val accent = Obsidian.accent
-    val phase = if (LocalReduceMotion.current) {
-        remember { mutableStateOf(0f) }
-    } else {
-        rememberInfiniteTransition(label = "emptyDots").animateFloat(
-            initialValue = 0f,
-            targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(tween(1150, easing = LinearEasing)),
-            label = "dotsPhase",
-        )
-    }
+    val volta = faseDeEnfeite(VOLTA_DOS_PONTOS_MS, repouso = 0f)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Canvas(Modifier.size(width = 62.dp, height = 28.dp)) {
-                val ph = phase.value
+                val ph = volta.value * (2.0 * PI).toFloat()
                 val r = 4.5.dp.toPx()
                 val gap = 16.dp.toPx()
                 val baseY = size.height - r

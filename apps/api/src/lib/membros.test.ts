@@ -11,7 +11,10 @@ function fakeIo() {
 
 describe('deltas de membro', () => {
   let f: ReturnType<typeof fakeIo>
-  beforeEach(() => { f = fakeIo(); attachRealtime(f.io) })
+  beforeEach(() => {
+    f = fakeIo()
+    attachRealtime(f.io)
+  })
 
   it('saiu leva so o id — quem ouve tira da lista sem buscar nada', () => {
     membroSaiu('srv1', 'u9')
@@ -35,8 +38,14 @@ describe('deltas de membro', () => {
 })
 
 describe('cor que vence', () => {
-  const cargo = (id: string, position: number, color: string | null): CargoDoMembro =>
-    ({ id, name: id, color, iconUrl: null, position, hoist: false })
+  const cargo = (id: string, position: number, color: string | null): CargoDoMembro => ({
+    id,
+    name: id,
+    color,
+    iconUrl: null,
+    position,
+    hoist: false,
+  })
 
   it('e a do cargo mais alto que TEM cor, nao a do mais alto', () => {
     const cargos = [cargo('chefe', 9, null), cargo('veterano', 5, '#c9a96e'), cargo('todos', 0, '#888888')]

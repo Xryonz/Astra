@@ -14,7 +14,9 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome ci src",
+    "format": "biome check --write src"
   },
   "dependencies": {
     "@astra/types": "*",
@@ -45,6 +47,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.17",

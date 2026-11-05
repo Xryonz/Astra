@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  limparDesejo,
-  podeDesejar,
-  DESEJOS_NA_JANELA,
-  JANELA_DO_DESEJO_MS,
-} from './desejo'
+import { limparDesejo, podeDesejar, DESEJOS_NA_JANELA, JANELA_DO_DESEJO_MS } from './desejo'
 
 const NULO = String.fromCharCode(0)
 const SINO = String.fromCharCode(7)

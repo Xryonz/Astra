@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -16,15 +16,20 @@ const CHAVES = ['sparkle', 'sparxie'] as const
 type Chave = (typeof CHAVES)[number]
 
 const AjusteSchema = z.object({
-  displayName:     z.string().trim().min(1).max(32).nullable().optional(),
-  avatarUrl:       z.string().max(14_000_000).nullable().optional(),
-  bannerUrl:       z.string().max(14_000_000).nullable().optional(),
-  bannerColor:     z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-  bannerScale:     z.number().int().min(100).max(300).nullable().optional(),
+  displayName: z.string().trim().min(1).max(32).nullable().optional(),
+  avatarUrl: z.string().max(14_000_000).nullable().optional(),
+  bannerUrl: z.string().max(14_000_000).nullable().optional(),
+  bannerColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  bannerScale: z.number().int().min(100).max(300).nullable().optional(),
   bannerPositionY: z.number().int().min(0).max(100).nullable().optional(),
-  limpar: z.array(z.enum([
-    'displayName', 'avatarUrl', 'bannerUrl', 'bannerColor', 'bannerScale', 'bannerPositionY',
-  ])).max(6).optional(),
+  limpar: z
+    .array(z.enum(['displayName', 'avatarUrl', 'bannerUrl', 'bannerColor', 'bannerScale', 'bannerPositionY']))
+    .max(6)
+    .optional(),
 })
 
 async function exigeDono(req: Request, res: Response): Promise<boolean> {
@@ -54,20 +59,21 @@ function paraResposta(p: Persona, ajuste: typeof botPersonas.$inferSelect | unde
 }
 
 async function efetiva(chave: Chave) {
-  const base = chave === personaDoDia().chave
-    ? personaDoDia()
-    : personaDoDia(new Date(chave === 'sparxie' ? '2026-08-14T12:00:00Z' : '2026-08-10T12:00:00Z'))
+  const base =
+    chave === personaDoDia().chave
+      ? personaDoDia()
+      : personaDoDia(new Date(chave === 'sparxie' ? '2026-08-14T12:00:00Z' : '2026-08-10T12:00:00Z'))
   const [ajuste] = await db.select().from(botPersonas).where(eq(botPersonas.chave, chave)).limit(1)
   const comAjuste: Persona = ajuste
     ? {
-      ...base,
-      nome: ajuste.displayName ?? base.nome,
-      avatar: ajuste.avatarUrl ?? base.avatar,
-      banner: ajuste.bannerUrl ?? base.banner,
-      bannerCor: ajuste.bannerColor ?? base.bannerCor,
-      bannerZoom: ajuste.bannerScale ?? base.bannerZoom,
-      bannerY: ajuste.bannerPositionY ?? base.bannerY,
-    }
+        ...base,
+        nome: ajuste.displayName ?? base.nome,
+        avatar: ajuste.avatarUrl ?? base.avatar,
+        banner: ajuste.bannerUrl ?? base.banner,
+        bannerCor: ajuste.bannerColor ?? base.bannerCor,
+        bannerZoom: ajuste.bannerScale ?? base.bannerZoom,
+        bannerY: ajuste.bannerPositionY ?? base.bannerY,
+      }
     : base
   return paraResposta(comAjuste, ajuste)
 }
@@ -105,7 +111,8 @@ router.patch(
     if (Object.keys(patch).length === 0) return res.json({ data: await efetiva(chave) })
 
     patch.updatedAt = new Date()
-    await db.insert(botPersonas)
+    await db
+      .insert(botPersonas)
       .values({ chave, ...patch })
       .onConflictDoUpdate({ target: botPersonas.chave, set: patch })
 

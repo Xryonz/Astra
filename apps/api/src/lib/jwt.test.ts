@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import jwt from 'jsonwebtoken'
-import {
-  generateAccessToken, generateRefreshToken,
-  verifyAccessToken, verifyRefreshToken, hashToken,
-} from './jwt'
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken, hashToken } from './jwt'
 
 describe('access token', () => {
   it('sign + verify roundtrip', () => {
@@ -37,7 +34,6 @@ describe('refresh token', () => {
   })
 
   it('dois refresh no mesmo segundo geram tokens DIFERENTES (jti aleatório)', () => {
-
     const a = generateRefreshToken('same-user')
     const b = generateRefreshToken('same-user')
     expect(a).not.toBe(b)

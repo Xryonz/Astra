@@ -1,12 +1,10 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import { Server as SocketServer } from 'socket.io'
+import type { Server as SocketServer } from 'socket.io'
 import { and, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm'
 import { db } from '../db'
 import { alias } from 'drizzle-orm/pg-core'
-import {
-  channels, servers, serverMembers, messages, users, messageReactions,
-} from '../db/schema'
+import { channels, servers, serverMembers, messages, users, messageReactions } from '../db/schema'
 import { parseMentions } from '../lib/mentions'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { getNotifModesFor } from './channelNotifPrefs'
@@ -32,7 +30,12 @@ import { encodeCursor, parseCursor } from '../lib/cursorDeMensagens'
 
 function safeParseAttachments(raw: unknown): any[] {
   if (!raw || typeof raw !== 'string') return []
-  try { const v = JSON.parse(raw); return Array.isArray(v) ? semAnexosPerdidos(v) : [] } catch { return [] }
+  try {
+    const v = JSON.parse(raw)
+    return Array.isArray(v) ? semAnexosPerdidos(v) : []
+  } catch {
+    return []
+  }
 }
 
 function mentionsArray(raw: unknown): string[] {
@@ -44,11 +47,12 @@ function mentionsArray(raw: unknown): string[] {
 async function attachReactions<T extends { id: string }>(messageList: T[]) {
   if (messageList.length === 0) return messageList
   const ids = messageList.map((m) => m.id)
-  const allReactions = await db.select({
-    emoji:     messageReactions.emoji,
-    userId:    messageReactions.userId,
-    messageId: messageReactions.messageId,
-  })
+  const allReactions = await db
+    .select({
+      emoji: messageReactions.emoji,
+      userId: messageReactions.userId,
+      messageId: messageReactions.messageId,
+    })
     .from(messageReactions)
     .where(inArray(messageReactions.messageId, ids))
     .orderBy(messageReactions.createdAt)
@@ -71,7 +75,9 @@ async function attachReactions<T extends { id: string }>(messageList: T[]) {
     return {
       ...msg,
       reactions: Array.from(emojiMap.entries()).map(([emoji, ids]) => ({
-        emoji, count: ids.length, users: ids,
+        emoji,
+        count: ids.length,
+        users: ids,
       })),
     }
   })
@@ -81,21 +87,19 @@ export function createMessagesRouter(io: SocketServer) {
   const router = Router({ mergeParams: true })
 
   async function assertChannelAccess(userId: string, channelId: string) {
-    const [row] = await db.select({
-      channelId:  channels.id,
-      channelName: channels.name,
-      serverId:   channels.serverId,
-      serverName: servers.name,
-      membershipId: serverMembers.id,
-      isPrivate:  channels.isPrivate,
-      ownerId:    servers.ownerId,
-    })
+    const [row] = await db
+      .select({
+        channelId: channels.id,
+        channelName: channels.name,
+        serverId: channels.serverId,
+        serverName: servers.name,
+        membershipId: serverMembers.id,
+        isPrivate: channels.isPrivate,
+        ownerId: servers.ownerId,
+      })
       .from(channels)
       .innerJoin(servers, eq(servers.id, channels.serverId))
-      .leftJoin(serverMembers, and(
-        eq(serverMembers.serverId, channels.serverId),
-        eq(serverMembers.userId,   userId),
-      ))
+      .leftJoin(serverMembers, and(eq(serverMembers.serverId, channels.serverId), eq(serverMembers.userId, userId)))
       .where(eq(channels.id, channelId))
       .limit(1)
 
@@ -128,86 +132,96 @@ export function createMessagesRouter(io: SocketServer) {
         or(isNull(messages.expiresAt), gt(messages.expiresAt, now))!,
       ]
       if (parsedCursor) {
-        conditions.push(or(
-          lt(messages.createdAt, parsedCursor.createdAt),
-          and(eq(messages.createdAt, parsedCursor.createdAt), lt(messages.id, parsedCursor.id))
-        )!)
+        conditions.push(
+          or(
+            lt(messages.createdAt, parsedCursor.createdAt),
+            and(eq(messages.createdAt, parsedCursor.createdAt), lt(messages.id, parsedCursor.id)),
+          )!,
+        )
       }
 
-      const parent       = alias(messages, 'parent')
-      const parentAuthor = alias(users,    'parentAuthor')
+      const parent = alias(messages, 'parent')
+      const parentAuthor = alias(users, 'parentAuthor')
 
-      const rows = await db.select({
-        id:          messages.id,
-        content:     messages.content,
-        authorId:    messages.authorId,
-        channelId:   messages.channelId,
-        authorColor: messages.authorColor,
-        authorName:      messages.authorName,
-        authorAvatarUrl: messages.authorAvatarUrl,
-        kind:            messages.kind,
-        attachments: messages.attachments,
-        mentions:    messages.mentions,
-        edited:      messages.edited,
-        pinned:      messages.pinned,
-        poll:        messages.poll,
-        replyToId:   messages.replyToId,
-        deletedAt:   messages.deletedAt,
-        createdAt:   messages.createdAt,
-        updatedAt:   messages.updatedAt,
-        author: {
-          id:          users.id,
-          username:    users.username,
-          displayName: users.displayName,
-          avatarUrl:   users.avatarUrl,
-          displayFont: users.displayFont,
-        },
-        parentId:           parent.id,
-        parentContent:      parent.content,
-        parentAuthorId:     parentAuthor.id,
-        parentAuthorName:   parentAuthor.displayName,
-        parentAuthorAvatar: parentAuthor.avatarUrl,
-        parentAuthorFont:   parentAuthor.displayFont,
-        parentNomeGuardado: parent.authorName,
-        parentFotoGuardada: parent.authorAvatarUrl,
-      })
+      const rows = await db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          authorId: messages.authorId,
+          channelId: messages.channelId,
+          authorColor: messages.authorColor,
+          authorName: messages.authorName,
+          authorAvatarUrl: messages.authorAvatarUrl,
+          kind: messages.kind,
+          attachments: messages.attachments,
+          mentions: messages.mentions,
+          edited: messages.edited,
+          pinned: messages.pinned,
+          poll: messages.poll,
+          replyToId: messages.replyToId,
+          deletedAt: messages.deletedAt,
+          createdAt: messages.createdAt,
+          updatedAt: messages.updatedAt,
+          author: {
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+            displayFont: users.displayFont,
+          },
+          parentId: parent.id,
+          parentContent: parent.content,
+          parentAuthorId: parentAuthor.id,
+          parentAuthorName: parentAuthor.displayName,
+          parentAuthorAvatar: parentAuthor.avatarUrl,
+          parentAuthorFont: parentAuthor.displayFont,
+          parentNomeGuardado: parent.authorName,
+          parentFotoGuardada: parent.authorAvatarUrl,
+        })
         .from(messages)
         .innerJoin(users, eq(users.id, messages.authorId))
-        .leftJoin(parent,       eq(parent.id, messages.replyToId))
+        .leftJoin(parent, eq(parent.id, messages.replyToId))
         .leftJoin(parentAuthor, eq(parentAuthor.id, parent.authorId))
         .where(and(...conditions))
         .orderBy(desc(messages.createdAt), desc(messages.id))
         .limit(take + 1)
 
-      const hasMore   = rows.length > take
-      const items     = hasMore ? rows.slice(0, take) : rows
-      const lastItem  = items[items.length - 1]
+      const hasMore = rows.length > take
+      const items = hasMore ? rows.slice(0, take) : rows
+      const lastItem = items[items.length - 1]
       const nextCursor = hasMore && lastItem ? encodeCursor(lastItem.createdAt, lastItem.id) : null
 
       const shaped = items.map((r: any) => ({
         ...r,
-        author:      autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
-        authorName:      undefined,
+        author: autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
+        authorName: undefined,
         authorAvatarUrl: undefined,
         attachments: safeParseAttachments(r.attachments),
-        mentions:    mentionsArray(r.mentions),
-        poll:        safeParsePoll(r.poll),
-        replyTo: r.parentId ? {
-          id:           r.parentId,
-          content:      (r.parentContent ?? '').slice(0, 160),
-          authorId:     r.parentAuthorId ?? null,
-          authorName:   r.parentNomeGuardado ?? r.parentAuthorName ?? 'Usuário',
-          authorAvatar: fotoViva(r.parentFotoGuardada) ?? r.parentAuthorAvatar ?? null,
-          authorFont:   r.parentAuthorFont ?? null,
-        } : null,
-        parentId: undefined, parentContent: undefined, parentAuthorId: undefined,
-        parentAuthorName: undefined, parentAuthorAvatar: undefined, parentAuthorFont: undefined,
-        parentNomeGuardado: undefined, parentFotoGuardada: undefined,
+        mentions: mentionsArray(r.mentions),
+        poll: safeParsePoll(r.poll),
+        replyTo: r.parentId
+          ? {
+              id: r.parentId,
+              content: (r.parentContent ?? '').slice(0, 160),
+              authorId: r.parentAuthorId ?? null,
+              authorName: r.parentNomeGuardado ?? r.parentAuthorName ?? 'Usuário',
+              authorAvatar: fotoViva(r.parentFotoGuardada) ?? r.parentAuthorAvatar ?? null,
+              authorFont: r.parentAuthorFont ?? null,
+            }
+          : null,
+        parentId: undefined,
+        parentContent: undefined,
+        parentAuthorId: undefined,
+        parentAuthorName: undefined,
+        parentAuthorAvatar: undefined,
+        parentAuthorFont: undefined,
+        parentNomeGuardado: undefined,
+        parentFotoGuardada: undefined,
       }))
 
       const withReactions = await attachReactions(shaped.reverse())
       res.json({ data: { items: withReactions, nextCursor, hasMore } })
-    })
+    }),
   )
 
   router.post(
@@ -218,25 +232,37 @@ export function createMessagesRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const { channelId } = req.params
       const { content, replyToId, attachments, clientNonce, ttlSeconds } = req.body as {
-        content: string; replyToId?: string; attachments?: any[]; clientNonce?: string; ttlSeconds?: number
+        content: string
+        replyToId?: string
+        attachments?: any[]
+        clientNonce?: string
+        ttlSeconds?: number
       }
 
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
       let validReplyToId: string | null = null
-      let replyParent: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null } | null = null
+      let replyParent: {
+        id: string
+        content: string
+        authorId: string
+        authorName: string
+        authorAvatar: string | null
+        authorFont: string | null
+      } | null = null
       if (replyToId) {
-        const [parent] = await db.select({
-          id:            messages.id,
-          content:       messages.content,
-          authorId:      messages.authorId,
-          authorName:    users.displayName,
-          authorAvatar:  users.avatarUrl,
-          authorFont:    users.displayFont,
-          nomeGuardado:  messages.authorName,
-          fotoGuardada:  messages.authorAvatarUrl,
-        })
+        const [parent] = await db
+          .select({
+            id: messages.id,
+            content: messages.content,
+            authorId: messages.authorId,
+            authorName: users.displayName,
+            authorAvatar: users.avatarUrl,
+            authorFont: users.displayFont,
+            nomeGuardado: messages.authorName,
+            fotoGuardada: messages.authorAvatarUrl,
+          })
           .from(messages)
           .innerJoin(users, eq(users.id, messages.authorId))
           .where(and(eq(messages.id, replyToId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
@@ -244,12 +270,12 @@ export function createMessagesRouter(io: SocketServer) {
         if (parent) {
           validReplyToId = parent.id
           replyParent = {
-            id:           parent.id,
-            content:      (parent.content ?? '').slice(0, 160),
-            authorId:     parent.authorId,
-            authorName:   parent.nomeGuardado ?? parent.authorName,
+            id: parent.id,
+            content: (parent.content ?? '').slice(0, 160),
+            authorId: parent.authorId,
+            authorName: parent.nomeGuardado ?? parent.authorName,
             authorAvatar: fotoViva(parent.fotoGuardada) ?? parent.authorAvatar,
-            authorFont:   parent.authorFont,
+            authorFont: parent.authorFont,
           }
         }
       }
@@ -270,8 +296,11 @@ export function createMessagesRouter(io: SocketServer) {
         if (botId) {
           await muteUser(req.userId!, channel.serverId, botId)
           const secondsLeft = await getMuteExpiry(req.userId!, channel.serverId)
-          const [offender] = await db.select({ username: users.username }).from(users)
-            .where(eq(users.id, req.userId!)).limit(1)
+          const [offender] = await db
+            .select({ username: users.username })
+            .from(users)
+            .where(eq(users.id, req.userId!))
+            .limit(1)
 
           const botMsg = {
             id: `bot-mute-${Date.now()}`,
@@ -308,16 +337,26 @@ export function createMessagesRouter(io: SocketServer) {
       const authorColor = membership?.nameColor ?? null
       const mentionsStr = mentionedIds.join(',')
 
-      const [inserted] = await db.insert(messages).values({
-        content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
-        ...identidadeParaGuardar(author),
-        attachments: attachmentsJson,
-        replyToId: validReplyToId,
-        expiresAt,
-      }).returning()
+      const [inserted] = await db
+        .insert(messages)
+        .values({
+          content,
+          channelId,
+          authorId: req.userId!,
+          authorColor,
+          mentions: mentionsStr,
+          ...identidadeParaGuardar(author),
+          attachments: attachmentsJson,
+          replyToId: validReplyToId,
+          expiresAt,
+        })
+        .returning()
 
       const msgWithReactions = {
-        ...inserted, author, reactions: [], mentions: mentionedIds,
+        ...inserted,
+        author,
+        reactions: [],
+        mentions: mentionedIds,
         attachments: safeParseAttachments(inserted.attachments),
         replyTo: replyParent,
       }
@@ -336,13 +375,12 @@ export function createMessagesRouter(io: SocketServer) {
       setImmediate(() => {
         void (async () => {
           try {
-
-            const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
+            const allMembers = await db
+              .select({ userId: serverMembers.userId })
+              .from(serverMembers)
               .where(eq(serverMembers.serverId, channel.serverId))
             const memberIds = allMembers.map((m) => m.userId).filter((id) => id !== req.userId)
-            const veem = await membrosQueVeemCanal(
-              channelId, channel.isPrivate, channel.ownerId, memberIds,
-            )
+            const veem = await membrosQueVeemCanal(channelId, channel.isPrivate, channel.ownerId, memberIds)
             const notifModes = await getNotifModesFor(channelId, memberIds)
             const mentionedSet = new Set(mentionedIds)
             const now = inserted.createdAt.toISOString()
@@ -350,10 +388,10 @@ export function createMessagesRouter(io: SocketServer) {
               channelId,
               lastMessageAt: now,
               channelName: channel.channelName,
-              serverName:  channel.serverName,
-              authorName:  author.displayName || author.username,
+              serverName: channel.serverName,
+              authorName: author.displayName || author.username,
               authorAvatar: author.avatarUrl ?? null,
-              preview:     resumoDaMensagem(content, Array.isArray(attachments) ? attachments.length : 0),
+              preview: resumoDaMensagem(content, Array.isArray(attachments) ? attachments.length : 0),
             }
             for (const userId of memberIds) {
               if (!veem.has(userId)) continue
@@ -367,33 +405,36 @@ export function createMessagesRouter(io: SocketServer) {
               if (userId === req.userId) continue
               if (notifModes.get(userId) === 'mute') continue
               io.to(`user:${userId}`).emit('mention', {
-                messageId:   inserted.id,
+                messageId: inserted.id,
                 channelId,
-                serverId:    channel.serverId,
-                serverName:  channel.serverName,
+                serverId: channel.serverId,
+                serverName: channel.serverName,
                 channelName: channel.channelName,
-                authorName:  author.displayName,
-                preview:     content.slice(0, 80),
+                authorName: author.displayName,
+                preview: content.slice(0, 80),
               })
               void notify({
-                io, userId, actorId: req.userId!, type: 'mention',
+                io,
+                userId,
+                actorId: req.userId!,
+                type: 'mention',
                 payload: {
-                  messageId:   inserted.id,
+                  messageId: inserted.id,
                   channelId,
-                  serverId:    channel.serverId,
-                  serverName:  channel.serverName,
+                  serverId: channel.serverId,
+                  serverName: channel.serverName,
                   channelName: channel.channelName,
-                  authorId:    author.id,
-                  authorName:  author.displayName,
+                  authorId: author.id,
+                  authorName: author.displayName,
                   authorAvatar: author.avatarUrl,
-                  preview:     content.slice(0, 140),
+                  preview: content.slice(0, 140),
                 },
                 push: {
                   title: `${author.displayName} mencionou você em #${channel.channelName}`,
-                  body:  content.slice(0, 140),
-                  url:   '/app',
-                  tag:   `mention-${channelId}`,
-                  icon:  author.avatarUrl ?? undefined,
+                  body: content.slice(0, 140),
+                  url: '/app',
+                  tag: `mention-${channelId}`,
+                  icon: author.avatarUrl ?? undefined,
                   actionable: true,
                   channelId,
                   sender: author.displayName,
@@ -403,25 +444,28 @@ export function createMessagesRouter(io: SocketServer) {
 
             if (validReplyToId && replyParent && replyParent.authorId !== req.userId) {
               void notify({
-                io, userId: replyParent.authorId, actorId: req.userId!, type: 'reply',
+                io,
+                userId: replyParent.authorId,
+                actorId: req.userId!,
+                type: 'reply',
                 payload: {
-                  messageId:   inserted.id,
+                  messageId: inserted.id,
                   channelId,
-                  serverId:    channel.serverId,
-                  serverName:  channel.serverName,
+                  serverId: channel.serverId,
+                  serverName: channel.serverName,
                   channelName: channel.channelName,
-                  authorId:    author.id,
-                  authorName:  author.displayName,
+                  authorId: author.id,
+                  authorName: author.displayName,
                   authorAvatar: author.avatarUrl,
-                  preview:     content.slice(0, 140),
+                  preview: content.slice(0, 140),
                   replyToContent: replyParent.content?.slice(0, 80) ?? '',
                 },
                 push: {
                   title: `${author.displayName} respondeu você em #${channel.channelName}`,
-                  body:  content.slice(0, 140),
-                  url:   '/app',
-                  tag:   `reply-${inserted.id}`,
-                  icon:  author.avatarUrl ?? undefined,
+                  body: content.slice(0, 140),
+                  url: '/app',
+                  tag: `reply-${inserted.id}`,
+                  icon: author.avatarUrl ?? undefined,
                   actionable: true,
                   channelId,
                 },
@@ -432,7 +476,7 @@ export function createMessagesRouter(io: SocketServer) {
           }
         })()
       })
-    })
+    }),
   )
 
   router.patch(
@@ -441,31 +485,40 @@ export function createMessagesRouter(io: SocketServer) {
     validate(EditMessageSchema),
     asyncHandler(async (req: Request, res: Response) => {
       const { channelId, messageId } = req.params
-      const { content }              = req.body
+      const { content } = req.body
 
       await assertChannelAccess(req.userId!, channelId)
 
-      const [message] = await db.select().from(messages)
+      const [message] = await db
+        .select()
+        .from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)
       if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' })
       if (message.authorId !== req.userId) return res.status(403).json({ error: 'Sem permissão' })
 
-      const [channel] = await db.select({ serverId: channels.serverId }).from(channels)
-        .where(eq(channels.id, channelId)).limit(1)
+      const [channel] = await db
+        .select({ serverId: channels.serverId })
+        .from(channels)
+        .where(eq(channels.id, channelId))
+        .limit(1)
       const mentionedIds = channel ? await parseMentions(content, channel.serverId) : []
 
-      const [updated] = await db.update(messages)
+      const [updated] = await db
+        .update(messages)
         .set({ content, edited: true, mentions: mentionedIds.join(',') })
         .where(eq(messages.id, messageId))
         .returning()
 
       io.to(`channel:${channelId}`).emit('message_edited', {
-        messageId, content: updated.content, channelId, edited: true,
+        messageId,
+        content: updated.content,
+        channelId,
+        edited: true,
       })
 
       res.json({ data: updated })
-    })
+    }),
   )
 
   router.post(
@@ -477,7 +530,9 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      const [msg] = await db.select({ authorId: messages.authorId }).from(messages)
+      const [msg] = await db
+        .select({ authorId: messages.authorId })
+        .from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)
       if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada' })
@@ -489,11 +544,14 @@ export function createMessagesRouter(io: SocketServer) {
       await db.update(messages).set({ pinned: true }).where(eq(messages.id, messageId))
       io.to(`channel:${channelId}`).emit('message_pinned', { messageId, channelId, pinned: true })
       void audit({
-        serverId: channel.serverId, actorId: req.userId!, action: AUDIT.MESSAGE_PIN,
-        targetId: messageId, metadata: { channelId },
+        serverId: channel.serverId,
+        actorId: req.userId!,
+        action: AUDIT.MESSAGE_PIN,
+        targetId: messageId,
+        metadata: { channelId },
       })
       res.json({ data: { messageId, pinned: true } })
-    })
+    }),
   )
 
   router.delete(
@@ -505,7 +563,9 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      const [msg] = await db.select({ authorId: messages.authorId }).from(messages)
+      const [msg] = await db
+        .select({ authorId: messages.authorId })
+        .from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)
       if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada' })
@@ -517,11 +577,14 @@ export function createMessagesRouter(io: SocketServer) {
       await db.update(messages).set({ pinned: false }).where(eq(messages.id, messageId))
       io.to(`channel:${channelId}`).emit('message_pinned', { messageId, channelId, pinned: false })
       void audit({
-        serverId: channel.serverId, actorId: req.userId!, action: AUDIT.MESSAGE_UNPIN,
-        targetId: messageId, metadata: { channelId },
+        serverId: channel.serverId,
+        actorId: req.userId!,
+        action: AUDIT.MESSAGE_UNPIN,
+        targetId: messageId,
+        metadata: { channelId },
       })
       res.json({ data: { messageId, pinned: false } })
-    })
+    }),
   )
 
   router.get(
@@ -532,45 +595,44 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      const rows = await db.select({
-        id:          messages.id,
-        content:     messages.content,
-        authorId:    messages.authorId,
-        channelId:   messages.channelId,
-        authorColor: messages.authorColor,
-        authorName:      messages.authorName,
-        authorAvatarUrl: messages.authorAvatarUrl,
-        mentions:    messages.mentions,
-        edited:      messages.edited,
-        pinned:      messages.pinned,
-        createdAt:   messages.createdAt,
-        updatedAt:   messages.updatedAt,
-        author: {
-          id:          users.id,
-          username:    users.username,
-          displayName: users.displayName,
-          avatarUrl:   users.avatarUrl,
-          displayFont: users.displayFont,
-        },
-      })
+      const rows = await db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          authorId: messages.authorId,
+          channelId: messages.channelId,
+          authorColor: messages.authorColor,
+          authorName: messages.authorName,
+          authorAvatarUrl: messages.authorAvatarUrl,
+          mentions: messages.mentions,
+          edited: messages.edited,
+          pinned: messages.pinned,
+          createdAt: messages.createdAt,
+          updatedAt: messages.updatedAt,
+          author: {
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+            displayFont: users.displayFont,
+          },
+        })
         .from(messages)
         .innerJoin(users, eq(users.id, messages.authorId))
-        .where(and(
-          eq(messages.channelId, channelId),
-          eq(messages.pinned, true),
-          isNull(messages.deletedAt),
-        ))
+        .where(and(eq(messages.channelId, channelId), eq(messages.pinned, true), isNull(messages.deletedAt)))
         .orderBy(desc(messages.createdAt))
         .limit(50)
 
-      res.json({ data: rows.map((r: any) => ({
-        ...r,
-        author: autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
-        authorName: undefined,
-        authorAvatarUrl: undefined,
-        mentions: mentionsArray(r.mentions),
-      })) })
-    })
+      res.json({
+        data: rows.map((r: any) => ({
+          ...r,
+          author: autorComoEra(r.author, r.authorName, r.authorAvatarUrl),
+          authorName: undefined,
+          authorAvatarUrl: undefined,
+          mentions: mentionsArray(r.mentions),
+        })),
+      })
+    }),
   )
 
   router.delete(
@@ -579,16 +641,15 @@ export function createMessagesRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const { channelId, messageId } = req.params
 
-      const [message] = await db.select({
-        id: messages.id, authorId: messages.authorId, serverId: channels.serverId,
-      })
+      const [message] = await db
+        .select({
+          id: messages.id,
+          authorId: messages.authorId,
+          serverId: channels.serverId,
+        })
         .from(messages)
         .innerJoin(channels, eq(channels.id, messages.channelId))
-        .where(and(
-          eq(messages.id, messageId),
-          eq(messages.channelId, channelId),
-          isNull(messages.deletedAt),
-        ))
+        .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)
       if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' })
 
@@ -600,12 +661,15 @@ export function createMessagesRouter(io: SocketServer) {
       io.to(`channel:${channelId}`).emit('message_deleted', { messageId, channelId })
       if (message.authorId !== req.userId) {
         void audit({
-          serverId: message.serverId, actorId: req.userId!, action: AUDIT.MESSAGE_DELETE,
-          targetId: messageId, metadata: { channelId, authorId: message.authorId },
+          serverId: message.serverId,
+          actorId: req.userId!,
+          action: AUDIT.MESSAGE_DELETE,
+          targetId: messageId,
+          metadata: { channelId, authorId: message.authorId },
         })
       }
       res.json({ message: 'Mensagem removida' })
-    })
+    }),
   )
 
   return router

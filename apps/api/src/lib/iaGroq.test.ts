@@ -29,7 +29,7 @@ describe('paraMensagens', () => {
 
   it('a resposta da ferramenta vem depois da chamada', () => {
     const r = paraMensagens('s', [FERRAMENTA, RESULTADO])
-    const iChamada  = r.findIndex((m) => m.tool_calls?.length)
+    const iChamada = r.findIndex((m) => m.tool_calls?.length)
     const iResposta = r.findIndex((m) => m.role === 'tool')
     expect(iChamada).toBeGreaterThanOrEqual(0)
     expect(iResposta).toBe(iChamada + 1)
@@ -50,15 +50,18 @@ describe('paraMensagens', () => {
   })
 
   it('nao emite mensagem vazia quando o bloco nao tem nada aproveitavel', () => {
-    const r = paraMensagens('s', [{ role: 'assistant', content: [] }, { role: 'user', content: '' }])
-    expect(r).toHaveLength(1) 
+    const r = paraMensagens('s', [
+      { role: 'assistant', content: [] },
+      { role: 'user', content: '' },
+    ])
+    expect(r).toHaveLength(1)
   })
 
   it('varios tool_use no mesmo turno viram varias chamadas em UMA mensagem', () => {
     const duplo = {
       role: 'assistant',
       content: [
-        { type: 'tool_use', id: 'a', name: 'um',  input: {} },
+        { type: 'tool_use', id: 'a', name: 'um', input: {} },
         { type: 'tool_use', id: 'b', name: 'dois', input: {} },
       ],
     }

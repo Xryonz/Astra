@@ -15,16 +15,20 @@ export function startRetentionWorker() {
 
   const run = async () => {
     try {
-      const servs = await db.select({ id: servers.id, days: servers.messageRetentionDays })
-        .from(servers).where(isNotNull(servers.messageRetentionDays))
+      const servs = await db
+        .select({ id: servers.id, days: servers.messageRetentionDays })
+        .from(servers)
+        .where(isNotNull(servers.messageRetentionDays))
 
       for (const s of servs) {
         if (!s.days || s.days <= 0) continue
         const cutoff = new Date(Date.now() - s.days * 24 * 60 * 60 * 1000)
 
-        const stale = await db.select({
-          id: messages.id, attachments: messages.attachments,
-        })
+        const stale = await db
+          .select({
+            id: messages.id,
+            attachments: messages.attachments,
+          })
           .from(messages)
           .innerJoin(channels, eq(channels.id, messages.channelId))
           .where(and(eq(channels.serverId, s.id), lt(messages.createdAt, cutoff)))
@@ -44,14 +48,17 @@ export function startRetentionWorker() {
           } catch {}
         }
         for (const url of arquivos) {
-          try { await removerSeNinguemUsa(url, ids) } catch {}
+          try {
+            await removerSeNinguemUsa(url, ids)
+          } catch {}
         }
 
         await db.delete(messages).where(inArray(messages.id, ids))
         logger.info('Retention', `server=${s.id} apagou ${ids.length} mensagens (cutoff ${cutoff.toISOString()})`)
       }
 
-      const delEph = await db.delete(messages)
+      const delEph = await db
+        .delete(messages)
         .where(sql`${messages.expiresAt} IS NOT NULL AND ${messages.expiresAt} <= now()`)
         .returning({ id: messages.id })
       if (delEph.length > 0) {
@@ -59,7 +66,8 @@ export function startRetentionWorker() {
       }
 
       const notifCutoff = new Date(Date.now() - NOTIFICATION_TTL_DAYS * 24 * 60 * 60 * 1000)
-      const delNotifs = await db.delete(notifications)
+      const delNotifs = await db
+        .delete(notifications)
         .where(and(isNotNull(notifications.readAt), lt(notifications.createdAt, notifCutoff)))
         .returning({ id: notifications.id })
       if (delNotifs.length > 0) {
@@ -68,8 +76,11 @@ export function startRetentionWorker() {
     } catch (err: any) {
       const cause = err?.cause ?? err
       logger.error('Retention', err?.message ?? 'sem mensagem', {
-        code: cause?.code, constraint: cause?.constraint, detail: cause?.detail,
-        table: cause?.table, column: cause?.column,
+        code: cause?.code,
+        constraint: cause?.constraint,
+        detail: cause?.detail,
+        table: cause?.table,
+        column: cause?.column,
       })
     }
   }

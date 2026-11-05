@@ -11,6 +11,13 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(file("detekt.yml"))
+    baseline = file("detekt-baseline.xml")
 }
 
 kotlin {

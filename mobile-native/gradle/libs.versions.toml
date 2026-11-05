@@ -5,6 +5,9 @@ ksp = "2.3.9"
 # Compose Multiplatform (desktop). O CMP mais recente e sempre compativel com o
 # Kotlin mais recente (min 2.1.0); nosso 2.3.21 serve. So o modulo :desktopApp usa.
 composeMultiplatform = "1.12.2"
+# Verificacao estatica do Kotlin. O 2.0 so existe em alpha; a alpha.3 foi compilada
+# contra o Kotlin 2.3.21, o nosso. A 1.23 estavel e do Kotlin 2.0.
+detekt = "2.0.0-alpha.3"
 # DI do desktop (Hilt e Android-only). koin-core puro, sem codegen.
 koin = "4.1.0"
 hilt = "2.60"
@@ -129,3 +132,4 @@ android-test = { id = "com.android.test", version.ref = "agp" }
 # Desktop (Compose Multiplatform, modulo :desktopApp)
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }

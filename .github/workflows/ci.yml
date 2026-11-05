@@ -76,6 +76,10 @@ jobs:
         working-directory: mobile-native
         run: ./gradlew :desktopApp:compileKotlin --no-daemon
 
+      - name: Conferir o Kotlin do desktop
+        working-directory: mobile-native
+        run: ./gradlew :desktopApp:detekt --no-daemon
+
 
   android:
     name: Android · compilar

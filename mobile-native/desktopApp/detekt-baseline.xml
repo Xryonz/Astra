@@ -1,0 +1,768 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:CanoDeQuadros.kt:CanoDeQuadros$tamPar !in 0..512 || tamDados !in 0..MAX_QUADRO || largura &lt;= 0 || altura &lt;= 0</ID>
+    <ID>ComplexCondition:ChatVm.kt:ChatVm$allowFast &amp;&amp; content.isNotEmpty() &amp;&amp; pending.isEmpty() &amp;&amp; replyToId == null &amp;&amp; socket.isConnected()</ID>
+    <ID>ComplexCondition:DesejosPanel.kt:!acabou &amp;&amp; !carregando &amp;&amp; itens.isNotEmpty() &amp;&amp; ultimo &gt;= itens.size - 3</ID>
+    <ID>ComplexCondition:ShellCanais.kt:dSt != null &amp;&amp; dSt.dragging &amp;&amp; dSt.section == dragCtx.section &amp;&amp; dSt.id != ch.id &amp;&amp; dSt.targetIndex == dragCtx.index</ID>
+    <ID>ComplexCondition:ShellVm.kt:ShellVm$noSussurro &amp;&amp; aberto is ChatTarget.Dm &amp;&amp; dms.any { it.id == aberto.id &amp;&amp; it.otherUser?.id == ev.userId }</ID>
+    <ID>ComplexCondition:TelaCompartilhada.kt:q.largura &lt;= 0 || q.altura &lt;= 0 || size.width &lt;= 0f || size.height &lt;= 0f</ID>
+    <ID>CyclomaticComplexMethod:AnimacaoDeArtista.kt:@OptIn(ExperimentalCompottieApi::class) @Composable fun AnimacaoDeArtista</ID>
+    <ID>CyclomaticComplexMethod:AnimatedImage.kt:@Composable fun AstraImage</ID>
+    <ID>CyclomaticComplexMethod:Aurora.kt:@Composable private fun Modifier.auroraNaPlaca: Modifier</ID>
+    <ID>CyclomaticComplexMethod:CallNaSala.kt:CallNaSala$private suspend fun ouvirSidecar</ID>
+    <ID>CyclomaticComplexMethod:CanoDeQuadros.kt:CanoDeQuadros$private fun atender</ID>
+    <ID>CyclomaticComplexMethod:ChatView.kt:@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class) @Composable fun ChatView</ID>
+    <ID>CyclomaticComplexMethod:ChatView.kt:private fun montarLinhas: List&lt;LinhaDoChat&gt;</ID>
+    <ID>CyclomaticComplexMethod:ChatVm.kt:ChatVm$fun addFiles</ID>
+    <ID>CyclomaticComplexMethod:ChatVm.kt:ChatVm$fun send</ID>
+    <ID>CyclomaticComplexMethod:ChatVm.kt:ChatVm$private fun listenLive</ID>
+    <ID>CyclomaticComplexMethod:CompressorDeVideo.kt:CompressorDeVideo$suspend fun preparar: PreparoDoVideo</ID>
+    <ID>CyclomaticComplexMethod:ConteudoDaMensagem.kt:@Composable private fun AttachmentBlock</ID>
+    <ID>CyclomaticComplexMethod:ConteudoDaMensagem.kt:@OptIn(ExperimentalLayoutApi::class) @Composable internal fun ContentBlock</ID>
+    <ID>CyclomaticComplexMethod:CoresDoNomeSection.kt:@Composable private fun LinhaDeConstelacao</ID>
+    <ID>CyclomaticComplexMethod:DesejosPanel.kt:@Composable fun DesejosPanel</ID>
+    <ID>CyclomaticComplexMethod:DesktopSocket.kt:DesktopSocket$private suspend fun abrir</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsSection.kt:@Composable internal fun DiagnosticsSection</ID>
+    <ID>CyclomaticComplexMethod:DiscoverView.kt:@Composable fun DiscoverView</ID>
+    <ID>CyclomaticComplexMethod:EmojiPicker.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun EmojiPicker</ID>
+    <ID>CyclomaticComplexMethod:FotoPerdida.kt:FotoPerdida$private fun tipoDe: String?</ID>
+    <ID>CyclomaticComplexMethod:FriendsView.kt:@Composable fun FriendsView</ID>
+    <ID>CyclomaticComplexMethod:GoogleAuthFlow.kt:GoogleAuthFlow$suspend fun captureRefreshToken: Result&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:IconAction.kt:@Composable fun BotaoIcone</ID>
+    <ID>CyclomaticComplexMethod:ImageCrop.kt:@OptIn(ExperimentalComposeUiApi::class) @Composable fun CropDialog</ID>
+    <ID>CyclomaticComplexMethod:LinhaDaMensagem.kt:@Composable internal fun MessageRow</ID>
+    <ID>CyclomaticComplexMethod:LoginScreen.kt:@Composable fun LoginScreen</ID>
+    <ID>CyclomaticComplexMethod:Main.kt:fun main</ID>
+    <ID>CyclomaticComplexMethod:MissoesOverlay.kt:@Composable private fun LinhaDeMissao</ID>
+    <ID>CyclomaticComplexMethod:MontagemPorPartes.kt:MontagemPorPartes$private fun planejarJar: JarRemontavel?</ID>
+    <ID>CyclomaticComplexMethod:MontagemPorPartes.kt:MontagemPorPartes$private fun remontar: Boolean</ID>
+    <ID>CyclomaticComplexMethod:MontagemPorPartes.kt:MontagemPorPartes$suspend fun montar: Montagem?</ID>
+    <ID>CyclomaticComplexMethod:NotifPanel.kt:@Composable fun NotifPanel</ID>
+    <ID>CyclomaticComplexMethod:NotifPanel.kt:@Composable private fun NotifRow</ID>
+    <ID>CyclomaticComplexMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
+    <ID>CyclomaticComplexMethod:PermissoesPainel.kt:@Composable fun PainelDePermissoes</ID>
+    <ID>CyclomaticComplexMethod:PermissoesPainel.kt:@Composable private fun BotaoPermitir</ID>
+    <ID>CyclomaticComplexMethod:PetDoAstra.kt:@Composable fun PetDoAstra</ID>
+    <ID>CyclomaticComplexMethod:PetDoAstra.kt:private fun DrawScope.desenharPet</ID>
+    <ID>CyclomaticComplexMethod:Poll.kt:@Composable fun PollBlock</ID>
+    <ID>CyclomaticComplexMethod:ProfileCard.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun CorpoCompacto</ID>
+    <ID>CyclomaticComplexMethod:ProfilePage.kt:@Composable private fun ColunaDeVinculos</ID>
+    <ID>CyclomaticComplexMethod:SearchOverlay.kt:@Composable fun SearchOverlay</ID>
+    <ID>CyclomaticComplexMethod:ServerRolesTab.kt:@Composable private fun RoleEditor</ID>
+    <ID>CyclomaticComplexMethod:ServerSettingsScreen.kt:@Composable fun ServerSettingsScreen</ID>
+    <ID>CyclomaticComplexMethod:ServerSettingsScreen.kt:@Composable private fun OverviewSection</ID>
+    <ID>CyclomaticComplexMethod:SettingsConta.kt:@Composable internal fun AccountSection</ID>
+    <ID>CyclomaticComplexMethod:SettingsConta.kt:private fun prettyAgent: String</ID>
+    <ID>CyclomaticComplexMethod:SettingsPecas.kt:@Composable internal fun DialogoDeSenha</ID>
+    <ID>CyclomaticComplexMethod:SettingsPerfil.kt:@Composable internal fun ProfileSection</ID>
+    <ID>CyclomaticComplexMethod:SettingsPrevias.kt:@Composable private fun ProfileCardPreview</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt:@Composable fun SettingsScreen</ID>
+    <ID>CyclomaticComplexMethod:ShellCanais.kt:@Composable internal fun OrbitItem</ID>
+    <ID>CyclomaticComplexMethod:ShellDialogos.kt:@Composable internal fun BotaoDeDialogo</ID>
+    <ID>CyclomaticComplexMethod:ShellMembros.kt:@Composable private fun MemberRow</ID>
+    <ID>CyclomaticComplexMethod:ShellMembros.kt:private fun buildMemberRows: List&lt;MemberPanelRow&gt;</ID>
+    <ID>CyclomaticComplexMethod:ShellOrbitas.kt:@Composable internal fun Sidebar</ID>
+    <ID>CyclomaticComplexMethod:ShellOrbitas.kt:@Composable private fun OrbitList</ID>
+    <ID>CyclomaticComplexMethod:ShellPalco.kt:@Composable internal fun Stage</ID>
+    <ID>CyclomaticComplexMethod:ShellPaleta.kt:@Composable internal fun CommandPalette</ID>
+    <ID>CyclomaticComplexMethod:ShellRail.kt:@Composable internal fun Rail</ID>
+    <ID>CyclomaticComplexMethod:ShellRail.kt:@Composable private fun EstrelaDaRail</ID>
+    <ID>CyclomaticComplexMethod:ShellScreen.kt:@Composable fun ShellScreen</ID>
+    <ID>CyclomaticComplexMethod:ShellSussurros.kt:@Composable internal fun DmList</ID>
+    <ID>CyclomaticComplexMethod:ShellVm.kt:ShellVm$fun load</ID>
+    <ID>CyclomaticComplexMethod:ShellVm.kt:ShellVm$private fun listenRealtime</ID>
+    <ID>CyclomaticComplexMethod:ShellVm.kt:ShellVm$private fun pollVoicePresence</ID>
+    <ID>CyclomaticComplexMethod:TelaDeCarregamento.kt:@Composable fun TelaDeCarregamento</ID>
+    <ID>CyclomaticComplexMethod:Tour.kt:@Composable fun TourNaTela</ID>
+    <ID>CyclomaticComplexMethod:TrocarContaDialogs.kt:@Composable internal fun TrocarEmailDialog</ID>
+    <ID>CyclomaticComplexMethod:UpdateService.kt:UpdateService$fun limparVersoesAntigas: Long</ID>
+    <ID>CyclomaticComplexMethod:UpdateService.kt:UpdateService$private fun download</ID>
+    <ID>CyclomaticComplexMethod:UpdateService.kt:UpdateService$private suspend fun prepararVersao</ID>
+    <ID>CyclomaticComplexMethod:UpdateUi.kt:@Composable fun UpdaterGate</ID>
+    <ID>CyclomaticComplexMethod:UpdateUi.kt:@Composable internal fun RotatingStarsLogo</ID>
+    <ID>CyclomaticComplexMethod:UserFooter.kt:@Composable fun UserFooter</ID>
+    <ID>CyclomaticComplexMethod:UserFooter.kt:@Composable private fun ProfileCard</ID>
+    <ID>CyclomaticComplexMethod:VoiceView.kt:@Composable fun VoiceView</ID>
+    <ID>CyclomaticComplexMethod:VoiceView.kt:@Composable private fun ParticipantTile</ID>
+    <ID>CyclomaticComplexMethod:ZipRemoto.kt:ZipRemoto$private fun pedirFaixa</ID>
+    <ID>EmptyElseBlock:ServerRolesTab.kt:if (err == null) editing = null</ID>
+    <ID>EmptyElseBlock:ServerSettingsScreen.kt:if (err == null) reloadBans()</ID>
+    <ID>EmptyElseBlock:ServerSettingsScreen.kt:if (err == null) reloadRoles()</ID>
+    <ID>EmptyElseBlock:ShellPaleta.kt:if (results.isNotEmpty()) sel = (sel + 1) % results.size</ID>
+    <ID>EmptyElseBlock:ShellPaleta.kt:if (results.isNotEmpty()) sel = (sel - 1 + results.size) % results.size</ID>
+    <ID>EmptyFunctionBlock:BandejaDoAstra.kt:&lt;no name provided&gt;${}</ID>
+    <ID>ExplicitItLambdaParameter:NotifPanel.kt:{ it -&gt; NotifRow(it, parse(it)) { open(it) } }</ID>
+    <ID>FunctionNaming:AtividadeDoSistema.kt:AtividadeDoSistema.U32$fun GetForegroundWindow: Pointer?</ID>
+    <ID>FunctionNaming:AtividadeDoSistema.kt:AtividadeDoSistema.U32$fun GetWindowThreadProcessId: Int</ID>
+    <ID>FunctionNaming:AtividadeDoSistema.kt:AtividadeDoSistema.Ver$fun GetFileVersionInfo: Boolean</ID>
+    <ID>FunctionNaming:AtividadeDoSistema.kt:AtividadeDoSistema.Ver$fun GetFileVersionInfoSize: Int</ID>
+    <ID>FunctionNaming:AtividadeDoSistema.kt:AtividadeDoSistema.Ver$fun VerQueryValue: Boolean</ID>
+    <ID>FunctionNaming:CaixaDeAviso.kt:CaixaDeAviso.U32$fun MessageBoxW: Int</ID>
+    <ID>FunctionNaming:Main.kt:FocoDoSistema.U32$fun AllowSetForegroundWindow: Boolean</ID>
+    <ID>FunctionNaming:Main.kt:FocoDoSistema.U32$fun GetForegroundWindow: Pointer?</ID>
+    <ID>FunctionNaming:Main.kt:FocoDoSistema.U32$fun GetWindowThreadProcessId: Int</ID>
+    <ID>FunctionNaming:Placas.kt:Placas.U32$fun EnumDisplayDevicesW: Boolean</ID>
+    <ID>FunctionNaming:WindowsAppId.kt:WindowsAppId.Shell32$fun SetCurrentProcessExplicitAppUserModelID: Int</ID>
+    <ID>LargeClass:ChatVm.kt:ChatVm</ID>
+    <ID>LargeClass:ShellVm.kt:ShellVm</ID>
+    <ID>LongMethod:Aurora.kt:@Composable private fun Modifier.auroraPeloProcessador: Modifier</ID>
+    <ID>LongMethod:Aurora.kt:private fun auroraSksl: String</ID>
+    <ID>LongMethod:AvisoDeMensagem.kt:@Composable private fun CartaoDeAviso</ID>
+    <ID>LongMethod:BandejaDoAstra.kt:@Composable fun BandejaComMenu</ID>
+    <ID>LongMethod:BarraDeSalvar.kt:@Composable internal fun BarraDeSalvar</ID>
+    <ID>LongMethod:BotsSection.kt:@Composable private fun CartaoDaBot</ID>
+    <ID>LongMethod:CallNaSala.kt:CallNaSala$private suspend fun ouvirSidecar</ID>
+    <ID>LongMethod:ChamadaScreen.kt:@Composable fun ChamadaScreen</ID>
+    <ID>LongMethod:ChatView.kt:@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class) @Composable fun ChatView</ID>
+    <ID>LongMethod:ChatVm.kt:ChatVm$fun send</ID>
+    <ID>LongMethod:ChatVm.kt:ChatVm$private fun listenLive</ID>
+    <ID>LongMethod:ConteudoDaMensagem.kt:@Composable private fun AttachmentBlock</ID>
+    <ID>LongMethod:ConteudoDaMensagem.kt:@OptIn(ExperimentalLayoutApi::class) @Composable internal fun ContentBlock</ID>
+    <ID>LongMethod:CoresDoNomeSection.kt:@Composable private fun LinhaDeConstelacao</ID>
+    <ID>LongMethod:DesejosPanel.kt:@Composable fun DesejosPanel</ID>
+    <ID>LongMethod:DiagnosticsSection.kt:@Composable internal fun DiagnosticsSection</ID>
+    <ID>LongMethod:DiscoverView.kt:@Composable fun DiscoverView</ID>
+    <ID>LongMethod:DiscoverView.kt:@Composable private fun DiscoverCard</ID>
+    <ID>LongMethod:EditorialMenu.kt:@Composable private fun VolumeSubRow</ID>
+    <ID>LongMethod:EmojiPicker.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun EmojiPicker</ID>
+    <ID>LongMethod:FriendsView.kt:@Composable fun FriendsView</ID>
+    <ID>LongMethod:FriendsView.kt:@Composable private fun AddFriend</ID>
+    <ID>LongMethod:GifPicker.kt:@Composable internal fun GifPanel</ID>
+    <ID>LongMethod:IconAction.kt:@Composable fun BotaoIcone</ID>
+    <ID>LongMethod:ImageCrop.kt:@OptIn(ExperimentalComposeUiApi::class) @Composable fun CropDialog</ID>
+    <ID>LongMethod:InviteDialog.kt:@Composable fun InvitePeopleDialog</ID>
+    <ID>LongMethod:InviteDialog.kt:@Composable fun JoinByInviteDialog</ID>
+    <ID>LongMethod:Lightbox.kt:@OptIn(ExperimentalComposeUiApi::class) @Composable fun Lightbox</ID>
+    <ID>LongMethod:LinhaDaMensagem.kt:@Composable internal fun MessageRow</ID>
+    <ID>LongMethod:LoginScreen.kt:@Composable fun LoginScreen</ID>
+    <ID>LongMethod:LoginScreen.kt:@Composable private fun EditorialField</ID>
+    <ID>LongMethod:Main.kt:fun main</ID>
+    <ID>LongMethod:MissoesOverlay.kt:@Composable fun MissoesOverlay</ID>
+    <ID>LongMethod:MissoesOverlay.kt:@Composable private fun LinhaDeMissao</ID>
+    <ID>LongMethod:MontagemPorPartes.kt:MontagemPorPartes$suspend fun montar: Montagem?</ID>
+    <ID>LongMethod:NotifPanel.kt:@Composable fun NotifPanel</ID>
+    <ID>LongMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
+    <ID>LongMethod:OnboardingScreen.kt:@Composable private fun EntrarStep</ID>
+    <ID>LongMethod:PetDoAstra.kt:@Composable fun PetDoAstra</ID>
+    <ID>LongMethod:PetDoAstra.kt:private fun DrawScope.desenharPet</ID>
+    <ID>LongMethod:PetPalco.kt:@Composable internal fun PetPalco</ID>
+    <ID>LongMethod:Poll.kt:@Composable fun CriarEnqueteDialog</ID>
+    <ID>LongMethod:Poll.kt:@Composable fun PollBlock</ID>
+    <ID>LongMethod:ProfileCard.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun CorpoCompacto</ID>
+    <ID>LongMethod:ProfilePage.kt:@Composable private fun ColunaDeVinculos</ID>
+    <ID>LongMethod:ProfilePage.kt:@OptIn(ExperimentalLayoutApi::class) @Composable fun ProfilePage</ID>
+    <ID>LongMethod:ProfilePopup.kt:@Composable private fun ProfilePopupCard</ID>
+    <ID>LongMethod:SearchOverlay.kt:@Composable fun SearchOverlay</ID>
+    <ID>LongMethod:SeletorDeTela.kt:@Composable private fun CartaoDaFonte</ID>
+    <ID>LongMethod:SeletorDeTela.kt:@OptIn(ExperimentalLayoutApi::class) @Composable fun SeletorDeTela</ID>
+    <ID>LongMethod:ServerEmojisTab.kt:@Composable internal fun EmojisSection</ID>
+    <ID>LongMethod:ServerEmojisTab.kt:@Composable private fun LinhaDeEmoji</ID>
+    <ID>LongMethod:ServerRolesTab.kt:@Composable private fun RoleColorPicker</ID>
+    <ID>LongMethod:ServerRolesTab.kt:@Composable private fun RoleEditor</ID>
+    <ID>LongMethod:ServerSettingsScreen.kt:@Composable fun ServerSettingsScreen</ID>
+    <ID>LongMethod:ServerSettingsScreen.kt:@Composable private fun OverviewSection</ID>
+    <ID>LongMethod:ServerSoundsTab.kt:@Composable internal fun SoundsSection</ID>
+    <ID>LongMethod:ServerStickersTab.kt:@Composable internal fun StickersSection</ID>
+    <ID>LongMethod:SettingsAparencia.kt:@Composable internal fun PetsSection</ID>
+    <ID>LongMethod:SettingsConta.kt:@Composable internal fun AccountSection</ID>
+    <ID>LongMethod:SettingsConta.kt:@Composable internal fun SessionsSection</ID>
+    <ID>LongMethod:SettingsConta.kt:@Composable private fun ApagarConta</ID>
+    <ID>LongMethod:SettingsPecas.kt:@Composable internal fun DialogoDeSenha</ID>
+    <ID>LongMethod:SettingsPerfil.kt:@Composable internal fun ProfileSection</ID>
+    <ID>LongMethod:SettingsPerfil.kt:@Composable private fun ColorPickerButton</ID>
+    <ID>LongMethod:SettingsPerfil.kt:@Composable private fun FontPicker</ID>
+    <ID>LongMethod:SettingsPerfil.kt:@Composable private fun ResizeBannerDialog</ID>
+    <ID>LongMethod:SettingsPrevias.kt:@Composable private fun MicMeter</ID>
+    <ID>LongMethod:SettingsScreen.kt:@Composable fun SettingsScreen</ID>
+    <ID>LongMethod:SettingsSobre.kt:@Composable internal fun AboutSection</ID>
+    <ID>LongMethod:ShellCanais.kt:@Composable internal fun OrbitItem</ID>
+    <ID>LongMethod:ShellDialogos.kt:@Composable internal fun Dialogo</ID>
+    <ID>LongMethod:ShellMembros.kt:@Composable private fun MemberRow</ID>
+    <ID>LongMethod:ShellOrbitas.kt:@Composable internal fun Sidebar</ID>
+    <ID>LongMethod:ShellOrbitas.kt:@Composable private fun OrbitList</ID>
+    <ID>LongMethod:ShellPalco.kt:@Composable internal fun Stage</ID>
+    <ID>LongMethod:ShellPaleta.kt:@Composable internal fun CommandPalette</ID>
+    <ID>LongMethod:ShellRail.kt:@Composable internal fun Rail</ID>
+    <ID>LongMethod:ShellRail.kt:@Composable private fun EstrelaDaRail</ID>
+    <ID>LongMethod:ShellScreen.kt:@Composable fun ShellScreen</ID>
+    <ID>LongMethod:ShellSussurros.kt:@Composable internal fun DmList</ID>
+    <ID>LongMethod:ShellVm.kt:ShellVm$fun load</ID>
+    <ID>LongMethod:ShellVm.kt:ShellVm$private fun listenRealtime</ID>
+    <ID>LongMethod:ShellVm.kt:ShellVm$private fun pollVoicePresence</ID>
+    <ID>LongMethod:StarField.kt:@Composable fun StarField</ID>
+    <ID>LongMethod:TelaCompartilhada.kt:@Composable fun TelaCompartilhada</ID>
+    <ID>LongMethod:TelaDeCarregamento.kt:@Composable fun TelaDeCarregamento</ID>
+    <ID>LongMethod:TitleBar.kt:@Composable private fun PontoDeAtualizacao</ID>
+    <ID>LongMethod:Tour.kt:@Composable fun TourNaTela</ID>
+    <ID>LongMethod:TrocarContaDialogs.kt:@Composable internal fun TrocarEmailDialog</ID>
+    <ID>LongMethod:UpdateService.kt:UpdateService$private suspend fun prepararVersao</ID>
+    <ID>LongMethod:UpdateUi.kt:@Composable fun UpdaterGate</ID>
+    <ID>LongMethod:UpdateUi.kt:@Composable internal fun ThinProgress</ID>
+    <ID>LongMethod:UserFooter.kt:@Composable fun UserFooter</ID>
+    <ID>LongMethod:UserFooter.kt:@Composable private fun ProfileCard</ID>
+    <ID>LongMethod:VisibilidadeDaOrbita.kt:@Composable internal fun VisibilidadeDaOrbitaDialog</ID>
+    <ID>LongMethod:VoiceLobby.kt:@OptIn(ExperimentalLayoutApi::class) @Composable fun VoiceLobby</ID>
+    <ID>LongMethod:VoiceView.kt:@Composable fun VoiceView</ID>
+    <ID>LongMethod:VoiceView.kt:@Composable private fun ParticipantTile</ID>
+    <ID>LoopWithTooManyJumpStatements:AtividadePublicador.kt:AtividadePublicador$while</ID>
+    <ID>LoopWithTooManyJumpStatements:CatalogoDeJogos.kt:CatalogoDeJogos$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ChatVm.kt:ChatVm$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ConteudoDaMensagem.kt:while</ID>
+    <ID>LoopWithTooManyJumpStatements:EstadosDoChat.kt:for</ID>
+    <ID>LoopWithTooManyJumpStatements:PermissoesWindows.kt:PermissoesWindows$while</ID>
+    <ID>LoopWithTooManyJumpStatements:Placas.kt:Placas$for</ID>
+    <ID>LoopWithTooManyJumpStatements:PreCarregadorDeImagens.kt:PreCarregadorDeImagens$for</ID>
+    <ID>LoopWithTooManyJumpStatements:UpdateService.kt:UpdateService$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ZipRemoto.kt:ZipRemoto$while</ID>
+    <ID>MagicNumber:AnimatedImage.kt:100</ID>
+    <ID>MagicNumber:AnimatedImage.kt:AnimatedImageStore$7</ID>
+    <ID>MagicNumber:AtividadeArte.kt:24L</ID>
+    <ID>MagicNumber:AtividadeArte.kt:60L</ID>
+    <ID>MagicNumber:AtividadeDoSistema.kt:AtividadeDoSistema$48</ID>
+    <ID>MagicNumber:Aurora.kt:0.5</ID>
+    <ID>MagicNumber:AuthRepository.kt:AuthRepository$3_000</ID>
+    <ID>MagicNumber:AvatarPicker.kt:AvatarPicker$100</ID>
+    <ID>MagicNumber:BannerArt.kt:0.10f</ID>
+    <ID>MagicNumber:BannerArt.kt:0.26f</ID>
+    <ID>MagicNumber:BannerArt.kt:0xFF000000</ID>
+    <ID>MagicNumber:BannerArt.kt:16</ID>
+    <ID>MagicNumber:BannerArt.kt:17</ID>
+    <ID>MagicNumber:BannerArt.kt:3</ID>
+    <ID>MagicNumber:BannerArt.kt:6</ID>
+    <ID>MagicNumber:BannerArt.kt:8</ID>
+    <ID>MagicNumber:Bits.kt:3f</ID>
+    <ID>MagicNumber:Blurhash.kt:0.04045f</ID>
+    <ID>MagicNumber:Blurhash.kt:0.055f</ID>
+    <ID>MagicNumber:Blurhash.kt:0.5f</ID>
+    <ID>MagicNumber:Blurhash.kt:1.055f</ID>
+    <ID>MagicNumber:Blurhash.kt:12.92f</ID>
+    <ID>MagicNumber:Blurhash.kt:16</ID>
+    <ID>MagicNumber:Blurhash.kt:19</ID>
+    <ID>MagicNumber:Blurhash.kt:2.4f</ID>
+    <ID>MagicNumber:Blurhash.kt:255</ID>
+    <ID>MagicNumber:Blurhash.kt:255f</ID>
+    <ID>MagicNumber:Blurhash.kt:3</ID>
+    <ID>MagicNumber:Blurhash.kt:4</ID>
+    <ID>MagicNumber:Blurhash.kt:6</ID>
+    <ID>MagicNumber:Blurhash.kt:8</ID>
+    <ID>MagicNumber:Blurhash.kt:83</ID>
+    <ID>MagicNumber:Blurhash.kt:9</ID>
+    <ID>MagicNumber:Blurhash.kt:9f</ID>
+    <ID>MagicNumber:CabecaDoGato.kt:3</ID>
+    <ID>MagicNumber:CallNaSala.kt:CallNaSala$20_000</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$0xFF</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$16</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$24</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$3</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$512</ID>
+    <ID>MagicNumber:CanoDeQuadros.kt:CanoDeQuadros$8</ID>
+    <ID>MagicNumber:ChatVm.kt:ChatVm$403</ID>
+    <ID>MagicNumber:ChatVm.kt:ChatVm$404</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:10</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:1024</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:1_048_576</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:1_048_576.0</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:3</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:3600</ID>
+    <ID>MagicNumber:ConteudoDaMensagem.kt:60</ID>
+    <ID>MagicNumber:ConversorDeSom.kt:ConversorDeSom$1000f</ID>
+    <ID>MagicNumber:ConversorDeSom.kt:ConversorDeSom$60</ID>
+    <ID>MagicNumber:CorDoNome.kt:0xFF000000</ID>
+    <ID>MagicNumber:CorDoNome.kt:3</ID>
+    <ID>MagicNumber:CorDoNome.kt:4</ID>
+    <ID>MagicNumber:CorDoNome.kt:6</ID>
+    <ID>MagicNumber:DesejosPanel.kt:24</ID>
+    <ID>MagicNumber:DesejosPanel.kt:30</ID>
+    <ID>MagicNumber:DesejosPanel.kt:60</ID>
+    <ID>MagicNumber:DesejosPanel.kt:60L</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:AuroraQuality.HIGH$3</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:DensityPref.COMFORTABLE$10</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:DensityPref.COMPACT$5</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:DensityPref.SPACIOUS$16</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:DensityPref.SPACIOUS$4</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:DesktopPrefs$100</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:FontSizePref.LG$1.12f</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:FontSizePref.SM$0.9f</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:FontSizePref.XL$1.25f</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.LIGHT_720_60$1280</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.LIGHT_720_60$2_500_000</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.LIGHT_720_60$60</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.LIGHT_720_60$720</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SHARP_1080_60$1080</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SHARP_1080_60$1920</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SHARP_1080_60$60</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SHARP_1080_60$8_000_000</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SMOOTH_720_60$1280</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SMOOTH_720_60$4_000_000</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SMOOTH_720_60$60</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.SMOOTH_720_60$720</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.TINY_540_60$1_200_000</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.TINY_540_60$540</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.TINY_540_60$60</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:ScreenQuality.TINY_540_60$960</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:UiFps.CAP30$30</ID>
+    <ID>MagicNumber:DesktopPrefs.kt:UiFps.CAP60$60</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$1000</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$250</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$40</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$50</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$5_000L</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$60</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket$60_000</ID>
+    <ID>MagicNumber:DesktopSocket.kt:DesktopSocket.&lt;no name provided&gt;$5</ID>
+    <ID>MagicNumber:DiagnosticsSection.kt:20</ID>
+    <ID>MagicNumber:DiagnosticsSection.kt:24</ID>
+    <ID>MagicNumber:DiagnosticsSection.kt:4</ID>
+    <ID>MagicNumber:EmblemaDaBarra.kt:99</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x1F000</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x1FAFF</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x200D</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x20E3</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x2300</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x23FF</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x25A0</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x27BF</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x2B00</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0x2BFF</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0xFE0E</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:0xFE0F</ID>
+    <ID>MagicNumber:EmojisDaConstelacao.kt:EmojisDaSala$12</ID>
+    <ID>MagicNumber:ErroGuardadoPorPouco.kt:ErroGuardadoPorPouco$200</ID>
+    <ID>MagicNumber:ErroGuardadoPorPouco.kt:ErroGuardadoPorPouco$299</ID>
+    <ID>MagicNumber:FotoPerdida.kt:FotoPerdida$12</ID>
+    <ID>MagicNumber:FotoPerdida.kt:FotoPerdida$3</ID>
+    <ID>MagicNumber:FotoPerdida.kt:FotoPerdida$4</ID>
+    <ID>MagicNumber:FotoPerdida.kt:FotoPerdida$6</ID>
+    <ID>MagicNumber:FotoPerdida.kt:FotoPerdida$8</ID>
+    <ID>MagicNumber:FriendsView.kt:0.15f</ID>
+    <ID>MagicNumber:FriendsView.kt:0.85f</ID>
+    <ID>MagicNumber:FriendsView.kt:3</ID>
+    <ID>MagicNumber:GanchoDoQuadro.kt:&lt;no name provided&gt;$1_000_000.0</ID>
+    <ID>MagicNumber:GoogleAuthFlow.kt:GoogleAuthFlow$200</ID>
+    <ID>MagicNumber:GoogleAuthFlow.kt:GoogleAuthFlow$24</ID>
+    <ID>MagicNumber:GoogleAuthFlow.kt:GoogleAuthFlow$3000</ID>
+    <ID>MagicNumber:GoogleAuthFlow.kt:GoogleAuthFlow$302</ID>
+    <ID>MagicNumber:ImageCrop.kt:ImageCrop$7</ID>
+    <ID>MagicNumber:Insistencia.kt:401</ID>
+    <ID>MagicNumber:Insistencia.kt:403</ID>
+    <ID>MagicNumber:Insistencia.kt:404</ID>
+    <ID>MagicNumber:Insistencia.kt:429</ID>
+    <ID>MagicNumber:Insistencia.kt:90</ID>
+    <ID>MagicNumber:ListaQueSeAdianta.kt:1_000_000_000L</ID>
+    <ID>MagicNumber:LoginScreen.kt:3</ID>
+    <ID>MagicNumber:LoginScreen.kt:32</ID>
+    <ID>MagicNumber:LoginScreen.kt:8</ID>
+    <ID>MagicNumber:Main.kt:0x26E07A7A</ID>
+    <ID>MagicNumber:Main.kt:1024</ID>
+    <ID>MagicNumber:Main.kt:120</ID>
+    <ID>MagicNumber:Main.kt:150</ID>
+    <ID>MagicNumber:Main.kt:240</ID>
+    <ID>MagicNumber:Main.kt:400</ID>
+    <ID>MagicNumber:Main.kt:900</ID>
+    <ID>MagicNumber:Main.kt:Cadeado$50</ID>
+    <ID>MagicNumber:Main.kt:SingleInstance$10</ID>
+    <ID>MagicNumber:MontagemPorPartes.kt:MontagemPorPartes$30</ID>
+    <ID>MagicNumber:Nativo.kt:Nativo$120</ID>
+    <ID>MagicNumber:NotifPanel.kt:24</ID>
+    <ID>MagicNumber:NotifPanel.kt:60</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.045f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.075f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.105f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.115f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.17f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.235f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.310f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0.4f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0xFFB8B8C0</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0xFFE0E0E6</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$0xFFF7F7FA</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$1.55f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$1.85f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$2.30f</ID>
+    <ID>MagicNumber:Obsidian.kt:Obsidian$2.70f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:0.5f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:1.1f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:11f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:2.6f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:2f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:3</ID>
+    <ID>MagicNumber:PetDoAstra.kt:3.4f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:3f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:5.2f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:8f</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.BRANCO$0x99938A</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.BRANCO$0xCEC6BA</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.BRANCO$0xF5ECE0</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.BRANCO$0xFFF9F1</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARAMELO$0x8A7648</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARAMELO$0xBFA464</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARAMELO$0xE6C985</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARAMELO$0xF6E2B2</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARVAO$0x3D3B48</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARVAO$0x545163</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARVAO$0x676478</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CARVAO$0x757280</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CHOCOLATE$0x63392A</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CHOCOLATE$0x8A4F39</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CHOCOLATE$0xA66750</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CHOCOLATE$0xB18576</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CINZA$0x757B87</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CINZA$0xA2AABB</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CINZA$0xC6CFE1</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.CINZA$0xDEE4F1</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LARANJA$0x8A4836</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LARANJA$0xBF6F4A</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LARANJA$0xE69C69</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LARANJA$0xF6CA9F</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LILAS$0x79667F</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LILAS$0xA78DB0</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LILAS$0xCAAFD4</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pelagem.LILAS$0xDCC9E2</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$0x4F1D4C</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$0x781D4F</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$0xAD2F45</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$10</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$12</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$23</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$26</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$28</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$3</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$32</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$6</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$7</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$8</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SATIRO$9</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$0xB5B5B5</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$0xE0E0E0</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$10</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$14</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$17</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$18</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$32</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$4</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$5</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$6</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$7</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.SIMPLES$8</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$0x688697</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$0x869EAC</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$0xB6C5CD</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$0xFFFFFF</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$24</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$3</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$30</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$31</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$32</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$4</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$6</ID>
+    <ID>MagicNumber:PetDoAstra.kt:Pet.TRAVESSO$8</ID>
+    <ID>MagicNumber:Placas.kt:Placas$16</ID>
+    <ID>MagicNumber:Quadros.kt:Quadros$100</ID>
+    <ID>MagicNumber:Quadros.kt:Quadros$1_000_000.0</ID>
+    <ID>MagicNumber:Quadros.kt:Quadros$30</ID>
+    <ID>MagicNumber:Quadros.kt:Quadros$5_000</ID>
+    <ID>MagicNumber:Quadros.kt:Quadros$95</ID>
+    <ID>MagicNumber:RedeLog.kt:RedeLog$200</ID>
+    <ID>MagicNumber:Ritmo.kt:0.5f</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.BAIXO$180</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.BAIXO_DIREITA$135</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.BAIXO_ESQUERDA$225</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.CIMA_DIREITA$45</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.CIMA_ESQUERDA$315</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.DIREITA$90</ID>
+    <ID>MagicNumber:SeletorDeDirecao.kt:DirecaoDoDegrade.ESQUERDA$270</ID>
+    <ID>MagicNumber:ServerRolesTab.kt:0xFF000000</ID>
+    <ID>MagicNumber:ServerRolesTab.kt:6</ID>
+    <ID>MagicNumber:Servidor.kt:Servidor$1000</ID>
+    <ID>MagicNumber:Servidor.kt:Servidor$200</ID>
+    <ID>MagicNumber:Servidor.kt:Servidor$2_000</ID>
+    <ID>MagicNumber:Servidor.kt:Servidor$503</ID>
+    <ID>MagicNumber:SettingsConta.kt:16</ID>
+    <ID>MagicNumber:SettingsConta.kt:48</ID>
+    <ID>MagicNumber:SettingsPerfil.kt:413</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.04f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.05f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.06f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.07f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.08f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.14f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.36f</ID>
+    <ID>MagicNumber:SettingsPrevias.kt:0.68f</ID>
+    <ID>MagicNumber:SettingsSobre.kt:60</ID>
+    <ID>MagicNumber:SettingsSobre.kt:60L</ID>
+    <ID>MagicNumber:Sfx.kt:Sfx$0xFF</ID>
+    <ID>MagicNumber:Sfx.kt:Sfx$8</ID>
+    <ID>MagicNumber:ShellMembros.kt:0xFF000000</ID>
+    <ID>MagicNumber:ShellMembros.kt:6</ID>
+    <ID>MagicNumber:ShellVm.kt:ShellVm$20_000</ID>
+    <ID>MagicNumber:ShellVm.kt:ShellVm$8_000</ID>
+    <ID>MagicNumber:SidecarDeVoz.kt:SidecarDeVoz$100</ID>
+    <ID>MagicNumber:SidecarDeVoz.kt:SidecarDeVoz$15_000L</ID>
+    <ID>MagicNumber:SidecarDeVoz.kt:SidecarDeVoz.Companion$500</ID>
+    <ID>MagicNumber:SomDeAviso.kt:0xFF</ID>
+    <ID>MagicNumber:SomDeAviso.kt:8</ID>
+    <ID>MagicNumber:StarField.kt:0x7fffffff</ID>
+    <ID>MagicNumber:StarField.kt:1103515245</ID>
+    <ID>MagicNumber:StarField.kt:12345</ID>
+    <ID>MagicNumber:StatusDot.kt:0.05f</ID>
+    <ID>MagicNumber:Tour.kt:0.42f</ID>
+    <ID>MagicNumber:Tour.kt:10f</ID>
+    <ID>MagicNumber:UpdateService.kt:UpdateService$15</ID>
+    <ID>MagicNumber:UpdateService.kt:UpdateService$1500</ID>
+    <ID>MagicNumber:UpdateService.kt:UpdateService$20</ID>
+    <ID>MagicNumber:UpdateService.kt:UpdateService$3</ID>
+    <ID>MagicNumber:UpdateService.kt:UpdateService$64</ID>
+    <ID>MagicNumber:UserFooter.kt:0x7FFFFFFF</ID>
+    <ID>MagicNumber:UserFooter.kt:150</ID>
+    <ID>MagicNumber:UserFooter.kt:3</ID>
+    <ID>MagicNumber:UserFooter.kt:30</ID>
+    <ID>MagicNumber:UserFooter.kt:300</ID>
+    <ID>MagicNumber:UserFooter.kt:31</ID>
+    <ID>MagicNumber:UserFooter.kt:60</ID>
+    <ID>MagicNumber:UserFooter.kt:8</ID>
+    <ID>MagicNumber:Vigia.kt:Vigia$1000</ID>
+    <ID>MagicNumber:VoiceLog.kt:VoiceLog$200_000</ID>
+    <ID>MagicNumber:XpRing.kt:0.001f</ID>
+    <ID>MagicNumber:XpRing.kt:0.01f</ID>
+    <ID>MagicNumber:XpRing.kt:0.02f</ID>
+    <ID>MagicNumber:XpRing.kt:0.999f</ID>
+    <ID>MagicNumber:ZipRemoto.kt:0xFF</ID>
+    <ID>MagicNumber:ZipRemoto.kt:0xFFFF</ID>
+    <ID>MagicNumber:ZipRemoto.kt:0xFFFFFFFFL</ID>
+    <ID>MagicNumber:ZipRemoto.kt:16</ID>
+    <ID>MagicNumber:ZipRemoto.kt:24</ID>
+    <ID>MagicNumber:ZipRemoto.kt:3</ID>
+    <ID>MagicNumber:ZipRemoto.kt:4</ID>
+    <ID>MagicNumber:ZipRemoto.kt:46</ID>
+    <ID>MagicNumber:ZipRemoto.kt:8</ID>
+    <ID>MagicNumber:ZipRemoto.kt:ZipRemoto$400</ID>
+    <ID>MagicNumber:ZipRemoto.kt:ZipRemoto$499</ID>
+    <ID>MagicNumber:ZipRemoto.kt:ZipRemoto$500</ID>
+    <ID>MatchingDeclarationName:AnimatedImage.kt:AnimatedFrames</ID>
+    <ID>MatchingDeclarationName:AparelhosDoSistema.kt:AudioDevices</ID>
+    <ID>MatchingDeclarationName:AtividadeArte.kt:ArteDeAtividade</ID>
+    <ID>MatchingDeclarationName:AvisoDeDesenho.kt:DesenhoDaJanela</ID>
+    <ID>MatchingDeclarationName:BannerArt.kt:BannerGradient</ID>
+    <ID>MatchingDeclarationName:ComposerStar.kt:Seletor</ID>
+    <ID>MatchingDeclarationName:EmojiCatalogo.kt:CategoriaEmoji</ID>
+    <ID>MatchingDeclarationName:FotoEditavel.kt:AcoesDoCartao</ID>
+    <ID>MatchingDeclarationName:ProfileFonts.kt:ProfileFont</ID>
+    <ID>MatchingDeclarationName:SeletorDeDirecao.kt:DirecaoDoDegrade</ID>
+    <ID>MatchingDeclarationName:ServerSettingsScreen.kt:ServerTab</ID>
+    <ID>MatchingDeclarationName:SettingsScreen.kt:SettingsTab</ID>
+    <ID>MatchingDeclarationName:StatusDot.kt:UserStatus</ID>
+    <ID>MatchingDeclarationName:TextContextMenu.kt:AstraTextContextMenu : ContextMenuRepresentation</ID>
+    <ID>MaxLineLength:AnimatedImage.kt:QuadrosAnimados(a, tocar = tocar &amp;&amp; !reduce, marcarParado = !tocar &amp;&amp; !reduce, contentDescription, modifier, alignment, contentScale)</ID>
+    <ID>MaxLineLength:AnimatedImage.kt:QuadrosAnimados(quadros, tocar = true, marcarParado = false, contentDescription, modifier, Alignment.Center, ContentScale.Crop)</ID>
+    <ID>MaxLineLength:AreaDeTransferencia.kt:AreaDeTransferencia$conteudo.isDataFlavorSupported(DataFlavor.imageFlavor) &amp;&amp; !conteudo.isDataFlavorSupported(DataFlavor.stringFlavor)</ID>
+    <ID>MaxLineLength:AreaDeTransferencia.kt:AreaDeTransferencia$val</ID>
+    <ID>MaxLineLength:Arranque.kt:Arranque$if (modoSeguro) marcar("MODO SEGURO ligado — desenho por CPU e janela opaca ($quedasSeguidas queda(s) seguida(s))")</ID>
+    <ID>MaxLineLength:AtividadeDoSistema.kt:AtividadeDoSistema$if (!runCatching { v.VerQueryValue(bloco, "\\VarFileInfo\\Translation", saida, tam) }.getOrDefault(false)) return null</ID>
+    <ID>MaxLineLength:AvisoDeDesenho.kt:.</ID>
+    <ID>MaxLineLength:Bits.kt:PulsosJaDados$ultimo.keys.removeAll { it.startsWith(PREFIXO_DO_NAO_LIDO) &amp;&amp; it.removePrefix(PREFIXO_DO_NAO_LIDO) !in naoLidos }</ID>
+    <ID>MaxLineLength:Bits.kt:is Outline.Rounded -&gt; drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)</ID>
+    <ID>MaxLineLength:BotsSection.kt:Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))</ID>
+    <ID>MaxLineLength:BotsSection.kt:Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))</ID>
+    <ID>MaxLineLength:BrilhoEmPixels.kt:.</ID>
+    <ID>MaxLineLength:ChatView.kt:aoMedirLargura = { largura -&gt; if (larguras[msg.id] != largura) larguras[msg.id] = largura }</ID>
+    <ID>MaxLineLength:ChatView.kt:comEmojisRetos(if (target is ChatTarget.Dm) "Sussurre para ${target.title}…" else "Escreva em #${target.title}…")</ID>
+    <ID>MaxLineLength:ChatView.kt:style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)</ID>
+    <ID>MaxLineLength:ChatVm.kt:ChatVm$.</ID>
+    <ID>MaxLineLength:ChatVm.kt:ChatVm$SendChannelRequest(content, replyToId = replyToId, attachments = attachments, clientNonce = recibo)</ID>
+    <ID>MaxLineLength:ChatVm.kt:ChatVm$SendDmRequest(content, replyToId = replyToId, attachments = attachments, clientNonce = recibo)</ID>
+    <ID>MaxLineLength:ChatVm.kt:ChatVm$messages = if (msg != null &amp;&amp; it.messages.none { m -&gt; m.id == msg.id }) it.messages + msg else it.messages</ID>
+    <ID>MaxLineLength:CompressorDeVideo.kt:CompressorDeVideo$"erro" -&gt; VoiceLog.nota("[vídeo] não comprimiu ${entrada.name}: ${linha["msg"]?.jsonPrimitive?.content}")</ID>
+    <ID>MaxLineLength:ConteudoDaMensagem.kt:contentDescription = if (cliqueToca) "${att.name}, GIF parado; ativar toca, ativar de novo abre" else att.name</ID>
+    <ID>MaxLineLength:DesejosPanel.kt:.</ID>
+    <ID>MaxLineLength:DesejosPanel.kt:Text("estrela dos desejos", style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))</ID>
+    <ID>MaxLineLength:Desinstalador.kt:Desinstalador$appendLine(" foreach (\$p in \$pastas) { if (\$destino.IndexOf(\$p, [StringComparison]::OrdinalIgnoreCase) -ge 0) { Remove-Item -LiteralPath \$l -Force; break } }")</ID>
+    <ID>MaxLineLength:Desinstalador.kt:Desinstalador$appendLine(" if ((Test-Path -LiteralPath \$v) -and -not (Get-ChildItem -LiteralPath \$v -Force | Select-Object -First 1)) { Remove-Item -LiteralPath \$v -Force }")</ID>
+    <ID>MaxLineLength:Desinstalador.kt:Desinstalador$appendLine(" if (\$c) { foreach (\$p in \$doPrograma) { if (\$c.StartsWith(\$p + '\\', [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id \$_.ProcessId -Force } } }")</ID>
+    <ID>MaxLineLength:DesktopShortcut.kt:DesktopShortcut$append("if (\$c.TargetPath -eq '${q(alvo.programa)}' -and \$c.Arguments -eq '${q(alvo.argumentos)}') { exit } }; ")</ID>
+    <ID>MaxLineLength:DiagnosticsSection.kt:"o mesmo registro fica no arquivo voz.txt, na pasta do Astra, e pode ser enviado inteiro a quem estiver ajudando."</ID>
+    <ID>MaxLineLength:DiscoverView.kt:.</ID>
+    <ID>MaxLineLength:DiscoverView.kt:style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif, textAlign = TextAlign.Center)</ID>
+    <ID>MaxLineLength:DiscoverView.kt:style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp, textAlign = TextAlign.Center)</ID>
+    <ID>MaxLineLength:FotoPerdida.kt:FotoPerdida$b.size &gt; 12 &amp;&amp; String(b, 0, 4, Charsets.US_ASCII) == "RIFF" &amp;&amp; String(b, 8, 4, Charsets.US_ASCII) == "WEBP" -&gt; "image/webp"</ID>
+    <ID>MaxLineLength:FriendsView.kt:RowIconButton(Lucide.Check, tint = Obsidian.accent, rotulo = "aceitar pedido") { onAccept(p.friendshipId) }</ID>
+    <ID>MaxLineLength:FriendsView.kt:RowIconButton(Lucide.X, tint = Obsidian.danger, rotulo = "recusar pedido") { onDrop(p.friendshipId) }</ID>
+    <ID>MaxLineLength:FriendsView.kt:Text(name, style = TextStyle(color = Obsidian.text1, fontSize = 14.sp, fontFamily = DmSerif), maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:FriendsView.kt:compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() })</ID>
+    <ID>MaxLineLength:FriendsView.kt:private</ID>
+    <ID>MaxLineLength:FriendsView.kt:style = TextStyle(color = if (active) Obsidian.text1 else Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif)</ID>
+    <ID>MaxLineLength:GoogleAuthFlow.kt:GoogleAuthFlow$complete(deferred, Result.failure(Exception("Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro.")))</ID>
+    <ID>MaxLineLength:GoogleAuthFlow.kt:GoogleAuthFlow$val k = runCatching { URLDecoder.decode(part.substring(0, i), StandardCharsets.UTF_8) }.getOrNull() ?: return@mapNotNull null</ID>
+    <ID>MaxLineLength:GoogleAuthFlow.kt:GoogleAuthFlow$val v = runCatching { URLDecoder.decode(part.substring(i + 1), StandardCharsets.UTF_8) }.getOrNull() ?: return@mapNotNull null</ID>
+    <ID>MaxLineLength:ImageCrop.kt:Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))</ID>
+    <ID>MaxLineLength:ImageCrop.kt:Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))</ID>
+    <ID>MaxLineLength:LinhaDaMensagem.kt:add(MenuEntry.Item("copiar texto", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.content)) })</ID>
+    <ID>MaxLineLength:LinhaDaMensagem.kt:if (abreUmCartao(linha, linhas.getOrNull(i - 1) as? LinhaDoChat.Fala, primeiraNaoLida, meuId)) atual = ArrayList()</ID>
+    <ID>MaxLineLength:LoginScreen.kt:style = TextStyle(color = Obsidian.accent, fontSize = 15.sp, fontFamily = DmSerif, fontWeight = FontWeight.Medium)</ID>
+    <ID>MaxLineLength:LoginScreen.kt:visualTransformation = if (password &amp;&amp; !reveal) PasswordVisualTransformation() else VisualTransformation.None</ID>
+    <ID>MaxLineLength:MissoesOverlay.kt:.</ID>
+    <ID>MaxLineLength:Nativo.kt:Nativo$Arranque.marcar("nativo recusado — $oQue: ${falha::class.simpleName}: ${falha.message.orEmpty().take(120)}")</ID>
+    <ID>MaxLineLength:NotifPanel.kt:.</ID>
+    <ID>MaxLineLength:NotifPanel.kt:Box</ID>
+    <ID>MaxLineLength:NotifPanel.kt:Box(Modifier.padding(top = 5.dp).size(6.dp).clip(CircleShape).background(if (unread) Obsidian.accent else Color.Transparent))</ID>
+    <ID>MaxLineLength:NotifPanel.kt:Text("“${p.preview}”", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:NotifPanel.kt:if (p.serverId != null &amp;&amp; p.channelId != null) onOpenChannel(p.serverId, p.channelId, p.channelName ?: "canal")</ID>
+    <ID>MaxLineLength:NotifPanel.kt:modifier = Modifier.hoverable(src).clickable(interactionSource = src, indication = null) { readAll() }</ID>
+    <ID>MaxLineLength:NotifPanel.kt:style = TextStyle(color = if (unread) Obsidian.text1 else Obsidian.text2, fontSize = 12.sp, fontWeight = if (unread) FontWeight.Medium else FontWeight.Normal)</ID>
+    <ID>MaxLineLength:OnboardingScreen.kt:runCatching { GlobalContext.get().get&lt;UserApi&gt;().updateProfile(UpdateProfileRequest(avatarUrl = uri)) }</ID>
+    <ID>MaxLineLength:OnboardingScreen.kt:style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif, fontWeight = FontWeight.Light)</ID>
+    <ID>MaxLineLength:OnboardingScreen.kt:style = TextStyle(color = Obsidian.text1, fontSize = 24.sp, fontFamily = DmSerif, fontWeight = FontWeight.Light, textAlign = TextAlign.Center)</ID>
+    <ID>MaxLineLength:OnboardingScreen.kt:style = TextStyle(color = Obsidian.text3, fontSize = 14.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)</ID>
+    <ID>MaxLineLength:PermissoesDialog.kt:"o som simplesmente não chega. O Astra conferiu agora para você não descobrir o bloqueio no meio da conversa."</ID>
+    <ID>MaxLineLength:PermissoesWindows.kt:PermissoesWindows$"Não foi possível ler as regras do firewall. Se a call não conectar, confira o Astra na lista de aplicativos permitidos."</ID>
+    <ID>MaxLineLength:PermissoesWindows.kt:PermissoesWindows$"O microfone abriu, mas não chegou som nenhum. Em geral é a privacidade do Windows fechada ou o botão de mudo do próprio aparelho."</ID>
+    <ID>MaxLineLength:Poll.kt:style = TextStyle(color = Obsidian.text1, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 19.sp)</ID>
+    <ID>MaxLineLength:ProfileCard.kt:Box</ID>
+    <ID>MaxLineLength:ProfileCard.kt:Text(dados.bio.orEmpty(), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))</ID>
+    <ID>MaxLineLength:ProfileCard.kt:Text(s.name.take(1).uppercase(), style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontFamily = DmSerif))</ID>
+    <ID>MaxLineLength:ProfilePage.kt:Text(nome, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:RelatoDeFalha.kt:RelatoDeFalha$so = semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO)</ID>
+    <ID>MaxLineLength:SearchOverlay.kt:.</ID>
+    <ID>MaxLineLength:SearchOverlay.kt:Box</ID>
+    <ID>MaxLineLength:SearchOverlay.kt:Text("@${u.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono), maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:SearchOverlay.kt:if (m.serverId.isNotBlank()) { onOpenChannel(m.serverId, m.channelId, m.channelName); onClose() }</ID>
+    <ID>MaxLineLength:SearchOverlay.kt:val bg by animateColorAsState(if (active) Obsidian.accentDim else if (hov) Obsidian.hover else Color.Transparent, tween(120))</ID>
+    <ID>MaxLineLength:ServerRolesTab.kt:onDelete = { cb -&gt; role?.let { r -&gt; onDelete(r.id) { err -&gt; if (err == null) editing = null; cb(err) } } }</ID>
+    <ID>MaxLineLength:ServerSettingsScreen.kt:.</ID>
+    <ID>MaxLineLength:ServerSettingsScreen.kt:Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))</ID>
+    <ID>MaxLineLength:ServerSettingsScreen.kt:Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))</ID>
+    <ID>MaxLineLength:SessionStore.kt:SessionStore$Files.move(tmp.toPath(), uiFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)</ID>
+    <ID>MaxLineLength:SettingsPecas.kt:else</ID>
+    <ID>MaxLineLength:SettingsPecas.kt:if (active) Obsidian.active else if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent</ID>
+    <ID>MaxLineLength:SettingsPerfil.kt:.</ID>
+    <ID>MaxLineLength:SettingsPrevias.kt:Text("Quem pode mandar sussurro para você", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))</ID>
+    <ID>MaxLineLength:SettingsPrevias.kt:Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))</ID>
+    <ID>MaxLineLength:SettingsPrevias.kt:Text(name, style = TextStyle(color = c, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = DmSerif))</ID>
+    <ID>MaxLineLength:SettingsPrevias.kt:Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (15 * scale).sp, lineHeight = (22 * scale).sp))</ID>
+    <ID>MaxLineLength:SettingsScreen.kt:SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth(), acoesDoCartao)</ID>
+    <ID>MaxLineLength:SettingsSobre.kt:consequencia = "o programa sai deste computador, junto com o login e as preferências. Sua conta continua existindo."</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:"entrar numa call passa por várias etapas, e todas falham do mesmo jeito: em silêncio. A lista abaixo mostra até onde a conexão chegou; a etapa que faltar é a causa."</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:"o Windows decide o que cada programa pode usar e não avisa quando bloqueia algo: o microfone fica em silêncio, o aviso não aparece ou a call não conecta. Aqui você vê o que está liberado e libera o que faltar."</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:.</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:LabeledControl</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:ToggleRow("Cancelamento de eco", "evita que o áudio dos outros volte pelo seu microfone", p.micEchoCancel, prefs::setMicEchoCancel)</ID>
+    <ID>MaxLineLength:SettingsVozEDesempenho.kt:ToggleRow("Supressão de ruído", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)</ID>
+    <ID>MaxLineLength:ShellDialogos.kt:style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = DmSerif)</ID>
+    <ID>MaxLineLength:ShellDialogos.kt:style = TextStyle(color = if (sucesso) Obsidian.success else Obsidian.danger, fontSize = 12.sp, lineHeight = 17.sp)</ID>
+    <ID>MaxLineLength:ShellMembros.kt:LazyColumn</ID>
+    <ID>MaxLineLength:ShellMembros.kt:consequencia</ID>
+    <ID>MaxLineLength:ShellMembros.kt:out.add(MemberPanelRow.Header(key.ifEmpty { "members" }, role?.name?.uppercase() ?: "MEMBROS", list.size, role?.iconUrl))</ID>
+    <ID>MaxLineLength:ShellMembros.kt:private</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory)</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:DmList(dms, servers, onToggleMute, onMarkRead, onCloseDm, activeChatId, unread, dmTyping, dmPresence, onOpenChat)</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:LIcon(if (d.isCategory) Lucide.Folder else if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:LazyColumn</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("criar órbita", icon = Lucide.Plus) { chanDialog = ChanDialog.NewChannel(srv.id, null) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:add(MenuEntry.Item(if (calada) "reativar órbita" else "silenciar órbita", icon = if (calada) Lucide.Bell else Lucide.BellOff) { menu.onToggleMute(ch.id) })</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:dragCtx = if (podeGerenciar) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:dragCtx = if (podeGerenciar) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:drawRoundRect(Obsidian.accent.copy(alpha = 0.55f * hi), tl, sz, rad, style = Stroke(1.5.dp.toPx()))</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:if (botNaCat) "silenciar a bot na categoria" else "deixar a bot atender na categoria"</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:members.count { it.userId == myId || memberPresence[it.userId]?.let { p -&gt; p != "OFFLINE" } == true }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onMoveToCategory = { cid, catId -&gt; srv?.let { onMoveChannelToCategory(it.id, cid, catId) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onNewChannelInCat = { catId -&gt; srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onOpenChannelRename = { cid, cur -&gt; srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onOpenChannelVisibility = { cid, name -&gt; srv?.let { chanDialog = ChanDialog.Visibilidade(it.id, cid, name) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onRenameCat = { catId, cur -&gt; srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:onToggleChannelKeepBot = { cid, on -&gt; srv?.let { onToggleChannelKeepBot(it.id, cid, on) } }</ID>
+    <ID>MaxLineLength:ShellOrbitas.kt:srv</ID>
+    <ID>MaxLineLength:ShellPalco.kt:if</ID>
+    <ID>MaxLineLength:ShellPaleta.kt:.</ID>
+    <ID>MaxLineLength:ShellPaleta.kt:Key.DirectionUp -&gt; { if (results.isNotEmpty()) sel = (sel - 1 + results.size) % results.size; true }</ID>
+    <ID>MaxLineLength:ShellRail.kt:add(MenuEntry.Item("configurações", icon = Lucide.Settings) { onOpenServerSettings(srv.id) })</ID>
+    <ID>MaxLineLength:ShellRail.kt:add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(srv.id)) })</ID>
+    <ID>MaxLineLength:ShellRail.kt:add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) { onMarkServerRead(srv.id) })</ID>
+    <ID>MaxLineLength:ShellRail.kt:add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelação" else "silenciar constelação", icon = if (srv.id in mutedServers) Lucide.Bell else Lucide.BellOff) { onToggleServerMute(srv.id) })</ID>
+    <ID>MaxLineLength:ShellRail.kt:else</ID>
+    <ID>MaxLineLength:ShellRail.kt:if</ID>
+    <ID>MaxLineLength:ShellScreen.kt:enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f))</ID>
+    <ID>MaxLineLength:ShellScreen.kt:koin.get&lt;NotificationApi&gt;()</ID>
+    <ID>MaxLineLength:ShellScreen.kt:scope</ID>
+    <ID>MaxLineLength:ShellScreen.kt:val</ID>
+    <ID>MaxLineLength:ShellScreen.kt:val ev = runCatching { json.decodeFromString&lt;ChannelActivityEventDto&gt;(raw) }.getOrNull() ?: return@collect</ID>
+    <ID>MaxLineLength:ShellSussurros.kt:LazyColumn</ID>
+    <ID>MaxLineLength:ShellSussurros.kt:MenuEntry</ID>
+    <ID>MaxLineLength:ShellSussurros.kt:u?.id?.let { uid -&gt; add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(uid)) }) }</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$.</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$else</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$if (oldPos[id] != np) runCatching { serverApi.updateCategory(serverId, id, UpdateCategoryRequest(position = np)) }</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$it.copy(selection = selection, members = emptyList(), memberPresence = emptyMap(), myPerms = null, chat = null, friendsOpen = false)</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$unreadCounts = it.unreadCounts + (ev.channelId to ((it.unreadCounts[ev.channelId] ?: 0) + 1))</ID>
+    <ID>MaxLineLength:ShellVm.kt:ShellVm$val membersD = async { runCatching { serverApi.members(serverId).data.orEmpty() }.getOrDefault(emptyList()) }</ID>
+    <ID>MaxLineLength:StarField.kt:drawLine(color, Offset(tailX, tailY), Offset(headX, headY), 1.5.dp.toPx(), StrokeCap.Round, alpha = alpha * 0.7f)</ID>
+    <ID>MaxLineLength:Tour.kt:BotaoDeDialogo(if (ehDesempenho) "deixar como estava" else "pular", TipoDeBotao.SECUNDARIO, onClick = aoPular)</ID>
+    <ID>MaxLineLength:Trocador.kt:Trocador$(sequenceOf(preferida) + (1..NOMES_DE_RESERVA).asSequence().map { File(preferida.parentFile, "${preferida.name}-$it") })</ID>
+    <ID>MaxLineLength:Type.kt:Tipo$val secao get() = TextStyle(color = Obsidian.text2, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp)</ID>
+    <ID>MaxLineLength:Type.kt:Tipo$val subsecao get() = TextStyle(color = Obsidian.text3, fontSize = 10.5.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.8.sp)</ID>
+    <ID>MaxLineLength:UpdateService.kt:UpdateService$_state.value = UpdateState.Failed("não foi possível registrar a atualização. Feche e abra o Astra.", LATEST_PAGE)</ID>
+    <ID>MaxLineLength:UpdateService.kt:UpdateService$_state.value = UpdateState.Failed("não foi possível reiniciar para instalar. Feche e abra o Astra.", LATEST_PAGE)</ID>
+    <ID>MaxLineLength:UpdateService.kt:UpdateService$m.contains("space", true) || m.contains("espaco", true) || m.contains("espaço", true) -&gt; "sem espaço em disco para atualizar"</ID>
+    <ID>MaxLineLength:UpdateUi.kt:internal</ID>
+    <ID>MaxLineLength:UpdateUi.kt:slideInHorizontally(tween(340 * dur, delayMillis = 190 * dur, easing = EaseOutStd)) { -it / 3 }</ID>
+    <ID>MaxLineLength:UpdateUi.kt:val voltaDoLogo = if (reduceMotion || !LocalWindowActive.current) null else faseDeEnfeite(VOLTA_DO_LOGO_MS, repouso = FASE_PARADA_DO_LOGO / twoPi)</ID>
+    <ID>MaxLineLength:UserFooter.kt:CartaoInterno</ID>
+    <ID>MaxLineLength:UserFooter.kt:FooterIcon(Lucide.Settings, rotulo = "configurações", danger = false, onClick = { onOpenSettings(SettingsTab.ACCOUNT) })</ID>
+    <ID>MaxLineLength:UserFooter.kt:me?.let { add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(it.id)) }) }</ID>
+    <ID>MaxLineLength:VoiceView.kt:DesktopAvatar(tile.avatarUrl, tile.nomeNoRetrato ?: tile.label, retrato.value.toInt(), fundo = Obsidian.active)</ID>
+    <ID>MaxLineLength:VoiceView.kt:tone == CallTone.Danger -&gt; lerp(Obsidian.overlay, Obsidian.danger, if (aceso) TINTA_DE_PERIGO_ACESA else TINTA_DE_PERIGO)</ID>
+    <ID>MaxLineLength:WindowsAppId.kt:WindowsAppId$append("New-Item -ItemType Directory -Force -Path (Split-Path \$p) | Out-Null; Apontar (\$w.CreateShortcut(\$p)) }; ")</ID>
+    <ID>MaxLineLength:WindowsAppId.kt:WindowsAppId$append("if (-not \$c -or \$c.TargetPath -ne '${q(alvo.programa)}' -or \$c.Arguments -ne '${q(alvo.argumentos)}') { ")</ID>
+    <ID>MaxLineLength:WindowsAppId.kt:WindowsAppId$append("if (\$f.TargetPath -like '*\\wscript.exe' -and \$f.Arguments -like '*launch.vbs*') { Apontar \$f } }")</ID>
+    <ID>MayBeConstant:CanoDeQuadros.kt:CanoDeQuadros.Companion$val PARADO_NS = 30_000_000_000L</ID>
+    <ID>NestedBlockDepth:MontagemPorPartes.kt:MontagemPorPartes$private fun escrever: Boolean</ID>
+    <ID>NestedBlockDepth:UpdateService.kt:UpdateService$private fun download</ID>
+    <ID>NestedBlockDepth:UpdateService.kt:UpdateService$private fun unzip</ID>
+    <ID>SwallowedException:AuthRepository.kt:AuthRepository$e: Exception</ID>
+    <ID>SwallowedException:AuthRepository.kt:AuthRepository$e: IOException</ID>
+    <ID>SwallowedException:AuthedClient.kt:DesktopTokenAuthenticator$e: Exception</ID>
+    <ID>SwallowedException:ZipRemoto.kt:ZipRemoto$e: EnderecoVencido</ID>
+    <ID>ThrowsCount:Manifesto.kt:Manifesto.Companion$fun ler: Manifesto</ID>
+    <ID>ThrowsCount:UpdateService.kt:UpdateService$private fun baixarPequeno: ByteArray</ID>
+    <ID>ThrowsCount:ZipRemoto.kt:ZipRemoto$fun preencher</ID>
+    <ID>ThrowsCount:ZipRemoto.kt:ZipRemoto$private fun pedirFaixa</ID>
+    <ID>TooGenericExceptionCaught:AnimatedImage.kt:e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:AuthRepository.kt:AuthRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AuthedClient.kt:DesktopTokenAuthenticator$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ChatVm.kt:ChatVm$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DesktopSocket.kt:DesktopSocket$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:UpdateService.kt:UpdateService$e: Exception</ID>
+    <ID>TooManyFunctions:CallNaSala.kt:CallNaSala</ID>
+    <ID>TooManyFunctions:ChatVm.kt:ChatVm</ID>
+    <ID>TooManyFunctions:Desinstalador.kt:Desinstalador</ID>
+    <ID>TooManyFunctions:DesktopPrefs.kt:DesktopPrefs</ID>
+    <ID>TooManyFunctions:DesktopSocket.kt:DesktopSocket</ID>
+    <ID>TooManyFunctions:Main.kt:SingleInstance</ID>
+    <ID>TooManyFunctions:MontagemPorPartes.kt:MontagemPorPartes</ID>
+    <ID>TooManyFunctions:PermissoesWindows.kt:PermissoesWindows</ID>
+    <ID>TooManyFunctions:SessionStore.kt:SessionStore</ID>
+    <ID>TooManyFunctions:ShellVm.kt:ShellVm</ID>
+    <ID>TooManyFunctions:SidecarDeVoz.kt:SidecarDeVoz</ID>
+    <ID>TooManyFunctions:Trocador.kt:Trocador</ID>
+    <ID>TooManyFunctions:UpdateService.kt:UpdateService</ID>
+    <ID>TooManyFunctions:Vigia.kt:Vigia</ID>
+    <ID>TopLevelPropertyNaming:BannerArt.kt:internal const val ProfileBannerAspect = 3.5f</ID>
+    <ID>TopLevelPropertyNaming:BannerArt.kt:internal const val ServerBannerAspect = 3.0f</ID>
+    <ID>TopLevelPropertyNaming:UpdateUi.kt:private const val prazoDoReinicio = 25_000L</ID>
+    <ID>TopLevelPropertyNaming:UpdateUi.kt:private const val prazoSemBytes = 60_000L</ID>
+    <ID>TopLevelPropertyNaming:UpdateUi.kt:private const val prazoSemNoticias = 15_000L</ID>
+    <ID>UnusedParameter:AnimacaoDeArtista.kt:fundo: Color</ID>
+    <ID>UnusedParameter:AnimacaoDeArtista.kt:origem: Color</ID>
+    <ID>VariableNaming:UpdateService.kt:UpdateService$private val ESPERA_FAXINA_MS = 20_000L</ID>
+  </CurrentIssues>
+</SmellBaseline>

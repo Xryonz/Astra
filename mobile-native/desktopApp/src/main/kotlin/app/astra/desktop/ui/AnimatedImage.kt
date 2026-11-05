@@ -28,6 +28,11 @@ import androidx.compose.ui.unit.IntSize
 import app.astra.desktop.net.ClienteCompartilhado
 import app.astra.shared.AstraShared
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.unit.dp
+import app.astra.desktop.ui.theme.Obsidian
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
@@ -96,6 +101,8 @@ fun AstraImage(
     alignment: Alignment = Alignment.Center,
     blurhash: String? = null,
     proporcaoBlur: Float = 1.5f,
+    tocar: Boolean = true,
+    aoDescobrirQueAnima: () -> Unit = {},
 ) {
     val reduce = LocalReduceMotion.current
     var anim by remember(url) { mutableStateOf(url?.let { AnimatedImageStore.cached(it) }) }
@@ -109,7 +116,8 @@ fun AstraImage(
 
     val a = anim
     if (a != null && a.frames.isNotEmpty()) {
-        QuadrosAnimados(a, tocar = !reduce, contentDescription, modifier, alignment, contentScale)
+        if (a.frames.size > 1) LaunchedEffect(a) { aoDescobrirQueAnima() }
+        QuadrosAnimados(a, tocar = tocar && !reduce, marcarParado = !tocar && !reduce, contentDescription, modifier, alignment, contentScale)
     } else {
         val borrao by lembrarBlurhash(blurhash, proporcaoBlur)
         val comBorrao = modifier.drawBehind {
@@ -145,6 +153,7 @@ fun AstraImage(
 private fun QuadrosAnimados(
     a: AnimatedFrames,
     tocar: Boolean,
+    marcarParado: Boolean,
     contentDescription: String?,
     modifier: Modifier,
     alignment: Alignment,
@@ -172,10 +181,31 @@ private fun QuadrosAnimados(
     Image(
         painter = remember(a) { QuadrosPainter(a.frames, indice) },
         contentDescription = contentDescription,
-        modifier = modifier,
+        modifier = modifier.then(
+            if (marcarParado && a.frames.size > 1) Modifier.drawWithContent { drawContent(); desenharMarcaDeTocar() }
+            else Modifier,
+        ),
         alignment = alignment,
         contentScale = contentScale,
     )
+}
+
+private val RAIO_DA_MARCA = 13.dp
+private val MARGEM_DA_MARCA = 8.dp
+
+private fun DrawScope.desenharMarcaDeTocar() {
+    val raio = minOf(RAIO_DA_MARCA.toPx(), size.minDimension / 4f)
+    val margem = minOf(MARGEM_DA_MARCA.toPx(), size.minDimension / 8f)
+    val centro = Offset(margem + raio, size.height - margem - raio)
+    drawCircle(Obsidian.void.copy(alpha = 0.72f), raio, centro)
+    val lado = raio * 0.9f
+    val triangulo = Path().apply {
+        moveTo(centro.x - lado * 0.35f, centro.y - lado * 0.5f)
+        lineTo(centro.x + lado * 0.55f, centro.y)
+        lineTo(centro.x - lado * 0.35f, centro.y + lado * 0.5f)
+        close()
+    }
+    drawPath(triangulo, Obsidian.text1)
 }
 
 @Composable
@@ -193,7 +223,7 @@ internal fun lembrarQuadrosDaFoto(url: String, ladoPx: Int): AnimatedFrames? {
 
 @Composable
 internal fun FotoAnimada(quadros: AnimatedFrames, contentDescription: String?, modifier: Modifier) {
-    QuadrosAnimados(quadros, tocar = true, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
+    QuadrosAnimados(quadros, tocar = true, marcarParado = false, contentDescription, modifier, Alignment.Center, ContentScale.Crop)
 }
 
 internal fun fotoSabidamenteParada(url: String): Boolean = AnimatedImageStore.isKnownStatic(url)

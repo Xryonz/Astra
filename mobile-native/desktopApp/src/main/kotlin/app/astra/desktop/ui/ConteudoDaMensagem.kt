@@ -268,16 +268,20 @@ private fun AttachmentBlock(att: AttachmentDto) {
         val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
         AstraImage(
             url = att.thumbUrl ?: att.url,
-            contentDescription = att.name,
+            contentDescription = if (cliqueToca) "${att.name}, GIF parado; ativar toca, ativar de novo abre" else att.name,
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
                 .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { openImage(att.url) },
+                .clickable {
+                    if (cliqueToca) tocando = true else openImage(att.url)
+                },
             contentScale = ContentScale.Fit,
             blurhash = att.blurhash,
             proporcaoBlur = proporcao ?: 1.5f,
+            tocar = tocando,
+            aoDescobrirQueAnima = { anima = true },
         )
     } else {
         val src = remember { MutableInteractionSource() }

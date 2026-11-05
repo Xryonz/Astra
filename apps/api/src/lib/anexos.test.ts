@@ -40,10 +40,7 @@ describe('urlDeAnexoPermitida', () => {
 
 describe('primeiroAnexoNaoPermitido', () => {
   it('devolve null quando esta tudo certo', () => {
-    expect(primeiroAnexoNaoPermitido([
-      { url: '/uploads/a.png' },
-      { url: 'https://media.giphy.com/b.gif' },
-    ])).toBeNull()
+    expect(primeiroAnexoNaoPermitido([{ url: '/uploads/a.png' }, { url: 'https://media.giphy.com/b.gif' }])).toBeNull()
   })
 
   it('devolve null pra lista vazia ou ausente', () => {
@@ -52,15 +49,14 @@ describe('primeiroAnexoNaoPermitido', () => {
   })
 
   it('aponta QUAL url reprovou, pro erro poder dizer', () => {
-    expect(primeiroAnexoNaoPermitido([
-      { url: '/uploads/a.png' },
-      { url: 'https://rastreio.exemplo/pixel.png' },
-    ])).toBe('https://rastreio.exemplo/pixel.png')
+    expect(primeiroAnexoNaoPermitido([{ url: '/uploads/a.png' }, { url: 'https://rastreio.exemplo/pixel.png' }])).toBe(
+      'https://rastreio.exemplo/pixel.png',
+    )
   })
 
   it('checa tambem a miniatura', () => {
-    expect(primeiroAnexoNaoPermitido([
-      { url: '/uploads/a.png', thumbUrl: 'https://rastreio.exemplo/t.png' },
-    ])).toBe('https://rastreio.exemplo/t.png')
+    expect(primeiroAnexoNaoPermitido([{ url: '/uploads/a.png', thumbUrl: 'https://rastreio.exemplo/t.png' }])).toBe(
+      'https://rastreio.exemplo/t.png',
+    )
   })
 })

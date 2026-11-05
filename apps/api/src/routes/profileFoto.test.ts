@@ -10,7 +10,12 @@ const gravadas = vi.hoisted(() => ({ fotos: [] as string[] }))
 
 vi.mock('../db', () => ({ db: {} }))
 vi.mock('../lib/redis', () => ({
-  getUserStatus: vi.fn(), setUserOnline: vi.fn(), redis: {}, presenceKeys: {}, activityKeys: {}, leAtividade: vi.fn(),
+  getUserStatus: vi.fn(),
+  setUserOnline: vi.fn(),
+  redis: {},
+  presenceKeys: {},
+  activityKeys: {},
+  leAtividade: vi.fn(),
 }))
 vi.mock('../lib/realtime', () => ({ presenceChanged: vi.fn(), profileChanged: vi.fn() }))
 vi.mock('../middleware/auth', () => ({
@@ -80,7 +85,9 @@ describe('POST /api/profile/foto', () => {
   })
 
   it('enquadramento fora da imagem dá 422 e não grava nada', async () => {
-    const png = await sharp({ create: { width: 50, height: 50, channels: 3, background: { r: 0, g: 0, b: 0 } } }).png().toBuffer()
+    const png = await sharp({ create: { width: 50, height: 50, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+      .png()
+      .toBuffer()
     const { status, json } = await recortar({
       imagem: `data:image/png;base64,${png.toString('base64')}`,
       recorte: { x: 60, y: 0, lado: 10 },

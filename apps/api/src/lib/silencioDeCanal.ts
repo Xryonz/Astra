@@ -9,17 +9,23 @@ function modo(cru: string | null | undefined): ModoDeAviso {
 }
 
 export async function modoDoCanal(userId: string, channelId: string): Promise<ModoDeAviso> {
-  const [doCanal] = await db.select({ mode: channelNotifPrefs.mode }).from(channelNotifPrefs)
+  const [doCanal] = await db
+    .select({ mode: channelNotifPrefs.mode })
+    .from(channelNotifPrefs)
     .where(and(eq(channelNotifPrefs.userId, userId), eq(channelNotifPrefs.channelId, channelId)))
     .limit(1)
   if (doCanal) return modo(doCanal.mode)
 
-  const [canal] = await db.select({ serverId: channels.serverId }).from(channels)
+  const [canal] = await db
+    .select({ serverId: channels.serverId })
+    .from(channels)
     .where(eq(channels.id, channelId))
     .limit(1)
   if (!canal?.serverId) return 'all'
 
-  const [daConstelacao] = await db.select({ mode: serverNotifPrefs.mode }).from(serverNotifPrefs)
+  const [daConstelacao] = await db
+    .select({ mode: serverNotifPrefs.mode })
+    .from(serverNotifPrefs)
     .where(and(eq(serverNotifPrefs.userId, userId), eq(serverNotifPrefs.serverId, canal.serverId)))
     .limit(1)
   return modo(daConstelacao?.mode)

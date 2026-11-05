@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
@@ -18,7 +18,10 @@ async function avisarPedidoDeAmizade(paraQuem: string, deQuem: string): Promise<
   const io = servidorDeSocket()
   if (!io) return
   await notify({
-    io, userId: paraQuem, actorId: deQuem, type: 'friend_request',
+    io,
+    userId: paraQuem,
+    actorId: deQuem,
+    type: 'friend_request',
     payload: {},
     push: { title: 'Pedido de amizade', body: 'alguém quer te adicionar' },
   })
@@ -38,169 +41,240 @@ async function presenceFor(userId: string) {
   return v
 }
 
-router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const rows = await db.select().from(friendships)
-    .where(and(
-      eq(friendships.status, 'accepted'),
-      or(eq(friendships.userAId, req.userId!), eq(friendships.userBId, req.userId!)),
-    ))
-  if (rows.length === 0) return res.json({ data: [] })
+router.get(
+  '/',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const rows = await db
+      .select()
+      .from(friendships)
+      .where(
+        and(
+          eq(friendships.status, 'accepted'),
+          or(eq(friendships.userAId, req.userId!), eq(friendships.userBId, req.userId!)),
+        ),
+      )
+    if (rows.length === 0) return res.json({ data: [] })
 
-  const otherIds = rows.map((r) => r.userAId === req.userId ? r.userBId : r.userAId)
-  const otherUsers = await db.select({
-    id: users.id, username: users.username, displayName: users.displayName,
-    avatarUrl: users.avatarUrl, customStatus: users.customStatus,
-  }).from(users).where(or(...otherIds.map((id) => eq(users.id, id))))
+    const otherIds = rows.map((r) => (r.userAId === req.userId ? r.userBId : r.userAId))
+    const otherUsers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        customStatus: users.customStatus,
+      })
+      .from(users)
+      .where(or(...otherIds.map((id) => eq(users.id, id))))
 
-  const userMap = new Map(otherUsers.map((u) => [u.id, u]))
+    const userMap = new Map(otherUsers.map((u) => [u.id, u]))
 
-  const enriched = await Promise.all(rows.map(async (r) => {
-    const otherId = r.userAId === req.userId ? r.userBId : r.userAId
-    const u = userMap.get(otherId)
-    if (!u) return null
-    return {
-      friendshipId: r.id,
-      user: u,
-      presence: await presenceFor(otherId),
-      since: r.acceptedAt?.toISOString() ?? null,
-    }
-  }))
+    const enriched = await Promise.all(
+      rows.map(async (r) => {
+        const otherId = r.userAId === req.userId ? r.userBId : r.userAId
+        const u = userMap.get(otherId)
+        if (!u) return null
+        return {
+          friendshipId: r.id,
+          user: u,
+          presence: await presenceFor(otherId),
+          since: r.acceptedAt?.toISOString() ?? null,
+        }
+      }),
+    )
 
-  res.json({ data: enriched.filter(Boolean) })
-}))
+    res.json({ data: enriched.filter(Boolean) })
+  }),
+)
 
-router.get('/requests', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const rows = await db.select().from(friendships)
-    .where(and(
-      eq(friendships.status, 'pending'),
-      or(eq(friendships.userAId, req.userId!), eq(friendships.userBId, req.userId!)),
-    ))
-  const incoming = rows.filter((r) => r.requesterId !== req.userId)
-  if (incoming.length === 0) return res.json({ data: [] })
+router.get(
+  '/requests',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const rows = await db
+      .select()
+      .from(friendships)
+      .where(
+        and(
+          eq(friendships.status, 'pending'),
+          or(eq(friendships.userAId, req.userId!), eq(friendships.userBId, req.userId!)),
+        ),
+      )
+    const incoming = rows.filter((r) => r.requesterId !== req.userId)
+    if (incoming.length === 0) return res.json({ data: [] })
 
-  const otherIds = incoming.map((r) => r.requesterId)
-  const us = await db.select({
-    id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
-  }).from(users).where(or(...otherIds.map((id) => eq(users.id, id))))
-  const m = new Map(us.map((u) => [u.id, u]))
+    const otherIds = incoming.map((r) => r.requesterId)
+    const us = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(or(...otherIds.map((id) => eq(users.id, id))))
+    const m = new Map(us.map((u) => [u.id, u]))
 
-  res.json({
-    data: incoming.map((r) => ({
-      friendshipId: r.id,
-      user: m.get(r.requesterId) ?? null,
-      createdAt: r.createdAt.toISOString(),
-    })),
-  })
-}))
+    res.json({
+      data: incoming.map((r) => ({
+        friendshipId: r.id,
+        user: m.get(r.requesterId) ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    })
+  }),
+)
 
-router.get('/outgoing', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const rows = await db.select().from(friendships)
-    .where(and(
-      eq(friendships.status, 'pending'),
-      eq(friendships.requesterId, req.userId!),
-    ))
-  if (rows.length === 0) return res.json({ data: [] })
+router.get(
+  '/outgoing',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const rows = await db
+      .select()
+      .from(friendships)
+      .where(and(eq(friendships.status, 'pending'), eq(friendships.requesterId, req.userId!)))
+    if (rows.length === 0) return res.json({ data: [] })
 
-  const otherIds = rows.map((r) => r.userAId === req.userId ? r.userBId : r.userAId)
-  const us = await db.select({
-    id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
-  }).from(users).where(or(...otherIds.map((id) => eq(users.id, id))))
-  const m = new Map(us.map((u) => [u.id, u]))
+    const otherIds = rows.map((r) => (r.userAId === req.userId ? r.userBId : r.userAId))
+    const us = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(or(...otherIds.map((id) => eq(users.id, id))))
+    const m = new Map(us.map((u) => [u.id, u]))
 
-  res.json({
-    data: rows.map((r) => ({
-      friendshipId: r.id,
-      user: m.get(r.userAId === req.userId ? r.userBId : r.userAId) ?? null,
-      createdAt: r.createdAt.toISOString(),
-    })),
-  })
-}))
+    res.json({
+      data: rows.map((r) => ({
+        friendshipId: r.id,
+        user: m.get(r.userAId === req.userId ? r.userBId : r.userAId) ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    })
+  }),
+)
 
 const RequestSchema = z
   .object({
-    username:   z.string().min(1).max(64).optional(),
+    username: z.string().min(1).max(64).optional(),
     coordinate: z.string().refine(isValidCoordinate, 'Coordenada inválida').optional(),
   })
   .refine((d) => !!d.username || !!d.coordinate, {
     message: 'Informe username ou coordenada',
   })
 
-router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async (req: Request, res: Response) => {
-  const { username, coordinate } = req.body as z.infer<typeof RequestSchema>
-  const [target] = await db.select({ id: users.id }).from(users)
-    .where(coordinate
-      ? eq(users.coordinate, normalizeCoordinate(coordinate))
-      : eq(users.username, username!))
-    .limit(1)
-  if (!target) throw notFound('Usuário não encontrado')
-  if (target.id === req.userId) throw badRequest('Não pode adicionar você mesmo')
-  if (await haBloqueio(req.userId!, target.id)) throw badRequest('Não é possível adicionar essa pessoa')
+router.post(
+  '/request',
+  requireAuth,
+  validate(RequestSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { username, coordinate } = req.body as z.infer<typeof RequestSchema>
+    const [target] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(coordinate ? eq(users.coordinate, normalizeCoordinate(coordinate)) : eq(users.username, username!))
+      .limit(1)
+    if (!target) throw notFound('Usuário não encontrado')
+    if (target.id === req.userId) throw badRequest('Não pode adicionar você mesmo')
+    if (await haBloqueio(req.userId!, target.id)) throw badRequest('Não é possível adicionar essa pessoa')
 
-  const [a, b] = normalize(req.userId!, target.id)
+    const [a, b] = normalize(req.userId!, target.id)
 
-  const [existing] = await db.select().from(friendships)
-    .where(and(eq(friendships.userAId, a), eq(friendships.userBId, b))).limit(1)
-  if (existing) {
-    if (existing.status === 'accepted') return res.json({ data: { status: 'accepted', id: existing.id } })
+    const [existing] = await db
+      .select()
+      .from(friendships)
+      .where(and(eq(friendships.userAId, a), eq(friendships.userBId, b)))
+      .limit(1)
+    if (existing) {
+      if (existing.status === 'accepted') return res.json({ data: { status: 'accepted', id: existing.id } })
 
-    if (existing.requesterId !== req.userId) {
-      const [accepted] = await db.update(friendships)
-        .set({ status: 'accepted', acceptedAt: new Date() })
-        .where(eq(friendships.id, existing.id))
-        .returning()
+      if (existing.requesterId !== req.userId) {
+        const [accepted] = await db
+          .update(friendships)
+          .set({ status: 'accepted', acceptedAt: new Date() })
+          .where(eq(friendships.id, existing.id))
+          .returning()
 
-      getOrCreateConversation(req.userId!, target.id).catch(() => {})
-      amizadeMudou(req.userId!, target.id, 'aceito')
-      return res.json({ data: accepted })
+        getOrCreateConversation(req.userId!, target.id).catch(() => {})
+        amizadeMudou(req.userId!, target.id, 'aceito')
+        return res.json({ data: accepted })
+      }
+      return res.json({ data: existing })
     }
-    return res.json({ data: existing })
-  }
 
-  const [created] = await db.insert(friendships).values({
-    userAId: a, userBId: b, requesterId: req.userId!, status: 'pending',
-  }).returning()
-  amizadeMudou(req.userId!, target.id, 'pedido')
-  void avisarPedidoDeAmizade(target.id, req.userId!)
-  res.status(201).json({ data: created })
-}))
+    const [created] = await db
+      .insert(friendships)
+      .values({
+        userAId: a,
+        userBId: b,
+        requesterId: req.userId!,
+        status: 'pending',
+      })
+      .returning()
+    amizadeMudou(req.userId!, target.id, 'pedido')
+    void avisarPedidoDeAmizade(target.id, req.userId!)
+    res.status(201).json({ data: created })
+  }),
+)
 
-router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params
-  const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
-  if (!row) throw notFound('Pedido não encontrado')
+router.post(
+  '/:id/accept',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params
+    const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
+    if (!row) throw notFound('Pedido não encontrado')
 
-  if (row.requesterId === req.userId) throw badRequest('Você enviou este pedido. Aguarde a outra pessoa aceitar.')
-  if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
-  if (row.status === 'accepted') return res.json({ data: row })
+    if (row.requesterId === req.userId) throw badRequest('Você enviou este pedido. Aguarde a outra pessoa aceitar.')
+    if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
+    if (row.status === 'accepted') return res.json({ data: row })
 
-  const [updated] = await db.update(friendships)
-    .set({ status: 'accepted', acceptedAt: new Date() })
-    .where(eq(friendships.id, id))
-    .returning()
+    const [updated] = await db
+      .update(friendships)
+      .set({ status: 'accepted', acceptedAt: new Date() })
+      .where(eq(friendships.id, id))
+      .returning()
 
-  const otherId = row.userAId === req.userId ? row.userBId : row.userAId
-  getOrCreateConversation(req.userId!, otherId).catch(() => {})
-  amizadeMudou(req.userId!, otherId, 'aceito')
-  res.json({ data: updated })
-}))
+    const otherId = row.userAId === req.userId ? row.userBId : row.userAId
+    getOrCreateConversation(req.userId!, otherId).catch(() => {})
+    amizadeMudou(req.userId!, otherId, 'aceito')
+    res.json({ data: updated })
+  }),
+)
 
-router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params
-  const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
-  if (!row) return res.json({ data: { ok: true } })
-  if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
-  await db.delete(friendships).where(eq(friendships.id, id))
-  amizadeMudou(row.userAId, row.userBId, 'removido')
-  res.json({ data: { ok: true } })
-}))
+router.delete(
+  '/:id',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params
+    const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
+    if (!row) return res.json({ data: { ok: true } })
+    if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
+    await db.delete(friendships).where(eq(friendships.id, id))
+    amizadeMudou(row.userAId, row.userBId, 'removido')
+    res.json({ data: { ok: true } })
+  }),
+)
 
 const StatusSchema = z.object({ customStatus: z.string().max(100).nullable() })
 
-router.patch('/custom-status', requireAuth, validate(StatusSchema), asyncHandler(async (req: Request, res: Response) => {
-  const { customStatus } = req.body as z.infer<typeof StatusSchema>
-  await db.update(users).set({ customStatus: customStatus?.trim() || null }).where(eq(users.id, req.userId!))
-  profileChanged(req.userId!)
-  res.json({ data: { customStatus: customStatus?.trim() || null } })
-}))
+router.patch(
+  '/custom-status',
+  requireAuth,
+  validate(StatusSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { customStatus } = req.body as z.infer<typeof StatusSchema>
+    await db
+      .update(users)
+      .set({ customStatus: customStatus?.trim() || null })
+      .where(eq(users.id, req.userId!))
+    profileChanged(req.userId!)
+    res.json({ data: { customStatus: customStatus?.trim() || null } })
+  }),
+)
 
 export default router

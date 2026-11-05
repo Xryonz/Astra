@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
@@ -15,11 +15,11 @@ import { persistImagemDeExibicao } from '../lib/storage'
 const HEX = /^#[0-9a-fA-F]{6}$/
 
 const CreateRoleSchema = z.object({
-  name:        z.string().min(1).max(50),
-  color:       z.string().regex(HEX, 'Cor inválida (hex #RRGGBB)').optional().nullable(),
-  iconUrl:     z.string().max(6_500_000).optional().nullable(),
+  name: z.string().min(1).max(50),
+  color: z.string().regex(HEX, 'Cor inválida (hex #RRGGBB)').optional().nullable(),
+  iconUrl: z.string().max(6_500_000).optional().nullable(),
   permissions: z.array(z.string().max(40)).max(20).optional().default([]),
-  hoist:       z.boolean().optional().default(false),
+  hoist: z.boolean().optional().default(false),
 })
 
 const UpdateRoleSchema = CreateRoleSchema.partial()
@@ -43,17 +43,21 @@ rolesRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    const [member] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [member] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (!member) return res.status(403).json({ error: 'Acesso negado' })
 
-    const rows = await db.select().from(roles)
+    const rows = await db
+      .select()
+      .from(roles)
       .where(eq(roles.serverId, serverId))
       .orderBy(desc(roles.position), asc(roles.createdAt))
 
     res.json({ data: rows.map((r) => ({ ...r, permissions: safeParseArr(r.permissions) })) })
-  })
+  }),
 )
 
 rolesRouter.post(
@@ -76,23 +80,29 @@ rolesRouter.post(
       .from(roles)
       .where(eq(roles.serverId, serverId))
 
-    const [created] = await db.insert(roles).values({
-      serverId,
-      name:        body.name,
-      color:       body.color ?? null,
-      iconUrl:     (await persistImagemDeExibicao(body.iconUrl ?? null)).url,
-      position:    (max ?? 0) + 1,
-      permissions: JSON.stringify(permsToSet),
-      hoist:       body.hoist ?? false,
-    }).returning()
+    const [created] = await db
+      .insert(roles)
+      .values({
+        serverId,
+        name: body.name,
+        color: body.color ?? null,
+        iconUrl: (await persistImagemDeExibicao(body.iconUrl ?? null)).url,
+        position: (max ?? 0) + 1,
+        permissions: JSON.stringify(permsToSet),
+        hoist: body.hoist ?? false,
+      })
+      .returning()
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.ROLE_CREATE,
-      targetId: created.id, metadata: { name: created.name, color: created.color },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.ROLE_CREATE,
+      targetId: created.id,
+      metadata: { name: created.name, color: created.color },
     })
 
     res.status(201).json({ data: { ...created, permissions: safeParseArr(created.permissions) } })
-  })
+  }),
 )
 
 rolesRouter.patch(
@@ -107,26 +117,31 @@ rolesRouter.patch(
 
     const body = req.body as z.infer<typeof UpdateRoleSchema>
     const patch: Record<string, unknown> = {}
-    if (body.name !== undefined)  patch.name = body.name
+    if (body.name !== undefined) patch.name = body.name
     if (body.color !== undefined) patch.color = body.color
     if (body.iconUrl !== undefined) patch.iconUrl = (await persistImagemDeExibicao(body.iconUrl)).url
     if (body.hoist !== undefined) patch.hoist = body.hoist
     if (body.permissions !== undefined) patch.permissions = JSON.stringify(grantableSubset(actor, body.permissions))
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
-    const [updated] = await db.update(roles).set(patch)
+    const [updated] = await db
+      .update(roles)
+      .set(patch)
       .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId)))
       .returning()
     if (!updated) return res.status(404).json({ error: 'Cargo não encontrado' })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.ROLE_UPDATE,
-      targetId: updated.id, metadata: { name: updated.name, patch },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.ROLE_UPDATE,
+      targetId: updated.id,
+      metadata: { name: updated.name, patch },
     })
 
     void cargosDoServidorMudaram(serverId)
     res.json({ data: { ...updated, permissions: safeParseArr(updated.permissions) } })
-  })
+  }),
 )
 
 rolesRouter.delete(
@@ -137,7 +152,8 @@ rolesRouter.delete(
     if (!(await canManageRoles(req.userId!, serverId)))
       return res.status(403).json({ error: 'Sem permissão para excluir cargos' })
 
-    const r = await db.delete(roles)
+    const r = await db
+      .delete(roles)
       .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId)))
       .returning({ id: roles.id })
     if (r.length === 0) return res.status(404).json({ error: 'Cargo não encontrado' })
@@ -146,7 +162,7 @@ rolesRouter.delete(
 
     void cargosDoServidorMudaram(serverId)
     res.json({ message: 'Cargo excluído' })
-  })
+  }),
 )
 
 rolesRouter.post(
@@ -159,28 +175,40 @@ rolesRouter.post(
       return res.status(403).json({ error: 'Sem permissão para atribuir cargos' })
 
     const [[m], [r]] = await Promise.all([
-      db.select({ id: serverMembers.id }).from(serverMembers)
-        .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId))).limit(1),
-      db.select({ id: roles.id, permissions: roles.permissions }).from(roles)
-        .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId))).limit(1),
+      db
+        .select({ id: serverMembers.id })
+        .from(serverMembers)
+        .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId)))
+        .limit(1),
+      db
+        .select({ id: roles.id, permissions: roles.permissions })
+        .from(roles)
+        .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId)))
+        .limit(1),
     ])
     if (!m) return res.status(404).json({ error: 'Membro não encontrado' })
     if (!r) return res.status(404).json({ error: 'Cargo não encontrado' })
     if (!actor.isOwner && !parsePermissionsJson(r.permissions).every((p) => actor.permissions.has(p)))
       return res.status(403).json({ error: 'Não pode atribuir cargo com permissões acima das suas' })
 
-    const [existing] = await db.select({ id: memberRoles.id }).from(memberRoles)
-      .where(and(eq(memberRoles.memberId, memberId), eq(memberRoles.roleId, roleId))).limit(1)
+    const [existing] = await db
+      .select({ id: memberRoles.id })
+      .from(memberRoles)
+      .where(and(eq(memberRoles.memberId, memberId), eq(memberRoles.roleId, roleId)))
+      .limit(1)
     if (!existing) await db.insert(memberRoles).values({ memberId, roleId })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.ROLE_ASSIGN,
-      targetId: memberId, metadata: { roleId },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.ROLE_ASSIGN,
+      targetId: memberId,
+      metadata: { roleId },
     })
 
     void cargosDoMembroMudaram(serverId, memberId)
     res.status(201).json({ data: { ok: true } })
-  })
+  }),
 )
 
 rolesRouter.delete(
@@ -191,22 +219,27 @@ rolesRouter.delete(
     if (!(await canManageRoles(req.userId!, serverId)))
       return res.status(403).json({ error: 'Sem permissão para remover cargos' })
 
-    await db.delete(memberRoles).where(and(
-      eq(memberRoles.memberId, memberId),
-      eq(memberRoles.roleId, roleId),
-    ))
+    await db.delete(memberRoles).where(and(eq(memberRoles.memberId, memberId), eq(memberRoles.roleId, roleId)))
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.ROLE_UNASSIGN,
-      targetId: memberId, metadata: { roleId },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.ROLE_UNASSIGN,
+      targetId: memberId,
+      metadata: { roleId },
     })
 
     void cargosDoMembroMudaram(serverId, memberId)
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 function safeParseArr(raw: unknown): string[] {
   if (typeof raw !== 'string') return []
-  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : [] } catch { return [] }
+  try {
+    const v = JSON.parse(raw)
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
 }

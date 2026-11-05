@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express'
-import { ZodSchema, ZodError } from 'zod'
+import type { Request, Response, NextFunction } from 'express'
+import { type ZodSchema, ZodError } from 'zod'
 
 type Source = 'body' | 'query' | 'params'
 

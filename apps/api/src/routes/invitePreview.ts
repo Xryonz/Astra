@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, eq, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
@@ -43,11 +43,7 @@ const ESTILO = `
 `
 
 function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function moldura(titulo: string, cabecalhoExtra: string, conteudo: string): string {
@@ -83,27 +79,39 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const codigo = req.params.code
 
-    const [server] = await db.select({
-      id:        servers.id,
-      name:      servers.name,
-      iconUrl:   servers.iconUrl,
-      bannerUrl: servers.bannerUrl,
-    }).from(servers).where(eq(servers.inviteCode, codigo)).limit(1)
+    const [server] = await db
+      .select({
+        id: servers.id,
+        name: servers.name,
+        iconUrl: servers.iconUrl,
+        bannerUrl: servers.bannerUrl,
+      })
+      .from(servers)
+      .where(eq(servers.inviteCode, codigo))
+      .limit(1)
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
 
     if (!server) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(404).send(moldura('Convite não encontrado · Astra', '', `
+      return res.status(404).send(
+        moldura(
+          'Convite não encontrado · Astra',
+          '',
+          `
     <div class="corpo">
       <p class="marca">Astra</p>
       <h1>Este convite não existe mais</h1>
       <p class="estrelas">O link pode ter expirado ou chegado incompleto. Peça um novo a quem te convidou.</p>${BLOCO_DE_DOWNLOAD}
-    </div>`))
+    </div>`,
+        ),
+      )
     }
 
-    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(serverMembers)
+      .where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
 
     const apiBase = `${req.protocol}://${req.get('host')}`
     const toPublicUrl = (u: string | null): string | null => {
@@ -111,7 +119,7 @@ router.get(
       return u.startsWith('/') ? `${apiBase}${u}` : u
     }
     const banner = toPublicUrl(server.bannerUrl)
-    const icone  = toPublicUrl(server.iconUrl)
+    const icone = toPublicUrl(server.iconUrl)
     const imagemDaPrevia = banner ?? icone
 
     const titulo = esc(`Junte-se à constelação ${server.name} no Astra`)
@@ -123,10 +131,16 @@ router.get(
       `  <meta property="og:type" content="website">`,
       `  <meta property="og:site_name" content="Astra">`,
       `  <meta name="twitter:card" content="summary">`,
-    ].filter(Boolean).join('\n')
+    ]
+      .filter(Boolean)
+      .join('\n')
 
     res.setHeader('Cache-Control', 'public, max-age=300')
-    res.send(moldura(titulo, previa, `
+    res.send(
+      moldura(
+        titulo,
+        previa,
+        `
     ${banner ? `<img class="capa" src="${esc(banner)}" alt="">` : ''}
     <div class="corpo">
       <p class="marca">Astra · convite</p>
@@ -140,8 +154,10 @@ router.get(
         <p class="apoio">Se o Astra não abrir, clique em <strong>+</strong> na barra lateral, escolha <strong>Entrar com convite</strong> e cole este código:</p>
         <code class="codigo">${esc(codigo)}</code>
       </section>${BLOCO_DE_DOWNLOAD}
-    </div>`))
-  })
+    </div>`,
+      ),
+    )
+  }),
 )
 
 export default router

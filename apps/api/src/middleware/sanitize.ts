@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 
 function sanitizeShallowString(value: unknown): unknown {
   if (typeof value === 'string') {
@@ -11,7 +11,7 @@ function sanitizeShallowString(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeShallowString)
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeShallowString(v)])
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeShallowString(v)]),
     )
   }
   return value

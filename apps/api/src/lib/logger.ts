@@ -1,4 +1,3 @@
-
 import { AsyncLocalStorage } from 'async_hooks'
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
@@ -8,7 +7,10 @@ const MIN_LEVEL: Level = (process.env.LOG_LEVEL as Level) ?? (process.env.NODE_E
 const MIN_WEIGHT = LEVEL_WEIGHT[MIN_LEVEL] ?? LEVEL_WEIGHT.info
 const IS_PROD = process.env.NODE_ENV === 'production'
 
-interface LogContext { reqId?: string; userId?: string }
+interface LogContext {
+  reqId?: string
+  userId?: string
+}
 const als = new AsyncLocalStorage<LogContext>()
 
 export function runWithLogContext<T>(ctx: LogContext, fn: () => T): T {
@@ -21,22 +23,26 @@ function getSentry() {
   try {
     sentryRef = require('./sentry').sentry
     return sentryRef
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 function serializeExtra(extra: unknown[]): unknown[] {
   return extra.map((e) => {
     if (e instanceof Error) {
       return {
-        name:    e.name,
+        name: e.name,
         message: e.message,
-        stack:   e.stack,
-        cause:   (e as any).cause ? {
-          message:    (e as any).cause?.message,
-          code:       (e as any).cause?.code,
-          constraint: (e as any).cause?.constraint,
-          detail:     (e as any).cause?.detail,
-        } : undefined,
+        stack: e.stack,
+        cause: (e as any).cause
+          ? {
+              message: (e as any).cause?.message,
+              code: (e as any).cause?.code,
+              constraint: (e as any).cause?.constraint,
+              detail: (e as any).cause?.detail,
+            }
+          : undefined,
       }
     }
     return e
@@ -50,11 +56,11 @@ function emit(level: Level, scope: string, msg: string, extra: unknown[]) {
 
   if (IS_PROD) {
     const payload = {
-      ts:    new Date().toISOString(),
+      ts: new Date().toISOString(),
       level,
       scope,
       msg,
-      ...(ctx?.reqId  ? { reqId:  ctx.reqId  } : {}),
+      ...(ctx?.reqId ? { reqId: ctx.reqId } : {}),
       ...(ctx?.userId ? { userId: ctx.userId } : {}),
       ...(extra.length > 0 ? { extra: serializeExtra(extra) } : {}),
     }
@@ -78,7 +84,7 @@ function emit(level: Level, scope: string, msg: string, extra: unknown[]) {
 
 export const logger = {
   debug: (scope: string, msg: string, ...extra: unknown[]) => emit('debug', scope, msg, extra),
-  info:  (scope: string, msg: string, ...extra: unknown[]) => emit('info',  scope, msg, extra),
-  warn:  (scope: string, msg: string, ...extra: unknown[]) => emit('warn',  scope, msg, extra),
+  info: (scope: string, msg: string, ...extra: unknown[]) => emit('info', scope, msg, extra),
+  warn: (scope: string, msg: string, ...extra: unknown[]) => emit('warn', scope, msg, extra),
   error: (scope: string, msg: string, ...extra: unknown[]) => emit('error', scope, msg, extra),
 }

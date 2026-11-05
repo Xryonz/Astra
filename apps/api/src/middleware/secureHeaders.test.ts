@@ -12,7 +12,9 @@ describe('cabecalhos de seguranca', () => {
   beforeAll(async () => {
     const app = express()
     app.use(secureHeaders)
-    app.get('/', (_req, res) => { res.json({ ok: true }) })
+    app.get('/', (_req, res) => {
+      res.json({ ok: true })
+    })
     servidor = app.listen(0)
     await new Promise<void>((pronto) => servidor.once('listening', () => pronto()))
     base = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}`

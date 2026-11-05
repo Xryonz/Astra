@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
@@ -26,29 +26,29 @@ bansRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.BAN_MEMBERS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.BAN_MEMBERS)) return res.status(403).json({ error: 'Sem permissão' })
 
-    const rows = await db.select({
-      id:         serverBans.id,
-      userId:     serverBans.userId,
-      bannedById: serverBans.bannedById,
-      reason:     serverBans.reason,
-      createdAt:  serverBans.createdAt,
-      user: {
-        id:          users.id,
-        username:    users.username,
-        displayName: users.displayName,
-        avatarUrl:   users.avatarUrl,
-      },
-    })
+    const rows = await db
+      .select({
+        id: serverBans.id,
+        userId: serverBans.userId,
+        bannedById: serverBans.bannedById,
+        reason: serverBans.reason,
+        createdAt: serverBans.createdAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        },
+      })
       .from(serverBans)
       .innerJoin(users, eq(users.id, serverBans.userId))
       .where(eq(serverBans.serverId, serverId))
       .orderBy(desc(serverBans.createdAt))
 
     res.json({ data: rows })
-  })
+  }),
 )
 
 bansRouter.post(
@@ -66,8 +66,7 @@ bansRouter.post(
 
     if (userId === req.userId) return res.status(400).json({ error: 'Você não pode se banir' })
 
-    const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers)
-      .where(eq(servers.id, serverId)).limit(1)
+    const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers).where(eq(servers.id, serverId)).limit(1)
     if (!srv) return res.status(404).json({ error: 'Servidor não encontrado' })
     if (srv.ownerId === userId) return res.status(400).json({ error: 'Não é possível banir o dono' })
 
@@ -78,31 +77,36 @@ bansRouter.post(
     }
 
     await db.transaction(async (tx) => {
-
-      const [existing] = await tx.select({ id: serverBans.id }).from(serverBans)
-        .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, userId))).limit(1)
+      const [existing] = await tx
+        .select({ id: serverBans.id })
+        .from(serverBans)
+        .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, userId)))
+        .limit(1)
       if (!existing) {
         await tx.insert(serverBans).values({
-          serverId, userId, bannedById: req.userId!, reason: reason ?? null,
+          serverId,
+          userId,
+          bannedById: req.userId!,
+          reason: reason ?? null,
         })
       }
 
-      await tx.delete(serverMembers).where(and(
-        eq(serverMembers.userId, userId),
-        eq(serverMembers.serverId, serverId),
-      ))
+      await tx.delete(serverMembers).where(and(eq(serverMembers.userId, userId), eq(serverMembers.serverId, serverId)))
     })
     void invalidateMembersCache(serverId)
     membroSaiu(serverId, userId)
     leftServer(userId, serverId, 'banido', reason ?? null)
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.MEMBER_BAN,
-      targetId: userId, metadata: { reason: reason ?? null },
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.MEMBER_BAN,
+      targetId: userId,
+      metadata: { reason: reason ?? null },
     })
 
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 bansRouter.delete(
@@ -112,18 +116,21 @@ bansRouter.delete(
     const { serverId, userId } = req.params
 
     const m = await getMemberPerms(req.userId!, serverId)
-    if (!m.isOwner && !m.permissions.has(PERMS.BAN_MEMBERS))
-      return res.status(403).json({ error: 'Sem permissão' })
+    if (!m.isOwner && !m.permissions.has(PERMS.BAN_MEMBERS)) return res.status(403).json({ error: 'Sem permissão' })
 
-    const r = await db.delete(serverBans)
+    const r = await db
+      .delete(serverBans)
       .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, userId)))
       .returning({ id: serverBans.id })
     if (r.length === 0) return res.status(404).json({ error: 'Ban não encontrado' })
 
     void audit({
-      serverId, actorId: req.userId!, action: AUDIT.MEMBER_UNBAN, targetId: userId,
+      serverId,
+      actorId: req.userId!,
+      action: AUDIT.MEMBER_UNBAN,
+      targetId: userId,
     })
 
     res.json({ data: { ok: true } })
-  })
+  }),
 )

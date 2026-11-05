@@ -20,13 +20,18 @@ describe('sorteio das diarias', () => {
     for (const m of diariasDe(ALGUEM)) {
       expect(m.tipo).toBe('diaria')
       expect(m.id.startsWith('d.')).toBe(true)
-      expect(m.id).not.toBe('d.bonus') 
+      expect(m.id).not.toBe('d.bonus')
     }
   })
 
   it('pessoas diferentes recebem conjuntos diferentes', () => {
     const conjuntos = new Set(
-      Array.from({ length: 40 }, (_, i) => diariasDe(`user_${i}`).map((m) => m.id).sort().join(',')),
+      Array.from({ length: 40 }, (_, i) =>
+        diariasDe(`user_${i}`)
+          .map((m) => m.id)
+          .sort()
+          .join(','),
+      ),
     )
     expect(conjuntos.size).toBeGreaterThan(3)
   })

@@ -5,7 +5,7 @@ const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email'
 export const mailFalta: string[] = (() => {
   const falta: string[] = []
   if (!env.BREVO_API_KEY) falta.push('BREVO_API_KEY')
-  if (!env.MAIL_FROM)     falta.push('MAIL_FROM')
+  if (!env.MAIL_FROM) falta.push('MAIL_FROM')
   return falta
 })()
 
@@ -26,13 +26,13 @@ export async function sendVerificationCode(to: string, code: string) {
   const res = await fetch(BREVO_ENDPOINT, {
     method: 'POST',
     headers: {
-      'api-key':      env.BREVO_API_KEY!,
+      'api-key': env.BREVO_API_KEY!,
       'content-type': 'application/json',
-      accept:         'application/json',
+      accept: 'application/json',
     },
     body: JSON.stringify({
       sender: { name: 'Astra', email: env.MAIL_FROM },
-      to:     [{ email: to }],
+      to: [{ email: to }],
       subject: `${code} é o seu código do Astra`,
       textContent: [
         `Seu código de verificação do Astra: ${code}`,

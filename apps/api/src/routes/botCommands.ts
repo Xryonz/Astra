@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -11,7 +11,7 @@ router.get(
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     res.json({ data: comandosDeHoje() })
-  })
+  }),
 )
 
 router.get(
@@ -19,7 +19,7 @@ router.get(
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     res.json({ data: { comandos: catalogoDeComandos() } })
-  })
+  }),
 )
 
 export default router

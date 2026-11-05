@@ -5,9 +5,10 @@ import { removeAttachment } from './storage'
 
 async function aindaUsado(url: string, excetoMensagens: string[]): Promise<boolean> {
   const padrao = `%${url}%`
-  const doCanal = excetoMensagens.length > 0
-    ? and(like(messages.attachments, padrao), notInArray(messages.id, excetoMensagens))
-    : like(messages.attachments, padrao)
+  const doCanal =
+    excetoMensagens.length > 0
+      ? and(like(messages.attachments, padrao), notInArray(messages.id, excetoMensagens))
+      : like(messages.attachments, padrao)
   const [noCanal, noSussurro, figurinha, som] = await Promise.all([
     db.select({ id: messages.id }).from(messages).where(doCanal).limit(1),
     db.select({ id: directMessages.id }).from(directMessages).where(like(directMessages.attachments, padrao)).limit(1),

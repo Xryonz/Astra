@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { NAO_E_BOT_CRU } from '../lib/contagemDeMembros'
@@ -20,23 +20,26 @@ router.get(
     const q = String(req.query.q ?? '').trim()
     const memberCount = sql<number>`(select count(*)::int from "ServerMember" where "ServerMember"."serverId" = "Server"."id" and ${NAO_E_BOT_CRU})`
 
-    const rows = await db.select({
-      id:          servers.id,
-      name:        servers.name,
-      iconUrl:     servers.iconUrl,
-      bannerUrl:   servers.bannerUrl,
-      description: servers.description,
-      members:     memberCount,
-    })
+    const rows = await db
+      .select({
+        id: servers.id,
+        name: servers.name,
+        iconUrl: servers.iconUrl,
+        bannerUrl: servers.bannerUrl,
+        description: servers.description,
+        members: memberCount,
+      })
       .from(servers)
-      .where(q
-        ? and(eq(servers.isPublic, true), eq(servers.isGroup, false), ilike(servers.name, `%${q}%`))
-        : and(eq(servers.isPublic, true), eq(servers.isGroup, false)))
+      .where(
+        q
+          ? and(eq(servers.isPublic, true), eq(servers.isGroup, false), ilike(servers.name, `%${q}%`))
+          : and(eq(servers.isPublic, true), eq(servers.isGroup, false)),
+      )
       .orderBy(desc(memberCount))
       .limit(60)
 
     res.json({ data: rows })
-  })
+  }),
 )
 
 router.post(
@@ -50,12 +53,16 @@ router.post(
       return res.status(404).json({ error: 'Constelação não encontrada na Descoberta' })
     }
 
-    const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
+    const [banned] = await db
+      .select({ id: serverBans.id })
+      .from(serverBans)
       .where(and(eq(serverBans.userId, req.userId!), eq(serverBans.serverId, serverId)))
       .limit(1)
     if (banned) return res.status(403).json({ error: 'Você está banido deste servidor' })
 
-    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [already] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (already) return res.status(409).json({ error: 'Você já é membro' })
@@ -66,7 +73,7 @@ router.post(
     void saudarNovoMembro(serverId, req.userId!)
 
     res.status(201).json({ data: { ok: true, serverId } })
-  })
+  }),
 )
 
 export default router

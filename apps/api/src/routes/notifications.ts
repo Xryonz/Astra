@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -15,7 +15,7 @@ router.get(
   '/notifications',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const limit  = Math.min(Number(req.query.limit ?? 30), 100)
+    const limit = Math.min(Number(req.query.limit ?? 30), 100)
     const cursor = req.query.cursor as string | undefined
 
     let cursorDate: Date | null = null
@@ -30,63 +30,77 @@ router.get(
       ? and(eq(notifications.userId, req.userId!), lt(notifications.createdAt, cursorDate))
       : eq(notifications.userId, req.userId!)
 
-    const rows = await db.select().from(notifications).where(where!)
-      .orderBy(desc(notifications.createdAt)).limit(limit + 1)
+    const rows = await db
+      .select()
+      .from(notifications)
+      .where(where!)
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit + 1)
 
-    const hasMore    = rows.length > limit
-    const items      = hasMore ? rows.slice(0, limit) : rows
-    const last       = items[items.length - 1]
-    const nextCursor = hasMore && last
-      ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString() })).toString('base64url')
-      : null
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    const last = items[items.length - 1]
+    const nextCursor =
+      hasMore && last
+        ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString() })).toString('base64url')
+        : null
 
     const payloads = items.map((n) => safeJson(n.payload))
 
-    const faltando = [...new Set(
-      payloads
-        .filter((p) => !p.authorName || p.authorName === 'Alguém')
-        .map((p) => p.authorId)
-        .filter((id): id is string => typeof id === 'string'),
-    )]
+    const faltando = [
+      ...new Set(
+        payloads
+          .filter((p) => !p.authorName || p.authorName === 'Alguém')
+          .map((p) => p.authorId)
+          .filter((id): id is string => typeof id === 'string'),
+      ),
+    ]
     if (faltando.length > 0) {
-      const autores = await db.select({
-        id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
-      }).from(users).where(inArray(users.id, faltando))
+      const autores = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(users)
+        .where(inArray(users.id, faltando))
       const porId = new Map(autores.map((a) => [a.id, a]))
       for (const p of payloads) {
         if (p.authorName && p.authorName !== 'Alguém') continue
         const a = typeof p.authorId === 'string' ? porId.get(p.authorId) : undefined
         if (!a) continue
-        p.authorName     = a.displayName || a.username
+        p.authorName = a.displayName || a.username
         p.authorUsername = a.username
-        p.authorAvatar   = p.authorAvatar ?? a.avatarUrl ?? null
+        p.authorAvatar = p.authorAvatar ?? a.avatarUrl ?? null
       }
     }
 
     res.json({
       data: {
         items: items.map((n, i) => ({
-          id:      n.id,
-          type:    n.type,
+          id: n.id,
+          type: n.type,
           payload: payloads[i],
-          readAt:  n.readAt?.toISOString() ?? null,
+          readAt: n.readAt?.toISOString() ?? null,
           createdAt: n.createdAt.toISOString(),
         })),
         nextCursor,
       },
     })
-  })
+  }),
 )
 
 router.get(
   '/notifications/unread',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.select({ count: sql<number>`count(*)::int` })
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
       .from(notifications)
       .where(and(eq(notifications.userId, req.userId!), isNull(notifications.readAt)))
     res.json({ data: { count: row?.count ?? 0 } })
-  })
+  }),
 )
 
 router.post(
@@ -94,20 +108,24 @@ router.post(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params
-    await db.update(notifications).set({ readAt: new Date() })
+    await db
+      .update(notifications)
+      .set({ readAt: new Date() })
       .where(and(eq(notifications.id, id), eq(notifications.userId, req.userId!)))
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 router.post(
   '/notifications/read-all',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    await db.update(notifications).set({ readAt: new Date() })
+    await db
+      .update(notifications)
+      .set({ readAt: new Date() })
       .where(and(eq(notifications.userId, req.userId!), isNull(notifications.readAt)))
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 router.delete(
@@ -116,31 +134,34 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     await db.delete(notifications).where(eq(notifications.userId, req.userId!))
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 const HoraOuVazio = z.number().int().min(-1).max(23).nullable().optional()
 
 const PrefsSchema = z.object({
-  mentions:   z.boolean().optional(),
-  dms:        z.boolean().optional(),
-  reactions:  z.boolean().optional(),
-  replies:    z.boolean().optional(),
-  sounds:     z.boolean().optional(),
-  desktop:    z.boolean().optional(),
+  mentions: z.boolean().optional(),
+  dms: z.boolean().optional(),
+  reactions: z.boolean().optional(),
+  replies: z.boolean().optional(),
+  sounds: z.boolean().optional(),
+  desktop: z.boolean().optional(),
   quietStart: HoraOuVazio,
-  quietEnd:   HoraOuVazio,
+  quietEnd: HoraOuVazio,
 })
 
 router.get(
   '/notifications/prefs',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.select({ raw: users.notificationPrefs })
-      .from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [row] = await db
+      .select({ raw: users.notificationPrefs })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     const prefs = parsePrefs(row?.raw ?? null)
     res.json({ data: { prefs, defaults: DEFAULT_PREFS } })
-  })
+  }),
 )
 
 router.patch(
@@ -150,23 +171,30 @@ router.patch(
   asyncHandler(async (req: Request, res: Response) => {
     const patch = req.body as z.infer<typeof PrefsSchema>
     if (patch.quietStart === -1) patch.quietStart = null
-    if (patch.quietEnd   === -1) patch.quietEnd   = null
+    if (patch.quietEnd === -1) patch.quietEnd = null
 
-    const [row] = await db.select({ raw: users.notificationPrefs })
-      .from(users).where(eq(users.id, req.userId!)).limit(1)
+    const [row] = await db
+      .select({ raw: users.notificationPrefs })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
     const current = parsePrefs(row?.raw ?? null)
-    const next    = { ...current, ...patch }
-    await db.update(users).set({ notificationPrefs: JSON.stringify(next) })
+    const next = { ...current, ...patch }
+    await db
+      .update(users)
+      .set({ notificationPrefs: JSON.stringify(next) })
       .where(eq(users.id, req.userId!))
     res.json({ data: { prefs: next } })
-  })
+  }),
 )
 
 function safeJson(s: string): Record<string, unknown> {
   try {
     const v = JSON.parse(s)
-    return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
-  } catch { return {} }
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
 }
 
 export default router

@@ -1,4 +1,4 @@
-import { Server as SocketServer } from 'socket.io'
+import type { Server as SocketServer } from 'socket.io'
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
 import { dmConversations, directMessages, users } from '../db/schema'
@@ -22,13 +22,18 @@ const emCurso = new Map<string, Chamada>()
 type FimDaChamada = 'missed' | 'ended'
 
 async function ladosDaConversa(conversationId: string, userId: string) {
-  const [conv] = await db.select({
-    a: dmConversations.userAId, b: dmConversations.userBId,
-  }).from(dmConversations)
-    .where(and(
-      eq(dmConversations.id, conversationId),
-      or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)),
-    ))
+  const [conv] = await db
+    .select({
+      a: dmConversations.userAId,
+      b: dmConversations.userBId,
+    })
+    .from(dmConversations)
+    .where(
+      and(
+        eq(dmConversations.id, conversationId),
+        or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)),
+      ),
+    )
     .limit(1)
   if (!conv) return null
   return { eu: userId, outro: conv.a === userId ? conv.b : conv.a }
@@ -47,25 +52,37 @@ async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
 
   const registro = { status: fim, video: c.video, durationSec: duracaoSeg }
 
-  const [inserida] = await db.insert(directMessages).values({
-    content:        texto,
-    senderId:       c.quemLigou,
-    receiverId:     c.quemRecebe,
-    conversationId: c.conversationId,
-    call:           JSON.stringify(registro),
-  }).returning()
+  const [inserida] = await db
+    .insert(directMessages)
+    .values({
+      content: texto,
+      senderId: c.quemLigou,
+      receiverId: c.quemRecebe,
+      conversationId: c.conversationId,
+      call: JSON.stringify(registro),
+    })
+    .returning()
   if (!inserida) return
 
-  const [autor] = await db.select({
-    id: users.id, username: users.username,
-    displayName: users.displayName, avatarUrl: users.avatarUrl,
-  }).from(users).where(eq(users.id, c.quemLigou)).limit(1)
+  const [autor] = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(users)
+    .where(eq(users.id, c.quemLigou))
+    .limit(1)
 
   entregarSussurro(io, c.conversationId, [c.quemLigou, c.quemRecebe], 'new_dm', {
-    ...inserida, call: registro, attachments: [], replyTo: null, author: autor,
+    ...inserida,
+    call: registro,
+    attachments: [],
+    replyTo: null,
+    author: autor,
   })
-  await db.update(dmConversations).set({ updatedAt: new Date() })
-    .where(eq(dmConversations.id, c.conversationId))
+  await db.update(dmConversations).set({ updatedAt: new Date() }).where(eq(dmConversations.id, c.conversationId))
 }
 
 async function encerrar(io: SocketServer, conversationId: string, fim: FimDaChamada) {
@@ -106,21 +123,29 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
       quemRecebe: lados.outro,
       video,
       atendidaEm: null,
-      relogio: setTimeout(() => { void encerrar(io, conversationId, 'missed') }, TOQUE_MS),
+      relogio: setTimeout(() => {
+        void encerrar(io, conversationId, 'missed')
+      }, TOQUE_MS),
     })
 
-    const [quem] = await db.select({
-      username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
-    }).from(users).where(eq(users.id, lados.eu)).limit(1)
+    const [quem] = await db
+      .select({
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(eq(users.id, lados.eu))
+      .limit(1)
 
     io.to(`user:${lados.outro}`).emit('dm_call_invite', {
       conversationId,
-      fromUserId:      lados.eu,
-      fromUsername:    quem?.username ?? socket.data?.username ?? '',
+      fromUserId: lados.eu,
+      fromUsername: quem?.username ?? socket.data?.username ?? '',
       fromDisplayName: quem?.displayName ?? socket.data?.displayName ?? '',
-      fromAvatarUrl:   quem?.avatarUrl ?? null,
+      fromAvatarUrl: quem?.avatarUrl ?? null,
       video,
-      msRestantes:     TOQUE_MS,
+      msRestantes: TOQUE_MS,
     })
   })
 

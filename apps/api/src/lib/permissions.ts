@@ -3,15 +3,15 @@ import { db } from '../db'
 import { servers, serverMembers, roles, memberRoles, channels, channelRolePerms } from '../db/schema'
 
 export const PERMS = {
-  MANAGE_SERVER:    'MANAGE_SERVER',
-  MANAGE_ROLES:     'MANAGE_ROLES',
-  MANAGE_CHANNELS:  'MANAGE_CHANNELS',
-  KICK_MEMBERS:     'KICK_MEMBERS',
-  BAN_MEMBERS:      'BAN_MEMBERS',
-  MANAGE_MESSAGES:  'MANAGE_MESSAGES',
+  MANAGE_SERVER: 'MANAGE_SERVER',
+  MANAGE_ROLES: 'MANAGE_ROLES',
+  MANAGE_CHANNELS: 'MANAGE_CHANNELS',
+  KICK_MEMBERS: 'KICK_MEMBERS',
+  BAN_MEMBERS: 'BAN_MEMBERS',
+  MANAGE_MESSAGES: 'MANAGE_MESSAGES',
   MENTION_EVERYONE: 'MENTION_EVERYONE',
 } as const
-export type Permission = typeof PERMS[keyof typeof PERMS]
+export type Permission = (typeof PERMS)[keyof typeof PERMS]
 
 const LEGACY_ADMIN_PERMS: Permission[] = [
   PERMS.MANAGE_SERVER,
@@ -21,24 +21,26 @@ const LEGACY_ADMIN_PERMS: Permission[] = [
 ]
 
 export interface MemberPerms {
-  isOwner:     boolean
-  isAdmin:     boolean
+  isOwner: boolean
+  isAdmin: boolean
   permissions: Set<Permission>
-  memberId:    string | null
+  memberId: string | null
 }
 
 export async function getMemberPerms(userId: string, serverId: string): Promise<MemberPerms> {
-  const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers)
-    .where(eq(servers.id, serverId)).limit(1)
+  const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers).where(eq(servers.id, serverId)).limit(1)
   if (!srv) return { isOwner: false, isAdmin: false, permissions: new Set(), memberId: null }
 
-  const [member] = await db.select({ id: serverMembers.id, role: serverMembers.role }).from(serverMembers)
+  const [member] = await db
+    .select({ id: serverMembers.id, role: serverMembers.role })
+    .from(serverMembers)
     .where(and(eq(serverMembers.userId, userId), eq(serverMembers.serverId, serverId)))
     .limit(1)
 
   let rolesPermsRaw: string[] = []
   if (member) {
-    const assigned = await db.select({ permissions: roles.permissions })
+    const assigned = await db
+      .select({ permissions: roles.permissions })
       .from(memberRoles)
       .innerJoin(roles, eq(roles.id, memberRoles.roleId))
       .where(and(eq(memberRoles.memberId, member.id), eq(roles.serverId, serverId)))
@@ -60,11 +62,12 @@ export function parsePermissionsJson(raw: unknown): Permission[] {
 }
 
 export async function userCanSeeChannel(userId: string, channelId: string): Promise<boolean> {
-  const [row] = await db.select({
-    serverId:  channels.serverId,
-    isPrivate: channels.isPrivate,
-    ownerId:   servers.ownerId,
-  })
+  const [row] = await db
+    .select({
+      serverId: channels.serverId,
+      isPrivate: channels.isPrivate,
+      ownerId: servers.ownerId,
+    })
     .from(channels)
     .innerJoin(servers, eq(servers.id, channels.serverId))
     .where(eq(channels.id, channelId))
@@ -73,7 +76,8 @@ export async function userCanSeeChannel(userId: string, channelId: string): Prom
 
   if (row.ownerId === userId) return true
 
-  const [member] = await db.select({ id: serverMembers.id })
+  const [member] = await db
+    .select({ id: serverMembers.id })
     .from(serverMembers)
     .where(and(eq(serverMembers.userId, userId), eq(serverMembers.serverId, row.serverId)))
     .limit(1)
@@ -81,13 +85,15 @@ export async function userCanSeeChannel(userId: string, channelId: string): Prom
 
   if (!row.isPrivate) return true
 
-  const userRoleRows = await db.select({ roleId: memberRoles.roleId })
+  const userRoleRows = await db
+    .select({ roleId: memberRoles.roleId })
     .from(memberRoles)
     .where(eq(memberRoles.memberId, member.id))
   if (userRoleRows.length === 0) return false
 
   const userRoleIds = userRoleRows.map((r) => r.roleId)
-  const [match] = await db.select({ id: channelRolePerms.id })
+  const [match] = await db
+    .select({ id: channelRolePerms.id })
     .from(channelRolePerms)
     .where(and(eq(channelRolePerms.channelId, channelId), inArray(channelRolePerms.roleId, userRoleIds)))
     .limit(1)
@@ -106,34 +112,39 @@ export async function membrosQueVeemCanal(
   const permitido = new Set<string>()
   if (memberIds.includes(ownerId)) permitido.add(ownerId)
 
-  const cargosComAcesso = await db.select({ roleId: channelRolePerms.roleId })
+  const cargosComAcesso = await db
+    .select({ roleId: channelRolePerms.roleId })
     .from(channelRolePerms)
     .where(eq(channelRolePerms.channelId, channelId))
   if (cargosComAcesso.length === 0) return permitido
 
-  const comCargo = await db.select({ userId: serverMembers.userId })
+  const comCargo = await db
+    .select({ userId: serverMembers.userId })
     .from(memberRoles)
     .innerJoin(serverMembers, eq(serverMembers.id, memberRoles.memberId))
-    .where(and(
-      inArray(memberRoles.roleId, cargosComAcesso.map((c) => c.roleId)),
-      inArray(serverMembers.userId, memberIds),
-    ))
+    .where(
+      and(
+        inArray(
+          memberRoles.roleId,
+          cargosComAcesso.map((c) => c.roleId),
+        ),
+        inArray(serverMembers.userId, memberIds),
+      ),
+    )
   for (const linha of comCargo) permitido.add(linha.userId)
   return permitido
 }
 
-export async function filterVisibleChannels(
-  userId: string,
-  channelIds: string[],
-): Promise<Set<string>> {
+export async function filterVisibleChannels(userId: string, channelIds: string[]): Promise<Set<string>> {
   if (channelIds.length === 0) return new Set()
 
-  const rows = await db.select({
-    channelId: channels.id,
-    serverId:  channels.serverId,
-    isPrivate: channels.isPrivate,
-    ownerId:   servers.ownerId,
-  })
+  const rows = await db
+    .select({
+      channelId: channels.id,
+      serverId: channels.serverId,
+      isPrivate: channels.isPrivate,
+      ownerId: servers.ownerId,
+    })
     .from(channels)
     .innerJoin(servers, eq(servers.id, channels.serverId))
     .where(inArray(channels.id, channelIds))
@@ -142,26 +153,37 @@ export async function filterVisibleChannels(
   const privateNeedingCheck: { channelId: string; serverId: string }[] = []
 
   for (const r of rows) {
-    if (r.ownerId === userId) { visible.add(r.channelId); continue }
-    if (!r.isPrivate) { visible.add(r.channelId); continue }
+    if (r.ownerId === userId) {
+      visible.add(r.channelId)
+      continue
+    }
+    if (!r.isPrivate) {
+      visible.add(r.channelId)
+      continue
+    }
     privateNeedingCheck.push({ channelId: r.channelId, serverId: r.serverId })
   }
 
   if (privateNeedingCheck.length === 0) return visible
 
   const serverIds = [...new Set(privateNeedingCheck.map((c) => c.serverId))]
-  const memberships = await db.select({
-    memberId: serverMembers.id, serverId: serverMembers.serverId,
-  })
+  const memberships = await db
+    .select({
+      memberId: serverMembers.id,
+      serverId: serverMembers.serverId,
+    })
     .from(serverMembers)
     .where(and(eq(serverMembers.userId, userId), inArray(serverMembers.serverId, serverIds)))
   const memberByServer = new Map(memberships.map((m) => [m.serverId, m.memberId]))
 
   const memberIds = memberships.map((m) => m.memberId)
-  const userRoles = memberIds.length > 0
-    ? await db.select({ memberId: memberRoles.memberId, roleId: memberRoles.roleId })
-        .from(memberRoles).where(inArray(memberRoles.memberId, memberIds))
-    : []
+  const userRoles =
+    memberIds.length > 0
+      ? await db
+          .select({ memberId: memberRoles.memberId, roleId: memberRoles.roleId })
+          .from(memberRoles)
+          .where(inArray(memberRoles.memberId, memberIds))
+      : []
   const rolesByMember = new Map<string, string[]>()
   for (const r of userRoles) {
     const arr = rolesByMember.get(r.memberId) ?? []
@@ -170,9 +192,13 @@ export async function filterVisibleChannels(
   }
 
   const privateChannelIds = privateNeedingCheck.map((c) => c.channelId)
-  const channelRoles = await db.select({
-    channelId: channelRolePerms.channelId, roleId: channelRolePerms.roleId,
-  }).from(channelRolePerms).where(inArray(channelRolePerms.channelId, privateChannelIds))
+  const channelRoles = await db
+    .select({
+      channelId: channelRolePerms.channelId,
+      roleId: channelRolePerms.roleId,
+    })
+    .from(channelRolePerms)
+    .where(inArray(channelRolePerms.channelId, privateChannelIds))
   const rolesByChannel = new Map<string, Set<string>>()
   for (const c of channelRoles) {
     const s = rolesByChannel.get(c.channelId) ?? new Set()
@@ -193,15 +219,15 @@ export async function filterVisibleChannels(
 }
 
 export function computeChannelVisibility(input: {
-  ownerId:      string | null
-  userId:       string
-  isMember:     boolean
-  isPrivate:    boolean
-  userRoleIds:  string[]
+  ownerId: string | null
+  userId: string
+  isMember: boolean
+  isPrivate: boolean
+  userRoleIds: string[]
   allowedRoles: string[] | Set<string>
 }): boolean {
   const { ownerId, userId, isMember, isPrivate, userRoleIds, allowedRoles } = input
-  if (ownerId === userId && !!ownerId) return true
+  if (ownerId === userId && ownerId) return true
   if (!isMember) return false
   if (!isPrivate) return true
   const allowedSet = allowedRoles instanceof Set ? allowedRoles : new Set(allowedRoles)
@@ -210,9 +236,9 @@ export function computeChannelVisibility(input: {
 }
 
 export function computeMemberPerms(
-  ownerId:       string | null,
-  userId:        string,
-  member:        { id: string; role: string } | null,
+  ownerId: string | null,
+  userId: string,
+  member: { id: string; role: string } | null,
   rolesPermsRaw: string[],
 ): MemberPerms {
   const isOwner = !!ownerId && ownerId === userId

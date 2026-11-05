@@ -1,119 +1,134 @@
-import {
-  pgTable, text, boolean, timestamp, integer, pgEnum, uniqueIndex, index, primaryKey,
-} from 'drizzle-orm/pg-core'
+import { pgTable, text, boolean, timestamp, integer, pgEnum, uniqueIndex, index, primaryKey } from 'drizzle-orm/pg-core'
 import { createId } from './cuid'
 
-export const roleEnum        = pgEnum('Role',        ['OWNER', 'ADMIN', 'MEMBER'])
+export const roleEnum = pgEnum('Role', ['OWNER', 'ADMIN', 'MEMBER'])
 export const channelTypeEnum = pgEnum('ChannelType', ['TEXT', 'VOICE'])
-export const userStatusEnum  = pgEnum('UserStatus',  ['ONLINE', 'IDLE', 'DND', 'INVISIBLE'])
+export const userStatusEnum = pgEnum('UserStatus', ['ONLINE', 'IDLE', 'DND', 'INVISIBLE'])
 
 export const users = pgTable('User', {
-  id:           text('id').primaryKey().$defaultFn(createId),
-  email:        text('email').notNull().unique(),
-  username:     text('username').notNull().unique(),
+  id: text('id').primaryKey().$defaultFn(createId),
+  email: text('email').notNull().unique(),
+  username: text('username').notNull().unique(),
 
-  coordinate:   text('coordinate').notNull().unique(),
-  displayName:  text('displayName').notNull(),
-  avatarUrl:    text('avatarUrl'),
+  coordinate: text('coordinate').notNull().unique(),
+  displayName: text('displayName').notNull(),
+  avatarUrl: text('avatarUrl'),
   avatarFullUrl: text('avatarFullUrl'),
-  bio:          text('bio'),
-  googleId:     text('googleId').unique(),
+  bio: text('bio'),
+  googleId: text('googleId').unique(),
   passwordHash: text('passwordHash'),
-  isBot:        boolean('isBot').notNull().default(false),
-  bannerUrl:    text('bannerUrl'),
+  isBot: boolean('isBot').notNull().default(false),
+  bannerUrl: text('bannerUrl'),
   bannerFullUrl: text('bannerFullUrl'),
-  bannerColor:  text('bannerColor'),
+  bannerColor: text('bannerColor'),
   profileTheme: text('profileTheme'),
 
   bannerPositionY: integer('bannerPositionY').notNull().default(50),
 
-  bannerScale:     integer('bannerScale').notNull().default(100),
+  bannerScale: integer('bannerScale').notNull().default(100),
 
-  bannerBorder:    text('bannerBorder').notNull().default('none'),
+  bannerBorder: text('bannerBorder').notNull().default('none'),
 
-  deletedAt:    timestamp('deletedAt', { precision: 3 }),
+  deletedAt: timestamp('deletedAt', { precision: 3 }),
 
-  dmPrivacy:    text('dmPrivacy').notNull().default('all'),
+  dmPrivacy: text('dmPrivacy').notNull().default('all'),
 
-  pronouns:     text('pronouns'),
+  pronouns: text('pronouns'),
 
-  statusEmoji:  text('statusEmoji'),
+  statusEmoji: text('statusEmoji'),
 
-  displayFont:  text('displayFont').notNull().default('serif'),
+  displayFont: text('displayFont').notNull().default('serif'),
 
   bannerTextColor: text('bannerTextColor'),
 
-  status:       userStatusEnum('status').notNull().default('ONLINE'),
+  status: userStatusEnum('status').notNull().default('ONLINE'),
 
   customStatus: text('customStatus'),
 
   notificationPrefs: text('notificationPrefs'),
 
-  preferences:  text('preferences'),
+  preferences: text('preferences'),
 
-  onboardedAt:  timestamp('onboardedAt', { precision: 3 }),
+  onboardedAt: timestamp('onboardedAt', { precision: 3 }),
 
-  emailVerifiedAt:    timestamp('emailVerifiedAt', { precision: 3 }),
-  emailCode:          text('emailCode'),
+  emailVerifiedAt: timestamp('emailVerifiedAt', { precision: 3 }),
+  emailCode: text('emailCode'),
   emailCodeExpiresAt: timestamp('emailCodeExpiresAt', { precision: 3 }),
 
-  pendingEmail:          text('pendingEmail'),
-  pendingEmailCode:      text('pendingEmailCode'),
+  pendingEmail: text('pendingEmail'),
+  pendingEmailCode: text('pendingEmailCode'),
   pendingEmailExpiresAt: timestamp('pendingEmailExpiresAt', { precision: 3 }),
 
-  createdAt:    timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  updatedAt:    timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })
 
-export const mutedMembers = pgTable('MutedMember', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  serverId:  text('serverId').notNull(),
-  mutedById: text('mutedById').notNull(),
-  reason:    text('reason').notNull().default('Spam automático'),
-  expiresAt: timestamp('expiresAt', { precision: 3 }).notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqUserServer: uniqueIndex('MutedMember_userId_serverId_key').on(t.userId, t.serverId),
-  byServer:       index('MutedMember_serverId_idx').on(t.serverId),
-  byExpires:      index('MutedMember_expiresAt_idx').on(t.expiresAt),
-}))
+export const mutedMembers = pgTable(
+  'MutedMember',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    serverId: text('serverId').notNull(),
+    mutedById: text('mutedById').notNull(),
+    reason: text('reason').notNull().default('Spam automático'),
+    expiresAt: timestamp('expiresAt', { precision: 3 }).notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqUserServer: uniqueIndex('MutedMember_userId_serverId_key').on(t.userId, t.serverId),
+    byServer: index('MutedMember_serverId_idx').on(t.serverId),
+    byExpires: index('MutedMember_expiresAt_idx').on(t.expiresAt),
+  }),
+)
 
-export const refreshTokens = pgTable('RefreshToken', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  token:      text('token').notNull().unique(),
-  userId:     text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  expiresAt:  timestamp('expiresAt', { precision: 3 }).notNull(),
-  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  revokedAt:  timestamp('revokedAt', { precision: 3 }),
+export const refreshTokens = pgTable(
+  'RefreshToken',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    token: text('token').notNull().unique(),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expiresAt', { precision: 3 }).notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+    revokedAt: timestamp('revokedAt', { precision: 3 }),
 
-  userAgent:  text('userAgent'),
+    userAgent: text('userAgent'),
 
-  ip:         text('ip'),
+    ip: text('ip'),
 
-  deviceId:   text('deviceId'),
+    deviceId: text('deviceId'),
 
-  lastUsedAt: timestamp('lastUsedAt', { precision: 3 }),
-}, (t) => ({
-  byUser: index('RefreshToken_userId_idx').on(t.userId),
-}))
+    lastUsedAt: timestamp('lastUsedAt', { precision: 3 }),
+  },
+  (t) => ({
+    byUser: index('RefreshToken_userId_idx').on(t.userId),
+  }),
+)
 
 export const servers = pgTable('Server', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  name:       text('name').notNull(),
-  iconUrl:    text('iconUrl'),
+  id: text('id').primaryKey().$defaultFn(createId),
+  name: text('name').notNull(),
+  iconUrl: text('iconUrl'),
   iconFullUrl: text('iconFullUrl'),
 
-  bannerUrl:  text('bannerUrl'),
+  bannerUrl: text('bannerUrl'),
   bannerFullUrl: text('bannerFullUrl'),
   bannerPositionY: integer('bannerPositionY').notNull().default(50),
-  bannerScale:     integer('bannerScale').notNull().default(100),
-  iconScale:       integer('iconScale').notNull().default(100),
+  bannerScale: integer('bannerScale').notNull().default(100),
+  iconScale: integer('iconScale').notNull().default(100),
   inviteCode: text('inviteCode').notNull().unique().$defaultFn(createId),
-  ownerId:    text('ownerId').notNull().references(() => users.id),
-  isGroup:    boolean('isGroup').notNull().default(false),
+  ownerId: text('ownerId')
+    .notNull()
+    .references(() => users.id),
+  isGroup: boolean('isGroup').notNull().default(false),
 
-  isPublic:   boolean('isPublic').notNull().default(false),
+  isPublic: boolean('isPublic').notNull().default(false),
 
   description: text('description'),
 
@@ -122,409 +137,630 @@ export const servers = pgTable('Server', {
   botNoticeChannelId: text('botNoticeChannelId'),
   botDisabledCommands: text('botDisabledCommands'),
 
-  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  updatedAt:  timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })
 
-export const serverMembers = pgTable('ServerMember', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  role:      roleEnum('role').notNull().default('MEMBER'),
-  nameColor: text('nameColor'),
-  joinedAt:  timestamp('joinedAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqUserServer: uniqueIndex('ServerMember_userId_serverId_key').on(t.userId, t.serverId),
-  byServer:       index('ServerMember_serverId_idx').on(t.serverId),
-  byUser:         index('ServerMember_userId_idx').on(t.userId),
-}))
+export const serverMembers = pgTable(
+  'ServerMember',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    role: roleEnum('role').notNull().default('MEMBER'),
+    nameColor: text('nameColor'),
+    joinedAt: timestamp('joinedAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqUserServer: uniqueIndex('ServerMember_userId_serverId_key').on(t.userId, t.serverId),
+    byServer: index('ServerMember_serverId_idx').on(t.serverId),
+    byUser: index('ServerMember_userId_idx').on(t.userId),
+  }),
+)
 
-export const serverEmojis = pgTable('ServerEmoji', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  name:      text('name').notNull(),
-  url:       text('url').notNull(),
-  createdBy: text('createdBy').notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqName: uniqueIndex('ServerEmoji_serverId_name_key').on(t.serverId, t.name),
-  byServer: index('ServerEmoji_serverId_idx').on(t.serverId),
-}))
+export const serverEmojis = pgTable(
+  'ServerEmoji',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqName: uniqueIndex('ServerEmoji_serverId_name_key').on(t.serverId, t.name),
+    byServer: index('ServerEmoji_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const serverSounds = pgTable('ServerSound', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  name:      text('name').notNull(),
-  url:       text('url').notNull(),
-  durationMs: integer('durationMs').notNull().default(0),
-  createdBy: text('createdBy').notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqName: uniqueIndex('ServerSound_serverId_name_key').on(t.serverId, t.name),
-  byServer: index('ServerSound_serverId_idx').on(t.serverId),
-}))
+export const serverSounds = pgTable(
+  'ServerSound',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    durationMs: integer('durationMs').notNull().default(0),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqName: uniqueIndex('ServerSound_serverId_name_key').on(t.serverId, t.name),
+    byServer: index('ServerSound_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const serverStickers = pgTable('ServerSticker', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  name:      text('name').notNull(),
-  url:       text('url').notNull(),
-  width:     integer('width').notNull().default(0),
-  height:    integer('height').notNull().default(0),
-  createdBy: text('createdBy').notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqName: uniqueIndex('ServerSticker_serverId_name_key').on(t.serverId, t.name),
-  byServer: index('ServerSticker_serverId_idx').on(t.serverId),
-}))
+export const serverStickers = pgTable(
+  'ServerSticker',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    width: integer('width').notNull().default(0),
+    height: integer('height').notNull().default(0),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqName: uniqueIndex('ServerSticker_serverId_name_key').on(t.serverId, t.name),
+    byServer: index('ServerSticker_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const roles = pgTable('ServerRole', {
-  id:          text('id').primaryKey().$defaultFn(createId),
-  serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  name:        text('name').notNull(),
-  color:       text('color'),
-  iconUrl:     text('iconUrl'),
-  position:    integer('position').notNull().default(0),
-  permissions: text('permissions').notNull().default('[]'),
-  hoist:       boolean('hoist').notNull().default(false),
-  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byServer: index('ServerRole_serverId_idx').on(t.serverId),
-}))
+export const roles = pgTable(
+  'ServerRole',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    color: text('color'),
+    iconUrl: text('iconUrl'),
+    position: integer('position').notNull().default(0),
+    permissions: text('permissions').notNull().default('[]'),
+    hoist: boolean('hoist').notNull().default(false),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byServer: index('ServerRole_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const memberRoles = pgTable('ServerMemberRole', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  memberId:  text('memberId').notNull().references(() => serverMembers.id, { onDelete: 'cascade' }),
-  roleId:    text('roleId').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqMemberRole: uniqueIndex('ServerMemberRole_memberId_roleId_key').on(t.memberId, t.roleId),
-  byMember:       index('ServerMemberRole_memberId_idx').on(t.memberId),
-  byRole:         index('ServerMemberRole_roleId_idx').on(t.roleId),
-}))
+export const memberRoles = pgTable(
+  'ServerMemberRole',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    memberId: text('memberId')
+      .notNull()
+      .references(() => serverMembers.id, { onDelete: 'cascade' }),
+    roleId: text('roleId')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqMemberRole: uniqueIndex('ServerMemberRole_memberId_roleId_key').on(t.memberId, t.roleId),
+    byMember: index('ServerMemberRole_memberId_idx').on(t.memberId),
+    byRole: index('ServerMemberRole_roleId_idx').on(t.roleId),
+  }),
+)
 
-export const serverBans = pgTable('ServerBan', {
-  id:          text('id').primaryKey().$defaultFn(createId),
-  serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  userId:      text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  bannedById:  text('bannedById').notNull().references(() => users.id),
-  reason:      text('reason'),
-  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqServerUser: uniqueIndex('ServerBan_serverId_userId_key').on(t.serverId, t.userId),
-  byServer:       index('ServerBan_serverId_idx').on(t.serverId),
-}))
+export const serverBans = pgTable(
+  'ServerBan',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    bannedById: text('bannedById')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqServerUser: uniqueIndex('ServerBan_serverId_userId_key').on(t.serverId, t.userId),
+    byServer: index('ServerBan_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const auditLogs = pgTable('ServerAuditLog', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  actorId:   text('actorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  action:    text('action').notNull(),
-  targetId:  text('targetId'),
-  metadata:  text('metadata').notNull().default('{}'),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byServerCreated: index('ServerAuditLog_serverId_createdAt_idx').on(t.serverId, t.createdAt.desc()),
-}))
+export const auditLogs = pgTable(
+  'ServerAuditLog',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    actorId: text('actorId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    action: text('action').notNull(),
+    targetId: text('targetId'),
+    metadata: text('metadata').notNull().default('{}'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byServerCreated: index('ServerAuditLog_serverId_createdAt_idx').on(t.serverId, t.createdAt.desc()),
+  }),
+)
 
-export const channelCategories = pgTable('ChannelCategory', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  name:      text('name').notNull(),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  position:  integer('position').notNull().default(0),
-  botEnabled: boolean('botEnabled'),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byServer: index('ChannelCategory_serverId_idx').on(t.serverId),
-}))
+export const channelCategories = pgTable(
+  'ChannelCategory',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    name: text('name').notNull(),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull().default(0),
+    botEnabled: boolean('botEnabled'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byServer: index('ChannelCategory_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const channels = pgTable('Channel', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  name:       text('name').notNull(),
-  type:       channelTypeEnum('type').notNull().default('TEXT'),
-  serverId:   text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  categoryId: text('categoryId').references(() => channelCategories.id, { onDelete: 'set null' }),
-  position:   integer('position').notNull().default(0),
-  isPrivate:  boolean('isPrivate').notNull().default(false),
-  botEnabled: boolean('botEnabled'),
-  botKeepReplies: boolean('botKeepReplies').notNull().default(true),
-  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byServer:   index('Channel_serverId_idx').on(t.serverId),
-  byCategory: index('Channel_categoryId_idx').on(t.categoryId),
-}))
+export const channels = pgTable(
+  'Channel',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    name: text('name').notNull(),
+    type: channelTypeEnum('type').notNull().default('TEXT'),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    categoryId: text('categoryId').references(() => channelCategories.id, { onDelete: 'set null' }),
+    position: integer('position').notNull().default(0),
+    isPrivate: boolean('isPrivate').notNull().default(false),
+    botEnabled: boolean('botEnabled'),
+    botKeepReplies: boolean('botKeepReplies').notNull().default(true),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byServer: index('Channel_serverId_idx').on(t.serverId),
+    byCategory: index('Channel_categoryId_idx').on(t.categoryId),
+  }),
+)
 
-export const channelRolePerms = pgTable('ChannelRolePerm', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  channelId: text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
-  roleId:    text('roleId').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqChannelRole: uniqueIndex('ChannelRolePerm_channelId_roleId_key').on(t.channelId, t.roleId),
-  byChannel:       index('ChannelRolePerm_channelId_idx').on(t.channelId),
-  byRole:          index('ChannelRolePerm_roleId_idx').on(t.roleId),
-}))
+export const channelRolePerms = pgTable(
+  'ChannelRolePerm',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    channelId: text('channelId')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    roleId: text('roleId')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqChannelRole: uniqueIndex('ChannelRolePerm_channelId_roleId_key').on(t.channelId, t.roleId),
+    byChannel: index('ChannelRolePerm_channelId_idx').on(t.channelId),
+    byRole: index('ChannelRolePerm_roleId_idx').on(t.roleId),
+  }),
+)
 
-export const messages = pgTable('Message', {
-  id:          text('id').primaryKey().$defaultFn(createId),
-  content:     text('content').notNull(),
-  authorId:    text('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  channelId:   text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
-  replyToId:   text('replyToId'),
-  authorColor: text('authorColor'),
-  authorName:      text('authorName'),
-  authorAvatarUrl: text('authorAvatarUrl'),
-  kind:            text('kind'),
+export const messages = pgTable(
+  'Message',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    content: text('content').notNull(),
+    authorId: text('authorId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: text('channelId')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    replyToId: text('replyToId'),
+    authorColor: text('authorColor'),
+    authorName: text('authorName'),
+    authorAvatarUrl: text('authorAvatarUrl'),
+    kind: text('kind'),
 
-  attachments: text('attachments').notNull().default('[]'),
-  mentions:    text('mentions').notNull().default(''),
-  edited:      boolean('edited').notNull().default(false),
-  pinned:      boolean('pinned').notNull().default(false),
+    attachments: text('attachments').notNull().default('[]'),
+    mentions: text('mentions').notNull().default(''),
+    edited: boolean('edited').notNull().default(false),
+    pinned: boolean('pinned').notNull().default(false),
 
-  poll:        text('poll'),
+    poll: text('poll'),
 
-  expiresAt:   timestamp('expiresAt', { precision: 3 }),
-  deletedAt:   timestamp('deletedAt', { precision: 3 }),
-  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  updatedAt:   timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => ({
-  byChannelCreated: index('Message_channelId_createdAt_idx').on(t.channelId, t.createdAt.desc()),
-  byAuthor:         index('Message_authorId_idx').on(t.authorId),
-  byChannelPinned:  index('Message_channelId_pinned_idx').on(t.channelId, t.pinned),
-  byReplyTo:        index('Message_replyToId_idx').on(t.replyToId),
-  byExpires:        index('Message_expiresAt_idx').on(t.expiresAt),
-}))
+    expiresAt: timestamp('expiresAt', { precision: 3 }),
+    deletedAt: timestamp('deletedAt', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3 })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    byChannelCreated: index('Message_channelId_createdAt_idx').on(t.channelId, t.createdAt.desc()),
+    byAuthor: index('Message_authorId_idx').on(t.authorId),
+    byChannelPinned: index('Message_channelId_pinned_idx').on(t.channelId, t.pinned),
+    byReplyTo: index('Message_replyToId_idx').on(t.replyToId),
+    byExpires: index('Message_expiresAt_idx').on(t.expiresAt),
+  }),
+)
 
-export const channelReads = pgTable('ChannelRead', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  userId:     text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  channelId:  text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
-  lastReadAt: timestamp('lastReadAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqUserChannel: uniqueIndex('ChannelRead_userId_channelId_key').on(t.userId, t.channelId),
-  byUser:          index('ChannelRead_userId_idx').on(t.userId),
-}))
+export const channelReads = pgTable(
+  'ChannelRead',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: text('channelId')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    lastReadAt: timestamp('lastReadAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqUserChannel: uniqueIndex('ChannelRead_userId_channelId_key').on(t.userId, t.channelId),
+    byUser: index('ChannelRead_userId_idx').on(t.userId),
+  }),
+)
 
-export const channelNotifPrefs = pgTable('ChannelNotifPref', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  channelId: text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+export const channelNotifPrefs = pgTable(
+  'ChannelNotifPref',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: text('channelId')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
 
-  mode:      text('mode').notNull().default('all'),
-  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => ({
-  uniqUserChannel: uniqueIndex('ChannelNotifPref_userId_channelId_key').on(t.userId, t.channelId),
-}))
+    mode: text('mode').notNull().default('all'),
+    updatedAt: timestamp('updatedAt', { precision: 3 })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    uniqUserChannel: uniqueIndex('ChannelNotifPref_userId_channelId_key').on(t.userId, t.channelId),
+  }),
+)
 
-export const serverNotifPrefs = pgTable('ServerNotifPref', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+export const serverNotifPrefs = pgTable(
+  'ServerNotifPref',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
 
-  mode:      text('mode').notNull().default('all'),
-  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => ({
-  uniqUserServer: uniqueIndex('ServerNotifPref_userId_serverId_key').on(t.userId, t.serverId),
-}))
+    mode: text('mode').notNull().default('all'),
+    updatedAt: timestamp('updatedAt', { precision: 3 })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    uniqUserServer: uniqueIndex('ServerNotifPref_userId_serverId_key').on(t.userId, t.serverId),
+  }),
+)
 
-export const messageReactions = pgTable('MessageReaction', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  messageId: text('messageId').notNull().references(() => messages.id, { onDelete: 'cascade' }),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  emoji:     text('emoji').notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniq:      uniqueIndex('MessageReaction_messageId_userId_emoji_key').on(t.messageId, t.userId, t.emoji),
-  byMessage: index('MessageReaction_messageId_idx').on(t.messageId),
-}))
+export const messageReactions = pgTable(
+  'MessageReaction',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    messageId: text('messageId')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex('MessageReaction_messageId_userId_emoji_key').on(t.messageId, t.userId, t.emoji),
+    byMessage: index('MessageReaction_messageId_idx').on(t.messageId),
+  }),
+)
 
-export const dmConversations = pgTable('DMConversation', {
-  id:           text('id').primaryKey().$defaultFn(createId),
-  userAId:      text('userAId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  userBId:      text('userBId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  lastReadByA:  timestamp('lastReadByA', { precision: 3 }),
-  lastReadByB:  timestamp('lastReadByB', { precision: 3 }),
-  mutedByA:     timestamp('mutedByA', { precision: 3 }),
-  mutedByB:     timestamp('mutedByB', { precision: 3 }),
-  hiddenByA:    timestamp('hiddenByA', { precision: 3 }),
-  hiddenByB:    timestamp('hiddenByB', { precision: 3 }),
-  createdAt:    timestamp('createdAt',   { precision: 3 }).notNull().defaultNow(),
-  updatedAt:    timestamp('updatedAt',   { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => ({
-  uniqPair: uniqueIndex('DMConversation_userAId_userBId_key').on(t.userAId, t.userBId),
+export const dmConversations = pgTable(
+  'DMConversation',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userAId: text('userAId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    userBId: text('userBId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    lastReadByA: timestamp('lastReadByA', { precision: 3 }),
+    lastReadByB: timestamp('lastReadByB', { precision: 3 }),
+    mutedByA: timestamp('mutedByA', { precision: 3 }),
+    mutedByB: timestamp('mutedByB', { precision: 3 }),
+    hiddenByA: timestamp('hiddenByA', { precision: 3 }),
+    hiddenByB: timestamp('hiddenByB', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3 })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    uniqPair: uniqueIndex('DMConversation_userAId_userBId_key').on(t.userAId, t.userBId),
 
-  byAUpdated: index('DMConversation_userAId_updatedAt_idx').on(t.userAId, t.updatedAt.desc()),
-  byBUpdated: index('DMConversation_userBId_updatedAt_idx').on(t.userBId, t.updatedAt.desc()),
-}))
+    byAUpdated: index('DMConversation_userAId_updatedAt_idx').on(t.userAId, t.updatedAt.desc()),
+    byBUpdated: index('DMConversation_userBId_updatedAt_idx').on(t.userBId, t.updatedAt.desc()),
+  }),
+)
 
-export const directMessages = pgTable('DirectMessage', {
-  id:             text('id').primaryKey().$defaultFn(createId),
-  content:        text('content').notNull(),
-  senderId:       text('senderId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  receiverId:     text('receiverId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  conversationId: text('conversationId').notNull().references(() => dmConversations.id, { onDelete: 'cascade' }),
+export const directMessages = pgTable(
+  'DirectMessage',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    content: text('content').notNull(),
+    senderId: text('senderId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    receiverId: text('receiverId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    conversationId: text('conversationId')
+      .notNull()
+      .references(() => dmConversations.id, { onDelete: 'cascade' }),
 
-  attachments:    text('attachments').notNull().default('[]'),
+    attachments: text('attachments').notNull().default('[]'),
 
-  replyToId:      text('replyToId'),
+    replyToId: text('replyToId'),
 
-  call:           text('call'),
+    call: text('call'),
 
-  expiresAt:      timestamp('expiresAt', { precision: 3 }),
-  edited:         boolean('edited').notNull().default(false),
-  deletedAt:      timestamp('deletedAt', { precision: 3 }),
-  createdAt:      timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byConversation: index('DirectMessage_conversationId_createdAt_idx').on(t.conversationId, t.createdAt.desc()),
-  bySender:       index('DirectMessage_senderId_idx').on(t.senderId),
-  byReplyTo:      index('DirectMessage_replyToId_idx').on(t.replyToId),
-  byExpires:      index('DirectMessage_expiresAt_idx').on(t.expiresAt),
-}))
+    expiresAt: timestamp('expiresAt', { precision: 3 }),
+    edited: boolean('edited').notNull().default(false),
+    deletedAt: timestamp('deletedAt', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byConversation: index('DirectMessage_conversationId_createdAt_idx').on(t.conversationId, t.createdAt.desc()),
+    bySender: index('DirectMessage_senderId_idx').on(t.senderId),
+    byReplyTo: index('DirectMessage_replyToId_idx').on(t.replyToId),
+    byExpires: index('DirectMessage_expiresAt_idx').on(t.expiresAt),
+  }),
+)
 
-export const fcmTokens = pgTable('FcmToken', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  userId:     text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  token:      text('token').notNull(),
-  platform:   text('platform').notNull().default('android'),
-  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  lastSeenAt: timestamp('lastSeenAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqToken: uniqueIndex('FcmToken_token_key').on(t.token),
-  byUser:    index('FcmToken_userId_idx').on(t.userId),
-}))
+export const fcmTokens = pgTable(
+  'FcmToken',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    platform: text('platform').notNull().default('android'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+    lastSeenAt: timestamp('lastSeenAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqToken: uniqueIndex('FcmToken_token_key').on(t.token),
+    byUser: index('FcmToken_userId_idx').on(t.userId),
+  }),
+)
 
-export const friendships = pgTable('Friendship', {
-  id:          text('id').primaryKey().$defaultFn(createId),
-  userAId:     text('userAId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  userBId:     text('userBId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  requesterId: text('requesterId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  status:      text('status').notNull().default('pending'),
-  acceptedAt:  timestamp('acceptedAt', { precision: 3 }),
-  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqPair: uniqueIndex('Friendship_userAId_userBId_key').on(t.userAId, t.userBId),
+export const friendships = pgTable(
+  'Friendship',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userAId: text('userAId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    userBId: text('userBId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    requesterId: text('requesterId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('pending'),
+    acceptedAt: timestamp('acceptedAt', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqPair: uniqueIndex('Friendship_userAId_userBId_key').on(t.userAId, t.userBId),
 
-  byAStatus: index('Friendship_userAId_status_idx').on(t.userAId, t.status),
-  byBStatus: index('Friendship_userBId_status_idx').on(t.userBId, t.status),
-}))
+    byAStatus: index('Friendship_userAId_status_idx').on(t.userAId, t.status),
+    byBStatus: index('Friendship_userBId_status_idx').on(t.userBId, t.status),
+  }),
+)
 
-export const reminders = pgTable('Reminder', {
-  id:           text('id').primaryKey().$defaultFn(createId),
-  creatorId:    text('creatorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  targetUserId: text('targetUserId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  content:      text('content').notNull(),
-  channelId:    text('channelId'),
-  dueAt:        timestamp('dueAt', { precision: 3 }).notNull(),
-  deliveredAt:  timestamp('deliveredAt', { precision: 3 }),
-  createdAt:    timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byDuePending: index('Reminder_dueAt_deliveredAt_idx').on(t.dueAt, t.deliveredAt),
-  byTarget:     index('Reminder_targetUserId_idx').on(t.targetUserId),
-  byCreator:    index('Reminder_creatorId_idx').on(t.creatorId),
-}))
+export const reminders = pgTable(
+  'Reminder',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    creatorId: text('creatorId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    targetUserId: text('targetUserId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    channelId: text('channelId'),
+    dueAt: timestamp('dueAt', { precision: 3 }).notNull(),
+    deliveredAt: timestamp('deliveredAt', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byDuePending: index('Reminder_dueAt_deliveredAt_idx').on(t.dueAt, t.deliveredAt),
+    byTarget: index('Reminder_targetUserId_idx').on(t.targetUserId),
+    byCreator: index('Reminder_creatorId_idx').on(t.creatorId),
+  }),
+)
 
-export const notifications = pgTable('Notification', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  type:      text('type').notNull(),
-  payload:   text('payload').notNull().default('{}'),
-  readAt:    timestamp('readAt', { precision: 3 }),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byUserCreated: index('Notification_userId_createdAt_idx').on(t.userId, t.createdAt.desc()),
-  byUserUnread:  index('Notification_userId_readAt_idx').on(t.userId, t.readAt),
-}))
+export const notifications = pgTable(
+  'Notification',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    payload: text('payload').notNull().default('{}'),
+    readAt: timestamp('readAt', { precision: 3 }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byUserCreated: index('Notification_userId_createdAt_idx').on(t.userId, t.createdAt.desc()),
+    byUserUnread: index('Notification_userId_readAt_idx').on(t.userId, t.readAt),
+  }),
+)
 
-export const userBlocks = pgTable('UserBlock', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  blockerId: text('blockerId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  blockedId: text('blockedId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniqPair:  uniqueIndex('UserBlock_blockerId_blockedId_key').on(t.blockerId, t.blockedId),
-  byBlocker: index('UserBlock_blockerId_idx').on(t.blockerId),
-  byBlocked: index('UserBlock_blockedId_idx').on(t.blockedId),
-}))
+export const userBlocks = pgTable(
+  'UserBlock',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    blockerId: text('blockerId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    blockedId: text('blockedId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqPair: uniqueIndex('UserBlock_blockerId_blockedId_key').on(t.blockerId, t.blockedId),
+    byBlocker: index('UserBlock_blockerId_idx').on(t.blockerId),
+    byBlocked: index('UserBlock_blockedId_idx').on(t.blockedId),
+  }),
+)
 
-export const wishingStars = pgTable('WishingStar', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  content:   text('content').notNull(),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byCreated: index('WishingStar_createdAt_idx').on(t.createdAt.desc()),
-  byUser:    index('WishingStar_userId_idx').on(t.userId),
-}))
+export const wishingStars = pgTable(
+  'WishingStar',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byCreated: index('WishingStar_createdAt_idx').on(t.createdAt.desc()),
+    byUser: index('WishingStar_userId_idx').on(t.userId),
+  }),
+)
 
-export const userMissions = pgTable('UserMission', {
-  userId:      text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  missionId:   text('missionId').notNull(),
-  periodo:     text('periodo').notNull(),
-  progresso:   integer('progresso').notNull().default(0),
-  concluidaEm: timestamp('concluidaEm', { precision: 3 }),
-  resgatadaEm: timestamp('resgatadaEm', { precision: 3 }),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.userId, t.missionId, t.periodo] }),
-}))
+export const userMissions = pgTable(
+  'UserMission',
+  {
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    missionId: text('missionId').notNull(),
+    periodo: text('periodo').notNull(),
+    progresso: integer('progresso').notNull().default(0),
+    concluidaEm: timestamp('concluidaEm', { precision: 3 }),
+    resgatadaEm: timestamp('resgatadaEm', { precision: 3 }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.missionId, t.periodo] }),
+  }),
+)
 
 export const userXp = pgTable('UserXp', {
-  userId:    text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
-  xp:        integer('xp').notNull().default(0),
-  estrelas:  integer('estrelas').notNull().default(0),
+  userId: text('userId')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  xp: integer('xp').notNull().default(0),
+  estrelas: integer('estrelas').notNull().default(0),
   updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
 })
 
-export const badges = pgTable('Badge', {
-  id:          text('id').primaryKey().$defaultFn(createId),
-  serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  name:        text('name').notNull(),
-  icon:        text('icon').notNull(),
-  color:       text('color'),
-  description: text('description'),
-  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byServer: index('Badge_serverId_idx').on(t.serverId),
-}))
+export const badges = pgTable(
+  'Badge',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    icon: text('icon').notNull(),
+    color: text('color'),
+    description: text('description'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byServer: index('Badge_serverId_idx').on(t.serverId),
+  }),
+)
 
-export const badgeGrants = pgTable('BadgeGrant', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  badgeId:   text('badgeId').notNull().references(() => badges.id, { onDelete: 'cascade' }),
-  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  grantedBy: text('grantedBy'),
-  grantedAt: timestamp('grantedAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  uniq:   uniqueIndex('BadgeGrant_badge_user_uq').on(t.badgeId, t.userId),
-  byUser: index('BadgeGrant_userId_idx').on(t.userId),
-}))
+export const badgeGrants = pgTable(
+  'BadgeGrant',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    badgeId: text('badgeId')
+      .notNull()
+      .references(() => badges.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    grantedBy: text('grantedBy'),
+    grantedAt: timestamp('grantedAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex('BadgeGrant_badge_user_uq').on(t.badgeId, t.userId),
+    byUser: index('BadgeGrant_userId_idx').on(t.userId),
+  }),
+)
 
 export const botPersonas = pgTable('BotPersona', {
-  chave:           text('chave').primaryKey(),
-  displayName:     text('displayName'),
-  avatarUrl:       text('avatarUrl'),
-  bannerUrl:       text('bannerUrl'),
-  bannerColor:     text('bannerColor'),
-  bannerScale:     integer('bannerScale'),
+  chave: text('chave').primaryKey(),
+  displayName: text('displayName'),
+  avatarUrl: text('avatarUrl'),
+  bannerUrl: text('bannerUrl'),
+  bannerColor: text('bannerColor'),
+  bannerScale: integer('bannerScale'),
   bannerPositionY: integer('bannerPositionY'),
-  updatedAt:       timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
 })
 
-export const crashReports = pgTable('CrashReport', {
-  id:         text('id').primaryKey().$defaultFn(createId),
-  instalacao: text('instalacao').notNull(),
-  versao:     text('versao').notNull(),
-  so:         text('so'),
-  placa:      text('placa'),
-  tipo:       text('tipo').notNull(),
-  mensagem:   text('mensagem'),
-  rastro:     text('rastro').notNull(),
-  arranque:   text('arranque'),
-  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-}, (t) => ({
-  byCreated:     index('CrashReport_createdAt_idx').on(t.createdAt.desc()),
-  byVersaoTipo:  index('CrashReport_versao_tipo_idx').on(t.versao, t.tipo),
-}))
+export const crashReports = pgTable(
+  'CrashReport',
+  {
+    id: text('id').primaryKey().$defaultFn(createId),
+    instalacao: text('instalacao').notNull(),
+    versao: text('versao').notNull(),
+    so: text('so'),
+    placa: text('placa'),
+    tipo: text('tipo').notNull(),
+    mensagem: text('mensagem'),
+    rastro: text('rastro').notNull(),
+    arranque: text('arranque'),
+    createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byCreated: index('CrashReport_createdAt_idx').on(t.createdAt.desc()),
+    byVersaoTipo: index('CrashReport_versao_tipo_idx').on(t.versao, t.tipo),
+  }),
+)
 
 export const ajustesDeDados = pgTable('AjusteDeDados', {
-  nome:    text('nome').primaryKey(),
+  nome: text('nome').primaryKey(),
   feitoEm: timestamp('feitoEm', { precision: 3 }).notNull().defaultNow(),
 })

@@ -9,7 +9,7 @@ describe('curva de nivel', () => {
   })
 
   it('mantem os degraus que eu escolhi', () => {
-    expect(custoDoNivel(0)).toBe(100)   
+    expect(custoDoNivel(0)).toBe(100)
     expect(custoDoNivel(4)).toBe(380)
     expect(custoDoNivel(10)).toBe(1100)
     expect(custoDoNivel(20)).toBe(3100)

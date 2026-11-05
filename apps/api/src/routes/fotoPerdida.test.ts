@@ -18,7 +18,12 @@ vi.mock('../db', () => {
   return { db: { select: consulta } }
 })
 vi.mock('../lib/redis', () => ({
-  getUserStatus: vi.fn(), setUserOnline: vi.fn(), redis: {}, presenceKeys: {}, activityKeys: {}, leAtividade: vi.fn(),
+  getUserStatus: vi.fn(),
+  setUserOnline: vi.fn(),
+  redis: {},
+  presenceKeys: {},
+  activityKeys: {},
+  leAtividade: vi.fn(),
 }))
 vi.mock('../lib/realtime', () => ({ presenceChanged: vi.fn(), profileChanged: vi.fn() }))
 vi.mock('../middleware/auth', () => ({

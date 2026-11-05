@@ -22,18 +22,20 @@ function usernamesDe(texto: string): string[] {
 
 async function nomesDe(usernames: string[]): Promise<Map<string, string>> {
   if (!usernames.length) return new Map()
-  const linhas = await db.select({ username: users.username, displayName: users.displayName })
-    .from(users).where(inArray(users.username, usernames))
+  const linhas = await db
+    .select({ username: users.username, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.username, usernames))
   return new Map(linhas.map((l) => [l.username, l.displayName]))
 }
 
 const FAIXAS_SHIPP: Array<[number, string]> = [
-  [10,  'nem o universo forçando'],
-  [30,  'melhor cada um para o seu lado'],
-  [50,  'tem chance num universo paralelo'],
-  [70,  'olha… tá ali'],
-  [85,  'isso vai dar em alguma coisa'],
-  [95,  'escrito nas estrelas'],
+  [10, 'nem o universo forçando'],
+  [30, 'melhor cada um para o seu lado'],
+  [50, 'tem chance num universo paralelo'],
+  [70, 'olha… tá ali'],
+  [85, 'isso vai dar em alguma coisa'],
+  [95, 'escrito nas estrelas'],
   [100, 'é o par perfeito, aceita'],
 ]
 
@@ -66,7 +68,10 @@ export function dado(arg: string): string {
 }
 
 export function escolha(arg: string): string {
-  const opcoes = arg.split(/\s*,\s*/).map((s) => s.trim()).filter(Boolean)
+  const opcoes = arg
+    .split(/\s*,\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean)
   if (opcoes.length < 2) return '✧ Separa com vírgula: `escolha pizza, hambúrguer, sushi`'
   return `✧ Eu escolho: **${sortear(opcoes)}**`
 }
@@ -78,8 +83,10 @@ export async function sorteio(serverId: string, arg: string): Promise<string> {
     const g = sortear(marcados)!
     return `✧ Entre ${marcados.length}, a estrela apontou para **${mapa.get(g) ?? g}**.`
   }
-  const membros = await db.select({ displayName: users.displayName })
-    .from(serverMembers).innerJoin(users, eq(users.id, serverMembers.userId))
+  const membros = await db
+    .select({ displayName: users.displayName })
+    .from(serverMembers)
+    .innerJoin(users, eq(users.id, serverMembers.userId))
     .where(and(eq(serverMembers.serverId, serverId), eq(users.isBot, false)))
   const g = sortear(membros)
   if (!g) return '✧ Não achei ninguém para sortear.'
@@ -91,18 +98,19 @@ const VIDA_QUIZ_S = 300
 const MIN_LETRAS = 25
 
 export async function quemMandou(channelId: string): Promise<string> {
-  const candidatas = await db.select({
-    content: messages.content,
-    autor:   users.displayName,
-  })
+  const candidatas = await db
+    .select({
+      content: messages.content,
+      autor: users.displayName,
+    })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.authorId))
     .where(and(eq(messages.channelId, channelId), eq(users.isBot, false)))
     .orderBy(desc(messages.createdAt))
     .limit(200)
 
-  const boas = candidatas.filter((m) =>
-    m.content.length >= MIN_LETRAS && !m.content.startsWith('/') && !m.content.startsWith('http'),
+  const boas = candidatas.filter(
+    (m) => m.content.length >= MIN_LETRAS && !m.content.startsWith('/') && !m.content.startsWith('http'),
   )
   const escolhida = sortear(boas)
   if (!escolhida) return '✧ Ainda não tem conversa suficiente nesta órbita para brincar disso.'
@@ -124,10 +132,11 @@ export async function revelar(channelId: string): Promise<string> {
 }
 
 export async function ranking(serverId: string): Promise<string> {
-  const linhas = await db.select({
-    nome: users.displayName,
-    xp:   userXp.xp,
-  })
+  const linhas = await db
+    .select({
+      nome: users.displayName,
+      xp: userXp.xp,
+    })
     .from(userXp)
     .innerJoin(serverMembers, eq(serverMembers.userId, userXp.userId))
     .innerJoin(users, eq(users.id, userXp.userId))
@@ -148,14 +157,23 @@ export async function ranking(serverId: string): Promise<string> {
 export async function perfilXp(arg: string, quemPediu: string): Promise<string> {
   const marcado = usernamesDe(arg)[0]
   const alvo = marcado
-    ? (await db.select({ id: users.id, nome: users.displayName })
-        .from(users).where(eq(users.username, marcado)).limit(1))[0]
-    : (await db.select({ id: users.id, nome: users.displayName })
-        .from(users).where(eq(users.id, quemPediu)).limit(1))[0]
+    ? (
+        await db
+          .select({ id: users.id, nome: users.displayName })
+          .from(users)
+          .where(eq(users.username, marcado))
+          .limit(1)
+      )[0]
+    : (
+        await db.select({ id: users.id, nome: users.displayName }).from(users).where(eq(users.id, quemPediu)).limit(1)
+      )[0]
   if (!alvo) return `✧ Não achei @${marcado}.`
 
-  const [linha] = await db.select({ xp: userXp.xp, estrelas: userXp.estrelas })
-    .from(userXp).where(eq(userXp.userId, alvo.id)).limit(1)
+  const [linha] = await db
+    .select({ xp: userXp.xp, estrelas: userXp.estrelas })
+    .from(userXp)
+    .where(eq(userXp.userId, alvo.id))
+    .limit(1)
   const p = progressoDoXp(linha?.xp ?? 0, linha?.estrelas ?? 0)
   const cheio = Math.round((p.noNivel / p.paraOProximo) * 10)
   const barra = '█'.repeat(cheio) + '░'.repeat(10 - cheio)
@@ -172,10 +190,16 @@ export async function lembrete(arg: string, userId: string, channelId: string): 
   const ms = parseDuration(m[1])
   if (ms == null) return `✧ Não entendi "${m[1]}". Use \`20min\`, \`2h\`, \`1d\`.`
   const conteudo = m[2].slice(0, 500).trim()
-  const [r] = await db.insert(reminders).values({
-    creatorId: userId, targetUserId: userId, content: conteudo, channelId,
-    dueAt: new Date(Date.now() + ms),
-  }).returning({ dueAt: reminders.dueAt })
+  const [r] = await db
+    .insert(reminders)
+    .values({
+      creatorId: userId,
+      targetUserId: userId,
+      content: conteudo,
+      channelId,
+      dueAt: new Date(Date.now() + ms),
+    })
+    .returning({ dueAt: reminders.dueAt })
   return `✧ Anotado: "${conteudo}". Te chamo em ${r.dueAt.toLocaleString('pt-BR')}.`
 }
 
@@ -183,17 +207,14 @@ export async function resumoDoDia(channelId: string): Promise<string> {
   const inicio = new Date()
   inicio.setHours(0, 0, 0, 0)
 
-  const linhas = await db.select({
-    nome:  users.displayName,
-    total: sql<number>`count(*)::int`,
-  })
+  const linhas = await db
+    .select({
+      nome: users.displayName,
+      total: sql<number>`count(*)::int`,
+    })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.authorId))
-    .where(and(
-      eq(messages.channelId, channelId),
-      gte(messages.createdAt, inicio),
-      eq(users.isBot, false),
-    ))
+    .where(and(eq(messages.channelId, channelId), gte(messages.createdAt, inicio), eq(users.isBot, false)))
     .groupBy(users.displayName)
     .orderBy(desc(sql`count(*)`))
     .limit(5)
@@ -202,8 +223,5 @@ export async function resumoDoDia(channelId: string): Promise<string> {
   if (!total) return '✧ Hoje ainda não rolou nada por aqui.'
 
   const podio = linhas.map((l, i) => `**${i + 1}.** ${l.nome} · ${l.total}`)
-  return [
-    `✧ **Hoje nesta órbita:** ${total} mensagens de ${linhas.length} pessoa(s).`,
-    ...podio,
-  ].join('\n')
+  return [`✧ **Hoje nesta órbita:** ${total} mensagens de ${linhas.length} pessoa(s).`, ...podio].join('\n')
 }

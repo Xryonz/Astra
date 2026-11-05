@@ -12,7 +12,10 @@ function fakeIo() {
 
 describe('avisos de canal e categoria', () => {
   let f: ReturnType<typeof fakeIo>
-  beforeEach(() => { f = fakeIo(); attachRealtime(f.io) })
+  beforeEach(() => {
+    f = fakeIo()
+    attachRealtime(f.io)
+  })
 
   it('canal excluido leva so o id — nao vaza o nome pra quem nao via o canal', () => {
     canalSumiu('srv1', 'ch1')

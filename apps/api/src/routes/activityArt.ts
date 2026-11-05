@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import sharp from 'sharp'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -8,7 +8,7 @@ import { redis } from '../lib/redis'
 import { badRequest } from '../lib/errors'
 import { logger } from '../lib/logger'
 import {
-  ArteDeAtividade,
+  type ArteDeAtividade,
   LADO_DA_ARTE,
   parDaArte,
   enderecoNoCatalogo,
@@ -28,8 +28,7 @@ const router = Router()
 
 async function baixarDoCatalogo(par: ArteDeAtividade): Promise<Buffer | null> {
   const corte = AbortSignal.timeout(ESPERA_MS)
-  const resposta = await fetch(enderecoNoCatalogo(par), { signal: corte, redirect: 'follow' })
-    .catch(() => null)
+  const resposta = await fetch(enderecoNoCatalogo(par), { signal: corte, redirect: 'follow' }).catch(() => null)
   if (!resposta?.ok) return null
 
   const tipo = resposta.headers.get('content-type') ?? ''
@@ -69,12 +68,7 @@ router.get(
     })
 
     await redis
-      .set(
-        marca,
-        endereco ?? SEM_ARTE,
-        'EX',
-        endereco ? VALIDADE_DA_MARCA : VALIDADE_DO_FRACASSO,
-      )
+      .set(marca, endereco ?? SEM_ARTE, 'EX', endereco ? VALIDADE_DA_MARCA : VALIDADE_DO_FRACASSO)
       .catch(() => {})
 
     if (!endereco) return res.status(404).end()

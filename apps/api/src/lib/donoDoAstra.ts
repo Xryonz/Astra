@@ -12,7 +12,6 @@ const DONOS: ReadonlySet<string> = new Set(
 
 export async function ehDonoDoAstra(userId: string | undefined): Promise<boolean> {
   if (!userId || DONOS.size === 0) return false
-  const [u] = await db.select({ username: users.username })
-    .from(users).where(eq(users.id, userId)).limit(1)
+  const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, userId)).limit(1)
   return !!u && DONOS.has(u.username.toLowerCase())
 }

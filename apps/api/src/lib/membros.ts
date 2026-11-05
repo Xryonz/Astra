@@ -27,15 +27,16 @@ export function corQueVence(cargos: CargoDoMembro[]): string | null {
 }
 
 async function cargosPorMembro(serverId: string): Promise<Map<string, CargoDoMembro[]>> {
-  const atribuicoes = await db.select({
-    memberId: memberRoles.memberId,
-    id:       roles.id,
-    name:     roles.name,
-    color:    roles.color,
-    iconUrl:  roles.iconUrl,
-    position: roles.position,
-    hoist:    roles.hoist,
-  })
+  const atribuicoes = await db
+    .select({
+      memberId: memberRoles.memberId,
+      id: roles.id,
+      name: roles.name,
+      color: roles.color,
+      iconUrl: roles.iconUrl,
+      position: roles.position,
+      hoist: roles.hoist,
+    })
     .from(memberRoles)
     .innerJoin(roles, eq(roles.id, memberRoles.roleId))
     .where(eq(roles.serverId, serverId))
@@ -50,22 +51,23 @@ async function cargosPorMembro(serverId: string): Promise<Map<string, CargoDoMem
 }
 
 export async function listarMembros(serverId: string) {
-  const membros = await db.select({
-    id:        serverMembers.id,
-    userId:    serverMembers.userId,
-    serverId:  serverMembers.serverId,
-    role:      serverMembers.role,
-    nameColor: serverMembers.nameColor,
-    joinedAt:  serverMembers.joinedAt,
-    user: {
-      id:          users.id,
-      username:    users.username,
-      displayName: users.displayName,
-      avatarUrl:   users.avatarUrl,
-      bio:         users.bio,
-      displayFont: users.displayFont,
-    },
-  })
+  const membros = await db
+    .select({
+      id: serverMembers.id,
+      userId: serverMembers.userId,
+      serverId: serverMembers.serverId,
+      role: serverMembers.role,
+      nameColor: serverMembers.nameColor,
+      joinedAt: serverMembers.joinedAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        bio: users.bio,
+        displayFont: users.displayFont,
+      },
+    })
     .from(serverMembers)
     .innerJoin(users, eq(users.id, serverMembers.userId))
     .where(eq(serverMembers.serverId, serverId))
@@ -105,22 +107,23 @@ export async function membroEntrou(serverId: string, userId: string): Promise<vo
   const io = servidorDeSocket()
   if (!io) return
 
-  const [membro] = await db.select({
-    id:        serverMembers.id,
-    userId:    serverMembers.userId,
-    serverId:  serverMembers.serverId,
-    role:      serverMembers.role,
-    nameColor: serverMembers.nameColor,
-    joinedAt:  serverMembers.joinedAt,
-    user: {
-      id:          users.id,
-      username:    users.username,
-      displayName: users.displayName,
-      avatarUrl:   users.avatarUrl,
-      bio:         users.bio,
-      displayFont: users.displayFont,
-    },
-  })
+  const [membro] = await db
+    .select({
+      id: serverMembers.id,
+      userId: serverMembers.userId,
+      serverId: serverMembers.serverId,
+      role: serverMembers.role,
+      nameColor: serverMembers.nameColor,
+      joinedAt: serverMembers.joinedAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        bio: users.bio,
+        displayFont: users.displayFont,
+      },
+    })
     .from(serverMembers)
     .innerJoin(users, eq(users.id, serverMembers.userId))
     .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, userId)))

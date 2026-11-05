@@ -17,16 +17,15 @@ export function montarSalas(
 export async function salasQueMeVeem(euId: string): Promise<string[] | null> {
   try {
     const [constelacoes, amizades, sussurros] = await Promise.all([
-      db.select({ serverId: serverMembers.serverId })
-        .from(serverMembers)
-        .where(eq(serverMembers.userId, euId)),
-      db.select({ a: friendships.userAId, b: friendships.userBId })
+      db.select({ serverId: serverMembers.serverId }).from(serverMembers).where(eq(serverMembers.userId, euId)),
+      db
+        .select({ a: friendships.userAId, b: friendships.userBId })
         .from(friendships)
-        .where(and(
-          eq(friendships.status, 'accepted'),
-          or(eq(friendships.userAId, euId), eq(friendships.userBId, euId)),
-        )),
-      db.select({ a: dmConversations.userAId, b: dmConversations.userBId })
+        .where(
+          and(eq(friendships.status, 'accepted'), or(eq(friendships.userAId, euId), eq(friendships.userBId, euId))),
+        ),
+      db
+        .select({ a: dmConversations.userAId, b: dmConversations.userBId })
         .from(dmConversations)
         .where(or(eq(dmConversations.userAId, euId), eq(dmConversations.userBId, euId))),
     ])

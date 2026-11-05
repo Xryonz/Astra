@@ -1,25 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { redis } from './redis'
 import {
-  pushTurn, getHistory, countTurns, clearMemory,
-  setSummary, getSummary,
-  consumeTokens, consumeToolCall,
-  MEMORY_TTL_SECONDS, DAILY_TOKEN_LIMIT, DAILY_TOOL_LIMIT,
+  pushTurn,
+  getHistory,
+  countTurns,
+  clearMemory,
+  setSummary,
+  getSummary,
+  consumeTokens,
+  consumeToolCall,
+  MEMORY_TTL_SECONDS,
+  DAILY_TOKEN_LIMIT,
+  DAILY_TOOL_LIMIT,
 } from './botMemory'
 
 const U = 'user-test'
 const C = 'channel-test'
 
 beforeEach(async () => {
-
   await (redis as any).flushall()
 })
 
 describe('pushTurn + getHistory', () => {
   it('salva e recupera turns em ordem cronológica', async () => {
-    await pushTurn(U, C, { role: 'user',      content: 'oi',     ts: 1000 })
-    await pushTurn(U, C, { role: 'assistant', content: 'olá!',   ts: 2000 })
-    await pushTurn(U, C, { role: 'user',      content: 'tudo?',  ts: 3000 })
+    await pushTurn(U, C, { role: 'user', content: 'oi', ts: 1000 })
+    await pushTurn(U, C, { role: 'assistant', content: 'olá!', ts: 2000 })
+    await pushTurn(U, C, { role: 'user', content: 'tudo?', ts: 3000 })
 
     const h = await getHistory(U, C, 10)
     expect(h.map((t) => t.content)).toEqual(['oi', 'olá!', 'tudo?'])
@@ -74,7 +80,6 @@ describe('TTL — fixo, não reseta com novo turn', () => {
   })
 
   it('código usa EXPIRE NX no segundo turn (não tenta resetar)', async () => {
-
     await pushTurn(U, C, { role: 'user', content: 'a', ts: 1 })
 
     const expireCalls: unknown[][] = []
@@ -108,7 +113,7 @@ describe('summary', () => {
   it('setSummary remove turns antigos (score < cutoff)', async () => {
     await pushTurn(U, C, { role: 'user', content: 'antigo-1', ts: 100 })
     await pushTurn(U, C, { role: 'user', content: 'antigo-2', ts: 200 })
-    await pushTurn(U, C, { role: 'user', content: 'recente',  ts: 500 })
+    await pushTurn(U, C, { role: 'user', content: 'recente', ts: 500 })
 
     await setSummary(U, C, { text: 'sum', turnsCovered: 2, createdAt: 1 }, 300)
 

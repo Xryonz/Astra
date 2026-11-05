@@ -32,35 +32,37 @@ export async function sendFcmToUser(userId: string, payload: PushPayload): Promi
   const rows = await db.select().from(fcmTokens).where(eq(fcmTokens.userId, userId))
   if (rows.length === 0) return
 
-  const channelId = payload.tag?.includes('mention') ? 'mentions'
-    : payload.dmConvId ? 'dms'
-    : 'general'
+  const channelId = payload.tag?.includes('mention') ? 'mentions' : payload.dmConvId ? 'dms' : 'general'
 
-  await Promise.allSettled(rows.map(async (row) => {
-    try {
-      await messaging!.send({
-        token: row.token,
-        data: {
-          title:        payload.title,
-          body:         payload.body,
-          url:          payload.url ?? '/app',
-          channelId:    payload.channelId ?? '',
-          dmConvId:     payload.dmConvId ?? '',
-          icon:         payload.icon ?? '',
-          tag:          payload.tag ?? '',
-          sender:       payload.sender ?? '',
-          notifChannel: channelId,
-        },
-        android: { priority: 'high' },
-      })
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code ?? ''
-      if (code === 'messaging/registration-token-not-registered' ||
-          code === 'messaging/invalid-registration-token') {
-        await db.delete(fcmTokens).where(eq(fcmTokens.id, row.id)).catch(() => {})
-      } else {
-        console.error('[FCM] erro:', code || (err as Error)?.message)
+  await Promise.allSettled(
+    rows.map(async (row) => {
+      try {
+        await messaging!.send({
+          token: row.token,
+          data: {
+            title: payload.title,
+            body: payload.body,
+            url: payload.url ?? '/app',
+            channelId: payload.channelId ?? '',
+            dmConvId: payload.dmConvId ?? '',
+            icon: payload.icon ?? '',
+            tag: payload.tag ?? '',
+            sender: payload.sender ?? '',
+            notifChannel: channelId,
+          },
+          android: { priority: 'high' },
+        })
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code ?? ''
+        if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
+          await db
+            .delete(fcmTokens)
+            .where(eq(fcmTokens.id, row.id))
+            .catch(() => {})
+        } else {
+          console.error('[FCM] erro:', code || (err as Error)?.message)
+        }
       }
-    }
-  }))
+    }),
+  )
 }

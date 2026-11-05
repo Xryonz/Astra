@@ -7,13 +7,13 @@ import { getRoomService } from './livekit'
 import { xpGanho } from './realtime'
 import { TrackType } from '@livekit/protocol'
 
-export const XP_POR_MENSAGEM     = 12
-export const XP_POR_MINUTO_CALL  = 8
+export const XP_POR_MENSAGEM = 12
+export const XP_POR_MINUTO_CALL = 8
 
 const ESPERA_MENSAGEM_S = 60
 
-const TETO_DIARIO_MENSAGEM = 40 * XP_POR_MENSAGEM    
-const TETO_DIARIO_CALL     = 120 * XP_POR_MINUTO_CALL 
+const TETO_DIARIO_MENSAGEM = 40 * XP_POR_MENSAGEM
+const TETO_DIARIO_CALL = 120 * XP_POR_MINUTO_CALL
 
 const TETO_NIVEL = 500
 
@@ -22,11 +22,11 @@ export function custoDoNivel(nivel: number): number {
 }
 
 export interface Progresso {
-  xp:           number
-  nivel:        number
-  noNivel:      number  
-  paraOProximo: number  
-  estrelas:     number
+  xp: number
+  nivel: number
+  noNivel: number
+  paraOProximo: number
+  estrelas: number
 }
 
 export function progressoDoXp(xpTotal: number, estrelas = 0): Progresso {
@@ -39,9 +39,7 @@ export function progressoDoXp(xpTotal: number, estrelas = 0): Progresso {
   return { xp: xpTotal, nivel, noNivel: restante, paraOProximo: custoDoNivel(nivel), estrelas }
 }
 
-const TRILHA: number[] = [
-  20, 25, 30, 40, 45, 55, 60, 70, 80, 90, 100, 120,
-]
+const TRILHA: number[] = [20, 25, 30, 40, 45, 55, 60, 70, 80, 90, 100, 120]
 const TRILHA_CAUDA = 60
 
 export function estrelasDaTrilha(nivel: number): number {
@@ -61,16 +59,17 @@ async function dentroDoTeto(chave: string, ganho: number, teto: number): Promise
 }
 
 export interface GanhoXp {
-  ganho:         number
-  origem:        'mensagem' | 'call' | 'missao'
-  subiuDeNivel:  boolean
+  ganho: number
+  origem: 'mensagem' | 'call' | 'missao'
+  subiuDeNivel: boolean
   estrelasGanhas: number
-  progresso:     Progresso
+  progresso: Progresso
 }
 
 async function creditar(userId: string, ganho: number, origem: GanhoXp['origem']): Promise<GanhoXp | null> {
   try {
-    const [linha] = await db.insert(userXp)
+    const [linha] = await db
+      .insert(userXp)
       .values({ userId, xp: ganho })
       .onConflictDoUpdate({
         target: userXp.userId,
@@ -79,7 +78,7 @@ async function creditar(userId: string, ganho: number, origem: GanhoXp['origem']
       .returning({ xp: userXp.xp, estrelas: userXp.estrelas })
     if (!linha) return null
 
-    const nivelAntes  = progressoDoXp(linha.xp - ganho).nivel
+    const nivelAntes = progressoDoXp(linha.xp - ganho).nivel
     const nivelDepois = progressoDoXp(linha.xp).nivel
 
     let estrelasGanhas = 0
@@ -87,7 +86,8 @@ async function creditar(userId: string, ganho: number, origem: GanhoXp['origem']
 
     let estrelas = linha.estrelas
     if (estrelasGanhas > 0) {
-      const [comEstrelas] = await db.update(userXp)
+      const [comEstrelas] = await db
+        .update(userXp)
         .set({ estrelas: sql`${userXp.estrelas} + ${estrelasGanhas}` })
         .where(eq(userXp.userId, userId))
         .returning({ estrelas: userXp.estrelas })
@@ -161,7 +161,10 @@ export function iniciarRelogioDeCall(aoMinuto?: (userIds: string[]) => void): No
 }
 
 export async function progressoDe(userId: string): Promise<Progresso> {
-  const [linha] = await db.select({ xp: userXp.xp, estrelas: userXp.estrelas })
-    .from(userXp).where(eq(userXp.userId, userId)).limit(1)
+  const [linha] = await db
+    .select({ xp: userXp.xp, estrelas: userXp.estrelas })
+    .from(userXp)
+    .where(eq(userXp.userId, userId))
+    .limit(1)
   return progressoDoXp(linha?.xp ?? 0, linha?.estrelas ?? 0)
 }

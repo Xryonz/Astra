@@ -1,6 +1,6 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import { Server as SocketServer } from 'socket.io'
+import type { Server as SocketServer } from 'socket.io'
 import { and, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
@@ -22,20 +22,28 @@ import { entregarSussurro } from '../lib/realtime'
 import { semAnexosPerdidos } from '../lib/anexosPerdidos'
 import { encodeCursor, parseCursor } from '../lib/cursorDeMensagens'
 
-const SendDMSchema = z.object({
-  content:     z.string().min(0).max(4000),
-  attachments: z.array(AttachmentSchema).max(10).optional(),
-  replyToId:   z.string().optional(),
-  ttlSeconds:  z.number().int().min(60).max(60 * 60 * 24 * 30).optional(),
-  clientNonce: z.string().max(64).optional(),
-}).refine(
-  (d) => (d.content?.trim().length ?? 0) > 0 || (d.attachments?.length ?? 0) > 0,
-  { message: 'Mensagem vazia' },
-)
+const SendDMSchema = z
+  .object({
+    content: z.string().min(0).max(4000),
+    attachments: z.array(AttachmentSchema).max(10).optional(),
+    replyToId: z.string().optional(),
+    ttlSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(60 * 60 * 24 * 30)
+      .optional(),
+    clientNonce: z.string().max(64).optional(),
+  })
+  .refine((d) => (d.content?.trim().length ?? 0) > 0 || (d.attachments?.length ?? 0) > 0, { message: 'Mensagem vazia' })
 
 function safeJson<T>(raw: string | null | undefined, fallback: T): T {
   if (!raw) return fallback
-  try { return JSON.parse(raw) as T } catch { return fallback }
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
 }
 
 export function createDMRouter(io: SocketServer) {
@@ -47,7 +55,9 @@ export function createDMRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const userId = req.userId!
 
-      const all = await db.select().from(dmConversations)
+      const all = await db
+        .select()
+        .from(dmConversations)
         .where(or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)))
         .orderBy(desc(dmConversations.updatedAt))
 
@@ -59,36 +69,43 @@ export function createDMRouter(io: SocketServer) {
       if (convs.length === 0) return res.json({ data: [] })
 
       const otherIds = convs.map((c) => (c.userAId === userId ? c.userBId : c.userAId))
-      const convIds  = convs.map((c) => c.id)
+      const convIds = convs.map((c) => c.id)
 
       const [otherUsers, lastMessages] = await Promise.all([
-        db.select({
-          id: users.id, username: users.username,
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-          displayFont: users.displayFont,
-        }).from(users).where(inArray(users.id, otherIds)),
+        db
+          .select({
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+            displayFont: users.displayFont,
+          })
+          .from(users)
+          .where(inArray(users.id, otherIds)),
 
-        db.select().from(directMessages)
+        db
+          .select()
+          .from(directMessages)
           .where(and(inArray(directMessages.conversationId, convIds), isNull(directMessages.deletedAt)))
           .orderBy(desc(directMessages.createdAt)),
       ])
 
       const usersById = new Map(otherUsers.map((u) => [u.id, u]))
-      const lastByConv = new Map<string, typeof lastMessages[number]>()
+      const lastByConv = new Map<string, (typeof lastMessages)[number]>()
       for (const m of lastMessages) {
         if (!lastByConv.has(m.conversationId)) lastByConv.set(m.conversationId, m)
       }
 
       const shaped = convs.map((c) => ({
-        id:          c.id,
-        otherUser:   usersById.get(c.userAId === userId ? c.userBId : c.userAId) ?? null,
+        id: c.id,
+        otherUser: usersById.get(c.userAId === userId ? c.userBId : c.userAId) ?? null,
         lastMessage: lastByConv.get(c.id) ?? null,
-        updatedAt:   c.updatedAt,
-        muted:       (c.userAId === userId ? c.mutedByA : c.mutedByB) != null,
+        updatedAt: c.updatedAt,
+        muted: (c.userAId === userId ? c.mutedByA : c.mutedByB) != null,
       }))
 
       res.json({ data: shaped })
-    })
+    }),
   )
 
   router.post(
@@ -98,10 +115,15 @@ export function createDMRouter(io: SocketServer) {
       const { userId, username } = (req.body ?? {}) as { userId?: string; username?: string }
       if (!userId && !username) return res.status(400).json({ error: 'Informe userId ou username' })
 
-      const [target] = await db.select({
-        id: users.id, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl, bio: users.bio,
-      }).from(users)
+      const [target] = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+          bio: users.bio,
+        })
+        .from(users)
         .where(userId ? eq(users.id, userId) : eq(users.username, username!))
         .limit(1)
 
@@ -116,7 +138,7 @@ export function createDMRouter(io: SocketServer) {
 
       const conversation = await getOrCreateConversation(req.userId!, target.id)
       res.json({ data: { conversationId: conversation.id, otherUser: target } })
-    })
+    }),
   )
 
   router.get(
@@ -125,100 +147,120 @@ export function createDMRouter(io: SocketServer) {
     validate(MessageCursorSchema, 'query'),
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
-      const { cursor, limit }  = req.query as unknown as { cursor?: string; limit: number }
+      const { cursor, limit } = req.query as unknown as { cursor?: string; limit: number }
       const take = Number(limit) || 30
 
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
-      const conditions = [
-        eq(directMessages.conversationId, conversationId),
-        isNull(directMessages.deletedAt),
-      ]
+      const conditions = [eq(directMessages.conversationId, conversationId), isNull(directMessages.deletedAt)]
       const cursorLido = parseCursor(cursor)
       if (cursorLido) {
-        conditions.push(or(
-          lt(directMessages.createdAt, cursorLido.createdAt),
-          and(eq(directMessages.createdAt, cursorLido.createdAt), lt(directMessages.id, cursorLido.id)),
-        )!)
+        conditions.push(
+          or(
+            lt(directMessages.createdAt, cursorLido.createdAt),
+            and(eq(directMessages.createdAt, cursorLido.createdAt), lt(directMessages.id, cursorLido.id)),
+          )!,
+        )
       }
 
       const now = new Date()
-      conditions.push(
-        or(isNull(directMessages.expiresAt), gt(directMessages.expiresAt, now)) as any,
-      )
+      conditions.push(or(isNull(directMessages.expiresAt), gt(directMessages.expiresAt, now)) as any)
 
-      const rows = await db.select({
-        id:             directMessages.id,
-        content:        directMessages.content,
-        senderId:       directMessages.senderId,
-        receiverId:     directMessages.receiverId,
-        conversationId: directMessages.conversationId,
-        attachments:    directMessages.attachments,
-        replyToId:      directMessages.replyToId,
-        call:           directMessages.call,
-        expiresAt:      directMessages.expiresAt,
-        edited:         directMessages.edited,
-        deletedAt:      directMessages.deletedAt,
-        createdAt:      directMessages.createdAt,
+      const rows = await db
+        .select({
+          id: directMessages.id,
+          content: directMessages.content,
+          senderId: directMessages.senderId,
+          receiverId: directMessages.receiverId,
+          conversationId: directMessages.conversationId,
+          attachments: directMessages.attachments,
+          replyToId: directMessages.replyToId,
+          call: directMessages.call,
+          expiresAt: directMessages.expiresAt,
+          edited: directMessages.edited,
+          deletedAt: directMessages.deletedAt,
+          createdAt: directMessages.createdAt,
 
-        author: {
-          id: users.id, username: users.username,
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-          displayFont: users.displayFont,
-        },
-      })
+          author: {
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+            displayFont: users.displayFont,
+          },
+        })
         .from(directMessages)
         .innerJoin(users, eq(users.id, directMessages.senderId))
         .where(and(...conditions))
         .orderBy(desc(directMessages.createdAt), desc(directMessages.id))
         .limit(take + 1)
 
-      const hasMore   = rows.length > take
-      const items     = hasMore ? rows.slice(0, take) : rows
-      const ultima    = items[items.length - 1]
+      const hasMore = rows.length > take
+      const items = hasMore ? rows.slice(0, take) : rows
+      const ultima = items[items.length - 1]
       const nextCursor = hasMore && ultima ? encodeCursor(ultima.createdAt, ultima.id) : null
 
       const replyIds = items.map((m) => m.replyToId).filter(Boolean) as string[]
-      let replyMap = new Map<string, { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null }>()
+      let replyMap = new Map<
+        string,
+        {
+          id: string
+          content: string
+          authorId: string
+          authorName: string
+          authorAvatar: string | null
+          authorFont: string | null
+        }
+      >()
       if (replyIds.length > 0) {
-        const replies = await db.select({
-          id:      directMessages.id,
-          content: directMessages.content,
-          author: {
-            id:          users.id,
-            displayName: users.displayName,
-            avatarUrl:   users.avatarUrl,
-            displayFont: users.displayFont,
-          },
-        })
+        const replies = await db
+          .select({
+            id: directMessages.id,
+            content: directMessages.content,
+            author: {
+              id: users.id,
+              displayName: users.displayName,
+              avatarUrl: users.avatarUrl,
+              displayFont: users.displayFont,
+            },
+          })
           .from(directMessages)
           .innerJoin(users, eq(users.id, directMessages.senderId))
           .where(inArray(directMessages.id, replyIds))
-        replyMap = new Map(replies.map((r) => [r.id, {
-          id:           r.id,
-          content:      r.content.slice(0, 160),
-          authorId:     r.author.id,
-          authorName:   r.author.displayName,
-          authorAvatar: r.author.avatarUrl,
-          authorFont:   r.author.displayFont,
-        }]))
+        replyMap = new Map(
+          replies.map((r) => [
+            r.id,
+            {
+              id: r.id,
+              content: r.content.slice(0, 160),
+              authorId: r.author.id,
+              authorName: r.author.displayName,
+              authorAvatar: r.author.avatarUrl,
+              authorFont: r.author.displayFont,
+            },
+          ]),
+        )
       }
 
       const shaped = items.map((m) => ({
         ...m,
         attachments: semAnexosPerdidos(safeJson<unknown[]>(m.attachments, [])),
-        call:        m.call ? safeJson<unknown>(m.call, null) : null,
-        replyTo:     m.replyToId ? replyMap.get(m.replyToId) ?? null : null,
+        call: m.call ? safeJson<unknown>(m.call, null) : null,
+        replyTo: m.replyToId ? (replyMap.get(m.replyToId) ?? null) : null,
       }))
 
       res.json({ data: { items: shaped.reverse(), nextCursor, hasMore } })
-    })
+    }),
   )
 
   router.put(
@@ -226,20 +268,25 @@ export function createDMRouter(io: SocketServer) {
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
-      const patch = conv.userAId === req.userId
-        ? { mutedByA: new Date(), updatedAt: conv.updatedAt }
-        : { mutedByB: new Date(), updatedAt: conv.updatedAt }
+      const patch =
+        conv.userAId === req.userId
+          ? { mutedByA: new Date(), updatedAt: conv.updatedAt }
+          : { mutedByB: new Date(), updatedAt: conv.updatedAt }
       await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
       res.json({ data: { conversationId: conv.id, muted: true } })
-    })
+    }),
   )
 
   router.delete(
@@ -247,20 +294,25 @@ export function createDMRouter(io: SocketServer) {
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
-      const patch = conv.userAId === req.userId
-        ? { mutedByA: null, updatedAt: conv.updatedAt }
-        : { mutedByB: null, updatedAt: conv.updatedAt }
+      const patch =
+        conv.userAId === req.userId
+          ? { mutedByA: null, updatedAt: conv.updatedAt }
+          : { mutedByB: null, updatedAt: conv.updatedAt }
       await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
       res.json({ data: { conversationId: conv.id, muted: false } })
-    })
+    }),
   )
 
   router.delete(
@@ -268,21 +320,26 @@ export function createDMRouter(io: SocketServer) {
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
       const now = new Date()
-      const patch = conv.userAId === req.userId
-        ? { hiddenByA: now, updatedAt: conv.updatedAt }
-        : { hiddenByB: now, updatedAt: conv.updatedAt }
+      const patch =
+        conv.userAId === req.userId
+          ? { hiddenByA: now, updatedAt: conv.updatedAt }
+          : { hiddenByB: now, updatedAt: conv.updatedAt }
       await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
       res.json({ data: { conversationId: conv.id, closed: true } })
-    })
+    }),
   )
 
   router.post(
@@ -297,11 +354,15 @@ export function createDMRouter(io: SocketServer) {
       const anexoRuim = primeiroAnexoNaoPermitido(attachments)
       if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
 
-      const [conv] = await db.select().from(dmConversations)
-        .where(and(
-          eq(dmConversations.id, conversationId),
-          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
-        ))
+      const [conv] = await db
+        .select()
+        .from(dmConversations)
+        .where(
+          and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+          ),
+        )
         .limit(1)
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
@@ -311,26 +372,37 @@ export function createDMRouter(io: SocketServer) {
       }
 
       let validReplyToId: string | null = null
-      let replySnapshot: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null } | null = null
+      let replySnapshot: {
+        id: string
+        content: string
+        authorId: string
+        authorName: string
+        authorAvatar: string | null
+        authorFont: string | null
+      } | null = null
       if (replyToId) {
-        const [r] = await db.select({
-          id:        directMessages.id,
-          content:   directMessages.content,
-          authorId:  users.id,
-          authorName: users.displayName,
-          authorAvatar: users.avatarUrl,
-          authorFont: users.displayFont,
-        })
+        const [r] = await db
+          .select({
+            id: directMessages.id,
+            content: directMessages.content,
+            authorId: users.id,
+            authorName: users.displayName,
+            authorAvatar: users.avatarUrl,
+            authorFont: users.displayFont,
+          })
           .from(directMessages)
           .innerJoin(users, eq(users.id, directMessages.senderId))
           .where(and(eq(directMessages.id, replyToId), eq(directMessages.conversationId, conversationId)))
           .limit(1)
         if (r) {
           validReplyToId = r.id
-          replySnapshot  = {
-            id: r.id, content: r.content.slice(0, 160),
-            authorId: r.authorId, authorName: r.authorName,
-            authorAvatar: r.authorAvatar, authorFont: r.authorFont,
+          replySnapshot = {
+            id: r.id,
+            content: r.content.slice(0, 160),
+            authorId: r.authorId,
+            authorName: r.authorName,
+            authorAvatar: r.authorAvatar,
+            authorFont: r.authorFont,
           }
         }
       }
@@ -338,20 +410,32 @@ export function createDMRouter(io: SocketServer) {
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null
 
       const [insertedRows, authorRows] = await Promise.all([
-        db.insert(directMessages).values({
-          content, senderId: req.userId!, receiverId, conversationId,
-          attachments: JSON.stringify(attachments),
-          replyToId:   validReplyToId,
-          expiresAt:   expiresAt as any,
-        }).returning(),
-        db.select({
-          id: users.id, username: users.username,
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-          displayFont: users.displayFont,
-        }).from(users).where(eq(users.id, req.userId!)).limit(1),
+        db
+          .insert(directMessages)
+          .values({
+            content,
+            senderId: req.userId!,
+            receiverId,
+            conversationId,
+            attachments: JSON.stringify(attachments),
+            replyToId: validReplyToId,
+            expiresAt: expiresAt as any,
+          })
+          .returning(),
+        db
+          .select({
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+            displayFont: users.displayFont,
+          })
+          .from(users)
+          .where(eq(users.id, req.userId!))
+          .limit(1),
       ])
       const inserted = insertedRows[0]
-      const author   = authorRows[0]
+      const author = authorRows[0]
 
       const message = {
         ...inserted,
@@ -368,30 +452,34 @@ export function createDMRouter(io: SocketServer) {
       setImmediate(() => {
         void (async () => {
           try {
-            await db.update(dmConversations).set({ updatedAt: new Date() })
+            await db
+              .update(dmConversations)
+              .set({ updatedAt: new Date() })
               .where(eq(dmConversations.id, conversationId))
 
-            const receiverMuted =
-              (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
+            const receiverMuted = (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
             if (receiverMuted) return
 
             await notify({
-              io, userId: receiverId, actorId: req.userId!, type: 'dm',
+              io,
+              userId: receiverId,
+              actorId: req.userId!,
+              type: 'dm',
               payload: {
-                messageId:      inserted.id,
+                messageId: inserted.id,
                 conversationId,
-                authorId:       author?.id,
-                authorName:     author?.displayName || author?.username,
-                authorAvatar:   author?.avatarUrl ?? null,
-                preview:        content.slice(0, 140),
+                authorId: author?.id,
+                authorName: author?.displayName || author?.username,
+                authorAvatar: author?.avatarUrl ?? null,
+                preview: content.slice(0, 140),
               },
               push: {
                 title: `Nova DM de ${author?.displayName ?? 'Alguém'}`,
-                body:  content.slice(0, 140),
+                body: content.slice(0, 140),
 
-                url:   `/app/dm/${conversationId}`,
-                tag:   `dm-${conversationId}`,
-                icon:  author?.avatarUrl ?? undefined,
+                url: `/app/dm/${conversationId}`,
+                tag: `dm-${conversationId}`,
+                icon: author?.avatarUrl ?? undefined,
                 sender: author?.displayName ?? 'Alguém',
               },
             }).catch(() => {})
@@ -402,9 +490,18 @@ export function createDMRouter(io: SocketServer) {
       })
 
       if (receiverId === (await getBotId())) {
-        setImmediate(() => { void responderNoSussurro({ io, conversationId, userId: req.userId!, receiverId, content, username: author?.username ?? 'você' }) })
+        setImmediate(() => {
+          void responderNoSussurro({
+            io,
+            conversationId,
+            userId: req.userId!,
+            receiverId,
+            content,
+            username: author?.username ?? 'você',
+          })
+        })
       }
-    })
+    }),
   )
 
   router.delete(
@@ -413,12 +510,16 @@ export function createDMRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId, messageId } = req.params
 
-      const [message] = await db.select().from(directMessages)
-        .where(and(
-          eq(directMessages.id, messageId),
-          eq(directMessages.conversationId, conversationId),
-          isNull(directMessages.deletedAt),
-        ))
+      const [message] = await db
+        .select()
+        .from(directMessages)
+        .where(
+          and(
+            eq(directMessages.id, messageId),
+            eq(directMessages.conversationId, conversationId),
+            isNull(directMessages.deletedAt),
+          ),
+        )
         .limit(1)
 
       if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' })
@@ -426,12 +527,12 @@ export function createDMRouter(io: SocketServer) {
 
       await db.update(directMessages).set({ deletedAt: new Date() }).where(eq(directMessages.id, messageId))
 
-      entregarSussurro(
-        io, conversationId, [message.senderId, message.receiverId],
-        'dm_deleted', { messageId, conversationId },
-      )
+      entregarSussurro(io, conversationId, [message.senderId, message.receiverId], 'dm_deleted', {
+        messageId,
+        conversationId,
+      })
       res.json({ message: 'Mensagem removida' })
-    })
+    }),
   )
 
   return router

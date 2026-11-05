@@ -6,8 +6,8 @@ import { GUARD_DDL } from './guardDdl'
 dns.setDefaultResultOrder('ipv4first')
 
 const pool = new Pool({
-  connectionString:     process.env.DATABASE_URL!,
-  ssl:                  { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL!,
+  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 15_000,
 })
 
@@ -19,18 +19,18 @@ async function main() {
     console.error('[Migrate] ❌ DATABASE_URL ausente — verifique apps/api/.env')
     process.exit(1)
   }
-  console.log('[Migrate] DATABASE_URL host:',
-    process.env.DATABASE_URL.replace(/:\/\/[^@]*@/, '://***:***@').slice(0, 80) + '…')
+  console.log(
+    '[Migrate] DATABASE_URL host:',
+    process.env.DATABASE_URL.replace(/:\/\/[^@]*@/, '://***:***@').slice(0, 80) + '…',
+  )
 
   try {
-
     await pool.query('SELECT 1')
     console.log('[Migrate] ✓ Conexão DB ok')
 
     await pool.query(sql)
     console.log('[Migrate] ✓ Schema garantido')
   } catch (err: any) {
-
     console.error('[Migrate] ❌ erro ao migrar:')
     console.error('  message:    ', err?.message || '(vazio)')
     console.error('  code:       ', err?.code)

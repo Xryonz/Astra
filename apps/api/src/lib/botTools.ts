@@ -1,4 +1,3 @@
-
 import { and, desc, eq, ilike, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { messages, channels, serverMembers, users, servers, reminders } from '../db/schema'
@@ -7,15 +6,15 @@ import { parseDuration } from './reminders'
 import { logger } from './logger'
 
 export interface BotContext {
-  userId:    string
+  userId: string
   channelId: string
-  serverId:  string | null
-  username:  string
+  serverId: string | null
+  username: string
 }
 
 export interface ToolDefinition {
-  name:         string
-  description:  string
+  name: string
+  description: string
   input_schema: Record<string, unknown>
 }
 
@@ -39,25 +38,27 @@ const searchMessages: ToolHandler = async (input, ctx) => {
   const limit = Math.min(10, Math.max(1, Number(input?.limit ?? 5)))
   if (query.length < 3) return 'Erro: query muito curta. Mínimo 3 caracteres.'
 
-  const rows = await db.select({
-    content:    messages.content,
-    createdAt:  messages.createdAt,
-    authorName: users.displayName,
-  })
+  const rows = await db
+    .select({
+      content: messages.content,
+      createdAt: messages.createdAt,
+      authorName: users.displayName,
+    })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.authorId))
-    .where(and(
-      eq(messages.channelId, ctx.channelId),
-      isNull(messages.deletedAt),
-      ilike(messages.content, `%${query}%`),
-    ))
+    .where(
+      and(eq(messages.channelId, ctx.channelId), isNull(messages.deletedAt), ilike(messages.content, `%${query}%`)),
+    )
     .orderBy(desc(messages.createdAt))
     .limit(limit)
 
   if (rows.length === 0) return `Nenhuma mensagem encontrada com "${query}".`
-  return rows.map((r, i) =>
-    `${i + 1}. [${r.authorName}, ${r.createdAt.toISOString().slice(0, 16).replace('T', ' ')}]: ${r.content.slice(0, 200)}`
-  ).join('\n')
+  return rows
+    .map(
+      (r, i) =>
+        `${i + 1}. [${r.authorName}, ${r.createdAt.toISOString().slice(0, 16).replace('T', ' ')}]: ${r.content.slice(0, 200)}`,
+    )
+    .join('\n')
 }
 
 const summarizeChannelDef: ToolDefinition = {
@@ -67,17 +68,24 @@ const summarizeChannelDef: ToolDefinition = {
   input_schema: {
     type: 'object',
     properties: {
-      last_n: { type: 'integer', description: 'Quantas mensagens recentes considerar', default: 30, maximum: 100, minimum: 5 },
+      last_n: {
+        type: 'integer',
+        description: 'Quantas mensagens recentes considerar',
+        default: 30,
+        maximum: 100,
+        minimum: 5,
+      },
     },
   },
 }
 const summarizeChannel: ToolHandler = async (input, ctx) => {
   const lastN = Math.min(100, Math.max(5, Number(input?.last_n ?? 30)))
-  const rows = await db.select({
-    content:    messages.content,
-    createdAt:  messages.createdAt,
-    authorName: users.displayName,
-  })
+  const rows = await db
+    .select({
+      content: messages.content,
+      createdAt: messages.createdAt,
+      authorName: users.displayName,
+    })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.authorId))
     .where(and(eq(messages.channelId, ctx.channelId), isNull(messages.deletedAt)))
@@ -87,9 +95,7 @@ const summarizeChannel: ToolHandler = async (input, ctx) => {
   if (rows.length === 0) return 'O canal está vazio.'
 
   const ordered = rows.reverse()
-  const transcript = ordered.map((r) =>
-    `[${r.authorName}]: ${r.content.slice(0, 240)}`
-  ).join('\n')
+  const transcript = ordered.map((r) => `[${r.authorName}]: ${r.content.slice(0, 240)}`).join('\n')
 
   return `Últimas ${ordered.length} mensagens do canal:\n${transcript}`
 }
@@ -104,10 +110,15 @@ const getServerInfo: ToolHandler = async (_input, ctx) => {
   if (!ctx.serverId) return 'Você está em uma DM, não em servidor.'
 
   const [[srv], chList, memberRows, perms] = await Promise.all([
-    db.select({ id: servers.id, name: servers.name, isGroup: servers.isGroup, ownerId: servers.ownerId })
-      .from(servers).where(eq(servers.id, ctx.serverId)).limit(1),
-    db.select({ id: channels.id, name: channels.name, type: channels.type })
-      .from(channels).where(eq(channels.serverId, ctx.serverId)),
+    db
+      .select({ id: servers.id, name: servers.name, isGroup: servers.isGroup, ownerId: servers.ownerId })
+      .from(servers)
+      .where(eq(servers.id, ctx.serverId))
+      .limit(1),
+    db
+      .select({ id: channels.id, name: channels.name, type: channels.type })
+      .from(channels)
+      .where(eq(channels.serverId, ctx.serverId)),
     db.select({ id: serverMembers.id }).from(serverMembers).where(eq(serverMembers.serverId, ctx.serverId)),
     getMemberPerms(ctx.userId, ctx.serverId),
   ])
@@ -135,18 +146,29 @@ const recallUserDef: ToolDefinition = {
   },
 }
 const recallUser: ToolHandler = async (input, ctx) => {
-  const uname = String(input?.username ?? '').toLowerCase().replace(/^@/, '').trim()
+  const uname = String(input?.username ?? '')
+    .toLowerCase()
+    .replace(/^@/, '')
+    .trim()
   if (!uname) return 'Erro: username vazio.'
 
-  const [u] = await db.select({
-    id: users.id, username: users.username, displayName: users.displayName, bio: users.bio,
-  })
-    .from(users).where(eq(users.username, uname)).limit(1)
+  const [u] = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      bio: users.bio,
+    })
+    .from(users)
+    .where(eq(users.username, uname))
+    .limit(1)
   if (!u) return `Usuário @${uname} não encontrado.`
 
   let inServer = 'não aplicável (DM)'
   if (ctx.serverId) {
-    const [m] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [m] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, u.id), eq(serverMembers.serverId, ctx.serverId)))
       .limit(1)
     inServer = m ? 'sim' : 'não'
@@ -167,34 +189,45 @@ const createReminderDef: ToolDefinition = {
   input_schema: {
     type: 'object',
     properties: {
-      content:  { type: 'string', description: 'Sobre o que lembrar (max 500 chars)', minLength: 1, maxLength: 500 },
-      duration: { type: 'string', description: 'Quanto tempo no futuro. Ex: "10m", "2h", "1d", "1h30m". Min 1min, max 1 ano.' },
+      content: { type: 'string', description: 'Sobre o que lembrar (max 500 chars)', minLength: 1, maxLength: 500 },
+      duration: {
+        type: 'string',
+        description: 'Quanto tempo no futuro. Ex: "10m", "2h", "1d", "1h30m". Min 1min, max 1 ano.',
+      },
     },
     required: ['content', 'duration'],
   },
 }
 const createReminder: ToolHandler = async (input, ctx) => {
-  const content = String(input?.content ?? '').slice(0, 500).trim()
+  const content = String(input?.content ?? '')
+    .slice(0, 500)
+    .trim()
   const duration = String(input?.duration ?? '')
   if (!content) return 'Erro: content vazio.'
   const ms = parseDuration(duration)
   if (ms == null) return `Erro: duração '${duration}' inválida. Use formatos como "10m", "2h", "1d".`
 
   const dueAt = new Date(Date.now() + ms)
-  const [r] = await db.insert(reminders).values({
-    creatorId: ctx.userId, targetUserId: ctx.userId, content,
-    channelId: ctx.channelId, dueAt,
-  }).returning({ id: reminders.id, dueAt: reminders.dueAt })
+  const [r] = await db
+    .insert(reminders)
+    .values({
+      creatorId: ctx.userId,
+      targetUserId: ctx.userId,
+      content,
+      channelId: ctx.channelId,
+      dueAt,
+    })
+    .returning({ id: reminders.id, dueAt: reminders.dueAt })
 
   return `Lembrete criado: "${content}", disparo em ${r.dueAt.toLocaleString('pt-BR')}.`
 }
 
 const REGISTRY: Record<string, { def: ToolDefinition; handler: ToolHandler }> = {
-  search_messages:    { def: searchMessagesDef,    handler: searchMessages },
-  summarize_channel:  { def: summarizeChannelDef,  handler: summarizeChannel },
-  get_server_info:    { def: getServerInfoDef,     handler: getServerInfo },
-  recall_user:        { def: recallUserDef,        handler: recallUser },
-  create_reminder:    { def: createReminderDef,    handler: createReminder },
+  search_messages: { def: searchMessagesDef, handler: searchMessages },
+  summarize_channel: { def: summarizeChannelDef, handler: summarizeChannel },
+  get_server_info: { def: getServerInfoDef, handler: getServerInfo },
+  recall_user: { def: recallUserDef, handler: recallUser },
+  create_reminder: { def: createReminderDef, handler: createReminder },
 }
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = Object.values(REGISTRY).map((r) => r.def)

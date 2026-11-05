@@ -29,7 +29,9 @@ describe('recortarFoto', () => {
   })
 
   it('imagem parada vira WebP parado e não é ampliada', async () => {
-    const png = await sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 10, g: 20, b: 30 } } }).png().toBuffer()
+    const png = await sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+      .png()
+      .toBuffer()
     const saida = await recortarFoto(`data:image/png;base64,${png.toString('base64')}`, { x: 100, y: 50, lado: 120 })
 
     const meta = await sharp(bytesDe(saida!)).metadata()
@@ -40,7 +42,9 @@ describe('recortarFoto', () => {
   })
 
   it('recorte que passa da borda é encolhido para caber', async () => {
-    const png = await sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 10, g: 20, b: 30 } } }).png().toBuffer()
+    const png = await sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+      .png()
+      .toBuffer()
     const saida = await recortarFoto(`data:image/png;base64,${png.toString('base64')}`, { x: 250, y: 0, lado: 200 })
 
     const meta = await sharp(bytesDe(saida!)).metadata()
@@ -49,7 +53,9 @@ describe('recortarFoto', () => {
   })
 
   it('recorte totalmente fora da imagem é recusado', async () => {
-    const png = await sharp({ create: { width: 100, height: 100, channels: 3, background: { r: 0, g: 0, b: 0 } } }).png().toBuffer()
+    const png = await sharp({ create: { width: 100, height: 100, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+      .png()
+      .toBuffer()
     expect(await recortarFoto(`data:image/png;base64,${png.toString('base64')}`, { x: 100, y: 0, lado: 10 })).toBeNull()
   })
 
@@ -58,10 +64,18 @@ describe('recortarFoto', () => {
   })
 
   it('animação acima do teto de pixels é recusada antes de decodificar', async () => {
-    const quadros = await Promise.all(Array.from({ length: 16 }, (_, i) =>
-      sharp({ create: { width: 2000, height: 2000, channels: 3, background: { r: i * 15, g: 2, b: 3 } } }).png().toBuffer()))
-    const longa = await sharp(quadros, { join: { animated: true } }).gif().toBuffer()
-    await expect(recortarFoto(`data:image/gif;base64,${longa.toString('base64')}`, { x: 0, y: 0, lado: 100 }))
-      .rejects.toBeInstanceOf(AnimacaoGrandeDemais)
+    const quadros = await Promise.all(
+      Array.from({ length: 16 }, (_, i) =>
+        sharp({ create: { width: 2000, height: 2000, channels: 3, background: { r: i * 15, g: 2, b: 3 } } })
+          .png()
+          .toBuffer(),
+      ),
+    )
+    const longa = await sharp(quadros, { join: { animated: true } })
+      .gif()
+      .toBuffer()
+    await expect(
+      recortarFoto(`data:image/gif;base64,${longa.toString('base64')}`, { x: 0, y: 0, lado: 100 }),
+    ).rejects.toBeInstanceOf(AnimacaoGrandeDemais)
   })
 })

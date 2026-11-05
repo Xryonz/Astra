@@ -12,10 +12,7 @@ async function main() {
     process.exit(1)
   }
 
-  const isPlaintext =
-    url.includes('.railway.internal') ||
-    url.includes('localhost') ||
-    url.includes('127.0.0.1')
+  const isPlaintext = url.includes('.railway.internal') || url.includes('localhost') || url.includes('127.0.0.1')
 
   console.log(`[MIGRATE] Iniciando migrate (ssl=${!isPlaintext})`)
 

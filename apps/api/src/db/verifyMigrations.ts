@@ -25,9 +25,6 @@ export function verifyMigrationsJournal(migrationsFolder: string): void {
 
   const orphan = [...registered].filter((tag) => !sqlFiles.includes(tag))
   if (orphan.length > 0) {
-    console.warn(
-      `[migrate-verify] ⚠ ${orphan.length} entry(ies) no journal sem .sql:`,
-      orphan,
-    )
+    console.warn(`[migrate-verify] ⚠ ${orphan.length} entry(ies) no journal sem .sql:`, orphan)
   }
 }

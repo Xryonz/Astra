@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import { eq } from 'drizzle-orm'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted } from '../lib/redis'
@@ -38,14 +38,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     req.userId = payload.userId
-    req.jti    = payload.jti
+    req.jti = payload.jti
     next()
   } catch (err: any) {
-
     const isExpired = err?.name === 'TokenExpiredError'
     return res.status(401).json({
       error: isExpired ? 'Token expirado' : 'Token inválido',
-      code:  isExpired ? 'TOKEN_EXPIRED'  : 'TOKEN_INVALID',
+      code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID',
     })
   }
 }
@@ -53,15 +52,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export async function requireEmailVerified(req: Request, res: Response, next: NextFunction) {
   if (!isMailEnabled()) return next()
 
-  const [user] = await db.select({ emailVerifiedAt: users.emailVerifiedAt })
-    .from(users).where(eq(users.id, req.userId!)).limit(1)
+  const [user] = await db
+    .select({ emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .where(eq(users.id, req.userId!))
+    .limit(1)
 
   if (!user) return res.status(401).json({ error: 'Sessão inválida', code: 'NO_USER' })
   if (user.emailVerifiedAt) return next()
 
   return res.status(403).json({
     error: 'Confirme seu e-mail para continuar',
-    code:  'EMAIL_NOT_VERIFIED',
+    code: 'EMAIL_NOT_VERIFIED',
   })
 }
-

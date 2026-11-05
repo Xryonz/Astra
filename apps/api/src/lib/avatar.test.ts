@@ -10,7 +10,9 @@ async function ruido(lado: number): Promise<Buffer> {
     s = (s * 1103515245 + 12345) & 0x7fffffff
     px[i] = (s >> 16) & 0xff
   }
-  return sharp(px, { raw: { width: lado, height: lado, channels: 3 } }).png().toBuffer()
+  return sharp(px, { raw: { width: lado, height: lado, channels: 3 } })
+    .png()
+    .toBuffer()
 }
 
 describe('avatar em duas versões', () => {

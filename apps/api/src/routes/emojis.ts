@@ -1,4 +1,4 @@
-import { Router, Response } from 'express'
+import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import multer from 'multer'
 import crypto from 'crypto'
@@ -14,15 +14,15 @@ import { getMemberPerms, PERMS } from '../lib/permissions'
 import { putAttachment, removeAttachment } from '../lib/storage'
 
 const MAX_EMOJIS = 50
-const MAX_SIZE   = 512 * 1024
-const EMOJI_PX   = 128
+const MAX_SIZE = 512 * 1024
+const EMOJI_PX = 128
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: MAX_SIZE, files: 1 },
+  limits: { fileSize: MAX_SIZE, files: 1 },
   fileFilter: (_req, file, cb) => {
     const m = file.mimetype.split(';')[0].toLowerCase()
-    if (!['image/png','image/jpeg','image/webp','image/avif','image/gif'].includes(m)) {
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'].includes(m)) {
       return cb(new Error('TYPE_NOT_ALLOWED'))
     }
     cb(null, true)
@@ -46,16 +46,20 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    const [m] = await db.select({ id: serverMembers.id }).from(serverMembers)
+    const [m] = await db
+      .select({ id: serverMembers.id })
+      .from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
     if (!m) return res.status(403).json({ error: 'Acesso negado' })
 
-    const rows = await db.select().from(serverEmojis)
+    const rows = await db
+      .select()
+      .from(serverEmojis)
       .where(eq(serverEmojis.serverId, serverId))
       .orderBy(asc(serverEmojis.name))
     res.json({ data: rows })
-  })
+  }),
 )
 
 router.post(
@@ -83,8 +87,10 @@ router.post(
     const file = req.file
     if (!file) return res.status(400).json({ error: 'Arquivo obrigatório' })
 
-    const existing = await db.select({ id: serverEmojis.id, name: serverEmojis.name })
-      .from(serverEmojis).where(eq(serverEmojis.serverId, serverId))
+    const existing = await db
+      .select({ id: serverEmojis.id, name: serverEmojis.name })
+      .from(serverEmojis)
+      .where(eq(serverEmojis.serverId, serverId))
     if (existing.length >= MAX_EMOJIS) {
       return res.status(429).json({ error: `Limite de ${MAX_EMOJIS} emojis por servidor atingido` })
     }
@@ -95,12 +101,11 @@ router.post(
     const isAnimated = file.mimetype.includes('gif')
     let buffer: Buffer, ext: string, mime: string
     if (isAnimated) {
-
       buffer = await sharp(file.buffer, { animated: true })
         .resize({ width: EMOJI_PX, height: EMOJI_PX, fit: 'inside' })
         .webp({ quality: 80, effort: 4 })
         .toBuffer()
-      ext  = '.webp'
+      ext = '.webp'
       mime = 'image/webp'
     } else {
       buffer = await sharp(file.buffer)
@@ -108,23 +113,26 @@ router.post(
         .resize({ width: EMOJI_PX, height: EMOJI_PX, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 88, effort: 4 })
         .toBuffer()
-      ext  = '.webp'
+      ext = '.webp'
       mime = 'image/webp'
     }
 
-    const id  = crypto.randomBytes(16).toString('hex')
+    const id = crypto.randomBytes(16).toString('hex')
     const filename = `${id}${ext}`
     const url = await putAttachment(filename, buffer, mime)
 
-    const [created] = await db.insert(serverEmojis).values({
-      serverId,
-      name,
-      url,
-      createdBy: req.userId!,
-    }).returning()
+    const [created] = await db
+      .insert(serverEmojis)
+      .values({
+        serverId,
+        name,
+        url,
+        createdBy: req.userId!,
+      })
+      .returning()
 
     res.status(201).json({ data: { ...created, mime } })
-  })
+  }),
 )
 
 router.delete(
@@ -135,14 +143,15 @@ router.delete(
     if (!(await ensureCanManage(serverId, req.userId!))) {
       return res.status(403).json({ error: 'Sem permissão' })
     }
-    const result = await db.delete(serverEmojis)
+    const result = await db
+      .delete(serverEmojis)
       .where(and(eq(serverEmojis.id, emojiId), eq(serverEmojis.serverId, serverId)))
       .returning({ id: serverEmojis.id, url: serverEmojis.url })
     if (result.length === 0) return res.status(404).json({ error: 'Emoji não encontrado' })
 
     void removeAttachment(result[0].url)
     res.json({ data: { ok: true } })
-  })
+  }),
 )
 
 const RenameSchema = z.object({ name: z.string().regex(NAME_RE) })
@@ -157,7 +166,8 @@ router.patch(
     }
     const { name } = req.body as z.infer<typeof RenameSchema>
     try {
-      const [updated] = await db.update(serverEmojis)
+      const [updated] = await db
+        .update(serverEmojis)
         .set({ name })
         .where(and(eq(serverEmojis.id, emojiId), eq(serverEmojis.serverId, serverId)))
         .returning()
@@ -167,7 +177,7 @@ router.patch(
       if (e?.code === '23505') return res.status(409).json({ error: `Já existe :${name}:` })
       throw e
     }
-  })
+  }),
 )
 
 export default router

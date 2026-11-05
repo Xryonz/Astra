@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+const ESTADO: &str = "estado";
+
 #[derive(Debug, Default, Serialize)]
 pub struct Evento {
     pub ev: &'static str,
@@ -25,6 +27,26 @@ impl Evento {
     pub fn erro_do_comando(par: Option<String>, msg: impl Into<String>) -> Self {
         Self { par: par.filter(|p| !p.is_empty()), ..Self::erro(msg) }
     }
+
+    pub fn na_sala() -> Self {
+        Self::de_estado(None, "connected")
+    }
+
+    pub fn chegou(par: String) -> Self {
+        Self::de_estado(Some(par), "connected")
+    }
+
+    pub fn saiu(par: String) -> Self {
+        Self::de_estado(Some(par), "closed")
+    }
+
+    pub fn caiu_da_sala(tipo: &str, msg: &str) -> Self {
+        Self { tipo: Some(tipo.into()), msg: Some(msg.into()), ..Self::de_estado(None, "disconnected") }
+    }
+
+    fn de_estado(par: Option<String>, valor: &str) -> Self {
+        Self { ev: ESTADO, par, valor: Some(valor.into()), ..Default::default() }
+    }
 }
 
 #[cfg(test)]
@@ -42,5 +64,26 @@ mod testes {
         assert_eq!(com_par, "{\"ev\":\"erro\",\"par\":\"ana\",\"msg\":\"falhou\"}");
         let sem_par = serde_json::to_string(&Evento::erro_do_comando(Some(String::new()), "falhou")).unwrap();
         assert_eq!(sem_par, "{\"ev\":\"erro\",\"msg\":\"falhou\"}");
+    }
+
+    #[test]
+    fn estado_da_sala_sai_sem_par_e_o_de_alguem_leva_o_par() {
+        assert_eq!(serde_json::to_string(&Evento::na_sala()).unwrap(), "{\"ev\":\"estado\",\"v\":\"connected\"}");
+        assert_eq!(
+            serde_json::to_string(&Evento::chegou("ana".into())).unwrap(),
+            "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"connected\"}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::saiu("ana".into())).unwrap(),
+            "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"closed\"}"
+        );
+    }
+
+    #[test]
+    fn queda_leva_tipo_e_motivo() {
+        assert_eq!(
+            serde_json::to_string(&Evento::caiu_da_sala("queda", "SIGNAL_CLOSE")).unwrap(),
+            "{\"ev\":\"estado\",\"tipo\":\"queda\",\"v\":\"disconnected\",\"msg\":\"SIGNAL_CLOSE\"}"
+        );
     }
 }

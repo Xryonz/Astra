@@ -2,11 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -304,6 +300,13 @@ private fun FriendsList(
     }
 }
 
+private const val VOLTA_DO_PULSO_MS = 2800
+
+private fun respiroDoPulso(volta: Float): Float {
+    val ida = if (volta < 0.5f) volta * 2f else 2f - volta * 2f
+    return 0.85f + 0.15f * FastOutSlowInEasing.transform(ida)
+}
+
 @Composable
 private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit) {
     val name = f.user.displayName ?: f.user.username
@@ -317,11 +320,7 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
         Box {
             DesktopAvatar(f.user.avatarUrl, name, 40)
             val pulse = if (!LocalReduceMotion.current && f.presence.uppercase() == "ONLINE") {
-                rememberInfiniteTransition(label = "presencePulse").animateFloat(
-                    initialValue = 0.85f, targetValue = 1f,
-                    animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                    label = "presencePulse",
-                )
+                faseDeEnfeite(VOLTA_DO_PULSO_MS, repouso = 0f)
             } else null
             StatusDot(
                 userStatus(f.presence),
@@ -330,7 +329,7 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
                 borderColor = Obsidian.raised,
                 cutoutColor = Obsidian.raised,
                 modifier = Modifier.align(Alignment.BottomEnd).graphicsLayer {
-                    val v = pulse?.value ?: 1f
+                    val v = pulse?.let { respiroDoPulso(it.value) } ?: 1f
                     alpha = v; scaleX = v; scaleY = v
                 },
             )

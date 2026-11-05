@@ -13,9 +13,9 @@ enum class AuroraQuality(val key: String, val octaves: Int) {
 }
 
 enum class UiFps(val key: String, val cap: Int) {
-    FREE("free", 0), CAP60("60", 60), CAP30("30", 30);
+    CAP60("60", 60), CAP30("30", 30);
     companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: FREE
+        fun from(raw: String?) = entries.find { it.key == raw } ?: CAP60
     }
 }
 
@@ -62,7 +62,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val auroraEnabled: Boolean = false,
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        val uiFps: UiFps = UiFps.FREE,
+        val uiFps: UiFps = UiFps.CAP60,
         val windowTransparent: Boolean = true,
         val exitOnClose: Boolean = false,
         val altoContraste: Boolean = false,
@@ -161,8 +161,8 @@ class DesktopPrefs(private val store: SessionStore) {
         if (store.uiPref("ceuMigrado") == "2") return
         store.setUiPref("ceuMigrado", "2")
         store.setUiPref("auroraQuality", AuroraQuality.HIGH.key)
-        store.setUiPref("uiFps", UiFps.FREE.key)
-        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.FREE) }
+        store.setUiPref("uiFps", UiFps.CAP60.key)
+        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.CAP60) }
     }
 
     private fun read() = Prefs(

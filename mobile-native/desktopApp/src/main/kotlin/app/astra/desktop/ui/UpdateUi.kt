@@ -5,15 +5,12 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -287,18 +284,14 @@ internal val SPACE_WORDS = listOf(
 internal fun spaceWord(progress: Float): String =
     SPACE_WORDS[(progress * SPACE_WORDS.size).toInt().coerceIn(0, SPACE_WORDS.lastIndex)]
 
+private const val VOLTA_DO_LOGO_MS = 7000
+private const val FASE_PARADA_DO_LOGO = 0.9f
+
 @Composable
 internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, planetRes: String = "astra-icon.png") {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
-    val phaseState = if (reduceMotion || !LocalWindowActive.current) null else {
-        rememberInfiniteTransition(label = "orbit").animateFloat(
-            initialValue = 0f,
-            targetValue = twoPi,
-            animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing)),
-            label = "phase",
-        )
-    }
+    val voltaDoLogo = if (reduceMotion || !LocalWindowActive.current) null else faseDeEnfeite(VOLTA_DO_LOGO_MS, repouso = FASE_PARADA_DO_LOGO / twoPi)
     val count = 14
     val tilt = (-12.0 * PI / 180.0).toFloat()
 
@@ -320,7 +313,7 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
         return Offset(center.x + rad * cos(ang), center.y + rad * sin(ang))
     }
     fun DrawScope.drawRing(front: Boolean) {
-        val phase = phaseState?.value ?: 0.9f
+        val phase = voltaDoLogo?.let { it.value * twoPi } ?: FASE_PARADA_DO_LOGO
         val gather = ((entrance?.value ?: 1f) * 2000f / 1100f).coerceIn(0f, 1f)
             .let { FastOutSlowInEasing.transform(it) }
         repeat(count) { i ->
@@ -341,7 +334,7 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
     }
     fun DrawScope.drawConstellationLines() {
         val e = entrance?.value ?: return
-        val phase = phaseState?.value ?: 0.9f
+        val phase = voltaDoLogo?.let { it.value * twoPi } ?: FASE_PARADA_DO_LOGO
         val ms = e * 2000f
         val gather = (ms / 1100f).coerceIn(0f, 1f).let { FastOutSlowInEasing.transform(it) }
         val settle = ((ms - 1100f) / 600f).coerceIn(0f, 1f)

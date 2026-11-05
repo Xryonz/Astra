@@ -1,10 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -52,18 +47,13 @@ fun LinhaDeProgresso(modifier: Modifier = Modifier) {
         return
     }
 
-    val avanco by rememberInfiniteTransition(label = "linha").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(VOLTA_MS, easing = LinearEasing)),
-        label = "avanco",
-    )
+    val avanco = faseDeEnfeite(VOLTA_MS, repouso = 0f)
 
     Canvas(modifier.fillMaxWidth().height(ALTURA).clipToBounds()) {
         val traco = size.width * FATIA_DO_TRACO
         drawRect(
             color = cor,
-            topLeft = Offset((size.width + traco) * avanco - traco, 0f),
+            topLeft = Offset((size.width + traco) * avanco.value - traco, 0f),
             size = Size(traco, size.height),
         )
     }

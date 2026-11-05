@@ -1,10 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +40,7 @@ import app.astra.desktop.ui.theme.Text
 import kotlinx.coroutines.delay
 
 private const val ESPERA_DICA_MS = 420L
+private const val VOLTA_DO_GIRO_MS = 900
 
 @Composable
 fun BotaoIcone(
@@ -97,15 +94,10 @@ fun BotaoIcone(
             contentAlignment = Alignment.Center,
         ) {
             if (ocupado) {
-                val giro = rememberInfiniteTransition(label = "ocupado")
-                val angulo by giro.animateFloat(
-                    0f, 360f,
-                    infiniteRepeatable(tween(900, easing = LinearEasing)),
-                    label = "angulo",
-                )
+                val giro = faseDeEnfeite(VOLTA_DO_GIRO_MS, repouso = 0f)
                 LIcon(
                     Lucide.LoaderCircle, tint = conteudo, size = 16.dp,
-                    modifier = Modifier.graphicsLayer { rotationZ = angulo },
+                    modifier = Modifier.graphicsLayer { rotationZ = giro.value * 360f },
                 )
             } else {
                 LIcon(icone, tint = conteudo, size = 16.dp, rotulo = dica)

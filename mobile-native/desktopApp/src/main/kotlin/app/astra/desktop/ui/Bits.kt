@@ -10,12 +10,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.StartOffset
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -338,6 +333,14 @@ fun CascadeIn(
     }
 }
 
+private const val VOLTA_DOS_PONTOS_DIGITANDO_MS = 560
+private const val DEFASAGEM_DOS_PONTOS = 0.25f
+
+private fun alturaDoPontoDigitando(fase: Float, indice: Int): Float {
+    val local = (fase - indice * DEFASAGEM_DOS_PONTOS + 1f) % 1f
+    return -3f * FastOutSlowInEasing.transform(idaEVolta(local))
+}
+
 @Composable
 fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
     if (LocalReduceMotion.current) {
@@ -346,25 +349,16 @@ fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
         }
         return
     }
-    val transition = rememberInfiniteTransition()
+    val fase = faseDeEnfeite(VOLTA_DOS_PONTOS_DIGITANDO_MS, repouso = 0f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         repeat(3) { i ->
-            val dy by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = -3f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(280, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse,
-                    initialStartOffset = StartOffset(i * 140),
-                ),
-            )
             Box(
                 Modifier
                     .size(dotSize)
-                    .graphicsLayer { translationY = dy * density }
+                    .graphicsLayer { translationY = alturaDoPontoDigitando(fase.value, i) * density }
                     .clip(CircleShape)
                     .background(color),
             )

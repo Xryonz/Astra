@@ -1,12 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -414,14 +409,12 @@ private fun AtividadePreview(ligado: Boolean) {
     }
 }
 
+private const val VOLTA_DO_AVISO_MS = 3400
+private const val FASE_COM_O_AVISO_INTEIRO = 0.5f
+
 @Composable
 private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
-    val t = rememberInfiniteTransition(label = "toast")
-    val cycle by t.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(3400, easing = LinearEasing), RepeatMode.Restart),
-        label = "toastCycle",
-    )
+    val cycle = if (reduceMotion) 0f else faseDeEnfeite(VOLTA_DO_AVISO_MS, repouso = FASE_COM_O_AVISO_INTEIRO).value
     var dx = 0f
     var a = 1f
     if (!reduceMotion) {

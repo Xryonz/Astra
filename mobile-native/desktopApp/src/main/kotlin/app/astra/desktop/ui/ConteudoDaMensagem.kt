@@ -33,6 +33,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -172,11 +174,13 @@ internal fun ContentBlock(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             msg.reactions.forEach { r ->
-                ReactionChip(
-                    reaction = r,
-                    mine = myId != null && myId in r.users,
-                    onClick = { onReact(r.emoji) },
-                )
+                key(r.emoji) {
+                    ReactionChip(
+                        reaction = r,
+                        mine = myId != null && myId in r.users,
+                        onClick = { onReact(r.emoji) },
+                    )
+                }
             }
         }
     }
@@ -255,6 +259,10 @@ private fun AttachmentBlock(att: AttachmentDto) {
     }
     if (att.type?.startsWith("image/") == true) {
         val openImage = LocalOpenImage.current
+        val reduzir = LocalReduceMotion.current
+        var anima by remember(att.url) { mutableStateOf(false) }
+        var tocando by remember(att.url) { mutableStateOf(false) }
+        val cliqueToca = anima && !tocando && !reduzir
         val w = att.width ?: 0
         val h = att.height ?: 0
         val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
@@ -530,9 +538,14 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
 
 @Composable
 private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Unit) {
-    val scale = remember { Animatable(0f) }
+    val reduzir = LocalReduceMotion.current
+    val scale = remember { Animatable(1f) }
+    var contagemVista by remember { mutableIntStateOf(reaction.count) }
     LaunchedEffect(reaction.count) {
-        if (scale.value > 0f) scale.snapTo(0.75f)
+        if (reaction.count == contagemVista) return@LaunchedEffect
+        contagemVista = reaction.count
+        if (reduzir) return@LaunchedEffect
+        scale.snapTo(0.75f)
         scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
     }
     val src = remember { MutableInteractionSource() }

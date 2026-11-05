@@ -1,10 +1,6 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
@@ -43,6 +39,8 @@ import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.Video
 
+private const val VOLTA_DO_HALO_MS = 1600
+
 @Composable
 fun ChamadaScreen(
     chamada: ChamadaNaTela,
@@ -50,16 +48,7 @@ fun ChamadaScreen(
     onRecusar: () -> Unit,
 ) {
     val reduzir = LocalReduceMotion.current
-    val pulso by if (reduzir) {
-        remember { androidx.compose.runtime.mutableStateOf(0f) }
-    } else {
-        rememberInfiniteTransition(label = "halo").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Restart),
-            label = "halo",
-        )
-    }
+    val halo = faseDeEnfeite(VOLTA_DO_HALO_MS, repouso = 0f)
 
     Box(
         Modifier
@@ -73,7 +62,7 @@ fun ChamadaScreen(
                     Modifier.size(190.dp).drawBehind {
                         if (reduzir) return@drawBehind
                         for (atraso in listOf(0f, 0.5f)) {
-                            val t = (pulso + atraso) % 1f
+                            val t = (FastOutSlowInEasing.transform(halo.value) + atraso) % 1f
                             drawCircle(
                                 color = Obsidian.accent.copy(alpha = 0.28f * (1f - t)),
                                 radius = size.minDimension / 2f * (0.52f + t * 0.48f),

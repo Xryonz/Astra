@@ -1,10 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -81,22 +77,15 @@ fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
     }
 }
 
+private const val VOLTA_DO_PONTO_MS = 2200
+
 @Composable
 private fun Ponto(reduceMotion: Boolean) {
-    val alpha = if (reduceMotion) 1f else {
-        val t = rememberInfiniteTransition(label = "acordando")
-        val a by t.animateFloat(
-            initialValue = 0.35f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1100, easing = EaseOutSoft), RepeatMode.Reverse),
-            label = "pulso",
-        )
-        a
-    }
+    val pulso = if (reduceMotion) null else faseDeEnfeite(VOLTA_DO_PONTO_MS, repouso = 0f)
     Spacer(
         Modifier
             .size(7.dp)
-            .graphicsLayer { this.alpha = alpha }
+            .graphicsLayer { alpha = pulso?.let { 0.35f + 0.65f * EaseOutSoft.transform(idaEVolta(it.value)) } ?: 1f }
             .clip(CircleShape)
             .background(Obsidian.accent),
     )

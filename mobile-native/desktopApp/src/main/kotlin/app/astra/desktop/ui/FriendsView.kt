@@ -302,10 +302,7 @@ private fun FriendsList(
 
 private const val VOLTA_DO_PULSO_MS = 2800
 
-private fun respiroDoPulso(volta: Float): Float {
-    val ida = if (volta < 0.5f) volta * 2f else 2f - volta * 2f
-    return 0.85f + 0.15f * FastOutSlowInEasing.transform(ida)
-}
+private fun respiroDoPulso(volta: Float): Float = 0.85f + 0.15f * FastOutSlowInEasing.transform(idaEVolta(volta))
 
 @Composable
 private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit) {

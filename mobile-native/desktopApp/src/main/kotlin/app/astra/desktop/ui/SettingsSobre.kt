@@ -1,11 +1,6 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
@@ -276,23 +271,19 @@ private fun BotaoProcurarAtualizacao(procurar: suspend () -> Unit) {
     }
 }
 
+private const val VOLTA_DA_VARREDURA_MS = 1_100
+
 @Composable
 private fun BarraDeVarredura() {
     val reduzMovimento = LocalReduceMotion.current
-    val transicao = rememberInfiniteTransition(label = "varredura")
-    val posicao by transicao.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart),
-        label = "posicao",
-    )
+    val posicao = faseDeEnfeite(VOLTA_DA_VARREDURA_MS, repouso = 0f)
     Canvas(Modifier.fillMaxWidth().height(2.dp)) {
         drawRect(color = Obsidian.borderDim, size = size)
         if (reduzMovimento) {
             drawRect(color = Obsidian.accentDim, size = size)
         } else {
             val largura = size.width * 0.35f
-            val x = posicao * (size.width + largura) - largura
+            val x = posicao.value * (size.width + largura) - largura
             drawRect(
                 color = Obsidian.accentDim,
                 topLeft = Offset(x.coerceAtLeast(0f), 0f),

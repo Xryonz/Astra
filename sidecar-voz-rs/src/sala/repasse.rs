@@ -6,9 +6,19 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, escritor: Arc<Escritor>) {
     while let Some(evento) = eventos.recv().await {
+        registrar(&evento);
         if let Some(traduzido) = traduzir(evento) {
             escritor.manda(&traduzido);
         }
+    }
+}
+
+fn registrar(evento: &RoomEvent) {
+    match evento {
+        RoomEvent::TrackSubscribed { participant, .. } => eprintln!("ouvindo {}", participant.identity()),
+        RoomEvent::Reconnecting => eprintln!("reconectando"),
+        RoomEvent::Reconnected => eprintln!("reconectado"),
+        _ => {}
     }
 }
 

@@ -4,7 +4,10 @@ import { httpRequestsTotal, httpDurationMs } from '../lib/metrics'
 const HEALTH_PATHS = new Set(['/health', '/live', '/ready', '/metrics'])
 
 export function httpMetrics(req: Request, res: Response, next: NextFunction): void {
-  if (HEALTH_PATHS.has(req.path)) return next()
+  if (HEALTH_PATHS.has(req.path)) {
+    next()
+    return
+  }
 
   const start = process.hrtime.bigint()
   res.on('finish', () => {

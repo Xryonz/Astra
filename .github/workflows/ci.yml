@@ -34,6 +34,9 @@ jobs:
       - name: Type-check API
         run: npm exec --workspace=@astra/api -- tsc --noEmit
 
+      - name: Conferir estilo da API
+        run: npm run lint --workspace=@astra/api
+
       - name: Test API
         run: npm test --workspace=@astra/api
 

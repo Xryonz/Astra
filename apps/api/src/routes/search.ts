@@ -117,7 +117,11 @@ router.get(
     ])
 
     const seenU = new Set<string>()
-    const dedupUsers = usrs.filter((u) => (seenU.has(u.id) ? false : (seenU.add(u.id), true)))
+    const dedupUsers = usrs.filter((u) => {
+      if (seenU.has(u.id)) return false
+      seenU.add(u.id)
+      return true
+    })
 
     const mensagens = msgs.map((m: any) => ({
       ...m,

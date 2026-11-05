@@ -14,9 +14,8 @@ export function parseDuration(input: string): number | null {
   if (!input) return null
   const re = /(\d+)\s*(d|h|m|min|s)/gi
   let total = 0
-  let m: RegExpExecArray | null
   let matched = false
-  while ((m = re.exec(input.toLowerCase())) !== null) {
+  for (const m of input.toLowerCase().matchAll(re)) {
     matched = true
     const n = parseInt(m[1], 10)
     const u = m[2]

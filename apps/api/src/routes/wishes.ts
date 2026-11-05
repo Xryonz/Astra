@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import { z } from 'zod'
-import { and, desc, eq, lt, or } from 'drizzle-orm'
+import { and, desc, eq, lt, or, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { wishingStars, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -29,7 +29,7 @@ router.get(
     if (!parsed.success) throw badRequest('Parâmetros inválidos')
     const { limit, cursor } = parsed.data
 
-    let where
+    let where: SQL | undefined
     if (cursor) {
       const [iso, id] = cursor.split('__')
       const dt = new Date(iso)

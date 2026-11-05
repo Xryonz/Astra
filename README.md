@@ -37,9 +37,9 @@ aplicativo e morre com ele.
 ## Stack
 
 **Backend** (`apps/api`) — 39 grupos de rota
-- Express 4 · TypeScript · Drizzle ORM 0.45
+- Express 5 · TypeScript · Drizzle ORM 0.45
 - PostgreSQL (Supabase) · Redis (Upstash, presença + cache) · Socket.io (realtime)
-- LiveKit — voz e tela dos **três** clientes; o desktop entra na mesma sala por um
+- LiveKit — voz e tela do desktop e do Android; o desktop entra na mesma sala por um
   processo à parte (ver `sidecar-voz`)
 - Armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
 - IA da bot: Groq (Gemini como alternativa; `IA_PROVIDER` desempata)
@@ -104,8 +104,8 @@ Go independente — o Gradle do desktop o compila e empacota junto do aplicativo
 > já custou tempo aqui.
 
 **Hospedagem:** API → Render (US East) · Postgres → Supabase · Redis → Upstash ·
-arquivos → bucket S3 ou R2 · voz e tela dos três clientes → LiveKit Cloud. O web saiu da
-lista quando foi arquivado.
+arquivos → bucket S3 ou R2 · voz e tela do desktop e do Android → LiveKit Cloud. O web saiu
+da lista quando foi arquivado.
 
 ---
 

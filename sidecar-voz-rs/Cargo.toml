@@ -17,11 +17,16 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-
 windows = { version = "=0.62.2", features = [
     "Win32_Devices_FunctionDiscovery",
     "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
     "Win32_Media_Audio",
     "Win32_System_Com",
     "Win32_System_Com_StructuredStorage",
     "Win32_System_Variant",
+    "Win32_UI_HiDpi",
     "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 windows-core = "=0.62.2"
 

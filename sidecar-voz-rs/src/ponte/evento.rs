@@ -1,4 +1,5 @@
 use crate::aparelhos::Aparelho;
+use crate::tela::Monitor;
 use serde::Serialize;
 
 const ESTADO: &str = "estado";
@@ -16,6 +17,8 @@ pub struct Evento {
     pub msg: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aparelhos: Option<Vec<Aparelho>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitores: Option<Vec<Monitor>>,
 }
 
 impl Evento {
@@ -54,6 +57,10 @@ impl Evento {
             aparelhos: Some(lista).filter(|lista| !lista.is_empty()),
             ..Default::default()
         }
+    }
+
+    pub fn monitores(lista: Vec<Monitor>) -> Self {
+        Self { ev: "monitores", monitores: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
     }
 
     pub fn fala(par: &str, ligado: bool) -> Self {
@@ -125,6 +132,16 @@ mod testes {
             serde_json::to_string(&Evento::aparelhos("saida", Vec::new())).unwrap(),
             "{\"ev\":\"aparelhos\",\"tipo\":\"saida\"}"
         );
+    }
+
+    #[test]
+    fn monitores_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let tela = Monitor { indice: 0, nome: "\\\\.\\DISPLAY1".into(), largura: 1920, altura: 1080, principal: true };
+        assert_eq!(
+            serde_json::to_string(&Evento::monitores(vec![tela])).unwrap(),
+            "{\"ev\":\"monitores\",\"monitores\":[{\"indice\":0,\"nome\":\"\\\\\\\\.\\\\DISPLAY1\",\"largura\":1920,\"altura\":1080,\"principal\":true}]}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::monitores(Vec::new())).unwrap(), "{\"ev\":\"monitores\"}");
     }
 
     #[test]

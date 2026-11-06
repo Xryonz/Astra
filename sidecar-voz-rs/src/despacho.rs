@@ -1,6 +1,7 @@
 use crate::aparelhos::{self, Sentido};
 use crate::ponte::{Comando, Escritor, Evento};
 use crate::sala::Sala;
+use crate::tela;
 
 pub enum Resultado {
     Seguir,
@@ -38,6 +39,10 @@ pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Escritor) -
             anunciar_os_aparelhos(escritor).await?;
             Ok(Resultado::Seguir)
         }
+        "monitores" => {
+            anunciar_os_monitores(escritor).await;
+            Ok(Resultado::Seguir)
+        }
         "usar" => {
             let sentido = Sentido::do_comando(comando.sentido.as_deref().unwrap_or_default());
             sala.usar(sentido, comando.id.clone().unwrap_or_default()).await;
@@ -57,6 +62,18 @@ async fn anunciar_os_aparelhos(escritor: &Escritor) -> Result<(), String> {
         escritor.manda(&Evento::aparelhos(sentido.nome(), lista));
     }
     Ok(())
+}
+
+async fn anunciar_os_monitores(escritor: &Escritor) {
+    let lido = tokio::task::spawn_blocking(tela::listar_monitores).await.map_err(|e| e.to_string());
+    let lista = match lido.and_then(|resultado| resultado) {
+        Ok(lista) => lista,
+        Err(msg) => {
+            escritor.manda(&Evento::erro(format!("listar monitores: {msg}")));
+            Vec::new()
+        }
+    };
+    escritor.manda(&Evento::monitores(lista));
 }
 
 fn ligado(comando: &Comando) -> bool {

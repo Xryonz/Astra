@@ -3,6 +3,7 @@ mod despacho;
 mod ponte;
 mod registro_do_webrtc;
 mod sala;
+mod tela;
 
 use despacho::Resultado;
 use ponte::{Escritor, Evento};

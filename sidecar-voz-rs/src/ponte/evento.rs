@@ -1,5 +1,5 @@
 use crate::aparelhos::Aparelho;
-use crate::tela::Monitor;
+use crate::tela::{Janela, Monitor};
 use serde::Serialize;
 
 const ESTADO: &str = "estado";
@@ -19,6 +19,8 @@ pub struct Evento {
     pub aparelhos: Option<Vec<Aparelho>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitores: Option<Vec<Monitor>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub janelas: Option<Vec<Janela>>,
 }
 
 impl Evento {
@@ -61,6 +63,10 @@ impl Evento {
 
     pub fn monitores(lista: Vec<Monitor>) -> Self {
         Self { ev: "monitores", monitores: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
+    }
+
+    pub fn janelas(lista: Vec<Janela>) -> Self {
+        Self { ev: "janelas", janelas: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
     }
 
     pub fn fala(par: &str, ligado: bool) -> Self {
@@ -142,6 +148,16 @@ mod testes {
             "{\"ev\":\"monitores\",\"monitores\":[{\"indice\":0,\"nome\":\"\\\\\\\\.\\\\DISPLAY1\",\"largura\":1920,\"altura\":1080,\"principal\":true}]}"
         );
         assert_eq!(serde_json::to_string(&Evento::monitores(Vec::new())).unwrap(), "{\"ev\":\"monitores\"}");
+    }
+
+    #[test]
+    fn janelas_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let janela = Janela { id: 132458, nome: "Bloco de Notas".into(), largura: 800, altura: 600 };
+        assert_eq!(
+            serde_json::to_string(&Evento::janelas(vec![janela])).unwrap(),
+            "{\"ev\":\"janelas\",\"janelas\":[{\"id\":132458,\"nome\":\"Bloco de Notas\",\"largura\":800,\"altura\":600}]}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::janelas(Vec::new())).unwrap(), "{\"ev\":\"janelas\"}");
     }
 
     #[test]

@@ -43,6 +43,10 @@ pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Escritor) -
             anunciar_os_monitores(escritor).await;
             Ok(Resultado::Seguir)
         }
+        "janelas" => {
+            anunciar_as_janelas(escritor).await;
+            Ok(Resultado::Seguir)
+        }
         "usar" => {
             let sentido = Sentido::do_comando(comando.sentido.as_deref().unwrap_or_default());
             sala.usar(sentido, comando.id.clone().unwrap_or_default()).await;
@@ -74,6 +78,11 @@ async fn anunciar_os_monitores(escritor: &Escritor) {
         }
     };
     escritor.manda(&Evento::monitores(lista));
+}
+
+async fn anunciar_as_janelas(escritor: &Escritor) {
+    let lista = tokio::task::spawn_blocking(tela::listar_janelas).await.unwrap_or_default();
+    escritor.manda(&Evento::janelas(lista));
 }
 
 fn ligado(comando: &Comando) -> bool {

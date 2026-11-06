@@ -1,12 +1,8 @@
+use super::pixels::garantir_pixels_reais;
 use serde::Serialize;
-use std::sync::Once;
 use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, DXGI_OUTPUT_DESC, IDXGIAdapter1, IDXGIFactory1};
-use windows::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext};
-use windows::Win32::UI::WindowsAndMessaging::SetProcessDPIAware;
 
 const SAIDAS_POR_PLACA: u32 = 8;
-
-static PIXELS_DE_VERDADE: Once = Once::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Monitor {
@@ -28,19 +24,13 @@ struct Saida {
 }
 
 pub fn listar_monitores() -> Result<Vec<Monitor>, String> {
-    PIXELS_DE_VERDADE.call_once(entender_pixels_por_monitor);
+    garantir_pixels_reais();
     let placas = saidas_de_cada_placa().map_err(|e| e.to_string())?;
     let lista = numerar(&placas);
     if lista.is_empty() {
         return Err("nenhum monitor ligado à área de trabalho".into());
     }
     Ok(lista)
-}
-
-fn entender_pixels_por_monitor() {
-    if unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) }.is_err() {
-        let _ = unsafe { SetProcessDPIAware() };
-    }
 }
 
 fn saidas_de_cada_placa() -> windows::core::Result<Vec<Vec<Saida>>> {

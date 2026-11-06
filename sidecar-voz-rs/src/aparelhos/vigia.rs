@@ -1,4 +1,4 @@
-use super::com::ComDaThread;
+use crate::com::ComDaThread;
 use super::lista::enumerador;
 use tokio::sync::mpsc::UnboundedSender;
 use windows::Win32::Foundation::PROPERTYKEY;

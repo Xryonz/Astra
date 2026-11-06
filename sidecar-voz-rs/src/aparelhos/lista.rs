@@ -1,4 +1,4 @@
-use super::com::ComDaThread;
+use crate::com::ComDaThread;
 use serde::Serialize;
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::{

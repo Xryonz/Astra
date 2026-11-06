@@ -1,5 +1,7 @@
 mod aparelhos;
+mod com;
 mod despacho;
+mod ferramentas;
 mod ponte;
 mod registro_do_webrtc;
 mod sala;
@@ -14,6 +16,9 @@ use tokio::sync::mpsc;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
+    if let Some(codigo) = ferramentas::rodar_se_pedida() {
+        std::process::exit(codigo);
+    }
     registro_do_webrtc::ligar();
     let escritor = Arc::new(Escritor::novo());
     let (avisar, mut mudancas) = mpsc::unbounded_channel();

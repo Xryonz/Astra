@@ -1,4 +1,3 @@
-mod com;
 mod lista;
 mod vigia;
 

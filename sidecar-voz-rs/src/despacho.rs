@@ -1,4 +1,5 @@
-use crate::ponte::Comando;
+use crate::aparelhos::{self, Sentido};
+use crate::ponte::{Comando, Escritor, Evento};
 use crate::sala::Sala;
 
 pub enum Resultado {
@@ -6,7 +7,7 @@ pub enum Resultado {
     Sair,
 }
 
-pub async fn executar(comando: &Comando, sala: &mut Sala) -> Result<Resultado, String> {
+pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Escritor) -> Result<Resultado, String> {
     match comando.cmd.as_str() {
         "sala" => {
             let (url, token) = endereco_e_credencial(comando)?;
@@ -33,9 +34,29 @@ pub async fn executar(comando: &Comando, sala: &mut Sala) -> Result<Resultado, S
             relatar_o_tratamento(comando);
             Ok(Resultado::Seguir)
         }
+        "aparelhos" => {
+            anunciar_os_aparelhos(escritor).await?;
+            Ok(Resultado::Seguir)
+        }
+        "usar" => {
+            let sentido = Sentido::do_comando(comando.sentido.as_deref().unwrap_or_default());
+            sala.usar(sentido, comando.id.clone().unwrap_or_default()).await;
+            Ok(Resultado::Seguir)
+        }
         "sair" => Ok(Resultado::Sair),
         outro => Err(format!("comando fora do protótipo: {outro}")),
     }
+}
+
+async fn anunciar_os_aparelhos(escritor: &Escritor) -> Result<(), String> {
+    for sentido in [Sentido::Entrada, Sentido::Saida] {
+        let lista = tokio::task::spawn_blocking(move || aparelhos::listar(sentido))
+            .await
+            .map_err(|e| format!("listar aparelhos de {}: {e}", sentido.nome()))?
+            .map_err(|e| format!("listar aparelhos de {}: {e}", sentido.nome()))?;
+        escritor.manda(&Evento::aparelhos(sentido.nome(), lista));
+    }
+    Ok(())
 }
 
 fn ligado(comando: &Comando) -> bool {

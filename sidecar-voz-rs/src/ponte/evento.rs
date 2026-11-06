@@ -1,3 +1,4 @@
+use crate::aparelhos::Aparelho;
 use serde::Serialize;
 
 const ESTADO: &str = "estado";
@@ -13,6 +14,8 @@ pub struct Evento {
     pub valor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub msg: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aparelhos: Option<Vec<Aparelho>>,
 }
 
 impl Evento {
@@ -42,6 +45,15 @@ impl Evento {
 
     pub fn caiu_da_sala(tipo: &str, msg: &str) -> Self {
         Self { tipo: Some(tipo.into()), msg: Some(msg.into()), ..Self::de_estado(None, "disconnected") }
+    }
+
+    pub fn aparelhos(tipo: &str, lista: Vec<Aparelho>) -> Self {
+        Self {
+            ev: "aparelhos",
+            tipo: Some(tipo.into()),
+            aparelhos: Some(lista).filter(|lista| !lista.is_empty()),
+            ..Default::default()
+        }
     }
 
     pub fn fala(par: &str, ligado: bool) -> Self {
@@ -99,6 +111,19 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::saiu("ana".into())).unwrap(),
             "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"closed\"}"
+        );
+    }
+
+    #[test]
+    fn aparelhos_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let fone = Aparelho { id: "{0.0.1.00000000}.{abc}".into(), nome: "Fone".into() };
+        assert_eq!(
+            serde_json::to_string(&Evento::aparelhos("entrada", vec![fone])).unwrap(),
+            "{\"ev\":\"aparelhos\",\"tipo\":\"entrada\",\"aparelhos\":[{\"id\":\"{0.0.1.00000000}.{abc}\",\"nome\":\"Fone\"}]}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::aparelhos("saida", Vec::new())).unwrap(),
+            "{\"ev\":\"aparelhos\",\"tipo\":\"saida\"}"
         );
     }
 

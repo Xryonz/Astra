@@ -1,3 +1,4 @@
+mod aparelhos;
 mod despacho;
 mod ponte;
 mod registro_do_webrtc;
@@ -8,29 +9,49 @@ use ponte::{Escritor, Evento};
 use sala::Sala;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::mpsc;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
     registro_do_webrtc::ligar();
     let escritor = Arc::new(Escritor::novo());
+    let (avisar, mut mudancas) = mpsc::unbounded_channel();
+    let _vigia = aparelhos::vigiar(avisar).inspect_err(|e| eprintln!("sem vigia de aparelhos: {e}")).ok();
     escritor.manda(&Evento::pronto());
     let mut sala = Sala::nova(Arc::clone(&escritor));
 
     let mut linhas = BufReader::new(tokio::io::stdin()).lines();
-    while let Ok(Some(linha)) = linhas.next_line().await {
-        let Some(lido) = ponte::ler(&linha) else { continue };
-        let comando = match lido {
-            Ok(comando) => comando,
-            Err(msg) => {
-                escritor.manda(&Evento::erro(msg));
-                continue;
+    loop {
+        tokio::select! {
+            lida = linhas.next_line() => {
+                let Ok(Some(linha)) = lida else { break };
+                if let Resultado::Sair = atender(&linha, &mut sala, &escritor).await {
+                    break;
+                }
             }
-        };
-        match despacho::executar(&comando, &mut sala).await {
-            Ok(Resultado::Sair) => break,
-            Ok(Resultado::Seguir) => {}
-            Err(msg) => escritor.manda(&Evento::erro_do_comando(comando.par.clone(), msg)),
+            Some(()) = mudancas.recv() => {
+                while mudancas.try_recv().is_ok() {}
+                sala.reconciliar_aparelhos().await;
+            }
         }
     }
     sala.deixar().await;
+}
+
+async fn atender(linha: &str, sala: &mut Sala, escritor: &Escritor) -> Resultado {
+    let Some(lido) = ponte::ler(linha) else { return Resultado::Seguir };
+    let comando = match lido {
+        Ok(comando) => comando,
+        Err(msg) => {
+            escritor.manda(&Evento::erro(msg));
+            return Resultado::Seguir;
+        }
+    };
+    match despacho::executar(&comando, sala, escritor).await {
+        Ok(resultado) => resultado,
+        Err(msg) => {
+            escritor.manda(&Evento::erro_do_comando(comando.par.clone(), msg));
+            Resultado::Seguir
+        }
+    }
 }

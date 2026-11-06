@@ -1,5 +1,6 @@
 mod conferencia_do_eco;
 mod controles;
+mod escolha_de_aparelho;
 mod escuta;
 mod estado_da_voz;
 mod fala;
@@ -7,9 +8,11 @@ mod microfone;
 mod queda;
 mod repasse;
 
+use crate::aparelhos::Sentido;
 use crate::ponte::{Escritor, Evento};
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use controles::{ALVO_DO_MICROFONE, Controles};
+use escolha_de_aparelho::{Escolhas, levar_ao_aparelho_certo};
 use escuta::aplicar_a_todos;
 use livekit::prelude::{LocalAudioTrack, PlatformAudio, Room, RoomOptions};
 use microfone::{abrir_ou_fechar, gravar_sem_o_cancelador_do_windows, publicar_o_microfone};
@@ -17,22 +20,26 @@ use repasse::{Repasse, repassar};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use tokio::task::JoinHandle;
 
+const OS_DOIS_SENTIDOS: [Sentido; 2] = [Sentido::Entrada, Sentido::Saida];
+
 pub struct Sala {
     escritor: Arc<Escritor>,
     controles: Arc<Mutex<Controles>>,
+    escolhas: Escolhas,
     aberta: Option<SalaAberta>,
 }
 
 struct SalaAberta {
     sala: Arc<Room>,
     microfone: LocalAudioTrack,
-    _audio: PlatformAudio,
+    audio: PlatformAudio,
+    em_uso: Escolhas,
     tarefas: Vec<JoinHandle<()>>,
 }
 
 impl Sala {
     pub fn nova(escritor: Arc<Escritor>) -> Self {
-        Self { escritor, controles: Arc::default(), aberta: None }
+        Self { escritor, controles: Arc::default(), escolhas: Escolhas::default(), aberta: None }
     }
 
     pub async fn entrar(&mut self, url: &str, token: &str) -> Result<(), String> {
@@ -42,6 +49,10 @@ impl Sala {
         let (sala, eventos) = Room::connect(url, token, RoomOptions::default())
             .await
             .map_err(|e| format!("entrar na sala: {e}"))?;
+        let mut em_uso = Escolhas::default();
+        for sentido in OS_DOIS_SENTIDOS {
+            levar_ao_aparelho_certo(&audio, &mut em_uso, sentido, self.escolhas.de(sentido)).await;
+        }
         gravar_sem_o_cancelador_do_windows(&audio);
         let aberto = self.controles().microfone_aberto();
         let microfone = match publicar_o_microfone(&sala, &audio, aberto).await {
@@ -58,7 +69,7 @@ impl Sala {
             tokio::spawn(repassar(eventos, self.repasse(&sala))),
             tokio::spawn(conferir_o_eco(microfone.clone())),
         ];
-        self.aberta = Some(SalaAberta { sala, microfone, _audio: audio, tarefas });
+        self.aberta = Some(SalaAberta { sala, microfone, audio, em_uso, tarefas });
         self.contar_a_todos().await;
         Ok(())
     }
@@ -88,6 +99,22 @@ impl Sala {
         } else {
             self.aplicar_a_quem_ouco();
         }
+    }
+
+    pub async fn usar(&mut self, sentido: Sentido, id: String) {
+        self.escolhas.definir(sentido, id);
+        self.levar(sentido).await;
+    }
+
+    pub async fn reconciliar_aparelhos(&mut self) {
+        for sentido in OS_DOIS_SENTIDOS {
+            self.levar(sentido).await;
+        }
+    }
+
+    async fn levar(&mut self, sentido: Sentido) {
+        let Some(aberta) = &mut self.aberta else { return };
+        levar_ao_aparelho_certo(&aberta.audio, &mut aberta.em_uso, sentido, self.escolhas.de(sentido)).await;
     }
 
     fn aplicar_ao_microfone(&self) {

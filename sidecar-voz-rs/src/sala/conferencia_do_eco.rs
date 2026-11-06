@@ -26,33 +26,7 @@ fn fonte_de_audio(estatistica: &RtcStats) -> Option<&AudioSourceStats> {
 
 fn relatar(audio: &AudioSourceStats) {
     eprintln!(
-        "eco: perda {:.1} dB, realce {:.1} dB, captura de {:.0} amostras por segundo",
-        audio.echo_return_loss,
-        audio.echo_return_loss_enhancement,
-        amostras_por_segundo(audio)
+        "eco: perda {:.1} dB, realce {:.1} dB",
+        audio.echo_return_loss, audio.echo_return_loss_enhancement
     );
-}
-
-fn amostras_por_segundo(audio: &AudioSourceStats) -> f64 {
-    if audio.total_samples_duration > 0.0 {
-        audio.total_samples_captured as f64 / audio.total_samples_duration
-    } else {
-        0.0
-    }
-}
-
-#[cfg(test)]
-mod testes {
-    use super::*;
-
-    #[test]
-    fn taxa_de_captura_divide_amostras_pela_duracao() {
-        let audio = AudioSourceStats { total_samples_captured: 240_000, total_samples_duration: 5.0, ..Default::default() };
-        assert_eq!(amostras_por_segundo(&audio), 48_000.0);
-    }
-
-    #[test]
-    fn taxa_de_captura_sem_duracao_e_zero() {
-        assert_eq!(amostras_por_segundo(&AudioSourceStats::default()), 0.0);
-    }
 }

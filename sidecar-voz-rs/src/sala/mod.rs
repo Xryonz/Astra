@@ -6,7 +6,7 @@ mod repasse;
 use crate::ponte::{Escritor, Evento};
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use livekit::prelude::{PlatformAudio, Room, RoomOptions};
-use microfone::publicar_o_microfone;
+use microfone::{gravar_sem_o_cancelador_do_windows, publicar_o_microfone};
 use repasse::repassar;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -34,6 +34,7 @@ impl Sala {
         let (sala, eventos) = Room::connect(url, token, RoomOptions::default())
             .await
             .map_err(|e| format!("entrar na sala: {e}"))?;
+        gravar_sem_o_cancelador_do_windows(&audio);
         let microfone = match publicar_o_microfone(&sala, &audio).await {
             Ok(faixa) => faixa,
             Err(msg) => {

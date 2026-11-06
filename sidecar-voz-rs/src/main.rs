@@ -1,5 +1,6 @@
 mod despacho;
 mod ponte;
+mod registro_do_webrtc;
 mod sala;
 
 use despacho::Resultado;
@@ -10,6 +11,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
+    registro_do_webrtc::ligar();
     let escritor = Arc::new(Escritor::novo());
     escritor.manda(&Evento::pronto());
     let mut sala = Sala::nova(Arc::clone(&escritor));

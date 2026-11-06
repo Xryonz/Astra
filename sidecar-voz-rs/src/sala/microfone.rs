@@ -4,12 +4,12 @@ use livekit::prelude::{LocalAudioTrack, LocalTrack, PlatformAudio, Room, TrackSo
 const NOME_DO_MICROFONE: &str = "astra-microfone";
 const TAXA_DA_VOZ_IGUAL_AO_GO: u64 = 64_000;
 
-pub async fn publicar_o_microfone(sala: &Room, audio: &PlatformAudio) -> Result<(), String> {
+pub async fn publicar_o_microfone(sala: &Room, audio: &PlatformAudio) -> Result<LocalAudioTrack, String> {
     let faixa = LocalAudioTrack::create_audio_track(NOME_DO_MICROFONE, audio.rtc_source());
     sala.local_participant()
-        .publish_track(LocalTrack::Audio(faixa), opcoes_da_voz())
+        .publish_track(LocalTrack::Audio(faixa.clone()), opcoes_da_voz())
         .await
-        .map(|_| ())
+        .map(|_| faixa)
         .map_err(|e| format!("publicar microfone: {e}"))
 }
 

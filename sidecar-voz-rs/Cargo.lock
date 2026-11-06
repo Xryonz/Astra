@@ -43,6 +43,7 @@ name = "astra-voz"
 version = "0.1.0"
 dependencies = [
  "livekit",
+ "log",
  "serde",
  "serde_json",
  "tokio",

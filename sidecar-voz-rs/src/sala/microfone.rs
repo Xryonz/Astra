@@ -13,8 +13,21 @@ pub fn gravar_sem_o_cancelador_do_windows(audio: &PlatformAudio) {
     }
 }
 
-pub async fn publicar_o_microfone(sala: &Room, audio: &PlatformAudio) -> Result<LocalAudioTrack, String> {
+pub fn abrir_ou_fechar(microfone: &LocalAudioTrack, aberto: bool) {
+    if aberto {
+        microfone.enable();
+    } else {
+        microfone.disable();
+    }
+}
+
+pub async fn publicar_o_microfone(
+    sala: &Room,
+    audio: &PlatformAudio,
+    aberto: bool,
+) -> Result<LocalAudioTrack, String> {
     let faixa = LocalAudioTrack::create_audio_track(NOME_DO_MICROFONE, audio.rtc_source());
+    abrir_ou_fechar(&faixa, aberto);
     sala.local_participant()
         .publish_track(LocalTrack::Audio(faixa.clone()), opcoes_da_voz())
         .await

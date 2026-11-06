@@ -17,9 +17,38 @@ pub async fn executar(comando: &Comando, sala: &mut Sala) -> Result<Resultado, S
             sala.deixar().await;
             Ok(Resultado::Seguir)
         }
+        "mudo" => {
+            sala.mudar(ligado(comando)).await;
+            Ok(Resultado::Seguir)
+        }
+        "surdo" => {
+            sala.ensurdecer(ligado(comando)).await;
+            Ok(Resultado::Seguir)
+        }
+        "volume" => {
+            sala.ajustar_volume(comando.par.as_deref().unwrap_or_default(), comando.volume.unwrap_or_default());
+            Ok(Resultado::Seguir)
+        }
+        "tratamento" => {
+            relatar_o_tratamento(comando);
+            Ok(Resultado::Seguir)
+        }
         "sair" => Ok(Resultado::Sair),
         outro => Err(format!("comando fora do protótipo: {outro}")),
     }
+}
+
+fn ligado(comando: &Comando) -> bool {
+    comando.ligado.unwrap_or(false)
+}
+
+fn relatar_o_tratamento(comando: &Comando) {
+    eprintln!(
+        "tratamento pedido: eco {}, ruído {}, ganho {}; no protótipo os três ficam ligados",
+        comando.eco.unwrap_or(false),
+        comando.ruido.unwrap_or(false),
+        comando.ganho.unwrap_or(false)
+    );
 }
 
 fn endereco_e_credencial(comando: &Comando) -> Result<(&str, &str), String> {

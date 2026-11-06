@@ -44,9 +44,23 @@ impl Evento {
         Self { tipo: Some(tipo.into()), msg: Some(msg.into()), ..Self::de_estado(None, "disconnected") }
     }
 
+    pub fn estado_da_voz(par: &str, tipo: &str, ligado: bool) -> Self {
+        Self {
+            ev: "estado-da-voz",
+            par: Some(par.into()),
+            tipo: Some(tipo.into()),
+            valor: Some(um_ou_zero(ligado).into()),
+            ..Default::default()
+        }
+    }
+
     fn de_estado(par: Option<String>, valor: &str) -> Self {
         Self { ev: ESTADO, par, valor: Some(valor.into()), ..Default::default() }
     }
+}
+
+fn um_ou_zero(ligado: bool) -> &'static str {
+    if ligado { "1" } else { "0" }
 }
 
 #[cfg(test)]
@@ -76,6 +90,18 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::saiu("ana".into())).unwrap(),
             "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"closed\"}"
+        );
+    }
+
+    #[test]
+    fn estado_da_voz_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::estado_da_voz("ana", "mudo", true)).unwrap(),
+            "{\"ev\":\"estado-da-voz\",\"par\":\"ana\",\"tipo\":\"mudo\",\"v\":\"1\"}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::estado_da_voz("ana", "surdo", false)).unwrap(),
+            "{\"ev\":\"estado-da-voz\",\"par\":\"ana\",\"tipo\":\"surdo\",\"v\":\"0\"}"
         );
     }
 

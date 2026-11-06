@@ -44,6 +44,15 @@ impl Evento {
         Self { tipo: Some(tipo.into()), msg: Some(msg.into()), ..Self::de_estado(None, "disconnected") }
     }
 
+    pub fn fala(par: &str, ligado: bool) -> Self {
+        Self {
+            ev: "fala",
+            par: Some(par.to_owned()).filter(|p| !p.is_empty()),
+            valor: Some(um_ou_zero(ligado).into()),
+            ..Default::default()
+        }
+    }
+
     pub fn estado_da_voz(par: &str, tipo: &str, ligado: bool) -> Self {
         Self {
             ev: "estado-da-voz",
@@ -90,6 +99,15 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::saiu("ana".into())).unwrap(),
             "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"closed\"}"
+        );
+    }
+
+    #[test]
+    fn fala_propria_sai_sem_par_e_a_dos_outros_com_par() {
+        assert_eq!(serde_json::to_string(&Evento::fala("", true)).unwrap(), "{\"ev\":\"fala\",\"v\":\"1\"}");
+        assert_eq!(
+            serde_json::to_string(&Evento::fala("ana", false)).unwrap(),
+            "{\"ev\":\"fala\",\"par\":\"ana\",\"v\":\"0\"}"
         );
     }
 

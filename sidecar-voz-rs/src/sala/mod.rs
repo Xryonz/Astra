@@ -2,6 +2,7 @@ mod conferencia_do_eco;
 mod controles;
 mod escuta;
 mod estado_da_voz;
+mod fala;
 mod microfone;
 mod queda;
 mod repasse;
@@ -23,7 +24,7 @@ pub struct Sala {
 }
 
 struct SalaAberta {
-    sala: Room,
+    sala: Arc<Room>,
     microfone: LocalAudioTrack,
     _audio: PlatformAudio,
     tarefas: Vec<JoinHandle<()>>,
@@ -52,6 +53,7 @@ impl Sala {
         };
         eprintln!("na sala {:?} como {:?}", sala.name(), sala.local_participant().identity().to_string());
         self.anunciar_quem_esta(&sala);
+        let sala = Arc::new(sala);
         let tarefas = vec![
             tokio::spawn(repassar(eventos, self.repasse(&sala))),
             tokio::spawn(conferir_o_eco(microfone.clone())),
@@ -107,12 +109,8 @@ impl Sala {
         estado_da_voz::contar(&aberta.sala.local_participant(), mudo, surdo, Vec::new()).await;
     }
 
-    fn repasse(&self, sala: &Room) -> Repasse {
-        Repasse {
-            escritor: Arc::clone(&self.escritor),
-            controles: Arc::clone(&self.controles),
-            local: sala.local_participant(),
-        }
+    fn repasse(&self, sala: &Arc<Room>) -> Repasse {
+        Repasse::novo(Arc::clone(&self.escritor), Arc::clone(&self.controles), Arc::clone(sala))
     }
 
     fn controles(&self) -> MutexGuard<'_, Controles> {

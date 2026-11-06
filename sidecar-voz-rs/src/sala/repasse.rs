@@ -1,19 +1,21 @@
 use super::controles::Controles;
 use super::escuta::aplicar_a_faixa;
 use super::estado_da_voz;
+use super::fala::QuemFala;
 use super::queda::tipo_da_queda;
 use crate::ponte::{Escritor, Evento};
-use livekit::prelude::{LocalParticipant, RemoteParticipant, RoomEvent};
+use livekit::prelude::{RemoteParticipant, Room, RoomEvent};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 pub struct Repasse {
-    pub escritor: Arc<Escritor>,
-    pub controles: Arc<Mutex<Controles>>,
-    pub local: LocalParticipant,
+    escritor: Arc<Escritor>,
+    controles: Arc<Mutex<Controles>>,
+    sala: Arc<Room>,
+    quem_fala: QuemFala,
 }
 
-pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, repasse: Repasse) {
+pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, mut repasse: Repasse) {
     while let Some(evento) = eventos.recv().await {
         registrar(&evento);
         repasse.agir(&evento).await;
@@ -24,8 +26,13 @@ pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, repasse: Repass
 }
 
 impl Repasse {
-    async fn agir(&self, evento: &RoomEvent) {
+    pub fn novo(escritor: Arc<Escritor>, controles: Arc<Mutex<Controles>>, sala: Arc<Room>) -> Self {
+        Self { escritor, controles, sala, quem_fala: QuemFala::default() }
+    }
+
+    async fn agir(&mut self, evento: &RoomEvent) {
         match evento {
+            RoomEvent::ActiveSpeakersChanged { .. } => self.quem_fala.atualizar(&self.sala, &self.escritor),
             RoomEvent::ParticipantActive(quem) => self.contar_a(quem).await,
             RoomEvent::TrackSubscribed { track, participant, .. } => {
                 let ouvir = self.controles().ouve(participant.identity().as_str());
@@ -43,7 +50,7 @@ impl Repasse {
             let controles = self.controles();
             (controles.mudo(), controles.surdo())
         };
-        estado_da_voz::contar(&self.local, mudo, surdo, vec![quem.identity()]).await;
+        estado_da_voz::contar(&self.sala.local_participant(), mudo, surdo, vec![quem.identity()]).await;
     }
 
     fn controles(&self) -> MutexGuard<'_, Controles> {

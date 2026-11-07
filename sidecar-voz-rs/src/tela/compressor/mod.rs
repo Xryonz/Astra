@@ -115,13 +115,20 @@ impl Compressor {
         self.perfil
     }
 
-    pub fn entregar(&self, amostra: &IMFSample, quadro: u32) -> windows::core::Result<()> {
-        let fps = i64::from(self.config.fps);
+    pub fn entregar(&self, amostra: &IMFSample, tempo: i64) -> windows::core::Result<()> {
         unsafe {
-            amostra.SetSampleTime(i64::from(quadro) * CEM_NANOS_POR_SEGUNDO / fps)?;
-            amostra.SetSampleDuration(CEM_NANOS_POR_SEGUNDO / fps)?;
+            amostra.SetSampleTime(tempo)?;
+            amostra.SetSampleDuration(CEM_NANOS_POR_SEGUNDO / i64::from(self.config.fps))?;
             self.transformacao.ProcessInput(0, amostra, 0)
         }
+    }
+
+    pub fn ajustar_quadros(&mut self, fps: u32) {
+        self.config.fps = fps;
+    }
+
+    pub fn tempo_do_quadro(&self, quadro: u32) -> i64 {
+        i64::from(quadro) * CEM_NANOS_POR_SEGUNDO / i64::from(self.config.fps)
     }
 
     pub fn quadro_do_tempo(&self, tempo: i64) -> u32 {

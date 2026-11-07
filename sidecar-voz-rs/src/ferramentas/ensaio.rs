@@ -148,7 +148,8 @@ impl Rodada {
         self.seguir_o_roteiro(quadro);
         let antes_de_entregar = Instant::now();
         let codificacao = &self.codificacao;
-        codificacao.compressor.entregar(&codificacao.amostra, quadro).map_err(em("entregar o quadro"))?;
+        let tempo = codificacao.compressor.tempo_do_quadro(quadro);
+        codificacao.compressor.entregar(&codificacao.amostra, tempo).map_err(em("entregar o quadro"))?;
         let entregue = Instant::now();
         self.custos.desenho.push(pintado - comeco);
         self.custos.preparo.push(preparado - pintado);

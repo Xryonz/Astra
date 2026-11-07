@@ -1,5 +1,6 @@
 use super::PedidoDeTela;
 use super::ritmo::Ritmo;
+use super::ritmo_que_cabe::RitmoQueCabe;
 use crate::com::ComDaThread;
 use crate::ponte::{Escritor, Evento};
 use crate::tela::{
@@ -16,6 +17,7 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::Media::MediaFoundation::{MF_VERSION, MFSTARTUP_FULL, MFShutdown, MFStartup};
 
 const ESPERA_POR_QUADRO_NOVO: Duration = Duration::from_millis(100);
+const SINAL_DE_VIDA: Duration = Duration::from_secs(2);
 
 enum Fonte {
     Sintetica,
@@ -49,13 +51,19 @@ struct Laco {
     escritor: Arc<Escritor>,
     parar: Arc<AtomicBool>,
     resolucao: VideoResolution,
+    comeco: Instant,
+    fps: u32,
     intervalo: Duration,
+    cabe: RitmoQueCabe,
     teto_kbps: u32,
     kbps: u32,
     pedidos: u32,
     quadro: u32,
     entregue_em: Option<Instant>,
+    ultima_saida: Instant,
     vez: Instant,
+    chave_pendente: bool,
+    tem_imagem: bool,
     perfil_anunciado: bool,
     ritmo: Ritmo,
 }
@@ -85,6 +93,7 @@ impl Laco {
         };
         let resumo = como_subiu(&pedido, codificacao.compressor.aceitos, &fonte);
         escritor.manda(&Evento::transmissao(&codificacao.nome, resumo));
+        let agora = Instant::now();
         Ok(Self {
             fonte,
             codificacao,
@@ -92,13 +101,19 @@ impl Laco {
             escritor,
             parar,
             resolucao: VideoResolution { width: pedido.largura, height: pedido.altura },
+            comeco: agora,
+            fps: pedido.fps,
             intervalo: Duration::from_secs(1) / pedido.fps,
+            cabe: RitmoQueCabe::novo(pedido.fps),
             teto_kbps: pedido.kbps,
             kbps: pedido.kbps,
             pedidos: 0,
             quadro: 0,
             entregue_em: None,
-            vez: Instant::now(),
+            ultima_saida: agora,
+            vez: agora,
+            chave_pendente: false,
+            tem_imagem: false,
             perfil_anunciado: false,
             ritmo: Ritmo::novo(),
         })
@@ -106,9 +121,7 @@ impl Laco {
 
     fn rodar(&mut self) -> Result<(), String> {
         while !self.parar.load(Ordering::Relaxed) {
-            if let Some(resumo) = self.ritmo.fechar_o_segundo(self.kbps) {
-                self.escritor.manda(&Evento::transmissao("ritmo", resumo));
-            }
+            self.fechar_o_segundo();
             if self.entregue_em.is_none() && self.pedidos > 0 {
                 self.esperar_a_vez();
                 self.atender_a_rede();
@@ -119,6 +132,25 @@ impl Laco {
             self.receber()?;
         }
         Ok(())
+    }
+
+    fn fechar_o_segundo(&mut self) {
+        let Some(segundo) = self.ritmo.fechar_o_segundo(self.kbps) else { return };
+        self.escritor.manda(&Evento::transmissao("ritmo", segundo.resumo));
+        if let Some(trabalho) = segundo.trabalho_por_quadro {
+            self.seguir_a_maquina(trabalho);
+        }
+    }
+
+    fn seguir_a_maquina(&mut self, trabalho: Duration) {
+        let Some(fps) = self.cabe.segundo(trabalho, self.fps) else { return };
+        let rumo = if fps > self.fps { "subindo" } else { "caindo" };
+        self.fps = fps;
+        self.intervalo = Duration::from_secs(1) / fps;
+        self.codificacao.compressor.ajustar_quadros(fps);
+        let milissegundos = trabalho.as_secs_f64() * 1000.0;
+        let recado = format!("{milissegundos:.1}ms de trabalho por quadro nesta máquina; {rumo} para {fps}/s");
+        self.escritor.manda(&Evento::transmissao("taxa", recado));
     }
 
     fn esperar_a_vez(&mut self) {
@@ -134,6 +166,7 @@ impl Laco {
         if self.saida.take_keyframe_request() {
             self.ritmo.contar_pedido_de_chave();
             self.codificacao.compressor.pedir_quadro_chave();
+            self.chave_pendente = true;
         }
         if let Some(pedido) = self.saida.take_rate_control_request() {
             self.seguir_a_rede(pedido.target_bitrate_bps);
@@ -152,24 +185,42 @@ impl Laco {
     }
 
     fn alimentar(&mut self) -> Result<bool, String> {
-        if !self.preparar_o_quadro()? {
-            return Ok(false);
-        }
+        let preparo = match self.preparar_o_quadro()? {
+            Some(gasto) => {
+                self.tem_imagem = true;
+                gasto
+            }
+            None if self.reapresentar_agora() => {
+                self.ritmo.contar_reapresentado();
+                Duration::ZERO
+            }
+            None => return Ok(false),
+        };
+        let tempo = em_cem_nanos(self.comeco.elapsed());
+        let marco = Instant::now();
         let codificacao = &self.codificacao;
-        codificacao.compressor.entregar(&codificacao.amostra, self.quadro).map_err(em("entregar o quadro"))?;
-        self.entregue_em = Some(Instant::now());
+        codificacao.compressor.entregar(&codificacao.amostra, tempo).map_err(em("entregar o quadro"))?;
+        let entregue = Instant::now();
+        self.ritmo.contar_trabalho(preparo + (entregue - marco));
+        self.entregue_em = Some(entregue);
+        self.chave_pendente = false;
         self.pedidos -= 1;
         self.quadro = self.quadro.wrapping_add(1);
         Ok(true)
     }
 
-    fn preparar_o_quadro(&mut self) -> Result<bool, String> {
+    fn reapresentar_agora(&self) -> bool {
+        self.tem_imagem && (self.chave_pendente || self.ultima_saida.elapsed() >= SINAL_DE_VIDA)
+    }
+
+    fn preparar_o_quadro(&mut self) -> Result<Option<Duration>, String> {
         let bancada = &self.codificacao.bancada;
         match &mut self.fonte {
             Fonte::Sintetica => {
+                let marco = Instant::now();
                 bancada.pintar(self.quadro);
                 bancada.preparar().map_err(em("preparar o quadro"))?;
-                Ok(true)
+                Ok(Some(marco.elapsed()))
             }
             Fonte::Janela(captura) => trazer_da_janela(captura, bancada),
         }
@@ -178,8 +229,9 @@ impl Laco {
     fn receber(&mut self) -> Result<(), String> {
         match self.codificacao.compressor.proximo_evento()? {
             DoCodificador::PedeEntrada => self.pedidos += 1,
-            DoCodificador::Saida { bytes, chegou, .. } => {
+            DoCodificador::Saida { bytes, chegou, custo, .. } => {
                 let latencia = self.entregue_em.take().map(|entregue| chegou - entregue);
+                self.ritmo.contar_trabalho(custo);
                 self.enviar(&bytes, latencia);
             }
             DoCodificador::FimDoDreno | DoCodificador::Nenhum => {}
@@ -198,6 +250,7 @@ impl Laco {
             resolution: self.resolucao.clone(),
             frame_metadata: None,
         });
+        self.ultima_saida = Instant::now();
         self.ritmo.contar_quadro(bytes.len(), unidade.idr, latencia);
     }
 
@@ -209,19 +262,24 @@ impl Laco {
     }
 }
 
-fn trazer_da_janela(captura: &mut CapturaDeJanela, bancada: &Bancada) -> Result<bool, String> {
+fn em_cem_nanos(tempo: Duration) -> i64 {
+    (tempo.as_nanos() / 100) as i64
+}
+
+fn trazer_da_janela(captura: &mut CapturaDeJanela, bancada: &Bancada) -> Result<Option<Duration>, String> {
     let limite = Instant::now() + ESPERA_POR_QUADRO_NOVO;
     loop {
+        let marco = Instant::now();
         match captura.colher().map_err(em("colher o quadro da janela"))? {
             Colheita::Quadro(quadro) => {
                 bancada.trazer(&quadro.textura, captura.tamanho());
-                return Ok(true);
+                return Ok(Some(marco.elapsed()));
             }
             Colheita::MudouDeTamanho(..) => {}
             Colheita::Nada => {
                 let resta = limite.saturating_duration_since(Instant::now());
                 if resta.is_zero() || !captura.esperar(resta) {
-                    return Ok(false);
+                    return Ok(None);
                 }
             }
         }

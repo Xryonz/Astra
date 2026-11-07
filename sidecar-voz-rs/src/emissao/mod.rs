@@ -1,6 +1,7 @@
 mod laco;
 mod ritmo;
 mod ritmo_que_cabe;
+mod troca;
 
 use crate::ponte::Escritor;
 use livekit::webrtc::video_source::native::NativeVideoSource;

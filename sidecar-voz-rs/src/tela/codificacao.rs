@@ -1,5 +1,5 @@
 use super::bancada::{Bancada, Origem};
-use super::codificadores::{CodificadorDaPlaca, codificadores_h264_da_placa};
+use super::codificadores::CodificadorDaPlaca;
 use super::compressor::{Compressor, Configuracao, amostra_da_textura};
 use super::dispositivo::{Dispositivo, dispositivo_da_placa};
 use super::etapa::em;
@@ -22,12 +22,12 @@ impl Codificacao {
     }
 }
 
-pub fn abrir_codificacao(placa: &Placa, config: Configuracao, origem: Origem) -> Result<Codificacao, String> {
-    let codificador = codificadores_h264_da_placa(placa.luid)
-        .map_err(em("listar os codificadores"))?
-        .into_iter()
-        .next()
-        .ok_or("a placa não tem codificador H.264")?;
+pub fn abrir_codificacao(
+    placa: &Placa,
+    codificador: CodificadorDaPlaca,
+    config: Configuracao,
+    origem: Origem,
+) -> Result<Codificacao, String> {
     let dispositivo = dispositivo_da_placa(&placa.adaptador).map_err(em("criar o dispositivo na placa"))?;
     let transformacao = codificador.ativar().map_err(em("ligar o codificador"))?;
     let compressor = Compressor::abrir(transformacao, &dispositivo.placa, config)?;

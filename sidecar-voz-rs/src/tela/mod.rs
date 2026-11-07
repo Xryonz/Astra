@@ -11,9 +11,11 @@ mod etapa;
 mod h264;
 mod janelas;
 mod leitor;
+mod miniatura;
 mod monitores;
 mod pixels;
 mod placas;
+mod png;
 mod ruido;
 
 pub use bancada::{Bancada, Origem};
@@ -27,5 +29,6 @@ pub use etapa::em;
 pub use h264::{Perfil, Unidade, ler_unidade};
 pub use janelas::{Janela, listar_janelas};
 pub use leitor::LeitorDePixel;
+pub use miniatura::miniaturas_das_janelas;
 pub use monitores::{Monitor, listar_monitores};
 pub use placas::{Placa, nome_do_fabricante, placa_padrao, placas_de_hardware};

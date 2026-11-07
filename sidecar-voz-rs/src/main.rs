@@ -1,4 +1,5 @@
 mod aparelhos;
+mod base64;
 mod com;
 mod despacho;
 mod emissao;
@@ -46,7 +47,7 @@ async fn main() {
     sala.deixar().await;
 }
 
-async fn atender(linha: &str, sala: &mut Sala, escritor: &Escritor) -> Resultado {
+async fn atender(linha: &str, sala: &mut Sala, escritor: &Arc<Escritor>) -> Resultado {
     let Some(lido) = ponte::ler(linha) else { return Resultado::Seguir };
     let comando = match lido {
         Ok(comando) => comando,

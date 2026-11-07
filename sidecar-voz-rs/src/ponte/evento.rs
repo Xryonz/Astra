@@ -12,6 +12,8 @@ pub struct Evento {
     pub par: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tipo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dados: Option<String>,
     #[serde(rename = "v", skip_serializing_if = "Option::is_none")]
     pub valor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,6 +70,10 @@ impl Evento {
 
     pub fn janelas(lista: Vec<Janela>) -> Self {
         Self { ev: "janelas", janelas: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
+    }
+
+    pub fn miniatura(tipo: &str, par: String, dados: String) -> Self {
+        Self { ev: "miniatura", par: Some(par), tipo: Some(tipo.into()), dados: Some(dados), ..Default::default() }
     }
 
     pub fn fala(par: &str, ligado: bool) -> Self {
@@ -173,6 +179,14 @@ mod testes {
             "{\"ev\":\"janelas\",\"janelas\":[{\"id\":132458,\"nome\":\"Bloco de Notas\",\"largura\":800,\"altura\":600}]}"
         );
         assert_eq!(serde_json::to_string(&Evento::janelas(Vec::new())).unwrap(), "{\"ev\":\"janelas\"}");
+    }
+
+    #[test]
+    fn miniatura_sai_com_os_campos_na_ordem_do_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::miniatura("janela", "132458".into(), "iVBO".into())).unwrap(),
+            "{\"ev\":\"miniatura\",\"par\":\"132458\",\"tipo\":\"janela\",\"dados\":\"iVBO\"}"
+        );
     }
 
     #[test]

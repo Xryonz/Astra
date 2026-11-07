@@ -1,5 +1,5 @@
 use super::conversor::Conversor;
-use super::dispositivo::{Dispositivo, textura, textura_de_leitura};
+use super::dispositivo::{Dispositivo, copiar_linhas, textura, textura_de_leitura};
 use crate::entrega::Quadro;
 use std::time::{Duration, Instant};
 use windows::Win32::Graphics::Direct3D11::{D3D11_MAP_READ, D3D11_MAPPED_SUBRESOURCE, ID3D11Texture2D};
@@ -70,7 +70,7 @@ impl Montado {
             contexto.CopyResource(&self.leitura, &self.destino);
             contexto.Map(&self.leitura, 0, D3D11_MAP_READ, 0, Some(&mut mapa))?;
         }
-        let dados = copiar_nv12(&mapa, self.largura, self.altura);
+        let dados = copiar_linhas(&mapa, self.largura as usize, self.altura as usize * 3 / 2);
         unsafe { contexto.Unmap(&self.leitura, 0) };
         Ok(Quadro { dados, largura: self.largura, altura: self.altura, passo: self.largura })
     }
@@ -81,12 +81,6 @@ fn tamanho_do_espelho((largura, altura): (u32, u32)) -> Option<(u32, u32)> {
     let baixa = (u64::from(altura) * u64::from(estreita) / u64::from(largura.max(1))) as u32;
     let (estreita, baixa) = (estreita & !1, baixa & !1);
     (estreita > 0 && baixa > 0).then_some((estreita, baixa))
-}
-
-fn copiar_nv12(mapa: &D3D11_MAPPED_SUBRESOURCE, largura: u32, altura: u32) -> Vec<u8> {
-    let (largura, linhas, passo) = (largura as usize, altura as usize * 3 / 2, mapa.RowPitch as usize);
-    let origem = unsafe { std::slice::from_raw_parts(mapa.pData as *const u8, passo * linhas) };
-    origem.chunks(passo).flat_map(|linha| &linha[..largura]).copied().collect()
 }
 
 #[cfg(test)]

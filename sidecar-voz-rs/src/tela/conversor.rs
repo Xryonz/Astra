@@ -13,6 +13,7 @@ use windows::Win32::Graphics::Direct3D11::{
 use windows::Win32::Graphics::Dxgi::Common::DXGI_RATIONAL;
 use windows::core::Interface;
 
+const FOLGA_DE_ARREDONDAMENTO: u32 = 2;
 const RGB_DE_0_A_255: u32 = 0;
 const BT709_DE_16_A_235: u32 = (1 << 2) | (1 << 4);
 const PRETO: D3D11_VIDEO_COLOR = D3D11_VIDEO_COLOR {
@@ -77,7 +78,7 @@ fn encaixado((origem_l, origem_a): (u32, u32), (destino_l, destino_a): (u32, u32
     } else {
         ((origem_l * u64::from(destino_a) / origem_a) as u32, destino_a)
     };
-    let (largura, altura) = (par(largura), par(altura));
+    let (largura, altura) = (ajustar(largura, destino_l), ajustar(altura, destino_a));
     let (esquerda, topo) = (par((destino_l - largura) / 2), par((destino_a - altura) / 2));
     RECT {
         left: esquerda as i32,
@@ -85,6 +86,10 @@ fn encaixado((origem_l, origem_a): (u32, u32), (destino_l, destino_a): (u32, u32
         right: (esquerda + largura) as i32,
         bottom: (topo + altura) as i32,
     }
+}
+
+fn ajustar(medida: u32, limite: u32) -> u32 {
+    if limite.saturating_sub(medida) <= FOLGA_DE_ARREDONDAMENTO { limite } else { par(medida) }
 }
 
 fn par(valor: u32) -> u32 {
@@ -165,6 +170,12 @@ mod testes {
     #[test]
     fn as_bordas_ficam_em_pixel_par() {
         assert_eq!(caixa(encaixado((642, 399), (640, 360))), (30, 0, 608, 360));
+    }
+
+    #[test]
+    fn diferenca_de_arredondamento_nao_vira_faixa() {
+        assert_eq!(caixa(encaixado((1366, 768), (1280, 720))), (0, 0, 1280, 720));
+        assert_eq!(caixa(encaixado((1003, 617), (256, 157))), (0, 0, 256, 157));
     }
 
     #[test]

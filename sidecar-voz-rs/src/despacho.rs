@@ -1,15 +1,18 @@
 use crate::aparelhos::{self, Sentido};
+use crate::base64;
+use crate::com::ComDaThread;
 use crate::emissao::PedidoDeTela;
 use crate::ponte::{Comando, Escritor, Evento};
 use crate::sala::Sala;
 use crate::tela;
+use std::sync::Arc;
 
 pub enum Resultado {
     Seguir,
     Sair,
 }
 
-pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Escritor) -> Result<Resultado, String> {
+pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Arc<Escritor>) -> Result<Resultado, String> {
     match comando.cmd.as_str() {
         "sala" => {
             let (url, token) = endereco_e_credencial(comando)?;
@@ -88,9 +91,19 @@ async fn anunciar_os_monitores(escritor: &Escritor) {
     escritor.manda(&Evento::monitores(lista));
 }
 
-async fn anunciar_as_janelas(escritor: &Escritor) {
+async fn anunciar_as_janelas(escritor: &Arc<Escritor>) {
     let lista = tokio::task::spawn_blocking(tela::listar_janelas).await.unwrap_or_default();
+    let janelas: Vec<u64> = lista.iter().map(|janela| janela.id).collect();
     escritor.manda(&Evento::janelas(lista));
+    let escritor = Arc::clone(escritor);
+    tokio::task::spawn_blocking(move || mandar_as_miniaturas(&janelas, &escritor));
+}
+
+fn mandar_as_miniaturas(janelas: &[u64], escritor: &Escritor) {
+    let _com = ComDaThread::iniciar();
+    tela::miniaturas_das_janelas(janelas, |janela, png| {
+        escritor.manda(&Evento::miniatura("janela", janela.to_string(), base64::codificar(&png)));
+    });
 }
 
 fn ligado(comando: &Comando) -> bool {

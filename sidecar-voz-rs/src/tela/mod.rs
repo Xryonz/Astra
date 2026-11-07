@@ -1,3 +1,5 @@
+mod bancada;
+mod codificacao;
 mod codificadores;
 mod compressor;
 mod conversor;
@@ -10,13 +12,11 @@ mod pixels;
 mod placas;
 mod ruido;
 
+pub use codificacao::{Codificacao, abrir_codificacao};
 pub use codificadores::codificadores_h264_da_placa;
-pub use compressor::{Aceitos, Compressor, Configuracao, Entrada, Evento, amostra_da_textura};
-pub use conversor::Conversor;
-pub use dispositivo::{Dispositivo, dispositivo_da_placa, textura};
+pub use compressor::{Aceitos, Configuracao, Entrada, Evento};
 pub use etapa::em;
 pub use h264::{Perfil, Unidade, ler_unidade};
 pub use janelas::{Janela, listar_janelas};
 pub use monitores::{Monitor, listar_monitores};
 pub use placas::{Placa, nome_do_fabricante, placas_de_hardware};
-pub use ruido::Ruido;

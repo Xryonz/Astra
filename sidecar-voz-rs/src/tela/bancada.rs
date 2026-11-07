@@ -1,4 +1,7 @@
-use crate::tela::{Conversor, Dispositivo, Entrada, Ruido, textura};
+use super::compressor::Entrada;
+use super::conversor::Conversor;
+use super::dispositivo::{Dispositivo, textura};
+use super::ruido::Ruido;
 use windows::Win32::Graphics::Direct3D11::{ID3D11DeviceContext, ID3D11Texture2D};
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
 

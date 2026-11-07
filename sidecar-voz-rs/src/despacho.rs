@@ -1,4 +1,5 @@
 use crate::aparelhos::{self, Sentido};
+use crate::emissao::PedidoDeTela;
 use crate::ponte::{Comando, Escritor, Evento};
 use crate::sala::Sala;
 use crate::tela;
@@ -52,6 +53,13 @@ pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Escritor) -
             sala.usar(sentido, comando.id.clone().unwrap_or_default()).await;
             Ok(Resultado::Seguir)
         }
+        "transmitir" => {
+            match pedido_de_tela(comando)? {
+                Some(pedido) => sala.transmitir(pedido).await?,
+                None => sala.parar_a_tela().await,
+            }
+            Ok(Resultado::Seguir)
+        }
         "sair" => Ok(Resultado::Sair),
         outro => Err(format!("comando fora do protótipo: {outro}")),
     }
@@ -89,6 +97,17 @@ fn ligado(comando: &Comando) -> bool {
     comando.ligado.unwrap_or(false)
 }
 
+fn pedido_de_tela(comando: &Comando) -> Result<Option<PedidoDeTela>, String> {
+    if !ligado(comando) {
+        return Ok(None);
+    }
+    let positivo = |campo: Option<i32>| campo.and_then(|valor| u32::try_from(valor).ok()).filter(|&valor| valor > 0);
+    match (positivo(comando.largura), positivo(comando.altura), positivo(comando.fps), positivo(comando.kbps)) {
+        (Some(largura), Some(altura), Some(fps), Some(kbps)) => Ok(Some(PedidoDeTela { largura, altura, fps, kbps })),
+        _ => Err("transmitir sem tamanho, ritmo ou taxa".into()),
+    }
+}
+
 fn relatar_o_tratamento(comando: &Comando) {
     eprintln!(
         "tratamento pedido: eco {}, ruído {}, ganho {}; no protótipo os três ficam ligados",
@@ -121,6 +140,31 @@ mod testes {
     fn sala_com_endereco_e_credencial_passa() {
         let comando = comando_de_sala("wss://sala", "abc");
         assert_eq!(endereco_e_credencial(&comando), Ok(("wss://sala", "abc")));
+    }
+
+    fn comando_de_tela(ligado: bool, kbps: Option<i32>) -> Comando {
+        Comando {
+            cmd: "transmitir".into(),
+            ligado: Some(ligado),
+            largura: Some(1920),
+            altura: Some(1080),
+            fps: Some(60),
+            kbps,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn transmitir_desligado_para_e_ligado_completo_vira_pedido() {
+        assert!(matches!(pedido_de_tela(&comando_de_tela(false, None)), Ok(None)));
+        let Ok(Some(pedido)) = pedido_de_tela(&comando_de_tela(true, Some(8000))) else { panic!("pedido recusado") };
+        assert_eq!((pedido.largura, pedido.altura, pedido.fps, pedido.kbps), (1920, 1080, 60, 8000));
+    }
+
+    #[test]
+    fn transmitir_ligado_sem_taxa_ou_com_numero_negativo_recusa() {
+        assert!(pedido_de_tela(&comando_de_tela(true, None)).is_err());
+        assert!(pedido_de_tela(&comando_de_tela(true, Some(-1))).is_err());
     }
 
     #[test]

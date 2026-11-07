@@ -143,7 +143,7 @@ impl Compressor {
     }
 
     pub fn mudar_taxa(&mut self, kbps: u32) -> bool {
-        let aceita = self.comandos.mudar_taxa(kbps);
+        let aceita = self.comandos.mudar_a_media(kbps);
         if aceita {
             self.config.kbps = kbps;
         }

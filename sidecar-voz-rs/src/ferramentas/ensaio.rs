@@ -1,15 +1,12 @@
-use super::bancada::Bancada;
 use super::medidas::{Custos, ResumoDosCustos, arredondar, tempo_de_cpu};
 use super::relogio::Relogio;
 use crate::tela::{
-    Aceitos, Compressor, Configuracao, Entrada, Evento, Perfil, Placa, Unidade, amostra_da_textura,
-    codificadores_h264_da_placa, dispositivo_da_placa, em, ler_unidade,
+    Aceitos, Codificacao, Configuracao, Entrada, Evento, Perfil, Placa, Unidade, abrir_codificacao, em, ler_unidade,
 };
 use serde::Serialize;
 use std::ops::Range;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
-use windows::Win32::Media::MediaFoundation::IMFSample;
 
 const LARGURA: u32 = 1920;
 const ALTURA: u32 = 1080;
@@ -17,10 +14,10 @@ const FPS: u32 = 60;
 const QUADROS: u32 = 300;
 const KBPS_ANTES: u32 = 8000;
 const KBPS_DEPOIS: u32 = 4000;
-const QUADRO_DA_TROCA_DE_TAXA: u32 = 120;
+const QUADRO_DA_TROCA_DE_TAXA: u32 = 100;
 const QUADRO_CHAVE_PEDIDO: u32 = 150;
-const JANELA_ANTES: Range<u32> = 0..120;
-const JANELA_DEPOIS: Range<u32> = 180..300;
+const JANELA_ANTES: Range<u32> = 0..100;
+const JANELA_DEPOIS: Range<u32> = 160..280;
 const LIMITE: Duration = Duration::from_secs(30);
 
 #[derive(Serialize)]
@@ -63,6 +60,7 @@ struct Taxa {
     alvo_depois: u32,
     depois_kbps: f64,
     troca_aceita: bool,
+    idr_na_troca: bool,
     kbps_por_segundo: Vec<f64>,
 }
 
@@ -88,30 +86,18 @@ pub fn ensaiar_com_limite(placa: &Placa, entrada: Entrada, relogio: Relogio) -> 
 
 fn ensaiar(placa: &Placa, entrada: Entrada, relogio: Relogio) -> Result<Ensaio, String> {
     let _relogio = relogio.valer();
-    let codificador = codificadores_h264_da_placa(placa.luid)
-        .map_err(em("listar os codificadores"))?
-        .into_iter()
-        .next()
-        .ok_or("a placa não tem codificador H.264")?;
-    let dispositivo = dispositivo_da_placa(&placa.adaptador).map_err(em("criar o dispositivo na placa"))?;
     let config = Configuracao { largura: LARGURA, altura: ALTURA, fps: FPS, kbps: KBPS_ANTES, entrada };
-    let transformacao = codificador.ativar().map_err(em("ligar o codificador"))?;
-    let compressor = Compressor::abrir(transformacao, &dispositivo.placa, config)?;
-    let bancada = Bancada::montar(&dispositivo, entrada, LARGURA, ALTURA).map_err(em("montar a bancada"))?;
-    let amostra = amostra_da_textura(bancada.entrada()).map_err(em("embrulhar a textura"))?;
-    let mut rodada = Rodada::nova(compressor, bancada, amostra);
+    let mut rodada = Rodada::nova(abrir_codificacao(placa, config)?);
     let cpu_antes = tempo_de_cpu();
     let comeco = Instant::now();
     rodada.rodar()?;
     let parede = comeco.elapsed();
     let cpu = tempo_de_cpu().saturating_sub(cpu_antes);
-    Ok(rodada.relatar(entrada, relogio, &codificador.nome, parede, cpu))
+    Ok(rodada.relatar(entrada, relogio, parede, cpu))
 }
 
 struct Rodada {
-    compressor: Compressor,
-    bancada: Bancada,
-    amostra: IMFSample,
+    codificacao: Codificacao,
     custos: Custos,
     saidas: Vec<Saida>,
     pedidos: u32,
@@ -122,11 +108,9 @@ struct Rodada {
 }
 
 impl Rodada {
-    fn nova(compressor: Compressor, bancada: Bancada, amostra: IMFSample) -> Self {
+    fn nova(codificacao: Codificacao) -> Self {
         Self {
-            compressor,
-            bancada,
-            amostra,
+            codificacao,
             custos: Custos::default(),
             saidas: Vec::with_capacity(QUADROS as usize),
             pedidos: 0,
@@ -144,7 +128,7 @@ impl Rodada {
             if livre && self.pedidos > 0 && self.proximo < QUADROS {
                 self.alimentar()?;
             } else if livre && self.proximo == QUADROS && !drenando {
-                self.compressor.drenar().map_err(em("drenar o codificador"))?;
+                self.codificacao.compressor.drenar().map_err(em("drenar o codificador"))?;
                 drenando = true;
             }
             if !self.receber()? {
@@ -156,13 +140,14 @@ impl Rodada {
     fn alimentar(&mut self) -> Result<(), String> {
         let quadro = self.proximo;
         let comeco = Instant::now();
-        self.bancada.pintar(quadro);
+        self.codificacao.bancada.pintar(quadro);
         let pintado = Instant::now();
-        self.bancada.preparar().map_err(em("preparar o quadro"))?;
+        self.codificacao.bancada.preparar().map_err(em("preparar o quadro"))?;
         let preparado = Instant::now();
         self.seguir_o_roteiro(quadro);
         let antes_de_entregar = Instant::now();
-        self.compressor.entregar(&self.amostra, quadro).map_err(em("entregar o quadro"))?;
+        let codificacao = &self.codificacao;
+        codificacao.compressor.entregar(&codificacao.amostra, quadro).map_err(em("entregar o quadro"))?;
         let entregue = Instant::now();
         self.custos.desenho.push(pintado - comeco);
         self.custos.preparo.push(preparado - pintado);
@@ -175,22 +160,23 @@ impl Rodada {
 
     fn seguir_o_roteiro(&mut self, quadro: u32) {
         if quadro == QUADRO_DA_TROCA_DE_TAXA {
-            self.troca_aceita = self.compressor.mudar_taxa(KBPS_DEPOIS);
+            self.troca_aceita = self.codificacao.compressor.mudar_taxa(KBPS_DEPOIS);
         }
         if quadro == QUADRO_CHAVE_PEDIDO {
-            self.chave_aceita = self.compressor.pedir_quadro_chave();
+            self.chave_aceita = self.codificacao.compressor.pedir_quadro_chave();
         }
     }
 
     fn receber(&mut self) -> Result<bool, String> {
-        match self.compressor.proximo_evento()? {
+        match self.codificacao.compressor.proximo_evento()? {
             Evento::PedeEntrada => self.pedidos += 1,
             Evento::Saida { tempo, bytes, chegou, custo } => {
                 if let Some(entregue) = self.entregue_em.take() {
                     self.custos.latencia.push(chegou - entregue);
                 }
                 self.custos.saida.push(custo);
-                let quadro = tempo.map_or(self.saidas.len() as u32, |tempo| self.compressor.quadro_do_tempo(tempo));
+                let compressor = &self.codificacao.compressor;
+                let quadro = tempo.map_or(self.saidas.len() as u32, |tempo| compressor.quadro_do_tempo(tempo));
                 self.saidas.push(Saida { quadro, bytes: bytes.len(), unidade: ler_unidade(&bytes) });
             }
             Evento::FimDoDreno => return Ok(false),
@@ -205,15 +191,15 @@ impl Rodada {
         arredondar(bytes as f64 * 8.0 / segundos / 1000.0)
     }
 
-    fn relatar(&self, entrada: Entrada, relogio: Relogio, codificador: &str, parede: Duration, cpu: Duration) -> Ensaio {
+    fn relatar(&self, entrada: Entrada, relogio: Relogio, parede: Duration, cpu: Duration) -> Ensaio {
         let idr: Vec<u32> = self.saidas.iter().filter(|saida| saida.unidade.idr).map(|saida| saida.quadro).collect();
         let sem_parametros = |saida: &&Saida| saida.unidade.idr && !(saida.unidade.sps && saida.unidade.pps);
         Ensaio {
             entrada: entrada.nome(),
             relogio: relogio.nome(),
-            codificador: codificador.to_owned(),
-            aceitos: self.compressor.aceitos,
-            perfil_pedido: self.compressor.perfil_pedido(),
+            codificador: self.codificacao.nome.clone(),
+            aceitos: self.codificacao.compressor.aceitos,
+            perfil_pedido: self.codificacao.compressor.perfil_pedido(),
             sps: self.saidas.iter().find_map(|saida| saida.unidade.perfil),
             saidas: self.saidas.len(),
             quadro_chave: QuadroChave {
@@ -221,17 +207,18 @@ impl Rodada {
                 aceito: self.chave_aceita,
                 veio_em: idr.iter().copied().find(|&quadro| quadro >= QUADRO_CHAVE_PEDIDO),
             },
-            idr,
-            idr_sem_parametros: self.saidas.iter().filter(sem_parametros).count(),
-            quadros_b: self.saidas.iter().filter(|saida| saida.unidade.quadro_b).count(),
             taxa: Taxa {
                 alvo_antes: KBPS_ANTES,
                 antes_kbps: self.kbps_em(JANELA_ANTES),
                 alvo_depois: KBPS_DEPOIS,
                 depois_kbps: self.kbps_em(JANELA_DEPOIS),
                 troca_aceita: self.troca_aceita,
+                idr_na_troca: idr.contains(&QUADRO_DA_TROCA_DE_TAXA),
                 kbps_por_segundo: (0..QUADROS / FPS).map(|segundo| self.kbps_em(segundo * FPS..(segundo + 1) * FPS)).collect(),
             },
+            idr,
+            idr_sem_parametros: self.saidas.iter().filter(sem_parametros).count(),
+            quadros_b: self.saidas.iter().filter(|saida| saida.unidade.quadro_b).count(),
             custo_us: self.custos.resumir(),
             cpu_ms_por_quadro: arredondar(cpu.as_secs_f64() * 1000.0 / f64::from(QUADROS)),
             quadros_por_segundo: arredondar(f64::from(QUADROS) / parede.as_secs_f64()),

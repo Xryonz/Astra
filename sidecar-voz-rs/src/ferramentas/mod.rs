@@ -1,4 +1,3 @@
-mod bancada;
 mod ensaio;
 mod medidas;
 mod relato;

@@ -7,8 +7,10 @@ mod fala;
 mod microfone;
 mod queda;
 mod repasse;
+mod tela;
 
 use crate::aparelhos::Sentido;
+use crate::emissao::PedidoDeTela;
 use crate::ponte::{Escritor, Evento};
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use controles::{ALVO_DO_MICROFONE, Controles};
@@ -18,6 +20,7 @@ use livekit::prelude::{LocalAudioTrack, PlatformAudio, Room, RoomOptions};
 use microfone::{abrir_ou_fechar, gravar_sem_o_cancelador_do_windows, publicar_o_microfone};
 use repasse::{Repasse, repassar};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use tela::TelaNoAr;
 use tokio::task::JoinHandle;
 
 const OS_DOIS_SENTIDOS: [Sentido; 2] = [Sentido::Entrada, Sentido::Saida];
@@ -35,6 +38,7 @@ struct SalaAberta {
     audio: PlatformAudio,
     em_uso: Escolhas,
     tarefas: Vec<JoinHandle<()>>,
+    tela: Option<TelaNoAr>,
 }
 
 impl Sala {
@@ -69,15 +73,36 @@ impl Sala {
             tokio::spawn(repassar(eventos, self.repasse(&sala))),
             tokio::spawn(conferir_o_eco(microfone.clone())),
         ];
-        self.aberta = Some(SalaAberta { sala, microfone, audio, em_uso, tarefas });
+        self.aberta = Some(SalaAberta { sala, microfone, audio, em_uso, tarefas, tela: None });
         self.contar_a_todos().await;
         Ok(())
     }
 
     pub async fn deixar(&mut self) {
-        let Some(aberta) = self.aberta.take() else { return };
+        let Some(mut aberta) = self.aberta.take() else { return };
+        if let Some(tela) = aberta.tela.take() {
+            tela.tirar(&aberta.sala).await;
+        }
         aberta.tarefas.iter().for_each(JoinHandle::abort);
         let _ = aberta.sala.close().await;
+    }
+
+    pub async fn transmitir(&mut self, pedido: PedidoDeTela) -> Result<(), String> {
+        let escritor = Arc::clone(&self.escritor);
+        let Some(aberta) = &mut self.aberta else { return Err("sem sala para transmitir".into()) };
+        match &mut aberta.tela {
+            Some(tela) => tela.trocar(pedido, escritor).await,
+            None => {
+                aberta.tela = Some(TelaNoAr::publicar(&aberta.sala, pedido, escritor).await?);
+                Ok(())
+            }
+        }
+    }
+
+    pub async fn parar_a_tela(&mut self) {
+        let Some(aberta) = &mut self.aberta else { return };
+        let Some(tela) = aberta.tela.take() else { return };
+        tela.tirar(&aberta.sala).await;
     }
 
     pub async fn mudar(&self, ligado: bool) {

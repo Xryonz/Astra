@@ -22,15 +22,16 @@ impl Comandos {
         let modo_de_pico = numero(eAVEncCommonRateControlMode_PeakConstrainedVBR.0 as u32);
         Aceitos {
             baixa_latencia: self.definir(&CODECAPI_AVLowLatencyMode, logico(true)),
-            taxa_variavel: self.definir(&CODECAPI_AVEncCommonRateControlMode, modo_de_pico) && self.mudar_taxa(kbps),
+            taxa_variavel: self.definir(&CODECAPI_AVEncCommonRateControlMode, modo_de_pico)
+                && self.mudar_a_media(kbps)
+                && self.definir(&CODECAPI_AVEncCommonMaxBitRate, numero(kbps * 2000)),
             cabac: self.definir(&CODECAPI_AVEncH264CABACEnable, logico(true)),
             sem_quadros_b: self.definir(&CODECAPI_AVEncMPVDefaultBPictureCount, numero(0)),
         }
     }
 
-    pub fn mudar_taxa(&self, kbps: u32) -> bool {
+    pub fn mudar_a_media(&self, kbps: u32) -> bool {
         self.definir(&CODECAPI_AVEncCommonMeanBitRate, numero(kbps * 1000))
-            && self.definir(&CODECAPI_AVEncCommonMaxBitRate, numero(kbps * 2000))
     }
 
     pub fn pedir_quadro_chave(&self) -> bool {

@@ -1,6 +1,7 @@
 mod aparelhos;
 mod com;
 mod despacho;
+mod emissao;
 mod ferramentas;
 mod ponte;
 mod registro_do_webrtc;

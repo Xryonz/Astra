@@ -3,6 +3,7 @@ use crate::tela::{Janela, Monitor};
 use serde::Serialize;
 
 const ESTADO: &str = "estado";
+const TRANSMISSAO: &str = "transmissao";
 
 #[derive(Debug, Default, Serialize)]
 pub struct Evento {
@@ -86,6 +87,20 @@ impl Evento {
             valor: Some(um_ou_zero(ligado).into()),
             ..Default::default()
         }
+    }
+
+    pub fn transmissao(tipo: &str, msg: String) -> Self {
+        Self {
+            ev: TRANSMISSAO,
+            tipo: Some(tipo.into()),
+            valor: Some(um_ou_zero(true).into()),
+            msg: Some(msg),
+            ..Default::default()
+        }
+    }
+
+    pub fn transmissao_encerrada() -> Self {
+        Self { ev: TRANSMISSAO, valor: Some(um_ou_zero(false).into()), ..Default::default() }
     }
 
     fn de_estado(par: Option<String>, valor: &str) -> Self {
@@ -178,6 +193,18 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::estado_da_voz("ana", "surdo", false)).unwrap(),
             "{\"ev\":\"estado-da-voz\",\"par\":\"ana\",\"tipo\":\"surdo\",\"v\":\"0\"}"
+        );
+    }
+
+    #[test]
+    fn transmissao_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::transmissao("ritmo", "60 fps".into())).unwrap(),
+            "{\"ev\":\"transmissao\",\"tipo\":\"ritmo\",\"v\":\"1\",\"msg\":\"60 fps\"}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::transmissao_encerrada()).unwrap(),
+            "{\"ev\":\"transmissao\",\"v\":\"0\"}"
         );
     }
 

@@ -25,6 +25,10 @@ impl Encaixe {
         self.tamanho == tamanho
     }
 
+    pub fn copia(&self) -> (&ID3D11Texture2D, (u32, u32)) {
+        (&self.copia, self.tamanho)
+    }
+
     pub fn encaixar(&self, contexto: &ID3D11DeviceContext, origem: &ID3D11Texture2D) -> windows::core::Result<()> {
         unsafe { contexto.CopyResource(&self.copia, origem) };
         self.conversor.converter()

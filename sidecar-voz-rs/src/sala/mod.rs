@@ -11,6 +11,7 @@ mod tela;
 
 use crate::aparelhos::Sentido;
 use crate::emissao::PedidoDeTela;
+use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use controles::{ALVO_DO_MICROFONE, Controles};
@@ -27,6 +28,7 @@ const OS_DOIS_SENTIDOS: [Sentido; 2] = [Sentido::Entrada, Sentido::Saida];
 
 pub struct Sala {
     escritor: Arc<Escritor>,
+    entrega: Option<Entrega>,
     controles: Arc<Mutex<Controles>>,
     escolhas: Escolhas,
     aberta: Option<SalaAberta>,
@@ -42,8 +44,8 @@ struct SalaAberta {
 }
 
 impl Sala {
-    pub fn nova(escritor: Arc<Escritor>) -> Self {
-        Self { escritor, controles: Arc::default(), escolhas: Escolhas::default(), aberta: None }
+    pub fn nova(escritor: Arc<Escritor>, entrega: Option<Entrega>) -> Self {
+        Self { escritor, entrega, controles: Arc::default(), escolhas: Escolhas::default(), aberta: None }
     }
 
     pub async fn entrar(&mut self, url: &str, token: &str) -> Result<(), String> {
@@ -89,11 +91,12 @@ impl Sala {
 
     pub async fn transmitir(&mut self, pedido: PedidoDeTela) -> Result<(), String> {
         let escritor = Arc::clone(&self.escritor);
+        let entrega = self.entrega.clone();
         let Some(aberta) = &mut self.aberta else { return Err("sem sala para transmitir".into()) };
         match &mut aberta.tela {
-            Some(tela) => tela.trocar(pedido, escritor).await,
+            Some(tela) => tela.trocar(pedido, escritor, entrega).await,
             None => {
-                aberta.tela = Some(TelaNoAr::publicar(&aberta.sala, pedido, escritor).await?);
+                aberta.tela = Some(TelaNoAr::publicar(&aberta.sala, pedido, escritor, entrega).await?);
                 Ok(())
             }
         }

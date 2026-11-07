@@ -73,8 +73,18 @@ impl Bancada {
         }
     }
 
+    pub fn fonte_do_espelho(&self) -> (&ID3D11Texture2D, (u32, u32)) {
+        let tamanho = (self.largura, self.altura);
+        match (&self.encaixe, &self.sintese) {
+            (Some(encaixe), _) => encaixe.copia(),
+            (None, Some(sintese)) => (&sintese.tela, tamanho),
+            (None, None) => (&self.entrada, tamanho),
+        }
+    }
+
     pub fn trazer(&mut self, origem: &ID3D11Texture2D, tamanho: (u32, u32)) -> windows::core::Result<()> {
         if tamanho == (self.largura, self.altura) && matches!(self.formato, Entrada::Argb) {
+            self.encaixe = None;
             unsafe { self.dispositivo.contexto.CopyResource(&self.entrada, origem) };
             return Ok(());
         }

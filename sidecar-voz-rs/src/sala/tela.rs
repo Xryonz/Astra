@@ -1,4 +1,5 @@
 use crate::emissao::{Emissor, PedidoDeTela};
+use crate::entrega::Entrega;
 use crate::ponte::Escritor;
 use livekit::options::{TrackPublishOptions, VideoCodec, VideoEncoding};
 use livekit::prelude::{LocalTrack, LocalVideoTrack, Room, TrackSid, TrackSource};
@@ -16,9 +17,14 @@ pub struct TelaNoAr {
 }
 
 impl TelaNoAr {
-    pub async fn publicar(sala: &Room, pedido: PedidoDeTela, escritor: Arc<Escritor>) -> Result<Self, String> {
+    pub async fn publicar(
+        sala: &Room,
+        pedido: PedidoDeTela,
+        escritor: Arc<Escritor>,
+        entrega: Option<Entrega>,
+    ) -> Result<Self, String> {
         let fonte = NativeVideoSource::new_encoded(VideoResolution { width: pedido.largura, height: pedido.altura });
-        let mut emissor = Emissor::ligar(pedido, fonte.clone(), escritor)?;
+        let mut emissor = Emissor::ligar(pedido, fonte.clone(), escritor, entrega)?;
         let faixa = LocalVideoTrack::create_video_track(NOME_DA_TELA, RtcVideoSource::Native(fonte.clone()));
         match sala.local_participant().publish_track(LocalTrack::Video(faixa), opcoes_da_tela(pedido)).await {
             Ok(publicacao) => Ok(Self { publicacao: publicacao.sid(), fonte, emissor }),
@@ -29,9 +35,14 @@ impl TelaNoAr {
         }
     }
 
-    pub async fn trocar(&mut self, pedido: PedidoDeTela, escritor: Arc<Escritor>) -> Result<(), String> {
+    pub async fn trocar(
+        &mut self,
+        pedido: PedidoDeTela,
+        escritor: Arc<Escritor>,
+        entrega: Option<Entrega>,
+    ) -> Result<(), String> {
         self.emissor.parar().await;
-        self.emissor = Emissor::ligar(pedido, self.fonte.clone(), escritor)?;
+        self.emissor = Emissor::ligar(pedido, self.fonte.clone(), escritor, entrega)?;
         Ok(())
     }
 

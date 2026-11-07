@@ -2,6 +2,7 @@ mod aparelhos;
 mod com;
 mod despacho;
 mod emissao;
+mod entrega;
 mod ferramentas;
 mod ponte;
 mod registro_do_webrtc;
@@ -25,7 +26,7 @@ async fn main() {
     let (avisar, mut mudancas) = mpsc::unbounded_channel();
     let _vigia = aparelhos::vigiar(avisar).inspect_err(|e| eprintln!("sem vigia de aparelhos: {e}")).ok();
     escritor.manda(&Evento::pronto());
-    let mut sala = Sala::nova(Arc::clone(&escritor));
+    let mut sala = Sala::nova(Arc::clone(&escritor), entrega::Entrega::do_ambiente());
 
     let mut linhas = BufReader::new(tokio::io::stdin()).lines();
     loop {

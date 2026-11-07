@@ -38,6 +38,10 @@ impl Codificacao {
     pub fn placa(&self) -> &ID3D11Device {
         &self.dispositivo.placa
     }
+
+    pub fn dispositivo(&self) -> &Dispositivo {
+        &self.dispositivo
+    }
 }
 
 pub fn abrir_codificacao(

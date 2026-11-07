@@ -3,6 +3,7 @@ mod ritmo;
 mod ritmo_que_cabe;
 mod troca;
 
+use crate::entrega::Entrega;
 use crate::ponte::Escritor;
 use livekit::webrtc::video_source::native::NativeVideoSource;
 use std::sync::Arc;
@@ -24,12 +25,17 @@ pub struct Emissor {
 }
 
 impl Emissor {
-    pub fn ligar(pedido: PedidoDeTela, fonte: NativeVideoSource, escritor: Arc<Escritor>) -> Result<Self, String> {
+    pub fn ligar(
+        pedido: PedidoDeTela,
+        fonte: NativeVideoSource,
+        escritor: Arc<Escritor>,
+        entrega: Option<Entrega>,
+    ) -> Result<Self, String> {
         let parar = Arc::new(AtomicBool::new(false));
         let sinal = Arc::clone(&parar);
         let linha = std::thread::Builder::new()
             .name("astra-tela".into())
-            .spawn(move || laco::transmitir(pedido, fonte, escritor, sinal))
+            .spawn(move || laco::transmitir(pedido, fonte, escritor, entrega, sinal))
             .map_err(|e| format!("abrir a linha da transmissão: {e}"))?;
         Ok(Self { parar, linha: Some(linha) })
     }

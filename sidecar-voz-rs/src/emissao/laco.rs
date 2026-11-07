@@ -3,10 +3,11 @@ use super::ritmo::Ritmo;
 use super::ritmo_que_cabe::RitmoQueCabe;
 use super::troca::{abrir_o_primeiro_que_aceitar, condenar};
 use crate::com::ComDaThread;
+use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
 use crate::tela::{
-    Bancada, Caminho, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Evento as DoCodificador, Origem,
-    Unidade, em, ler_unidade,
+    Bancada, Caminho, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Espelho, Evento as DoCodificador,
+    Origem, Unidade, em, ler_unidade,
 };
 use livekit::webrtc::video_frame::{EncodedFrameType, EncodedVideoCodec, EncodedVideoFrame};
 use livekit::webrtc::video_source::VideoResolution;
@@ -39,9 +40,15 @@ fn fatal(etapa: &'static str) -> impl Fn(windows::core::Error) -> Falha {
     move |erro| Falha::Fatal(format!("{etapa}: {erro}"))
 }
 
-pub fn transmitir(pedido: PedidoDeTela, fonte: NativeVideoSource, escritor: Arc<Escritor>, parar: Arc<AtomicBool>) {
+pub fn transmitir(
+    pedido: PedidoDeTela,
+    fonte: NativeVideoSource,
+    escritor: Arc<Escritor>,
+    entrega: Option<Entrega>,
+    parar: Arc<AtomicBool>,
+) {
     let _com = ComDaThread::iniciar();
-    if let Err(msg) = transmitir_com_o_media_foundation(pedido, fonte, &escritor, parar) {
+    if let Err(msg) = transmitir_com_o_media_foundation(pedido, fonte, &escritor, entrega, parar) {
         escritor.manda(&Evento::erro(format!("transmissão parou: {msg}")));
     }
     escritor.manda(&Evento::transmissao_encerrada());
@@ -51,10 +58,11 @@ fn transmitir_com_o_media_foundation(
     pedido: PedidoDeTela,
     fonte: NativeVideoSource,
     escritor: &Arc<Escritor>,
+    entrega: Option<Entrega>,
     parar: Arc<AtomicBool>,
 ) -> Result<(), String> {
     unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(em("iniciar o Media Foundation"))?;
-    let feito = Laco::novo(pedido, fonte, Arc::clone(escritor), parar).rodar();
+    let feito = Laco::novo(pedido, fonte, Arc::clone(escritor), entrega, parar).rodar();
     let _ = unsafe { MFShutdown() };
     feito
 }
@@ -63,6 +71,7 @@ struct Laco {
     pedido: PedidoDeTela,
     saida: NativeVideoSource,
     escritor: Arc<Escritor>,
+    entrega: Option<Entrega>,
     parar: Arc<AtomicBool>,
     comeco: Instant,
     fps: u32,
@@ -87,15 +96,23 @@ struct Turno {
     chave_pendente: bool,
     tem_imagem: bool,
     perfil_anunciado: bool,
+    espelho: Option<Espelho>,
 }
 
 impl Laco {
-    fn novo(pedido: PedidoDeTela, saida: NativeVideoSource, escritor: Arc<Escritor>, parar: Arc<AtomicBool>) -> Self {
+    fn novo(
+        pedido: PedidoDeTela,
+        saida: NativeVideoSource,
+        escritor: Arc<Escritor>,
+        entrega: Option<Entrega>,
+        parar: Arc<AtomicBool>,
+    ) -> Self {
         let agora = Instant::now();
         Self {
             pedido,
             saida,
             escritor,
+            entrega,
             parar,
             comeco: agora,
             fps: pedido.fps,
@@ -139,6 +156,7 @@ impl Laco {
             None => Fonte::Sintetica,
         };
         let (width, height) = aberta.codificacao.saida;
+        let espelho = self.entrega.is_some().then(|| Espelho::novo(aberta.codificacao.dispositivo()));
         let mut turno = Turno {
             fonte,
             codificacao: aberta.codificacao,
@@ -150,6 +168,7 @@ impl Laco {
             chave_pendente: false,
             tem_imagem: false,
             perfil_anunciado: false,
+            espelho,
         };
         if self.kbps != self.pedido.kbps && !turno.codificacao.compressor.mudar_taxa(self.kbps) {
             self.kbps = self.pedido.kbps;
@@ -235,14 +254,14 @@ impl Laco {
     }
 
     fn alimentar(&mut self, turno: &mut Turno) -> Result<bool, Falha> {
-        let preparo = match self.preparar_o_quadro(turno)? {
+        let (preparo, novo) = match self.preparar_o_quadro(turno)? {
             Some(gasto) => {
                 turno.tem_imagem = true;
-                gasto
+                (gasto, true)
             }
             None if self.reapresentar_agora(turno) => {
                 self.ritmo.contar_reapresentado();
-                Duration::ZERO
+                (Duration::ZERO, false)
             }
             None => return Ok(false),
         };
@@ -257,7 +276,23 @@ impl Laco {
         turno.pedidos -= 1;
         turno.quadros += 1;
         self.quadro = self.quadro.wrapping_add(1);
+        if novo {
+            self.espelhar(turno);
+        }
         Ok(true)
+    }
+
+    fn espelhar(&self, turno: &mut Turno) {
+        let (Some(entrega), Some(espelho)) = (&self.entrega, turno.espelho.as_mut()) else { return };
+        let (fonte, tamanho) = turno.codificacao.bancada.fonte_do_espelho();
+        match espelho.talvez(fonte, tamanho) {
+            Ok(Some(quadro)) => entrega.mandar("", quadro),
+            Ok(None) => {}
+            Err(erro) => {
+                eprintln!("espelho desligado: {erro}");
+                turno.espelho = None;
+            }
+        }
     }
 
     fn reapresentar_agora(&self, turno: &Turno) -> bool {

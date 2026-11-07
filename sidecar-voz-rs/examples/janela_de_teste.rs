@@ -1,8 +1,9 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
-    BeginPaint, CreateSolidBrush, DeleteObject, EndPaint, FillRect, HDC, InvalidateRect, PAINTSTRUCT,
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BeginPaint, CreateSolidBrush, DIB_RGB_COLORS, DeleteObject, EndPaint,
+    FillRect, HDC, InvalidateRect, PAINTSTRUCT, SetDIBitsToDevice,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext};
@@ -19,7 +20,9 @@ const INTERVALO: Duration = Duration::from_micros(16_667);
 const METADE_DO_CENTRO: i32 = 120;
 const ROTEIRO: [(u64, Passo); 3] = [(4, Passo::Encolher), (6, Passo::Minimizar), (8, Passo::Restaurar)];
 const ROTEIRO_DA_PARADA: [(u64, Passo); 2] = [(3, Passo::Congelar), (15, Passo::Afinar)];
+const LADO_DO_BLOCO_DE_RUIDO: usize = 8;
 static QUADRO: AtomicU32 = AtomicU32::new(0);
+static RUIDO: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy)]
 enum Passo {
@@ -51,6 +54,7 @@ fn ler_o_pedido() -> Pedido {
     let argumentos: Vec<String> = std::env::args().skip(1).collect();
     let numero = |indice: usize, padrao: i32| argumentos.get(indice).and_then(|texto| texto.parse().ok()).unwrap_or(padrao);
     let pediu = |opcao: &str| argumentos.iter().any(|argumento| argumento == opcao);
+    RUIDO.store(pediu("--ruido"), Ordering::Relaxed);
     let roteiro: &'static [(u64, Passo)] = if pediu("--roteiro") {
         &ROTEIRO
     } else if pediu("--parada") {
@@ -187,6 +191,11 @@ fn pintar(janela: HWND) {
     let mut area = RECT::default();
     let _ = unsafe { GetClientRect(janela, &mut area) };
     let quadro = QUADRO.load(Ordering::Relaxed);
+    if RUIDO.load(Ordering::Relaxed) {
+        pintar_o_ruido(dc, &area, quadro);
+        let _ = unsafe { EndPaint(janela, &pintura) };
+        return;
+    }
     preencher(dc, &area, cor(30, 30, (quadro / 2 % 200) as u8 + 30));
     pintar_as_faixas(dc, &area, quadro);
     let (x, y) = (area.right / 2, area.bottom / 2);
@@ -209,6 +218,55 @@ fn pintar_as_faixas(dc: HDC, area: &RECT, quadro: u32) {
         let retangulo = RECT { left: x, top: y, right: x + largura / 10, bottom: y + altura_da_faixa };
         preencher(dc, &retangulo, cor((faixa * 30) as u8, 200, 120));
     }
+}
+
+fn pintar_o_ruido(dc: HDC, area: &RECT, quadro: u32) {
+    let (largura, altura) = (area.right.max(1) as usize, area.bottom.max(1) as usize);
+    let colunas = largura.div_ceil(LADO_DO_BLOCO_DE_RUIDO);
+    let mut semente = quadro.wrapping_mul(0x9E37_79B9) | 1;
+    let cores: Vec<u32> = (0..colunas * altura.div_ceil(LADO_DO_BLOCO_DE_RUIDO)).map(|_| sortear(&mut semente)).collect();
+    let mut pixels = vec![0u32; largura * altura];
+    for (y, linha) in pixels.chunks_exact_mut(largura).enumerate() {
+        let fileira = &cores[y / LADO_DO_BLOCO_DE_RUIDO * colunas..][..colunas];
+        for (pedaco, &cor) in linha.chunks_mut(LADO_DO_BLOCO_DE_RUIDO).zip(fileira) {
+            pedaco.fill(cor);
+        }
+    }
+    let formato = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: largura as i32,
+            biHeight: -(altura as i32),
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    unsafe {
+        SetDIBitsToDevice(
+            dc,
+            0,
+            0,
+            largura as u32,
+            altura as u32,
+            0,
+            0,
+            0,
+            altura as u32,
+            pixels.as_ptr().cast(),
+            &formato,
+            DIB_RGB_COLORS,
+        )
+    };
+}
+
+fn sortear(semente: &mut u32) -> u32 {
+    *semente ^= *semente << 13;
+    *semente ^= *semente >> 17;
+    *semente ^= *semente << 5;
+    *semente
 }
 
 fn preencher(dc: HDC, area: &RECT, cor: COLORREF) {

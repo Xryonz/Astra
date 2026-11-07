@@ -12,6 +12,7 @@ pub struct Ritmo {
     latencia: Duration,
     trabalho: Duration,
     reapresentados: u32,
+    janela: Option<(u32, u32)>,
 }
 
 pub struct Segundo {
@@ -31,6 +32,7 @@ impl Ritmo {
             latencia: Duration::ZERO,
             trabalho: Duration::ZERO,
             reapresentados: 0,
+            janela: None,
         }
     }
 
@@ -47,6 +49,10 @@ impl Ritmo {
 
     pub fn contar_reapresentado(&mut self) {
         self.reapresentados += 1;
+    }
+
+    pub fn anotar_janela(&mut self, largura: u32, altura: u32) {
+        self.janela = Some((largura, altura));
     }
 
     pub fn contar_pedido_de_chave(&mut self) {
@@ -91,6 +97,9 @@ impl Ritmo {
         }
         if self.reapresentados > 0 {
             texto.push_str(&format!(" · {} reapresentados com a tela parada", self.reapresentados));
+        }
+        if let Some((largura, altura)) = self.janela {
+            texto.push_str(&format!(" · janela agora {largura}x{altura}"));
         }
         texto
     }

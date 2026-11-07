@@ -214,7 +214,7 @@ impl Laco {
     }
 
     fn preparar_o_quadro(&mut self) -> Result<Option<Duration>, String> {
-        let bancada = &self.codificacao.bancada;
+        let bancada = &mut self.codificacao.bancada;
         match &mut self.fonte {
             Fonte::Sintetica => {
                 let marco = Instant::now();
@@ -222,7 +222,7 @@ impl Laco {
                 bancada.preparar().map_err(em("preparar o quadro"))?;
                 Ok(Some(marco.elapsed()))
             }
-            Fonte::Janela(captura) => trazer_da_janela(captura, bancada),
+            Fonte::Janela(captura) => trazer_da_janela(captura, bancada, &mut self.ritmo),
         }
     }
 
@@ -266,16 +266,20 @@ fn em_cem_nanos(tempo: Duration) -> i64 {
     (tempo.as_nanos() / 100) as i64
 }
 
-fn trazer_da_janela(captura: &mut CapturaDeJanela, bancada: &Bancada) -> Result<Option<Duration>, String> {
+fn trazer_da_janela(
+    captura: &mut CapturaDeJanela,
+    bancada: &mut Bancada,
+    ritmo: &mut Ritmo,
+) -> Result<Option<Duration>, String> {
     let limite = Instant::now() + ESPERA_POR_QUADRO_NOVO;
     loop {
         let marco = Instant::now();
         match captura.colher().map_err(em("colher o quadro da janela"))? {
             Colheita::Quadro(quadro) => {
-                bancada.trazer(&quadro.textura, captura.tamanho());
+                bancada.trazer(&quadro.textura, captura.tamanho()).map_err(em("encaixar o quadro da janela"))?;
                 return Ok(Some(marco.elapsed()));
             }
-            Colheita::MudouDeTamanho(..) => {}
+            Colheita::MudouDeTamanho(largura, altura) => ritmo.anotar_janela(largura, altura),
             Colheita::Nada => {
                 let resta = limite.saturating_duration_since(Instant::now());
                 if resta.is_zero() || !captura.esperar(resta) {

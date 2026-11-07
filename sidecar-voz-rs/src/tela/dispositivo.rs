@@ -10,6 +10,7 @@ use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_SAMPLE_DESC};
 use windows::Win32::Graphics::Dxgi::IDXGIAdapter1;
 use windows::core::Interface;
 
+#[derive(Clone)]
 pub struct Dispositivo {
     pub placa: ID3D11Device,
     pub contexto: ID3D11DeviceContext,

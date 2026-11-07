@@ -14,19 +14,30 @@ pub fn placas_de_hardware() -> windows::core::Result<Vec<Placa>> {
     let mut numero = 0;
     while let Ok(adaptador) = unsafe { fabrica.EnumAdapters1(numero) } {
         numero += 1;
-        let desc = unsafe { adaptador.GetDesc1()? };
-        if desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32 != 0 {
-            continue;
+        let (placa, de_software) = descrever(adaptador)?;
+        if !de_software {
+            placas.push(placa);
         }
-        let fim = desc.Description.iter().position(|&c| c == 0).unwrap_or(desc.Description.len());
-        placas.push(Placa {
-            nome: String::from_utf16_lossy(&desc.Description[..fim]),
-            fabricante: desc.VendorId,
-            luid: desc.AdapterLuid,
-            adaptador,
-        });
     }
     Ok(placas)
+}
+
+pub fn placa_padrao() -> windows::core::Result<Placa> {
+    let fabrica: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
+    let adaptador = unsafe { fabrica.EnumAdapters1(0)? };
+    descrever(adaptador).map(|(placa, _)| placa)
+}
+
+fn descrever(adaptador: IDXGIAdapter1) -> windows::core::Result<(Placa, bool)> {
+    let desc = unsafe { adaptador.GetDesc1()? };
+    let fim = desc.Description.iter().position(|&c| c == 0).unwrap_or(desc.Description.len());
+    let placa = Placa {
+        nome: String::from_utf16_lossy(&desc.Description[..fim]),
+        fabricante: desc.VendorId,
+        luid: desc.AdapterLuid,
+        adaptador,
+    };
+    Ok((placa, desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32 != 0))
 }
 
 pub fn nome_do_fabricante(codigo: u32) -> &'static str {

@@ -1,8 +1,8 @@
 use super::medidas::{Custos, ResumoDosCustos, arredondar, tempo_de_cpu};
 use super::relogio::Relogio;
 use crate::tela::{
-    Aceitos, Codificacao, Configuracao, Entrada, Evento, Origem, Perfil, Placa, Unidade, abrir_codificacao,
-    codificadores_h264_da_placa, em, ler_unidade,
+    Aceitos, Caminho, Codificacao, Configuracao, Entrada, Evento, Origem, Perfil, Placa, Unidade, abrir_codificacao,
+    codificadores_h264_da_placa, codificadores_h264_de_software, em, ler_unidade, placa_padrao, teto_sem_placa,
 };
 use serde::Serialize;
 use std::ops::Range;
@@ -71,7 +71,13 @@ struct Saida {
     unidade: Unidade,
 }
 
-pub fn ensaiar_com_limite(placa: &Placa, entrada: Entrada, relogio: Relogio) -> ResultadoDoEnsaio {
+#[derive(Clone, Copy)]
+pub enum Alvo<'a> {
+    Placa(&'a Placa),
+    Memoria,
+}
+
+pub fn ensaiar_com_limite(alvo: Alvo, entrada: Entrada, relogio: Relogio) -> ResultadoDoEnsaio {
     let (_feito, espera) = mpsc::channel::<()>();
     std::thread::spawn(move || {
         if espera.recv_timeout(LIMITE) == Err(RecvTimeoutError::Timeout) {
@@ -79,27 +85,46 @@ pub fn ensaiar_com_limite(placa: &Placa, entrada: Entrada, relogio: Relogio) -> 
             std::process::exit(3);
         }
     });
-    match ensaiar(placa, entrada, relogio) {
+    match ensaiar(alvo, entrada, relogio) {
         Ok(ensaio) => ResultadoDoEnsaio::Feito(Box::new(ensaio)),
         Err(erro) => ResultadoDoEnsaio::Falhou { entrada: entrada.nome(), relogio: relogio.nome(), erro },
     }
 }
 
-fn ensaiar(placa: &Placa, entrada: Entrada, relogio: Relogio) -> Result<Ensaio, String> {
+fn ensaiar(alvo: Alvo, entrada: Entrada, relogio: Relogio) -> Result<Ensaio, String> {
     let _relogio = relogio.valer();
-    let config = Configuracao { largura: LARGURA, altura: ALTURA, fps: FPS, kbps: KBPS_ANTES, entrada };
-    let codificador = codificadores_h264_da_placa(placa.luid)
-        .map_err(em("listar os codificadores"))?
-        .into_iter()
-        .next()
-        .ok_or("a placa não tem codificador H.264")?;
-    let mut rodada = Rodada::nova(abrir_codificacao(placa, codificador, config, Origem::Sintetica)?);
+    let mut rodada = Rodada::nova(abrir_para_o_ensaio(alvo, entrada)?);
     let cpu_antes = tempo_de_cpu();
     let comeco = Instant::now();
     rodada.rodar()?;
     let parede = comeco.elapsed();
     let cpu = tempo_de_cpu().saturating_sub(cpu_antes);
     Ok(rodada.relatar(entrada, relogio, parede, cpu))
+}
+
+fn abrir_para_o_ensaio(alvo: Alvo, entrada: Entrada) -> Result<Codificacao, String> {
+    let config = Configuracao { largura: LARGURA, altura: ALTURA, fps: FPS, kbps: KBPS_ANTES, entrada };
+    match alvo {
+        Alvo::Placa(placa) => {
+            let codificador = codificadores_h264_da_placa(placa.luid)
+                .map_err(em("listar os codificadores"))?
+                .into_iter()
+                .next()
+                .ok_or("a placa não tem codificador H.264")?;
+            abrir_codificacao(placa, codificador, config, Origem::Sintetica, Caminho::Placa)
+        }
+        Alvo::Memoria => {
+            let placa = placa_padrao().map_err(em("achar a placa padrão"))?;
+            let codificador = codificadores_h264_de_software()
+                .map_err(em("listar os codificadores de software"))?
+                .into_iter()
+                .next()
+                .ok_or("não há codificador H.264 de software")?;
+            let (largura, altura) = teto_sem_placa(LARGURA, ALTURA);
+            let config = Configuracao { largura, altura, ..config };
+            abrir_codificacao(&placa, codificador, config, Origem::Sintetica, Caminho::Memoria)
+        }
+    }
 }
 
 struct Rodada {
@@ -152,7 +177,7 @@ impl Rodada {
         let preparado = Instant::now();
         self.seguir_o_roteiro(quadro);
         let antes_de_entregar = Instant::now();
-        let codificacao = &self.codificacao;
+        let codificacao = &mut self.codificacao;
         let tempo = codificacao.compressor.tempo_do_quadro(quadro);
         codificacao.compressor.entregar(&codificacao.amostra, tempo).map_err(em("entregar o quadro"))?;
         let entregue = Instant::now();
@@ -177,6 +202,10 @@ impl Rodada {
     fn receber(&mut self) -> Result<bool, String> {
         match self.codificacao.compressor.proximo_evento()? {
             Evento::PedeEntrada => self.pedidos += 1,
+            Evento::Engoliu => {
+                self.entregue_em = None;
+                self.pedidos += 1;
+            }
             Evento::Saida { tempo, bytes, chegou, custo } => {
                 if let Some(entregue) = self.entregue_em.take() {
                     self.custos.latencia.push(chegou - entregue);

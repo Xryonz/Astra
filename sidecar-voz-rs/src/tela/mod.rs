@@ -17,13 +17,13 @@ mod ruido;
 
 pub use bancada::{Bancada, Origem};
 pub use captura_de_janela::{CapturaDeJanela, Colheita};
-pub use codificacao::{Codificacao, abrir_codificacao};
+pub use codificacao::{Caminho, Codificacao, abrir_codificacao, teto_sem_placa};
 pub use dispositivo::dispositivo_da_placa;
-pub use codificadores::codificadores_h264_da_placa;
+pub use codificadores::{codificadores_h264_da_placa, codificadores_h264_de_software};
 pub use compressor::{Aceitos, Configuracao, Entrada, Evento};
 pub use etapa::em;
 pub use h264::{Perfil, Unidade, ler_unidade};
 pub use janelas::{Janela, listar_janelas};
 pub use leitor::LeitorDePixel;
 pub use monitores::{Monitor, listar_monitores};
-pub use placas::{Placa, nome_do_fabricante, placas_de_hardware};
+pub use placas::{Placa, nome_do_fabricante, placa_padrao, placas_de_hardware};

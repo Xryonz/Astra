@@ -5,8 +5,8 @@ use super::troca::{abrir_o_primeiro_que_aceitar, condenar};
 use crate::com::ComDaThread;
 use crate::ponte::{Escritor, Evento};
 use crate::tela::{
-    Aceitos, Bancada, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Evento as DoCodificador,
-    Origem, Unidade, em, ler_unidade,
+    Bancada, Caminho, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Evento as DoCodificador, Origem,
+    Unidade, em, ler_unidade,
 };
 use livekit::webrtc::video_frame::{EncodedFrameType, EncodedVideoCodec, EncodedVideoFrame};
 use livekit::webrtc::video_source::VideoResolution;
@@ -64,7 +64,6 @@ struct Laco {
     saida: NativeVideoSource,
     escritor: Arc<Escritor>,
     parar: Arc<AtomicBool>,
-    resolucao: VideoResolution,
     comeco: Instant,
     fps: u32,
     intervalo: Duration,
@@ -81,6 +80,7 @@ struct Turno {
     fonte: Fonte,
     codificacao: Codificacao,
     identidade: String,
+    resolucao: VideoResolution,
     pedidos: u32,
     entregue_em: Option<Instant>,
     quadros: u32,
@@ -97,7 +97,6 @@ impl Laco {
             saida,
             escritor,
             parar,
-            resolucao: VideoResolution { width: pedido.largura, height: pedido.altura },
             comeco: agora,
             fps: pedido.fps,
             intervalo: Duration::from_secs(1) / pedido.fps,
@@ -139,10 +138,12 @@ impl Laco {
             ),
             None => Fonte::Sintetica,
         };
+        let (width, height) = aberta.codificacao.saida;
         let mut turno = Turno {
             fonte,
             codificacao: aberta.codificacao,
             identidade: aberta.identidade,
+            resolucao: VideoResolution { width, height },
             pedidos: 0,
             entregue_em: None,
             quadros: 0,
@@ -153,7 +154,7 @@ impl Laco {
         if self.kbps != self.pedido.kbps && !turno.codificacao.compressor.mudar_taxa(self.kbps) {
             self.kbps = self.pedido.kbps;
         }
-        let resumo = como_subiu(&self.pedido, self.fps, turno.codificacao.compressor.aceitos, &turno.fonte);
+        let resumo = como_subiu(self.fps, &turno.codificacao, &turno.fonte);
         self.escritor.manda(&Evento::transmissao(&turno.codificacao.nome, resumo));
         Ok(turno)
     }
@@ -247,7 +248,7 @@ impl Laco {
         };
         let tempo = em_cem_nanos(self.comeco.elapsed());
         let marco = Instant::now();
-        let codificacao = &turno.codificacao;
+        let codificacao = &mut turno.codificacao;
         codificacao.compressor.entregar(&codificacao.amostra, tempo).map_err(do_codificador("entregar o quadro"))?;
         let entregue = Instant::now();
         self.ritmo.contar_trabalho(preparo + (entregue - marco));
@@ -279,6 +280,10 @@ impl Laco {
     fn receber(&mut self, turno: &mut Turno) -> Result<(), Falha> {
         match turno.codificacao.compressor.proximo_evento().map_err(Falha::DoCodificador)? {
             DoCodificador::PedeEntrada => turno.pedidos += 1,
+            DoCodificador::Engoliu => {
+                turno.entregue_em = None;
+                turno.pedidos += 1;
+            }
             DoCodificador::Saida { bytes, chegou, custo, .. } => {
                 let latencia = turno.entregue_em.take().map(|entregue| chegou - entregue);
                 self.ritmo.contar_trabalho(custo);
@@ -297,7 +302,7 @@ impl Laco {
             payload: bytes,
             timestamp_us: 0,
             frame_type: if unidade.idr { EncodedFrameType::Key } else { EncodedFrameType::Delta },
-            resolution: self.resolucao.clone(),
+            resolution: turno.resolucao.clone(),
             frame_metadata: None,
         });
         self.ultima_saida = Instant::now();
@@ -342,7 +347,7 @@ fn trazer_da_janela(
     }
 }
 
-fn como_subiu(pedido: &PedidoDeTela, fps: u32, aceitos: Aceitos, fonte: &Fonte) -> String {
+fn como_subiu(fps: u32, codificacao: &Codificacao, fonte: &Fonte) -> String {
     let origem = match fonte {
         Fonte::Sintetica => "fonte sintética".to_owned(),
         Fonte::Janela(captura) => {
@@ -350,8 +355,13 @@ fn como_subiu(pedido: &PedidoDeTela, fps: u32, aceitos: Aceitos, fonte: &Fonte) 
             format!("janela {largura}x{altura}")
         }
     };
-    let mut texto = format!("{}x{} @{fps} · {origem}", pedido.largura, pedido.altura);
-    let ligados = [(aceitos.taxa_variavel, "taxa variável"), (aceitos.baixa_latencia, "baixa latência"), (aceitos.cabac, "CABAC")];
+    let (largura, altura) = codificacao.saida;
+    let na_memoria = codificacao.caminho == Caminho::Memoria;
+    let sem_placa = if na_memoria { "sem aceleração de placa · " } else { "" };
+    let taxa = if na_memoria { "taxa constante" } else { "taxa variável" };
+    let mut texto = format!("{sem_placa}{largura}x{altura} @{fps} · {origem}");
+    let aceitos = codificacao.compressor.aceitos;
+    let ligados = [(aceitos.controle_de_taxa, taxa), (aceitos.baixa_latencia, "baixa latência"), (aceitos.cabac, "CABAC")];
     for (_, nome) in ligados.into_iter().filter(|&(aceito, _)| aceito) {
         texto.push_str(" · ");
         texto.push_str(nome);

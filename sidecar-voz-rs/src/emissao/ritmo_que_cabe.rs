@@ -56,6 +56,25 @@ mod testes {
     const APERTADO: Duration = Duration::from_millis(14);
 
     #[test]
+    fn a_taxa_sai_do_trabalho_de_cada_quadro() {
+        let casos = [
+            (Duration::from_micros(940), 60, 60),
+            (Duration::from_micros(4530), 60, 60),
+            (Duration::from_micros(8333), 60, 60),
+            (Duration::from_micros(8400), 60, 30),
+            (Duration::from_millis(14), 60, 30),
+            (Duration::from_millis(27), 60, 30),
+            (Duration::from_millis(90), 60, 30),
+            (Duration::from_micros(940), 30, 30),
+            (Duration::from_millis(27), 30, 30),
+            (Duration::ZERO, 60, 60),
+        ];
+        for (trabalho, teto, esperado) in casos {
+            assert_eq!(taxa_que_cabe(trabalho, teto), esperado, "{trabalho:?} com teto {teto}");
+        }
+    }
+
+    #[test]
     fn um_segundo_ruim_nao_derruba_a_taxa() {
         let mut cabe = RitmoQueCabe::novo(60);
         assert_eq!(cabe.segundo(APERTADO, 60), None);

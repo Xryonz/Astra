@@ -41,6 +41,7 @@ fn sondar_codificador() -> i32 {
             for placa in &placas {
                 println!("{}", relato::relatar(placa));
             }
+            println!("{}", relato::relatar_sem_placa());
             0
         }
         Err(e) => {

@@ -7,13 +7,14 @@ pub use comandos::Aceitos;
 use super::etapa::em;
 use comandos::Comandos;
 use saida::{Puxado, puxar};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use windows::Win32::Foundation::E_POINTER;
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11Texture2D};
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12};
 use windows::Win32::Media::MediaFoundation::{
     ICodecAPI, IMF2DBuffer, IMFDXGIDeviceManager, IMFMediaEventGenerator, IMFSample, IMFTransform,
-    METransformDrainComplete, METransformHaveOutput, METransformNeedInput, MF_EVENT_FLAG_NONE,
+    METransformDrainComplete, METransformHaveOutput, METransformNeedInput, MF_EVENT_FLAG_NONE, MF_TRANSFORM_ASYNC,
     MF_TRANSFORM_ASYNC_UNLOCK, MFCreateDXGIDeviceManager, MFCreateDXGISurfaceBuffer, MFCreateSample,
     MFT_MESSAGE_COMMAND_DRAIN, MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, MFT_MESSAGE_NOTIFY_END_OF_STREAM,
     MFT_MESSAGE_NOTIFY_END_STREAMING, MFT_MESSAGE_NOTIFY_START_OF_STREAM, MFT_MESSAGE_SET_D3D_MANAGER,
@@ -66,6 +67,7 @@ pub struct Configuracao {
 
 pub enum Evento {
     PedeEntrada,
+    Engoliu,
     Saida { tempo: Option<i64>, bytes: Vec<u8>, chegou: Instant, custo: Duration },
     FimDoDreno,
     Nenhum,
@@ -73,9 +75,11 @@ pub enum Evento {
 
 pub struct Compressor {
     transformacao: IMFTransform,
-    eventos: IMFMediaEventGenerator,
+    eventos: Option<IMFMediaEventGenerator>,
+    prontos: VecDeque<Evento>,
+    engoliu: bool,
     comandos: Comandos,
-    _gerente: IMFDXGIDeviceManager,
+    _gerente: Option<IMFDXGIDeviceManager>,
     config: Configuracao,
     perfil: u32,
     traz_amostra: bool,
@@ -84,19 +88,29 @@ pub struct Compressor {
 }
 
 impl Compressor {
-    pub fn abrir(transformacao: IMFTransform, placa: &ID3D11Device, config: Configuracao) -> Result<Self, String> {
-        destrancar(&transformacao).map_err(em("destrancar o modo assíncrono"))?;
-        let gerente = gerente_da_placa(placa).map_err(em("criar o gerente da placa"))?;
-        unsafe { transformacao.ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, gerente.as_raw() as usize) }
-            .map_err(em("entregar a placa ao codificador"))?;
+    pub fn abrir(transformacao: IMFTransform, placa: Option<&ID3D11Device>, config: Configuracao) -> Result<Self, String> {
+        let por_eventos = e_assincrona(&transformacao);
+        if por_eventos {
+            destrancar(&transformacao).map_err(em("destrancar o modo assíncrono"))?;
+        }
+        let gerente = match placa {
+            Some(placa) => Some(entregar_a_placa(&transformacao, placa)?),
+            None => None,
+        };
         let comandos = Comandos(transformacao.cast::<ICodecAPI>().map_err(em("pedir o ICodecAPI"))?);
-        let aceitos = comandos.configurar(config.kbps);
+        let aceitos = if por_eventos { comandos.configurar(config.kbps) } else { comandos.configurar_constante(config.kbps) };
         let perfil = tipos::configurar_saida(&transformacao, &config)?;
         tipos::configurar_entrada(&transformacao, &config)?;
-        let eventos = transformacao.cast::<IMFMediaEventGenerator>().map_err(em("pedir os eventos"))?;
+        let eventos = if por_eventos {
+            Some(transformacao.cast::<IMFMediaEventGenerator>().map_err(em("pedir os eventos"))?)
+        } else {
+            None
+        };
         let mut compressor = Self {
             transformacao,
             eventos,
+            prontos: VecDeque::new(),
+            engoliu: false,
             comandos,
             _gerente: gerente,
             config,
@@ -115,12 +129,18 @@ impl Compressor {
         self.perfil
     }
 
-    pub fn entregar(&self, amostra: &IMFSample, tempo: i64) -> windows::core::Result<()> {
+    pub fn entregar(&mut self, amostra: &IMFSample, tempo: i64) -> windows::core::Result<()> {
         unsafe {
             amostra.SetSampleTime(tempo)?;
             amostra.SetSampleDuration(CEM_NANOS_POR_SEGUNDO / i64::from(self.config.fps))?;
-            self.transformacao.ProcessInput(0, amostra, 0)
+            self.transformacao.ProcessInput(0, amostra, 0)?;
         }
+        if self.eventos.is_none() {
+            let prontos = self.colher_o_que_saiu()?;
+            self.engoliu = prontos.is_empty();
+            self.prontos.extend(prontos);
+        }
+        Ok(())
     }
 
     pub fn ajustar_quadros(&mut self, fps: u32) {
@@ -136,7 +156,8 @@ impl Compressor {
     }
 
     pub fn proximo_evento(&mut self) -> Result<Evento, String> {
-        let evento = unsafe { self.eventos.GetEvent(MF_EVENT_FLAG_NONE) }.map_err(em("esperar o codificador"))?;
+        let Some(eventos) = &self.eventos else { return Ok(self.proximo_por_chamadas()) };
+        let evento = unsafe { eventos.GetEvent(MF_EVENT_FLAG_NONE) }.map_err(em("esperar o codificador"))?;
         let chegou = Instant::now();
         unsafe { evento.GetStatus() }
             .and_then(|estado| estado.ok())
@@ -161,9 +182,25 @@ impl Compressor {
         self.comandos.pedir_quadro_chave()
     }
 
-    pub fn drenar(&self) -> windows::core::Result<()> {
+    pub fn drenar(&mut self) -> windows::core::Result<()> {
         self.avisar(MFT_MESSAGE_NOTIFY_END_OF_STREAM)?;
-        self.avisar(MFT_MESSAGE_COMMAND_DRAIN)
+        self.avisar(MFT_MESSAGE_COMMAND_DRAIN)?;
+        if self.eventos.is_none() {
+            let prontos = self.colher_o_que_saiu()?;
+            self.prontos.extend(prontos);
+            self.prontos.push_back(Evento::FimDoDreno);
+        }
+        Ok(())
+    }
+
+    fn proximo_por_chamadas(&mut self) -> Evento {
+        if let Some(pronto) = self.prontos.pop_front() {
+            return pronto;
+        }
+        if std::mem::take(&mut self.engoliu) {
+            return Evento::Engoliu;
+        }
+        Evento::PedeEntrada
     }
 
     fn colher(&mut self, chegou: Instant) -> Result<Evento, String> {
@@ -171,12 +208,28 @@ impl Compressor {
             Puxado::Pacote { tempo, bytes } => Ok(Evento::Saida { tempo, bytes, chegou, custo: chegou.elapsed() }),
             Puxado::Nada => Ok(Evento::Nenhum),
             Puxado::MudouOFormato => {
-                tipos::saida_com_perfil(&self.transformacao, &self.config, self.perfil)
-                    .map_err(em("refazer a saída H.264"))?;
-                self.ler_a_saida().map_err(em("perguntar como sai o H.264"))?;
+                self.refazer_a_saida().map_err(em("refazer a saída H.264"))?;
                 Ok(Evento::Nenhum)
             }
         }
+    }
+
+    fn colher_o_que_saiu(&mut self) -> windows::core::Result<Vec<Evento>> {
+        let mut prontos = Vec::new();
+        loop {
+            match puxar(&self.transformacao, self.traz_amostra, self.tamanho_da_saida)? {
+                Puxado::Pacote { tempo, bytes } => {
+                    prontos.push(Evento::Saida { tempo, bytes, chegou: Instant::now(), custo: Duration::ZERO });
+                }
+                Puxado::Nada => return Ok(prontos),
+                Puxado::MudouOFormato => self.refazer_a_saida()?,
+            }
+        }
+    }
+
+    fn refazer_a_saida(&mut self) -> windows::core::Result<()> {
+        tipos::saida_com_perfil(&self.transformacao, &self.config, self.perfil)?;
+        self.ler_a_saida()
     }
 
     fn ler_a_saida(&mut self) -> windows::core::Result<()> {
@@ -208,8 +261,21 @@ pub fn amostra_da_textura(textura: &ID3D11Texture2D) -> windows::core::Result<IM
     }
 }
 
+fn e_assincrona(transformacao: &IMFTransform) -> bool {
+    unsafe { transformacao.GetAttributes() }
+        .and_then(|atributos| unsafe { atributos.GetUINT32(&MF_TRANSFORM_ASYNC) })
+        .is_ok_and(|valor| valor != 0)
+}
+
 fn destrancar(transformacao: &IMFTransform) -> windows::core::Result<()> {
     unsafe { transformacao.GetAttributes()?.SetUINT32(&MF_TRANSFORM_ASYNC_UNLOCK, 1) }
+}
+
+fn entregar_a_placa(transformacao: &IMFTransform, placa: &ID3D11Device) -> Result<IMFDXGIDeviceManager, String> {
+    let gerente = gerente_da_placa(placa).map_err(em("criar o gerente da placa"))?;
+    unsafe { transformacao.ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, gerente.as_raw() as usize) }
+        .map_err(em("entregar a placa ao codificador"))?;
+    Ok(gerente)
 }
 
 fn gerente_da_placa(placa: &ID3D11Device) -> windows::core::Result<IMFDXGIDeviceManager> {

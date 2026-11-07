@@ -1,10 +1,11 @@
 use windows::Win32::Foundation::LUID;
-use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIFactory1};
+use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIAdapter1, IDXGIFactory1};
 
 pub struct Placa {
     pub nome: String,
     pub fabricante: u32,
     pub luid: LUID,
+    pub adaptador: IDXGIAdapter1,
 }
 
 pub fn placas_de_hardware() -> windows::core::Result<Vec<Placa>> {
@@ -22,6 +23,7 @@ pub fn placas_de_hardware() -> windows::core::Result<Vec<Placa>> {
             nome: String::from_utf16_lossy(&desc.Description[..fim]),
             fabricante: desc.VendorId,
             luid: desc.AdapterLuid,
+            adaptador,
         });
     }
     Ok(placas)

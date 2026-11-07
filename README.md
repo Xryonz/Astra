@@ -492,6 +492,15 @@ O ponto travado é um **commit**, não a versão 2.1 lançada: a 2.1 não compil
 GCC 15 ou 16, porque essas versões deixaram de arrastar `<cstdint>` junto de outros
 cabeçalhos e o código conta com isso. O `d0569cfa` é o primeiro estado já corrigido.
 
+### Código adaptado
+
+| Origem | Para quê | Licença |
+| --- | --- | --- |
+| [moq-video](https://github.com/moq-dev/moq/tree/main/rs/moq-video), de **Luke Curley** | trechos do codificador H.264 por Media Foundation e do conversor de cores do Direct3D 11, adaptados no protótipo da tela em Rust (`sidecar-voz-rs/src/tela/`) | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
+
+O texto da licença fica ao lado do código adaptado, em
+`sidecar-voz-rs/src/tela/LICENCA-moq-video.txt`.
+
 ### Dados
 
 O catálogo que traduz nome de executável em título de jogo

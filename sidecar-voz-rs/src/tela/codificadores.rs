@@ -1,13 +1,30 @@
 use windows::Win32::Foundation::{E_POINTER, LUID};
 use windows::Win32::Media::MediaFoundation::{
-    IMFActivate, IMFAttributes, MFCreateAttributes, MFMediaType_Video, MFT_CATEGORY_VIDEO_ENCODER,
+    IMFActivate, IMFAttributes, IMFTransform, MFCreateAttributes, MFMediaType_Video, MFT_CATEGORY_VIDEO_ENCODER,
     MFT_ENUM_ADAPTER_LUID, MFT_ENUM_FLAG, MFT_ENUM_FLAG_HARDWARE, MFT_ENUM_FLAG_SORTANDFILTER,
     MFT_FRIENDLY_NAME_Attribute, MFT_REGISTER_TYPE_INFO, MFTEnum2, MFVideoFormat_H264,
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::core::PWSTR;
 
-pub fn codificadores_h264_da_placa(luid: LUID) -> windows::core::Result<Vec<String>> {
+pub struct CodificadorDaPlaca {
+    pub nome: String,
+    ativador: IMFActivate,
+}
+
+impl CodificadorDaPlaca {
+    pub fn ativar(&self) -> windows::core::Result<IMFTransform> {
+        unsafe { self.ativador.ActivateObject() }
+    }
+}
+
+impl Drop for CodificadorDaPlaca {
+    fn drop(&mut self) {
+        let _ = unsafe { self.ativador.ShutdownObject() };
+    }
+}
+
+pub fn codificadores_h264_da_placa(luid: LUID) -> windows::core::Result<Vec<CodificadorDaPlaca>> {
     let atributos = atributos_da_placa(luid)?;
     let saida = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_H264 };
     let bandeiras = MFT_ENUM_FLAG(MFT_ENUM_FLAG_HARDWARE.0 | MFT_ENUM_FLAG_SORTANDFILTER.0);
@@ -16,7 +33,7 @@ pub fn codificadores_h264_da_placa(luid: LUID) -> windows::core::Result<Vec<Stri
     unsafe {
         MFTEnum2(MFT_CATEGORY_VIDEO_ENCODER, bandeiras, None, Some(&saida), &atributos, &mut lista, &mut quantos)?;
     }
-    Ok(nomes_liberando(lista, quantos))
+    Ok(tomar_liberando(lista, quantos))
 }
 
 fn atributos_da_placa(luid: LUID) -> windows::core::Result<IMFAttributes> {
@@ -28,15 +45,18 @@ fn atributos_da_placa(luid: LUID) -> windows::core::Result<IMFAttributes> {
     Ok(atributos)
 }
 
-fn nomes_liberando(lista: *mut Option<IMFActivate>, quantos: u32) -> Vec<String> {
+fn tomar_liberando(lista: *mut Option<IMFActivate>, quantos: u32) -> Vec<CodificadorDaPlaca> {
     if lista.is_null() {
         return Vec::new();
     }
     let ativadores = unsafe { std::slice::from_raw_parts_mut(lista, quantos as usize) };
-    let nomes = ativadores.iter().flatten().map(nome_amigavel).collect();
-    ativadores.iter_mut().for_each(|ativador| drop(ativador.take()));
+    let codificadores = ativadores
+        .iter_mut()
+        .filter_map(Option::take)
+        .map(|ativador| CodificadorDaPlaca { nome: nome_amigavel(&ativador), ativador })
+        .collect();
     unsafe { CoTaskMemFree(Some(lista as *const _)) };
-    nomes
+    codificadores
 }
 
 fn nome_amigavel(ativador: &IMFActivate) -> String {

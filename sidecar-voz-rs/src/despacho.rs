@@ -79,7 +79,7 @@ async fn anunciar_os_aparelhos(escritor: &Escritor) -> Result<(), String> {
     Ok(())
 }
 
-async fn anunciar_os_monitores(escritor: &Escritor) {
+async fn anunciar_os_monitores(escritor: &Arc<Escritor>) {
     let lido = tokio::task::spawn_blocking(tela::listar_monitores).await.map_err(|e| e.to_string());
     let lista = match lido.and_then(|resultado| resultado) {
         Ok(lista) => lista,
@@ -88,7 +88,10 @@ async fn anunciar_os_monitores(escritor: &Escritor) {
             Vec::new()
         }
     };
+    let monitores: Vec<u32> = lista.iter().map(|monitor| monitor.indice).collect();
     escritor.manda(&Evento::monitores(lista));
+    let escritor = Arc::clone(escritor);
+    tokio::task::spawn_blocking(move || mandar_as_miniaturas_dos_monitores(&monitores, &escritor));
 }
 
 async fn anunciar_as_janelas(escritor: &Arc<Escritor>) {
@@ -96,10 +99,17 @@ async fn anunciar_as_janelas(escritor: &Arc<Escritor>) {
     let janelas: Vec<u64> = lista.iter().map(|janela| janela.id).collect();
     escritor.manda(&Evento::janelas(lista));
     let escritor = Arc::clone(escritor);
-    tokio::task::spawn_blocking(move || mandar_as_miniaturas(&janelas, &escritor));
+    tokio::task::spawn_blocking(move || mandar_as_miniaturas_das_janelas(&janelas, &escritor));
 }
 
-fn mandar_as_miniaturas(janelas: &[u64], escritor: &Escritor) {
+fn mandar_as_miniaturas_dos_monitores(monitores: &[u32], escritor: &Escritor) {
+    let _com = ComDaThread::iniciar();
+    tela::miniaturas_dos_monitores(monitores, |monitor, png| {
+        escritor.manda(&Evento::miniatura("monitor", monitor.to_string(), base64::codificar(&png)));
+    });
+}
+
+fn mandar_as_miniaturas_das_janelas(janelas: &[u64], escritor: &Escritor) {
     let _com = ComDaThread::iniciar();
     tela::miniaturas_das_janelas(janelas, |janela, png| {
         escritor.manda(&Evento::miniatura("janela", janela.to_string(), base64::codificar(&png)));
@@ -118,7 +128,8 @@ fn pedido_de_tela(comando: &Comando) -> Result<Option<PedidoDeTela>, String> {
     match (positivo(comando.largura), positivo(comando.altura), positivo(comando.fps), positivo(comando.kbps)) {
         (Some(largura), Some(altura), Some(fps), Some(kbps)) => {
             let janela = comando.janela.filter(|&janela| janela != 0);
-            Ok(Some(PedidoDeTela { largura, altura, fps, kbps, janela }))
+            let monitor = u32::try_from(comando.monitor.unwrap_or(0)).map_err(|_| "transmitir de monitor negativo")?;
+            Ok(Some(PedidoDeTela { largura, altura, fps, kbps, janela, monitor }))
         }
         _ => Err("transmitir sem tamanho, ritmo ou taxa".into()),
     }
@@ -175,6 +186,16 @@ mod testes {
         assert!(matches!(pedido_de_tela(&comando_de_tela(false, None)), Ok(None)));
         let Ok(Some(pedido)) = pedido_de_tela(&comando_de_tela(true, Some(8000))) else { panic!("pedido recusado") };
         assert_eq!((pedido.largura, pedido.altura, pedido.fps, pedido.kbps), (1920, 1080, 60, 8000));
+    }
+
+    #[test]
+    fn transmitir_le_o_monitor_e_comeca_no_zero() {
+        let Ok(Some(sem_monitor)) = pedido_de_tela(&comando_de_tela(true, Some(8000))) else { panic!("pedido recusado") };
+        assert_eq!(sem_monitor.monitor, 0);
+        let segundo = Comando { monitor: Some(1), ..comando_de_tela(true, Some(8000)) };
+        assert!(matches!(pedido_de_tela(&segundo), Ok(Some(PedidoDeTela { monitor: 1, .. }))));
+        let negativo = Comando { monitor: Some(-1), ..comando_de_tela(true, Some(8000)) };
+        assert!(pedido_de_tela(&negativo).is_err());
     }
 
     #[test]

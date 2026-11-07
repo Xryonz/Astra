@@ -13,14 +13,14 @@ pub struct Aberta {
 
 pub fn abrir_o_primeiro_que_aceitar(
     config: Configuracao,
-    origem: Origem,
+    exigida: Option<&Placa>,
     condenados: &HashSet<String>,
 ) -> Result<Aberta, String> {
     let mut motivos = Vec::new();
-    if let Some(aberta) = abrir_na_placa(config, origem, condenados, &mut motivos)? {
+    if let Some(aberta) = abrir_na_placa(config, exigida, condenados, &mut motivos)? {
         return Ok(aberta);
     }
-    if let Some(aberta) = abrir_na_memoria(config, origem, condenados, &mut motivos)? {
+    if let Some(aberta) = abrir_na_memoria(config, exigida, condenados, &mut motivos)? {
         return Ok(aberta);
     }
     Err(if motivos.is_empty() { "nenhum codificador H.264 nesta máquina".into() } else { motivos.join("; ") })
@@ -28,11 +28,12 @@ pub fn abrir_o_primeiro_que_aceitar(
 
 fn abrir_na_placa(
     config: Configuracao,
-    origem: Origem,
+    exigida: Option<&Placa>,
     condenados: &HashSet<String>,
     motivos: &mut Vec<String>,
 ) -> Result<Option<Aberta>, String> {
-    for placa in placas_de_hardware().map_err(em("listar as placas"))? {
+    let placas = placas_de_hardware().map_err(em("listar as placas"))?;
+    for placa in placas.iter().filter(|placa| exigida.is_none_or(|exigida| exigida.luid == placa.luid)) {
         let codificadores = match codificadores_h264_da_placa(placa.luid) {
             Ok(codificadores) => codificadores,
             Err(erro) => {
@@ -41,13 +42,13 @@ fn abrir_na_placa(
             }
         };
         for (posicao, codificador) in codificadores.into_iter().enumerate() {
-            let identidade = identidade(&placa, posicao);
+            let identidade = identidade(placa, posicao);
             let nome = codificador.nome.clone();
             if condenados.contains(&identidade) {
                 motivos.push(format!("{nome}: já falhou nesta transmissão"));
                 continue;
             }
-            match abrir_codificacao(&placa, codificador, config, origem, Caminho::Placa) {
+            match abrir_codificacao(placa, codificador, config, Origem::Capturada, Caminho::Placa) {
                 Ok(codificacao) => return Ok(Some(Aberta { codificacao, identidade })),
                 Err(motivo) => motivos.push(format!("{nome} ({}): {motivo}", placa.nome)),
             }
@@ -58,11 +59,18 @@ fn abrir_na_placa(
 
 fn abrir_na_memoria(
     config: Configuracao,
-    origem: Origem,
+    exigida: Option<&Placa>,
     condenados: &HashSet<String>,
     motivos: &mut Vec<String>,
 ) -> Result<Option<Aberta>, String> {
-    let placa = placa_padrao().map_err(em("achar a placa padrão"))?;
+    let padrao;
+    let placa = match exigida {
+        Some(placa) => placa,
+        None => {
+            padrao = placa_padrao().map_err(em("achar a placa padrão"))?;
+            &padrao
+        }
+    };
     let (largura, altura) = teto_sem_placa(config.largura, config.altura);
     let config = Configuracao { largura, altura, entrada: Entrada::Nv12, ..config };
     let codificadores = codificadores_h264_de_software().map_err(em("listar os codificadores de software"))?;
@@ -73,7 +81,7 @@ fn abrir_na_memoria(
             motivos.push(format!("{nome}: já falhou nesta transmissão"));
             continue;
         }
-        match abrir_codificacao(&placa, codificador, config, origem, Caminho::Memoria) {
+        match abrir_codificacao(placa, codificador, config, Origem::Capturada, Caminho::Memoria) {
             Ok(codificacao) => return Ok(Some(Aberta { codificacao, identidade })),
             Err(motivo) => motivos.push(format!("{nome} (na memória): {motivo}")),
         }

@@ -1,13 +1,13 @@
 use super::PedidoDeTela;
 use super::ritmo::Ritmo;
 use super::ritmo_que_cabe::RitmoQueCabe;
-use super::troca::{abrir_o_primeiro_que_aceitar, condenar};
+use super::troca::{Aberta, abrir_o_primeiro_que_aceitar, condenar};
 use crate::com::ComDaThread;
 use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
 use crate::tela::{
-    Bancada, Caminho, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Espelho, Evento as DoCodificador,
-    Origem, Unidade, em, ler_unidade,
+    Bancada, Caminho, CapturaDeJanela, CapturaDoMonitor, Codificacao, Colheita, ColheitaDoMonitor, Configuracao,
+    Entrada, Espelho, Evento as DoCodificador, Unidade, achar_o_monitor, em, ler_unidade, o_monitor_saiu,
 };
 use livekit::webrtc::video_frame::{EncodedFrameType, EncodedVideoCodec, EncodedVideoFrame};
 use livekit::webrtc::video_source::VideoResolution;
@@ -23,8 +23,8 @@ const ESPERA_POR_QUADRO_NOVO: Duration = Duration::from_millis(100);
 const SINAL_DE_VIDA: Duration = Duration::from_secs(2);
 
 enum Fonte {
-    Sintetica,
     Janela(CapturaDeJanela),
+    Monitor(CapturaDoMonitor),
 }
 
 enum Falha {
@@ -78,7 +78,6 @@ struct Laco {
     intervalo: Duration,
     cabe: RitmoQueCabe,
     kbps: u32,
-    quadro: u32,
     ultima_saida: Instant,
     vez: Instant,
     ritmo: Ritmo,
@@ -119,7 +118,6 @@ impl Laco {
             intervalo: Duration::from_secs(1) / pedido.fps,
             cabe: RitmoQueCabe::novo(pedido.fps),
             kbps: pedido.kbps,
-            quadro: 0,
             ultima_saida: agora,
             vez: agora,
             ritmo: Ritmo::novo(),
@@ -146,15 +144,7 @@ impl Laco {
             kbps: self.pedido.kbps,
             entrada: Entrada::Argb,
         };
-        let origem = if self.pedido.janela.is_some() { Origem::Capturada } else { Origem::Sintetica };
-        let aberta = abrir_o_primeiro_que_aceitar(config, origem, &self.condenados)?;
-        let fonte = match self.pedido.janela {
-            Some(janela) => Fonte::Janela(
-                CapturaDeJanela::abrir(aberta.codificacao.placa(), HWND(janela as *mut _))
-                    .map_err(em("abrir a captura da janela"))?,
-            ),
-            None => Fonte::Sintetica,
-        };
+        let (aberta, fonte) = self.abrir_com_a_fonte(config)?;
         let (width, height) = aberta.codificacao.saida;
         let espelho = self.entrega.is_some().then(|| Espelho::novo(aberta.codificacao.dispositivo()));
         let mut turno = Turno {
@@ -176,6 +166,19 @@ impl Laco {
         let resumo = como_subiu(self.fps, &turno.codificacao, &turno.fonte);
         self.escritor.manda(&Evento::transmissao(&turno.codificacao.nome, resumo));
         Ok(turno)
+    }
+
+    fn abrir_com_a_fonte(&self, config: Configuracao) -> Result<(Aberta, Fonte), String> {
+        if let Some(janela) = self.pedido.janela {
+            let aberta = abrir_o_primeiro_que_aceitar(config, None, &self.condenados)?;
+            let captura = CapturaDeJanela::abrir(aberta.codificacao.placa(), HWND(janela as *mut _))
+                .map_err(em("abrir a captura da janela"))?;
+            return Ok((aberta, Fonte::Janela(captura)));
+        }
+        let (placa, saida) = achar_o_monitor(self.pedido.monitor)?;
+        let aberta = abrir_o_primeiro_que_aceitar(config, Some(&placa), &self.condenados)?;
+        let captura = CapturaDoMonitor::abrir(aberta.codificacao.placa(), saida).map_err(em("duplicar o monitor"))?;
+        Ok((aberta, Fonte::Monitor(captura)))
     }
 
     fn trocar_de_codificador(&mut self, turno: &Turno, motivo: &str) {
@@ -275,7 +278,6 @@ impl Laco {
         turno.chave_pendente = false;
         turno.pedidos -= 1;
         turno.quadros += 1;
-        self.quadro = self.quadro.wrapping_add(1);
         if novo {
             self.espelhar(turno);
         }
@@ -302,13 +304,8 @@ impl Laco {
     fn preparar_o_quadro(&mut self, turno: &mut Turno) -> Result<Option<Duration>, Falha> {
         let bancada = &mut turno.codificacao.bancada;
         match &mut turno.fonte {
-            Fonte::Sintetica => {
-                let marco = Instant::now();
-                bancada.pintar(self.quadro);
-                bancada.preparar().map_err(do_codificador("preparar o quadro"))?;
-                Ok(Some(marco.elapsed()))
-            }
             Fonte::Janela(captura) => trazer_da_janela(captura, bancada, &mut self.ritmo),
+            Fonte::Monitor(captura) => trazer_do_monitor(captura, bancada),
         }
     }
 
@@ -382,12 +379,50 @@ fn trazer_da_janela(
     }
 }
 
+fn trazer_do_monitor(captura: &mut CapturaDoMonitor, bancada: &mut Bancada) -> Result<Option<Duration>, Falha> {
+    if captura.perdida() && !recuperar_o_monitor(captura)? {
+        return Ok(None);
+    }
+    match captura.colher(ESPERA_POR_QUADRO_NOVO, true).map_err(fatal("colher o quadro do monitor"))? {
+        ColheitaDoMonitor::Quadro(quadro) => {
+            let marco = Instant::now();
+            bancada
+                .trazer(&quadro.textura, captura.tamanho())
+                .map_err(do_codificador("encaixar o quadro do monitor"))?;
+            Ok(Some(marco.elapsed()))
+        }
+        ColheitaDoMonitor::Nada => Ok(None),
+        ColheitaDoMonitor::Perdido => {
+            eprintln!("acesso ao monitor perdido; a última imagem segue no ar");
+            Ok(None)
+        }
+    }
+}
+
+fn recuperar_o_monitor(captura: &mut CapturaDoMonitor) -> Result<bool, Falha> {
+    match captura.remontar() {
+        Ok(()) => {
+            let (largura, altura) = captura.tamanho();
+            eprintln!("monitor de volta em {largura}x{altura}");
+            Ok(true)
+        }
+        Err(erro) if o_monitor_saiu(&erro) => Err(Falha::Fatal(format!("o monitor saiu: {erro}"))),
+        Err(_) => {
+            std::thread::sleep(ESPERA_POR_QUADRO_NOVO);
+            Ok(false)
+        }
+    }
+}
+
 fn como_subiu(fps: u32, codificacao: &Codificacao, fonte: &Fonte) -> String {
     let origem = match fonte {
-        Fonte::Sintetica => "fonte sintética".to_owned(),
         Fonte::Janela(captura) => {
             let (largura, altura) = captura.tamanho();
             format!("janela {largura}x{altura}")
+        }
+        Fonte::Monitor(captura) => {
+            let (largura, altura) = captura.tamanho();
+            format!("monitor {largura}x{altura}")
         }
     };
     let (largura, altura) = codificacao.saida;

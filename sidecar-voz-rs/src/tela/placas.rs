@@ -24,7 +24,10 @@ pub fn placas_de_hardware() -> windows::core::Result<Vec<Placa>> {
 
 pub fn placa_padrao() -> windows::core::Result<Placa> {
     let fabrica: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
-    let adaptador = unsafe { fabrica.EnumAdapters1(0)? };
+    placa_do_adaptador(unsafe { fabrica.EnumAdapters1(0)? })
+}
+
+pub fn placa_do_adaptador(adaptador: IDXGIAdapter1) -> windows::core::Result<Placa> {
     descrever(adaptador).map(|(placa, _)| placa)
 }
 

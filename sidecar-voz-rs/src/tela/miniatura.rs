@@ -1,7 +1,9 @@
 use super::captura_de_janela::{CapturaDeJanela, Colheita, QuadroDaJanela};
 use super::dispositivo::{Dispositivo, copiar_linhas, dispositivo_da_placa, textura, textura_de_leitura};
+use super::duplicacao::{CapturaDoMonitor, ColheitaDoMonitor, QuadroDoMonitor};
 use super::encaixe::Encaixe;
 use super::etapa::em;
+use super::monitores::achar_o_monitor;
 use super::placas::placa_padrao;
 use super::png::png_de_bgrx;
 use std::time::Duration;
@@ -11,6 +13,7 @@ use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
 
 const LARGURA_DA_MINIATURA: u32 = 256;
 const TENTATIVAS: usize = 8;
+const TENTATIVAS_NO_MONITOR: usize = 6;
 const ESPERA_POR_TENTATIVA: Duration = Duration::from_millis(120);
 
 pub fn miniaturas_das_janelas(janelas: &[u64], mut pronta: impl FnMut(u64, Vec<u8>)) {
@@ -35,6 +38,33 @@ fn primeiro_quadro(captura: &mut CapturaDeJanela) -> Result<Option<QuadroDaJanel
             return Ok(Some(quadro));
         }
         captura.esperar(ESPERA_POR_TENTATIVA);
+    }
+    Ok(None)
+}
+
+pub fn miniaturas_dos_monitores(monitores: &[u32], mut pronta: impl FnMut(u32, Vec<u8>)) {
+    for &monitor in monitores {
+        if let Ok(png) = miniatura_do_monitor(monitor) {
+            pronta(monitor, png);
+        }
+    }
+}
+
+fn miniatura_do_monitor(monitor: u32) -> Result<Vec<u8>, String> {
+    let (placa, saida) = achar_o_monitor(monitor)?;
+    let dispositivo = dispositivo_da_placa(&placa.adaptador).map_err(em("abrir a placa do monitor"))?;
+    let mut captura = CapturaDoMonitor::abrir(&dispositivo.placa, saida).map_err(em("duplicar o monitor"))?;
+    let quadro = quadro_atual(&mut captura)?.ok_or("o monitor não entregou quadro")?;
+    png_da_textura(&dispositivo, &quadro.textura, captura.tamanho())
+}
+
+fn quadro_atual(captura: &mut CapturaDoMonitor) -> Result<Option<QuadroDoMonitor>, String> {
+    for tentativa in 0..TENTATIVAS_NO_MONITOR {
+        match captura.colher(ESPERA_POR_TENTATIVA, false).map_err(em("colher o quadro"))? {
+            ColheitaDoMonitor::Quadro(quadro) if tentativa > 0 => return Ok(Some(quadro)),
+            ColheitaDoMonitor::Perdido => return Err("acesso ao monitor perdido".into()),
+            ColheitaDoMonitor::Quadro(_) | ColheitaDoMonitor::Nada => {}
+        }
     }
     Ok(None)
 }

@@ -1,15 +1,18 @@
+use std::time::Duration;
+use windows::Foundation::TypedEventHandler;
 use windows::Graphics::Capture::{
     Direct3D11CaptureFrame, Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession,
 };
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
 use windows::Graphics::SizeInt32;
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, WAIT_OBJECT_0};
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11Texture2D};
 use windows::Win32::Graphics::Dxgi::IDXGIDevice;
+use windows::Win32::System::Threading::{CreateEventW, SetEvent, WaitForSingleObject};
 use windows::Win32::System::WinRT::Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess};
 use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
-use windows::core::{Interface, factory};
+use windows::core::{IInspectable, Interface, factory};
 
 const QUADROS_NA_PISCINA: i32 = 2;
 const FORMATO: DirectXPixelFormat = DirectXPixelFormat::B8G8R8A8UIntNormalized;
@@ -19,6 +22,8 @@ pub struct CapturaDeJanela {
     piscina: Direct3D11CaptureFramePool,
     dispositivo: IDirect3DDevice,
     tamanho: SizeInt32,
+    chegou: HANDLE,
+    aviso: i64,
     _item: GraphicsCaptureItem,
 }
 
@@ -41,14 +46,22 @@ impl CapturaDeJanela {
         let dispositivo: IDirect3DDevice = unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi)? }.cast()?;
         let tamanho = item.Size()?;
         let piscina = Direct3D11CaptureFramePool::CreateFreeThreaded(&dispositivo, FORMATO, QUADROS_NA_PISCINA, tamanho)?;
+        let chegou = unsafe { CreateEventW(None, false, false, None)? };
+        let aviso = avisar_a_cada_quadro(&piscina, chegou)?;
         let sessao = piscina.CreateCaptureSession(&item)?;
         let _ = sessao.SetIsBorderRequired(false);
         sessao.StartCapture()?;
-        Ok(Self { sessao, piscina, dispositivo, tamanho, _item: item })
+        Ok(Self { sessao, piscina, dispositivo, tamanho, chegou, aviso, _item: item })
     }
 
     pub fn tamanho(&self) -> (u32, u32) {
         (self.tamanho.Width.max(0) as u32, self.tamanho.Height.max(0) as u32)
+    }
+
+    pub fn esperar(&self, limite: Duration) -> bool {
+        let milissegundos = u32::try_from(limite.as_millis()).unwrap_or(u32::MAX);
+        let resposta = unsafe { WaitForSingleObject(self.chegou, milissegundos) };
+        resposta == WAIT_OBJECT_0
     }
 
     pub fn colher(&mut self) -> windows::core::Result<Colheita> {
@@ -83,10 +96,19 @@ impl CapturaDeJanela {
     }
 }
 
+fn avisar_a_cada_quadro(piscina: &Direct3D11CaptureFramePool, chegou: HANDLE) -> windows::core::Result<i64> {
+    let evento = chegou.0 as usize;
+    piscina.FrameArrived(&TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new(move |_, _| {
+        unsafe { SetEvent(HANDLE(evento as *mut _)) }
+    }))
+}
+
 impl Drop for CapturaDeJanela {
     fn drop(&mut self) {
+        let _ = self.piscina.RemoveFrameArrived(self.aviso);
         let _ = self.sessao.Close();
         let _ = self.piscina.Close();
+        let _ = unsafe { CloseHandle(self.chegou) };
     }
 }
 

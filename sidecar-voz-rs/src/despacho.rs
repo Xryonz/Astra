@@ -103,7 +103,10 @@ fn pedido_de_tela(comando: &Comando) -> Result<Option<PedidoDeTela>, String> {
     }
     let positivo = |campo: Option<i32>| campo.and_then(|valor| u32::try_from(valor).ok()).filter(|&valor| valor > 0);
     match (positivo(comando.largura), positivo(comando.altura), positivo(comando.fps), positivo(comando.kbps)) {
-        (Some(largura), Some(altura), Some(fps), Some(kbps)) => Ok(Some(PedidoDeTela { largura, altura, fps, kbps })),
+        (Some(largura), Some(altura), Some(fps), Some(kbps)) => {
+            let janela = comando.janela.filter(|&janela| janela != 0);
+            Ok(Some(PedidoDeTela { largura, altura, fps, kbps, janela }))
+        }
         _ => Err("transmitir sem tamanho, ritmo ou taxa".into()),
     }
 }

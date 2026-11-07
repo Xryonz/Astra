@@ -1,7 +1,8 @@
 use super::medidas::{Custos, ResumoDosCustos, arredondar, tempo_de_cpu};
 use super::relogio::Relogio;
 use crate::tela::{
-    Aceitos, Codificacao, Configuracao, Entrada, Evento, Perfil, Placa, Unidade, abrir_codificacao, em, ler_unidade,
+    Aceitos, Codificacao, Configuracao, Entrada, Evento, Origem, Perfil, Placa, Unidade, abrir_codificacao, em,
+    ler_unidade,
 };
 use serde::Serialize;
 use std::ops::Range;
@@ -87,7 +88,7 @@ pub fn ensaiar_com_limite(placa: &Placa, entrada: Entrada, relogio: Relogio) -> 
 fn ensaiar(placa: &Placa, entrada: Entrada, relogio: Relogio) -> Result<Ensaio, String> {
     let _relogio = relogio.valer();
     let config = Configuracao { largura: LARGURA, altura: ALTURA, fps: FPS, kbps: KBPS_ANTES, entrada };
-    let mut rodada = Rodada::nova(abrir_codificacao(placa, config)?);
+    let mut rodada = Rodada::nova(abrir_codificacao(placa, config, Origem::Sintetica)?);
     let cpu_antes = tempo_de_cpu();
     let comeco = Instant::now();
     rodada.rodar()?;

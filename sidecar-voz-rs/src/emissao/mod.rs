@@ -13,6 +13,7 @@ pub struct PedidoDeTela {
     pub altura: u32,
     pub fps: u32,
     pub kbps: u32,
+    pub janela: Option<u64>,
 }
 
 pub struct Emissor {

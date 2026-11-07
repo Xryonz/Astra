@@ -13,6 +13,7 @@ mod pixels;
 mod placas;
 mod ruido;
 
+pub use bancada::{Bancada, Origem};
 pub use captura_de_janela::{CapturaDeJanela, Colheita};
 pub use codificacao::{Codificacao, abrir_codificacao};
 pub use dispositivo::{Dispositivo, dispositivo_da_placa};

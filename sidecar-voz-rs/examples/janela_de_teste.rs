@@ -9,11 +9,12 @@ use windows::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetP
 use windows::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, MSG,
     PM_REMOVE, PeekMessageW, PostQuitMessage, RegisterClassW, SW_SHOWMINNOACTIVE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, ShowWindow, TranslateMessage, WINDOW_EX_STYLE, WM_DESTROY, WM_PAINT,
-    WM_QUIT, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+    SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, ShowWindow, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE,
+    WM_DESTROY, WM_PAINT, WM_QUIT, WNDCLASSW, WS_POPUP,
 };
 use windows::core::w;
 
+const ESTILO: WINDOW_STYLE = WS_POPUP;
 const INTERVALO: Duration = Duration::from_micros(16_667);
 const METADE_DO_CENTRO: i32 = 120;
 const ROTEIRO: [(u64, Passo); 3] = [(4, Passo::Encolher), (6, Passo::Minimizar), (8, Passo::Restaurar)];
@@ -71,7 +72,7 @@ fn abrir_a_janela(pedido: &Pedido) -> windows::core::Result<HWND> {
             WINDOW_EX_STYLE(0),
             w!("AstraJanelaDeTeste"),
             w!("Astra — janela de teste"),
-            WS_OVERLAPPEDWINDOW,
+            ESTILO,
             pedido.x,
             pedido.y,
             largura,
@@ -88,7 +89,7 @@ fn abrir_a_janela(pedido: &Pedido) -> windows::core::Result<HWND> {
 
 fn tamanho_por_fora(largura: i32, altura: i32) -> (i32, i32) {
     let mut area = RECT { left: 0, top: 0, right: largura, bottom: altura };
-    let _ = unsafe { AdjustWindowRectEx(&mut area, WS_OVERLAPPEDWINDOW, false, WINDOW_EX_STYLE(0)) };
+    let _ = unsafe { AdjustWindowRectEx(&mut area, ESTILO, false, WINDOW_EX_STYLE(0)) };
     (area.right - area.left, area.bottom - area.top)
 }
 

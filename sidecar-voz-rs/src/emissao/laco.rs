@@ -3,8 +3,8 @@ use super::ritmo::Ritmo;
 use crate::com::ComDaThread;
 use crate::ponte::{Escritor, Evento};
 use crate::tela::{
-    Aceitos, Codificacao, Configuracao, Entrada, Evento as DoCodificador, Unidade, abrir_codificacao, em,
-    ler_unidade, placas_de_hardware,
+    Aceitos, Bancada, CapturaDeJanela, Codificacao, Colheita, Configuracao, Entrada, Evento as DoCodificador,
+    Origem, Unidade, abrir_codificacao, em, ler_unidade, placas_de_hardware,
 };
 use livekit::webrtc::video_frame::{EncodedFrameType, EncodedVideoCodec, EncodedVideoFrame};
 use livekit::webrtc::video_source::VideoResolution;
@@ -12,7 +12,15 @@ use livekit::webrtc::video_source::native::NativeVideoSource;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+use windows::Win32::Foundation::HWND;
 use windows::Win32::Media::MediaFoundation::{MF_VERSION, MFSTARTUP_FULL, MFShutdown, MFStartup};
+
+const ESPERA_POR_QUADRO_NOVO: Duration = Duration::from_millis(100);
+
+enum Fonte {
+    Sintetica,
+    Janela(CapturaDeJanela),
+}
 
 pub fn transmitir(pedido: PedidoDeTela, fonte: NativeVideoSource, escritor: Arc<Escritor>, parar: Arc<AtomicBool>) {
     let _com = ComDaThread::iniciar();
@@ -35,8 +43,9 @@ fn transmitir_com_o_media_foundation(
 }
 
 struct Laco {
+    fonte: Fonte,
     codificacao: Codificacao,
-    fonte: NativeVideoSource,
+    saida: NativeVideoSource,
     escritor: Arc<Escritor>,
     parar: Arc<AtomicBool>,
     resolucao: VideoResolution,
@@ -54,7 +63,7 @@ struct Laco {
 impl Laco {
     fn abrir(
         pedido: PedidoDeTela,
-        fonte: NativeVideoSource,
+        saida: NativeVideoSource,
         escritor: Arc<Escritor>,
         parar: Arc<AtomicBool>,
     ) -> Result<Self, String> {
@@ -65,11 +74,21 @@ impl Laco {
             kbps: pedido.kbps,
             entrada: Entrada::Argb,
         };
-        let codificacao = codificacao_na_primeira_placa(config)?;
-        escritor.manda(&Evento::transmissao(&codificacao.nome, como_subiu(&pedido, codificacao.compressor.aceitos)));
+        let origem = if pedido.janela.is_some() { Origem::Capturada } else { Origem::Sintetica };
+        let codificacao = codificacao_na_primeira_placa(config, origem)?;
+        let fonte = match pedido.janela {
+            Some(janela) => Fonte::Janela(
+                CapturaDeJanela::abrir(codificacao.placa(), HWND(janela as *mut _))
+                    .map_err(em("abrir a captura da janela"))?,
+            ),
+            None => Fonte::Sintetica,
+        };
+        let resumo = como_subiu(&pedido, codificacao.compressor.aceitos, &fonte);
+        escritor.manda(&Evento::transmissao(&codificacao.nome, resumo));
         Ok(Self {
-            codificacao,
             fonte,
+            codificacao,
+            saida,
             escritor,
             parar,
             resolucao: VideoResolution { width: pedido.largura, height: pedido.altura },
@@ -87,15 +106,17 @@ impl Laco {
 
     fn rodar(&mut self) -> Result<(), String> {
         while !self.parar.load(Ordering::Relaxed) {
-            if self.entregue_em.is_none() && self.pedidos > 0 {
-                self.esperar_a_vez();
-                self.atender_a_rede();
-                self.alimentar()?;
-            }
-            self.receber()?;
             if let Some(resumo) = self.ritmo.fechar_o_segundo(self.kbps) {
                 self.escritor.manda(&Evento::transmissao("ritmo", resumo));
             }
+            if self.entregue_em.is_none() && self.pedidos > 0 {
+                self.esperar_a_vez();
+                self.atender_a_rede();
+                if !self.alimentar()? {
+                    continue;
+                }
+            }
+            self.receber()?;
         }
         Ok(())
     }
@@ -110,11 +131,11 @@ impl Laco {
     }
 
     fn atender_a_rede(&mut self) {
-        if self.fonte.take_keyframe_request() {
+        if self.saida.take_keyframe_request() {
             self.ritmo.contar_pedido_de_chave();
             self.codificacao.compressor.pedir_quadro_chave();
         }
-        if let Some(pedido) = self.fonte.take_rate_control_request() {
+        if let Some(pedido) = self.saida.take_rate_control_request() {
             self.seguir_a_rede(pedido.target_bitrate_bps);
         }
     }
@@ -130,15 +151,28 @@ impl Laco {
         }
     }
 
-    fn alimentar(&mut self) -> Result<(), String> {
+    fn alimentar(&mut self) -> Result<bool, String> {
+        if !self.preparar_o_quadro()? {
+            return Ok(false);
+        }
         let codificacao = &self.codificacao;
-        codificacao.bancada.pintar(self.quadro);
-        codificacao.bancada.preparar().map_err(em("preparar o quadro"))?;
         codificacao.compressor.entregar(&codificacao.amostra, self.quadro).map_err(em("entregar o quadro"))?;
         self.entregue_em = Some(Instant::now());
         self.pedidos -= 1;
         self.quadro = self.quadro.wrapping_add(1);
-        Ok(())
+        Ok(true)
+    }
+
+    fn preparar_o_quadro(&mut self) -> Result<bool, String> {
+        let bancada = &self.codificacao.bancada;
+        match &mut self.fonte {
+            Fonte::Sintetica => {
+                bancada.pintar(self.quadro);
+                bancada.preparar().map_err(em("preparar o quadro"))?;
+                Ok(true)
+            }
+            Fonte::Janela(captura) => trazer_da_janela(captura, bancada),
+        }
     }
 
     fn receber(&mut self) -> Result<(), String> {
@@ -156,7 +190,7 @@ impl Laco {
     fn enviar(&mut self, bytes: &[u8], latencia: Option<Duration>) {
         let unidade = ler_unidade(bytes);
         self.anunciar_o_perfil(&unidade);
-        self.fonte.capture_encoded_frame(&EncodedVideoFrame {
+        self.saida.capture_encoded_frame(&EncodedVideoFrame {
             codec: EncodedVideoCodec::H264,
             payload: bytes,
             timestamp_us: 0,
@@ -175,10 +209,29 @@ impl Laco {
     }
 }
 
-fn codificacao_na_primeira_placa(config: Configuracao) -> Result<Codificacao, String> {
+fn trazer_da_janela(captura: &mut CapturaDeJanela, bancada: &Bancada) -> Result<bool, String> {
+    let limite = Instant::now() + ESPERA_POR_QUADRO_NOVO;
+    loop {
+        match captura.colher().map_err(em("colher o quadro da janela"))? {
+            Colheita::Quadro(quadro) => {
+                bancada.trazer(&quadro.textura, captura.tamanho());
+                return Ok(true);
+            }
+            Colheita::MudouDeTamanho(..) => {}
+            Colheita::Nada => {
+                let resta = limite.saturating_duration_since(Instant::now());
+                if resta.is_zero() || !captura.esperar(resta) {
+                    return Ok(false);
+                }
+            }
+        }
+    }
+}
+
+fn codificacao_na_primeira_placa(config: Configuracao, origem: Origem) -> Result<Codificacao, String> {
     let mut motivos = Vec::new();
     for placa in placas_de_hardware().map_err(em("listar as placas"))? {
-        match abrir_codificacao(&placa, config) {
+        match abrir_codificacao(&placa, config, origem) {
             Ok(codificacao) => return Ok(codificacao),
             Err(motivo) => motivos.push(format!("{}: {motivo}", placa.nome)),
         }
@@ -186,8 +239,15 @@ fn codificacao_na_primeira_placa(config: Configuracao) -> Result<Codificacao, St
     Err(if motivos.is_empty() { "nenhuma placa de vídeo de hardware".into() } else { motivos.join("; ") })
 }
 
-fn como_subiu(pedido: &PedidoDeTela, aceitos: Aceitos) -> String {
-    let mut texto = format!("{}x{} @{} · fonte sintética", pedido.largura, pedido.altura, pedido.fps);
+fn como_subiu(pedido: &PedidoDeTela, aceitos: Aceitos, fonte: &Fonte) -> String {
+    let origem = match fonte {
+        Fonte::Sintetica => "fonte sintética".to_owned(),
+        Fonte::Janela(captura) => {
+            let (largura, altura) = captura.tamanho();
+            format!("janela {largura}x{altura}")
+        }
+    };
+    let mut texto = format!("{}x{} @{} · {origem}", pedido.largura, pedido.altura, pedido.fps);
     let ligados = [(aceitos.taxa_variavel, "taxa variável"), (aceitos.baixa_latencia, "baixa latência"), (aceitos.cabac, "CABAC")];
     for (_, nome) in ligados.into_iter().filter(|&(aceito, _)| aceito) {
         texto.push_str(" · ");

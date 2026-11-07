@@ -1,4 +1,5 @@
 mod bancada;
+mod captura_de_janela;
 mod codificacao;
 mod codificadores;
 mod compressor;
@@ -12,7 +13,9 @@ mod pixels;
 mod placas;
 mod ruido;
 
+pub use captura_de_janela::{CapturaDeJanela, Colheita};
 pub use codificacao::{Codificacao, abrir_codificacao};
+pub use dispositivo::{Dispositivo, dispositivo_da_placa};
 pub use codificadores::codificadores_h264_da_placa;
 pub use compressor::{Aceitos, Configuracao, Entrada, Evento};
 pub use etapa::em;

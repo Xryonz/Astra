@@ -2,15 +2,27 @@ mod ensaio;
 mod medidas;
 mod relato;
 mod relogio;
+mod sonda_da_janela;
 
 use crate::com::ComDaThread;
 use crate::tela::placas_de_hardware;
 use windows::Win32::Media::MediaFoundation::{MF_VERSION, MFSTARTUP_FULL, MFShutdown, MFStartup};
 
 pub fn rodar_se_pedida() -> Option<i32> {
-    let pedida = std::env::args().nth(1)?;
+    let mut argumentos = std::env::args().skip(1);
+    let pedida = argumentos.next()?;
     Some(match pedida.as_str() {
         "sondar-codificador" => sondar_codificador(),
+        "sondar-janela" => {
+            let mut numero = || argumentos.next().and_then(|texto| texto.parse().ok());
+            match (numero(), numero()) {
+                (Some(janela), Some(segundos)) => sonda_da_janela::sondar_janela(janela, segundos),
+                _ => {
+                    eprintln!("uso: sondar-janela <janela> <segundos>");
+                    2
+                }
+            }
+        }
         outra => {
             eprintln!("ferramenta desconhecida: {outra}");
             2

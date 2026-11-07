@@ -18,6 +18,7 @@ const ESTILO: WINDOW_STYLE = WS_POPUP;
 const INTERVALO: Duration = Duration::from_micros(16_667);
 const METADE_DO_CENTRO: i32 = 120;
 const ROTEIRO: [(u64, Passo); 3] = [(4, Passo::Encolher), (6, Passo::Minimizar), (8, Passo::Restaurar)];
+const ROTEIRO_DA_PARADA: [(u64, Passo); 2] = [(3, Passo::Congelar), (15, Passo::Afinar)];
 static QUADRO: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Clone, Copy)]
@@ -25,6 +26,8 @@ enum Passo {
     Encolher,
     Minimizar,
     Restaurar,
+    Congelar,
+    Afinar,
 }
 
 struct Pedido {
@@ -33,7 +36,7 @@ struct Pedido {
     x: i32,
     y: i32,
     segundos: u64,
-    com_roteiro: bool,
+    roteiro: &'static [(u64, Passo)],
 }
 
 fn main() {
@@ -47,13 +50,21 @@ fn main() {
 fn ler_o_pedido() -> Pedido {
     let argumentos: Vec<String> = std::env::args().skip(1).collect();
     let numero = |indice: usize, padrao: i32| argumentos.get(indice).and_then(|texto| texto.parse().ok()).unwrap_or(padrao);
+    let pediu = |opcao: &str| argumentos.iter().any(|argumento| argumento == opcao);
+    let roteiro: &'static [(u64, Passo)] = if pediu("--roteiro") {
+        &ROTEIRO
+    } else if pediu("--parada") {
+        &ROTEIRO_DA_PARADA
+    } else {
+        &[]
+    };
     Pedido {
         largura: numero(0, 1280),
         altura: numero(1, 720),
         x: numero(2, -3000),
         y: numero(3, 0),
         segundos: numero(4, 20).max(1) as u64,
-        com_roteiro: argumentos.iter().any(|argumento| argumento == "--roteiro"),
+        roteiro,
     }
 }
 
@@ -97,25 +108,27 @@ fn animar(janela: HWND, pedido: &Pedido) {
     let comeco = Instant::now();
     let mut vez = comeco;
     let mut passos_feitos = 0;
+    let mut animando = true;
     while atender_as_mensagens() {
         let passou = comeco.elapsed();
         if passou >= Duration::from_secs(pedido.segundos) {
             let _ = unsafe { DestroyWindow(janela) };
             return;
         }
-        if pedido.com_roteiro
-            && let Some(&(segundo, passo)) = ROTEIRO.get(passos_feitos)
+        if let Some(&(segundo, passo)) = pedido.roteiro.get(passos_feitos)
             && passou >= Duration::from_secs(segundo)
         {
-            dar_o_passo(janela, pedido, passo);
+            animando = dar_o_passo(janela, pedido, passo);
             passos_feitos += 1;
         }
         if let Some(falta) = vez.checked_duration_since(Instant::now()) {
             std::thread::sleep(falta);
             continue;
         }
-        QUADRO.fetch_add(1, Ordering::Relaxed);
-        let _ = unsafe { InvalidateRect(Some(janela), None, false) };
+        if animando {
+            QUADRO.fetch_add(1, Ordering::Relaxed);
+            let _ = unsafe { InvalidateRect(Some(janela), None, false) };
+        }
         vez += INTERVALO;
     }
 }
@@ -134,21 +147,24 @@ fn atender_as_mensagens() -> bool {
     true
 }
 
-fn dar_o_passo(janela: HWND, pedido: &Pedido, passo: Passo) {
+fn dar_o_passo(janela: HWND, pedido: &Pedido, passo: Passo) -> bool {
     match passo {
-        Passo::Encolher => {
-            let (largura, altura) = tamanho_por_fora(pedido.largura * 3 / 4, pedido.altura * 3 / 4);
-            let _ = unsafe {
-                SetWindowPos(janela, None, 0, 0, largura, altura, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE)
-            };
-        }
+        Passo::Encolher => redimensionar(janela, pedido.largura * 3 / 4, pedido.altura * 3 / 4),
         Passo::Minimizar => {
             let _ = unsafe { ShowWindow(janela, SW_SHOWMINNOACTIVE) };
         }
         Passo::Restaurar => {
             let _ = unsafe { ShowWindow(janela, SW_SHOWNOACTIVATE) };
         }
+        Passo::Congelar => return false,
+        Passo::Afinar => redimensionar(janela, pedido.largura * 3 / 4, pedido.altura),
     }
+    true
+}
+
+fn redimensionar(janela: HWND, largura: i32, altura: i32) {
+    let (largura, altura) = tamanho_por_fora(largura, altura);
+    let _ = unsafe { SetWindowPos(janela, None, 0, 0, largura, altura, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) };
 }
 
 unsafe extern "system" fn procedimento(janela: HWND, mensagem: u32, w: WPARAM, l: LPARAM) -> LRESULT {

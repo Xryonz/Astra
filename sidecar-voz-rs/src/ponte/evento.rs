@@ -124,6 +124,20 @@ impl Evento {
         Self { ev: TELA, par: Some(par.into()), valor: Some(um_ou_zero(false).into()), ..Default::default() }
     }
 
+    pub fn tela_com_decodificador(par: &str, nome: &str) -> Self {
+        Self {
+            ev: TELA,
+            par: Some(par.into()),
+            tipo: Some(nome.into()),
+            valor: Some(um_ou_zero(true).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn ritmo_da_tela(par: &str, msg: String) -> Self {
+        Self { msg: Some(msg), ..Self::tela_com_decodificador(par, "ritmo") }
+    }
+
     fn de_estado(par: Option<String>, valor: &str) -> Self {
         Self { ev: ESTADO, par, valor: Some(valor.into()), ..Default::default() }
     }
@@ -211,6 +225,10 @@ mod testes {
             "{\"ev\":\"tela\",\"par\":\"ana\",\"tipo\":\"faixa\",\"v\":\"1\"}"
         );
         assert_eq!(serde_json::to_string(&Evento::tela_fora_do_ar("ana")).unwrap(), "{\"ev\":\"tela\",\"par\":\"ana\",\"v\":\"0\"}");
+        assert_eq!(
+            serde_json::to_string(&Evento::ritmo_da_tela("ana", "60 fps".into())).unwrap(),
+            "{\"ev\":\"tela\",\"par\":\"ana\",\"tipo\":\"ritmo\",\"v\":\"1\",\"msg\":\"60 fps\"}"
+        );
     }
 
     #[test]

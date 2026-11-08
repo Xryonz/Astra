@@ -4,9 +4,11 @@ use super::estado_da_voz;
 use super::fala::QuemFala;
 use super::palco::{e_tela, telas_de};
 use super::queda::tipo_da_queda;
+use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
-use livekit::prelude::{RemoteParticipant, RemoteTrack, RemoteTrackPublication, Room, RoomEvent};
-use std::collections::HashSet;
+use crate::recepcao::{Recepcao, receber_a_tela};
+use livekit::prelude::{RemoteParticipant, RemoteTrack, RemoteTrackPublication, RemoteVideoTrack, Room, RoomEvent};
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -14,8 +16,10 @@ pub struct Repasse {
     escritor: Arc<Escritor>,
     controles: Arc<Mutex<Controles>>,
     sala: Arc<Room>,
+    entrega: Option<Entrega>,
     quem_fala: QuemFala,
     com_tela: HashSet<String>,
+    recebendo: HashMap<String, Recepcao>,
 }
 
 pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, mut repasse: Repasse) {
@@ -30,14 +34,35 @@ pub async fn repassar(mut eventos: UnboundedReceiver<RoomEvent>, mut repasse: Re
 }
 
 impl Repasse {
-    pub fn novo(escritor: Arc<Escritor>, controles: Arc<Mutex<Controles>>, sala: Arc<Room>) -> Self {
-        Self { escritor, controles, sala, quem_fala: QuemFala::default(), com_tela: HashSet::new() }
+    pub fn novo(
+        escritor: Arc<Escritor>,
+        controles: Arc<Mutex<Controles>>,
+        sala: Arc<Room>,
+        entrega: Option<Entrega>,
+    ) -> Self {
+        Self {
+            escritor,
+            controles,
+            sala,
+            entrega,
+            quem_fala: QuemFala::default(),
+            com_tela: HashSet::new(),
+            recebendo: HashMap::new(),
+        }
     }
 
     async fn agir(&mut self, evento: &RoomEvent) {
         match evento {
             RoomEvent::ActiveSpeakersChanged { .. } => self.quem_fala.atualizar(&self.sala, &self.escritor),
             RoomEvent::ParticipantActive(quem) => self.contar_a(quem).await,
+            RoomEvent::TrackSubscribed { track: RemoteTrack::Video(faixa), publication, participant }
+                if e_tela(publication) =>
+            {
+                self.receber(participant.identity().as_str(), faixa);
+            }
+            RoomEvent::TrackUnsubscribed { track: RemoteTrack::Video(_), participant, .. } => {
+                self.recebendo.remove(participant.identity().as_str());
+            }
             RoomEvent::TrackSubscribed { track, participant, .. } => {
                 let ouvir = self.controles().ouve(participant.identity().as_str());
                 aplicar_a_faixa(track, ouvir);
@@ -72,9 +97,15 @@ impl Repasse {
     }
 
     fn saiu_a_tela(&mut self, quem: &str) {
+        self.recebendo.remove(quem);
         if self.com_tela.remove(quem) {
             self.escritor.manda(&Evento::tela_fora_do_ar(quem));
         }
+    }
+
+    fn receber(&mut self, quem: &str, faixa: &RemoteVideoTrack) {
+        let recepcao = receber_a_tela(quem, faixa, Arc::clone(&self.escritor), self.entrega.clone());
+        self.recebendo.insert(quem.to_owned(), recepcao);
     }
 
     async fn contar_a(&self, quem: &RemoteParticipant) {

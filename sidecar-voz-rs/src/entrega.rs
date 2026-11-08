@@ -1,11 +1,13 @@
 use std::io::{self, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 const MARCA_DO_QUADRO: u32 = 0x5654_5341;
 const TAMANHO_DO_CABECALHO: usize = 24;
 const QUADROS_NA_FILA: usize = 2;
+const SOBRAS_GUARDADAS: usize = QUADROS_NA_FILA + 2;
 const PRAZO_PARA_LIGAR: Duration = Duration::from_secs(3);
 const PRAZO_PARA_ESCREVER: Duration = Duration::from_secs(2);
 const PAUSA_DEPOIS_DE_FALHAR: Duration = Duration::from_secs(2);
@@ -20,6 +22,29 @@ pub struct Quadro {
 #[derive(Clone)]
 pub struct Entrega {
     fila: SyncSender<(String, Quadro)>,
+    sobras: Sobras,
+}
+
+#[derive(Clone, Default)]
+struct Sobras(Arc<Mutex<Vec<Vec<u8>>>>);
+
+impl Sobras {
+    fn tirar(&self, tamanho: usize) -> Vec<u8> {
+        let mut dados = self.trancar().pop().unwrap_or_default();
+        dados.resize(tamanho, 0);
+        dados
+    }
+
+    fn devolver(&self, dados: Vec<u8>) {
+        let mut guardadas = self.trancar();
+        if guardadas.len() < SOBRAS_GUARDADAS {
+            guardadas.push(dados);
+        }
+    }
+
+    fn trancar(&self) -> MutexGuard<'_, Vec<Vec<u8>>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 impl Entrega {
@@ -33,43 +58,56 @@ impl Entrega {
 
     fn para(endereco: String, segredo: String) -> io::Result<Self> {
         let (fila, saida) = mpsc::sync_channel(QUADROS_NA_FILA);
+        let sobras = Sobras::default();
+        let devolvidas = sobras.clone();
         std::thread::Builder::new()
             .name("astra-quadros".into())
-            .spawn(move || servir(&endereco, &segredo, &saida))?;
-        Ok(Self { fila })
+            .spawn(move || servir(&endereco, &segredo, &saida, &devolvidas))?;
+        Ok(Self { fila, sobras })
+    }
+
+    pub fn reservar(&self, tamanho: usize) -> Vec<u8> {
+        self.sobras.tirar(tamanho)
     }
 
     pub fn mandar(&self, par: &str, quadro: Quadro) {
         if quadro.dados.is_empty() {
             return;
         }
-        if let Err(TrySendError::Disconnected(_)) = self.fila.try_send((par.to_owned(), quadro)) {
-            eprintln!("cano de quadros fechado");
+        match self.fila.try_send((par.to_owned(), quadro)) {
+            Ok(()) => {}
+            Err(TrySendError::Full((_, quadro))) => self.sobras.devolver(quadro.dados),
+            Err(TrySendError::Disconnected(_)) => eprintln!("cano de quadros fechado"),
         }
     }
 }
 
-fn servir(endereco: &str, segredo: &str, fila: &Receiver<(String, Quadro)>) {
+fn servir(endereco: &str, segredo: &str, fila: &Receiver<(String, Quadro)>, sobras: &Sobras) {
     let mut conexao: Option<TcpStream> = None;
     for (par, quadro) in fila {
-        let ligada = match conexao.take() {
-            Some(ligada) => ligada,
-            None => match ligar(endereco, segredo) {
-                Ok(ligada) => ligada,
-                Err(erro) => {
-                    eprintln!("cano de quadros indisponível: {erro}");
-                    std::thread::sleep(PAUSA_DEPOIS_DE_FALHAR);
-                    continue;
-                }
-            },
-        };
-        conexao = match escrever(&ligada, &par, &quadro) {
-            Ok(()) => Some(ligada),
+        conexao = levar(conexao.take(), endereco, segredo, &par, &quadro);
+        sobras.devolver(quadro.dados);
+    }
+}
+
+fn levar(conexao: Option<TcpStream>, endereco: &str, segredo: &str, par: &str, quadro: &Quadro) -> Option<TcpStream> {
+    let ligada = match conexao {
+        Some(ligada) => ligada,
+        None => match ligar(endereco, segredo) {
+            Ok(ligada) => ligada,
             Err(erro) => {
-                eprintln!("cano de quadros caiu: {erro}");
-                None
+                eprintln!("cano de quadros indisponível: {erro}");
+                std::thread::sleep(PAUSA_DEPOIS_DE_FALHAR);
+                return None;
             }
-        };
+        },
+    };
+    match escrever(&ligada, par, quadro) {
+        Ok(()) => Some(ligada),
+        Err(erro) => {
+            eprintln!("cano de quadros caiu: {erro}");
+            None
+        }
     }
 }
 
@@ -154,7 +192,28 @@ mod testes {
     #[test]
     fn quadro_vazio_nao_entra_na_fila() {
         let (fila, saida) = mpsc::sync_channel(QUADROS_NA_FILA);
-        Entrega { fila }.mandar("", Quadro { dados: Vec::new(), largura: 1, altura: 1, passo: 1 });
+        Entrega { fila, sobras: Sobras::default() }.mandar("", Quadro { dados: Vec::new(), largura: 1, altura: 1, passo: 1 });
         assert!(saida.try_recv().is_err());
+    }
+
+    #[test]
+    fn quadro_descartado_com_a_fila_cheia_devolve_o_buffer_para_a_reserva() {
+        let (fila, _saida) = mpsc::sync_channel(QUADROS_NA_FILA);
+        let entrega = Entrega { fila, sobras: Sobras::default() };
+        for _ in 0..=QUADROS_NA_FILA {
+            entrega.mandar("ana", quadro_de(4, 2));
+        }
+        let reaproveitado = entrega.reservar(6);
+        assert_eq!(reaproveitado.len(), 6);
+        assert!(reaproveitado.capacity() >= 12, "veio o buffer do quadro descartado, não um novo");
+    }
+
+    #[test]
+    fn a_reserva_guarda_poucos_buffers() {
+        let sobras = Sobras::default();
+        for _ in 0..SOBRAS_GUARDADAS + 3 {
+            sobras.devolver(vec![0; 8]);
+        }
+        assert_eq!(sobras.trancar().len(), SOBRAS_GUARDADAS);
     }
 }

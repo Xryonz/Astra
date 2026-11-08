@@ -6,6 +6,7 @@ mod emissao;
 mod entrega;
 mod ferramentas;
 mod ponte;
+mod recepcao;
 mod registro_do_webrtc;
 mod sala;
 mod tela;

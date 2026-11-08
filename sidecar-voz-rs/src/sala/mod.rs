@@ -195,7 +195,7 @@ impl Sala {
     }
 
     fn repasse(&self, sala: &Arc<Room>) -> Repasse {
-        Repasse::novo(Arc::clone(&self.escritor), Arc::clone(&self.controles), Arc::clone(sala))
+        Repasse::novo(Arc::clone(&self.escritor), Arc::clone(&self.controles), Arc::clone(sala), self.entrega.clone())
     }
 
     fn controles(&self) -> MutexGuard<'_, Controles> {

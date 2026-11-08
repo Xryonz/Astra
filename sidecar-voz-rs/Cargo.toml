@@ -9,6 +9,7 @@ name = "astra-voz"
 path = "src/main.rs"
 
 [dependencies]
+futures-core = "0.3"
 livekit = { version = "=0.9.7", features = ["native-tls"] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }

@@ -5,6 +5,7 @@ mod escuta;
 mod estado_da_voz;
 mod fala;
 mod microfone;
+mod palco;
 mod queda;
 mod repasse;
 mod tela;
@@ -13,12 +14,14 @@ use crate::aparelhos::Sentido;
 use crate::emissao::PedidoDeTela;
 use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
+use crate::vigilia::Vigilia;
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use controles::{ALVO_DO_MICROFONE, Controles};
 use escolha_de_aparelho::{Escolhas, levar_ao_aparelho_certo};
 use escuta::aplicar_a_todos;
 use livekit::prelude::{LocalAudioTrack, PlatformAudio, Room, RoomOptions};
 use microfone::{abrir_ou_fechar, gravar_sem_o_cancelador_do_windows, publicar_o_microfone};
+use palco::ajustar_ao_palco;
 use repasse::{Repasse, repassar};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use tela::TelaNoAr;
@@ -31,6 +34,7 @@ pub struct Sala {
     entrega: Option<Entrega>,
     controles: Arc<Mutex<Controles>>,
     escolhas: Escolhas,
+    vigilia: Vigilia,
     aberta: Option<SalaAberta>,
 }
 
@@ -45,7 +49,14 @@ struct SalaAberta {
 
 impl Sala {
     pub fn nova(escritor: Arc<Escritor>, entrega: Option<Entrega>) -> Self {
-        Self { escritor, entrega, controles: Arc::default(), escolhas: Escolhas::default(), aberta: None }
+        Self {
+            escritor,
+            entrega,
+            controles: Arc::default(),
+            escolhas: Escolhas::default(),
+            vigilia: Vigilia::nova(),
+            aberta: None,
+        }
     }
 
     pub async fn entrar(&mut self, url: &str, token: &str) -> Result<(), String> {
@@ -81,12 +92,15 @@ impl Sala {
     }
 
     pub async fn deixar(&mut self) {
-        let Some(mut aberta) = self.aberta.take() else { return };
-        if let Some(tela) = aberta.tela.take() {
-            tela.tirar(&aberta.sala).await;
+        self.controles().definir_palco(String::new());
+        if let Some(mut aberta) = self.aberta.take() {
+            if let Some(tela) = aberta.tela.take() {
+                tela.tirar(&aberta.sala).await;
+            }
+            aberta.tarefas.iter().for_each(JoinHandle::abort);
+            let _ = aberta.sala.close().await;
         }
-        aberta.tarefas.iter().for_each(JoinHandle::abort);
-        let _ = aberta.sala.close().await;
+        self.atualizar_a_vigilia();
     }
 
     pub async fn transmitir(&mut self, pedido: PedidoDeTela) -> Result<(), String> {
@@ -94,18 +108,34 @@ impl Sala {
         let entrega = self.entrega.clone();
         let Some(aberta) = &mut self.aberta else { return Err("sem sala para transmitir".into()) };
         match &mut aberta.tela {
-            Some(tela) => tela.trocar(pedido, escritor, entrega).await,
-            None => {
-                aberta.tela = Some(TelaNoAr::publicar(&aberta.sala, pedido, escritor, entrega).await?);
-                Ok(())
-            }
+            Some(tela) => tela.trocar(pedido, escritor, entrega).await?,
+            None => aberta.tela = Some(TelaNoAr::publicar(&aberta.sala, pedido, escritor, entrega).await?),
         }
+        self.atualizar_a_vigilia();
+        Ok(())
     }
 
     pub async fn parar_a_tela(&mut self) {
-        let Some(aberta) = &mut self.aberta else { return };
-        let Some(tela) = aberta.tela.take() else { return };
-        tela.tirar(&aberta.sala).await;
+        if let Some(aberta) = &mut self.aberta
+            && let Some(tela) = aberta.tela.take()
+        {
+            tela.tirar(&aberta.sala).await;
+        }
+        self.atualizar_a_vigilia();
+    }
+
+    pub fn assistir(&self, quem: String) {
+        self.controles().definir_palco(quem);
+        if let Some(aberta) = &self.aberta {
+            ajustar_ao_palco(&aberta.sala, &self.controles());
+        }
+        self.atualizar_a_vigilia();
+    }
+
+    fn atualizar_a_vigilia(&self) {
+        let transmitindo = self.aberta.as_ref().is_some_and(|aberta| aberta.tela.is_some());
+        let assistindo = !self.controles().palco().is_empty();
+        self.vigilia.manter(transmitindo || assistindo);
     }
 
     pub async fn mudar(&self, ligado: bool) {

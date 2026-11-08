@@ -63,6 +63,10 @@ pub async fn executar(comando: &Comando, sala: &mut Sala, escritor: &Arc<Escrito
             }
             Ok(Resultado::Seguir)
         }
+        "assistir" => {
+            sala.assistir(comando.par.clone().unwrap_or_default());
+            Ok(Resultado::Seguir)
+        }
         "sair" => Ok(Resultado::Sair),
         outro => Err(format!("comando fora do protótipo: {outro}")),
     }

@@ -10,15 +10,35 @@ pub struct Controles {
     microfone: i32,
     escuta: i32,
     pessoas: HashMap<String, i32>,
+    palco: String,
 }
 
 impl Default for Controles {
     fn default() -> Self {
-        Self { mudo: false, surdo: false, microfone: VOLUME_CHEIO, escuta: VOLUME_CHEIO, pessoas: HashMap::new() }
+        Self {
+            mudo: false,
+            surdo: false,
+            microfone: VOLUME_CHEIO,
+            escuta: VOLUME_CHEIO,
+            pessoas: HashMap::new(),
+            palco: String::new(),
+        }
     }
 }
 
 impl Controles {
+    pub fn palco(&self) -> &str {
+        &self.palco
+    }
+
+    pub fn definir_palco(&mut self, quem: String) {
+        self.palco = quem;
+    }
+
+    pub fn assiste_a(&self, quem: &str) -> bool {
+        !self.palco.is_empty() && self.palco == quem
+    }
+
     pub fn mudo(&self) -> bool {
         self.mudo
     }
@@ -91,6 +111,18 @@ mod testes {
         controles.definir_surdo(false);
         controles.definir_volume(ALVO_DA_ESCUTA, 0);
         assert!(!controles.ouve("bia"));
+    }
+
+    #[test]
+    fn so_assiste_a_quem_esta_no_palco_e_palco_vazio_e_ninguem() {
+        let mut controles = Controles::default();
+        assert!(!controles.assiste_a("ana"), "de partida ninguém está no palco");
+        controles.definir_palco("ana".into());
+        assert!(controles.assiste_a("ana"));
+        assert!(!controles.assiste_a("bia"));
+        controles.definir_palco(String::new());
+        assert!(!controles.assiste_a("ana"), "palco vazio não assina ninguém, ao contrário do Go");
+        assert!(!controles.assiste_a(""));
     }
 
     #[test]

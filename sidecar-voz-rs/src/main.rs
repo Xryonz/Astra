@@ -9,6 +9,7 @@ mod ponte;
 mod registro_do_webrtc;
 mod sala;
 mod tela;
+mod vigilia;
 
 use despacho::Resultado;
 use ponte::{Escritor, Evento};

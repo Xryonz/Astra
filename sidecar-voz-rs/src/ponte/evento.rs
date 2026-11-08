@@ -4,6 +4,7 @@ use serde::Serialize;
 
 const ESTADO: &str = "estado";
 const TRANSMISSAO: &str = "transmissao";
+const TELA: &str = "tela";
 
 #[derive(Debug, Default, Serialize)]
 pub struct Evento {
@@ -109,6 +110,20 @@ impl Evento {
         Self { ev: TRANSMISSAO, valor: Some(um_ou_zero(false).into()), ..Default::default() }
     }
 
+    pub fn tela_no_ar(par: &str) -> Self {
+        Self {
+            ev: TELA,
+            par: Some(par.into()),
+            tipo: Some("faixa".into()),
+            valor: Some(um_ou_zero(true).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn tela_fora_do_ar(par: &str) -> Self {
+        Self { ev: TELA, par: Some(par.into()), valor: Some(um_ou_zero(false).into()), ..Default::default() }
+    }
+
     fn de_estado(par: Option<String>, valor: &str) -> Self {
         Self { ev: ESTADO, par, valor: Some(valor.into()), ..Default::default() }
     }
@@ -187,6 +202,15 @@ mod testes {
             serde_json::to_string(&Evento::miniatura("janela", "132458".into(), "iVBO".into())).unwrap(),
             "{\"ev\":\"miniatura\",\"par\":\"132458\",\"tipo\":\"janela\",\"dados\":\"iVBO\"}"
         );
+    }
+
+    #[test]
+    fn tela_dos_outros_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::tela_no_ar("ana")).unwrap(),
+            "{\"ev\":\"tela\",\"par\":\"ana\",\"tipo\":\"faixa\",\"v\":\"1\"}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::tela_fora_do_ar("ana")).unwrap(), "{\"ev\":\"tela\",\"par\":\"ana\",\"v\":\"0\"}");
     }
 
     #[test]

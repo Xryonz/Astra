@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -23,6 +24,7 @@ pub struct Quadro {
 pub struct Entrega {
     fila: SyncSender<(String, Quadro)>,
     sobras: Sobras,
+    propria_no_palco: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Default)]
@@ -63,11 +65,19 @@ impl Entrega {
         std::thread::Builder::new()
             .name("astra-quadros".into())
             .spawn(move || servir(&endereco, &segredo, &saida, &devolvidas))?;
-        Ok(Self { fila, sobras })
+        Ok(Self { fila, sobras, propria_no_palco: Arc::default() })
     }
 
     pub fn reservar(&self, tamanho: usize) -> Vec<u8> {
         self.sobras.tirar(tamanho)
+    }
+
+    pub fn mostrar_a_propria(&self, sim: bool) {
+        self.propria_no_palco.store(sim, Ordering::Relaxed);
+    }
+
+    pub fn mostrando_a_propria(&self) -> bool {
+        self.propria_no_palco.load(Ordering::Relaxed)
     }
 
     pub fn mandar(&self, par: &str, quadro: Quadro) {
@@ -192,14 +202,15 @@ mod testes {
     #[test]
     fn quadro_vazio_nao_entra_na_fila() {
         let (fila, saida) = mpsc::sync_channel(QUADROS_NA_FILA);
-        Entrega { fila, sobras: Sobras::default() }.mandar("", Quadro { dados: Vec::new(), largura: 1, altura: 1, passo: 1 });
+        Entrega { fila, sobras: Sobras::default(), propria_no_palco: Arc::default() }
+            .mandar("", Quadro { dados: Vec::new(), largura: 1, altura: 1, passo: 1 });
         assert!(saida.try_recv().is_err());
     }
 
     #[test]
     fn quadro_descartado_com_a_fila_cheia_devolve_o_buffer_para_a_reserva() {
         let (fila, _saida) = mpsc::sync_channel(QUADROS_NA_FILA);
-        let entrega = Entrega { fila, sobras: Sobras::default() };
+        let entrega = Entrega { fila, sobras: Sobras::default(), propria_no_palco: Arc::default() };
         for _ in 0..=QUADROS_NA_FILA {
             entrega.mandar("ana", quadro_de(4, 2));
         }

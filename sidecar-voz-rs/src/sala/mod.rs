@@ -16,7 +16,7 @@ use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
 use crate::vigilia::Vigilia;
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
-use controles::{ALVO_DO_MICROFONE, Controles};
+use controles::{ALVO_DO_MICROFONE, Controles, PALCO_PROPRIO};
 use escolha_de_aparelho::{Escolhas, levar_ao_aparelho_certo};
 use escuta::aplicar_a_todos;
 use livekit::prelude::{LocalAudioTrack, PlatformAudio, Room, RoomOptions};
@@ -92,6 +92,7 @@ impl Sala {
     }
 
     pub async fn deixar(&mut self) {
+        self.mostrar_a_propria(false);
         self.controles().definir_palco(String::new());
         if let Some(mut aberta) = self.aberta.take() {
             if let Some(tela) = aberta.tela.take() {
@@ -125,11 +126,18 @@ impl Sala {
     }
 
     pub fn assistir(&self, quem: String) {
+        self.mostrar_a_propria(quem == PALCO_PROPRIO);
         self.controles().definir_palco(quem);
         if let Some(aberta) = &self.aberta {
             ajustar_ao_palco(&aberta.sala, &self.controles());
         }
         self.atualizar_a_vigilia();
+    }
+
+    fn mostrar_a_propria(&self, sim: bool) {
+        if let Some(entrega) = &self.entrega {
+            entrega.mostrar_a_propria(sim);
+        }
     }
 
     fn atualizar_a_vigilia(&self) {

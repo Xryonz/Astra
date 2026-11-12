@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 pub const ALVO_DO_MICROFONE: &str = "meu-microfone";
 pub const ALVO_DA_ESCUTA: &str = "minha-escuta";
+pub const PALCO_PROPRIO: &str = "minha-tela";
 const VOLUME_CHEIO: i32 = 100;
 
 pub struct Controles {

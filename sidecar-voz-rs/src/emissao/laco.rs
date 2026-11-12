@@ -287,7 +287,8 @@ impl Laco {
     fn espelhar(&self, turno: &mut Turno) {
         let (Some(entrega), Some(espelho)) = (&self.entrega, turno.espelho.as_mut()) else { return };
         let (fonte, tamanho) = turno.codificacao.bancada.fonte_do_espelho();
-        match espelho.talvez(fonte, tamanho) {
+        let cheio = entrega.mostrando_a_propria();
+        match espelho.talvez(fonte, tamanho, cheio, turno.codificacao.saida.0, |n| entrega.reservar(n)) {
             Ok(Some(quadro)) => entrega.mandar("", quadro),
             Ok(None) => {}
             Err(erro) => {

@@ -86,9 +86,18 @@ pub fn textura_de_leitura(
 }
 
 pub fn copiar_linhas(mapa: &D3D11_MAPPED_SUBRESOURCE, bytes_por_linha: usize, linhas: usize) -> Vec<u8> {
+    let mut destino = vec![0; bytes_por_linha * linhas];
+    preencher_linhas(mapa, bytes_por_linha, &mut destino);
+    destino
+}
+
+pub fn preencher_linhas(mapa: &D3D11_MAPPED_SUBRESOURCE, bytes_por_linha: usize, destino: &mut [u8]) {
     let passo = mapa.RowPitch as usize;
+    let linhas = destino.len() / bytes_por_linha;
     let origem = unsafe { std::slice::from_raw_parts(mapa.pData as *const u8, passo * linhas) };
-    origem.chunks(passo).flat_map(|linha| &linha[..bytes_por_linha]).copied().collect()
+    for (linha, copia) in origem.chunks(passo).zip(destino.chunks_exact_mut(bytes_por_linha)) {
+        copia.copy_from_slice(&linha[..bytes_por_linha]);
+    }
 }
 
 fn amarracoes_aceitas(placa: &ID3D11Device, formato: DXGI_FORMAT) -> u32 {

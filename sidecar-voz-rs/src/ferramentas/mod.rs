@@ -3,6 +3,7 @@ mod medidas;
 mod relato;
 mod relogio;
 mod sonda_da_janela;
+mod video;
 
 use crate::com::ComDaThread;
 use crate::tela::{miniaturas_das_janelas, placas_de_hardware};
@@ -13,6 +14,7 @@ pub fn rodar_se_pedida() -> Option<i32> {
     let pedida = argumentos.next()?;
     Some(match pedida.as_str() {
         "sondar-codificador" => sondar_codificador(),
+        "sondar-video" | "comprimir-video" => video::rodar(&pedida, &argumentos.collect::<Vec<_>>()),
         "sondar-janela" => {
             let mut numero = || argumentos.next().and_then(|texto| texto.parse().ok());
             match (numero(), numero()) {

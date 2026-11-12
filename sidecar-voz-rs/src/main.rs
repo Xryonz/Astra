@@ -10,6 +10,7 @@ mod recepcao;
 mod registro_do_webrtc;
 mod sala;
 mod tela;
+mod video;
 mod vigilia;
 
 use despacho::Resultado;

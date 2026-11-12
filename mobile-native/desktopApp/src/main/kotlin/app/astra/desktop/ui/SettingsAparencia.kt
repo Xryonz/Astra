@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -32,6 +34,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -99,27 +104,45 @@ internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boole
             Text(title, style = Tipo.corpo)
             Text(sub, style = Tipo.apoio)
         }
-        Toggle(on, onChange)
+        Toggle(on, title, onChange)
     }
     Spacer(Modifier.height(8.dp))
 }
 
 @Composable
-private fun Toggle(on: Boolean, onChange: (Boolean) -> Unit) {
-    val track by animateColorAsState(if (on) Obsidian.accent else Obsidian.overlay, tween(160))
-    val knobX by animateDpAsState(if (on) 18.dp else 2.dp, tween(160))
+private fun Toggle(on: Boolean, rotulo: String, onChange: (Boolean) -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .anelDeFoco(RoundedCornerShape(percent = 50), folga = 2.dp)
+            .width(40.dp)
+            .height(24.dp)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .semantics { contentDescription = rotulo }
+            .toggleable(on, fonte, indication = null, role = Role.Switch, onValueChange = onChange),
+        contentAlignment = Alignment.Center,
+    ) {
+        TrilhoDaChave(on)
+    }
+}
+
+@Composable
+private fun TrilhoDaChave(on: Boolean) {
+    val reduzir = LocalReduceMotion.current
+    val track by animateColorAsState(if (on) Obsidian.accent else Obsidian.overlay, if (reduzir) snap() else tween(160))
+    val knobX by animateDpAsState(if (on) 19.dp else 3.dp, if (reduzir) snap() else tween(160))
+    val forma = RoundedCornerShape(11.dp)
     Box(
         Modifier
             .width(38.dp)
             .height(22.dp)
-            .clip(RoundedCornerShape(11.dp))
+            .clip(forma)
             .background(track)
-            .border(1.dp, if (on) Obsidian.accent else Obsidian.borderMid, RoundedCornerShape(11.dp))
-            .clickable { onChange(!on) },
+            .border(1.dp, if (on) Obsidian.accent else Obsidian.borderMid, forma),
     ) {
         Box(
             Modifier
-                .offset(x = knobX, y = 2.dp)
+                .offset(x = knobX, y = 3.dp)
                 .size(16.dp)
                 .clip(CircleShape)
                 .background(if (on) Obsidian.void else Obsidian.text3),

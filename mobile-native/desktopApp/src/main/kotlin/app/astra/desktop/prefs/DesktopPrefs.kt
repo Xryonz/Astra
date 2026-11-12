@@ -4,6 +4,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import app.astra.desktop.auth.SessionStore
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+private const val ESPERA_PARA_GRAVAR_MS = 600L
 
 enum class AuroraQuality(val key: String, val octaves: Int) {
     HIGH("high", 3), MEDIUM("med", 2), LOW("low", 1);
@@ -92,41 +96,23 @@ class DesktopPrefs(private val store: SessionStore) {
     val state = _state.asStateFlow()
 
     private val pendentes = LinkedHashMap<String, String>()
-    private var gravado = emptyMap<String, String>()
-    private var rascunhando = false
-    private val _mudancasPendentes = MutableStateFlow(0)
-    val mudancasPendentes = _mudancasPendentes.asStateFlow()
-
-    init { migrarCeu(); desfazerEconomiaImposta() }
-
-    fun abrirRascunho() {
-        pendentes.clear()
-        _mudancasPendentes.value = 0
-        gravado = store.todasUiPrefs()
-        rascunhando = true
+    private var gravacaoMarcada = false
+    private val gravador = Executors.newSingleThreadScheduledExecutor { tarefa ->
+        Thread(tarefa, "astra-prefs").apply { isDaemon = true }
     }
 
-    fun salvarRascunho(): Int {
-        val quantas = pendentes.size
-        if (quantas > 0) {
-            store.setUiPrefs(LinkedHashMap(pendentes))
-            gravado = gravado + pendentes
+    init {
+        migrarCeu()
+        desfazerEconomiaImposta()
+        Runtime.getRuntime().addShutdownHook(Thread { gravarAgrupadas(); store.gravarPendencias() })
+    }
+
+    private fun gravarAgrupadas() {
+        synchronized(pendentes) {
+            gravacaoMarcada = false
+            store.setUiPrefs(pendentes)
             pendentes.clear()
-            _mudancasPendentes.value = 0
         }
-        return quantas
-    }
-
-    fun descartarRascunho() {
-        if (pendentes.isEmpty()) return
-        pendentes.clear()
-        _mudancasPendentes.value = 0
-        _state.value = read()
-    }
-
-    fun fecharRascunho() {
-        descartarRascunho()
-        rascunhando = false
     }
 
     fun aplicarPerfil(perfil: PerfilDeDesempenho) {
@@ -198,12 +184,12 @@ class DesktopPrefs(private val store: SessionStore) {
     private fun persist(key: String, on: Boolean) = anotar(key, if (on) "1" else "0")
 
     private fun anotar(chave: String, valor: String) {
-        if (!rascunhando) {
-            store.setUiPref(chave, valor)
-            return
+        synchronized(pendentes) {
+            pendentes[chave] = valor
+            if (gravacaoMarcada) return
+            gravacaoMarcada = true
         }
-        if (gravado[chave] == valor) pendentes.remove(chave) else pendentes[chave] = valor
-        _mudancasPendentes.value = pendentes.size
+        gravador.schedule(::gravarAgrupadas, ESPERA_PARA_GRAVAR_MS, TimeUnit.MILLISECONDS)
     }
 
     fun setReduceMotion(v: Boolean) {

@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -112,9 +111,7 @@ private val RECUO_DA_COLUNA_DE_CONFIG = 28.dp
 internal val LARGURA_DO_TEXTO_DE_CONFIG = 520.dp
 private val ESPACO_PARA_A_BARRA = 78.dp
 private const val VIDA_DA_CONFIRMACAO_MS = 2_600L
-private const val RECUSA_DO_ARRANQUE =
-    "o Windows recusou a mudança na inicialização. Também é possível ligar e desligar isto pelo " +
-        "Gerenciador de Tarefas, na aba Inicializar."
+private const val PERFIL_SALVO = "perfil salvo"
 internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
 @Composable
@@ -134,22 +131,13 @@ fun SettingsScreen(
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
     var perfilSalvo by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
 
-    val arranque = remember { RascunhoDoArranque() }
-    val pendentesDePrefs by prefs.mudancasPendentes.collectAsState()
-    val ajustesPendentes = pendentesDePrefs + if (arranque.mudou) 1 else 0
     val perfilMudou = draft != perfilSalvo
-    val temRascunho = ajustesPendentes > 0 || perfilMudou
 
     var salvando by remember { mutableStateOf(false) }
     var confirmacao by remember { mutableStateOf<String?>(null) }
     var erro by remember { mutableStateOf<String?>(null) }
     var insistencia by remember { mutableStateOf(0) }
     val escopo = rememberCoroutineScope()
-
-    DisposableEffect(prefs) {
-        prefs.abrirRascunho()
-        onDispose { prefs.fecharRascunho() }
-    }
 
     LaunchedEffect(confirmacao) {
         if (confirmacao == null) return@LaunchedEffect
@@ -158,39 +146,31 @@ fun SettingsScreen(
     }
 
     fun salvar() {
-        if (salvando || !temRascunho) return
+        if (salvando || !perfilMudou) return
         salvando = true
         erro = null
         confirmacao = null
-        val queriaPerfil = perfilMudou
         val paraSalvar = draft
         escopo.launch {
-            var ajustes = prefs.salvarRascunho()
-            var falha: String? = null
-            if (arranque.mudou) {
-                if (arranque.salvar()) ajustes++ else falha = RECUSA_DO_ARRANQUE
-            }
-            if (queriaPerfil) {
-                salvarPerfil(paraSalvar, perfilSalvo)
-                    .onSuccess { perfilSalvo = paraSalvar; onProfileSaved() }
-                    .onFailure { falha = saveErrorMessage(it) }
-            }
+            salvarPerfil(paraSalvar, perfilSalvo)
+                .onSuccess {
+                    perfilSalvo = paraSalvar
+                    onProfileSaved()
+                    confirmacao = PERFIL_SALVO
+                }
+                .onFailure { erro = saveErrorMessage(it) }
             salvando = false
-            erro = falha
-            if (falha == null) confirmacao = recadoDoSalvamento(ajustes, queriaPerfil)
         }
     }
 
     fun descartar() {
-        prefs.descartarRascunho()
-        arranque.descartar()
         draft = perfilSalvo
         erro = null
         confirmacao = null
     }
 
     fun tentarFechar() {
-        if (temRascunho) insistencia++ else onClose()
+        if (perfilMudou) insistencia++ else onClose()
     }
 
     val focus = remember { FocusRequester() }
@@ -339,7 +319,7 @@ fun SettingsScreen(
                         SettingsTab.PETS -> PetsSection(prefState, prefs)
 
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
-                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs, arranque)
+                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs, aparelhos)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
@@ -387,7 +367,6 @@ fun SettingsScreen(
             }
         }
             BarraDeSalvar(
-                ajustes = ajustesPendentes,
                 perfil = perfilMudou,
                 salvando = salvando,
                 confirmacao = confirmacao,

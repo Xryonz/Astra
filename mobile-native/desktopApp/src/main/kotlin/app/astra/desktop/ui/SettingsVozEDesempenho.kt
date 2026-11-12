@@ -22,6 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -221,7 +224,7 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
 }
 
 @Composable
-internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arranque: RascunhoDoArranque) {
+internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     ToggleRow(
         "Modo desempenho",
         "desliga aurora e estrelas e reduz as animações de uma vez, para jogar ou transmitir",
@@ -264,7 +267,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
         p.exitOnClose, prefs::setExitOnClose,
     )
     Spacer(Modifier.height(6.dp))
-    ArranqueComWindows(arranque)
+    ArranqueComWindows()
 }
 
 internal fun mascarar(email: String): String {
@@ -273,45 +276,52 @@ internal fun mascarar(email: String): String {
     return email.first() + "•••" + email.substring(arroba)
 }
 
-internal class RascunhoDoArranque {
-    private var ligadoGravado: Boolean by mutableStateOf(InicioComWindows.ligado())
-    private var escondidoGravado: Boolean by mutableStateOf(InicioComWindows.escondido())
+private const val RECUSA_DO_ARRANQUE =
+    "o Windows recusou a mudança na inicialização. Também é possível ligar e desligar isto pelo " +
+        "Gerenciador de Tarefas, na aba Inicializar."
 
-    var ligado: Boolean by mutableStateOf(ligadoGravado)
-    var escondido: Boolean by mutableStateOf(escondidoGravado)
+private class ArranqueNoWindows {
+    var ligado: Boolean by mutableStateOf(InicioComWindows.ligado())
+        private set
+    var escondido: Boolean by mutableStateOf(InicioComWindows.escondido())
+        private set
+    var recusado: Boolean by mutableStateOf(false)
+        private set
 
-    val mudou: Boolean get() = ligado != ligadoGravado || escondido != escondidoGravado
-
-    fun descartar() {
-        ligado = ligadoGravado
-        escondido = escondidoGravado
-    }
-
-    fun salvar(): Boolean {
-        if (!mudou) return true
-        if (!InicioComWindows.aplicar(ligado, escondido)) return false
-        ligadoGravado = ligado
-        escondidoGravado = escondido
-        return true
+    fun aplicar(ligar: Boolean, esconder: Boolean) {
+        recusado = !InicioComWindows.aplicar(ligar, esconder)
+        if (recusado) return
+        ligado = ligar
+        escondido = esconder
     }
 }
 
 @Composable
-private fun ArranqueComWindows(arranque: RascunhoDoArranque) {
+private fun ArranqueComWindows() {
     if (!InicioComWindows.disponivel()) return
+    val arranque = remember { ArranqueNoWindows() }
 
     ToggleRow(
         "Abrir junto com o Windows",
         "o Astra abre na bandeja quando o computador liga",
         arranque.ligado,
-    ) { arranque.ligado = it }
+    ) { arranque.aplicar(it, arranque.escondido) }
     if (arranque.ligado) {
         Spacer(Modifier.height(6.dp))
         ToggleRow(
             "Ao subir assim, começar sem janela",
             "só o ícone na bandeja: nada aparece na frente de quem acabou de ligar o PC",
             arranque.escondido,
-        ) { arranque.escondido = it }
+        ) { arranque.aplicar(arranque.ligado, it) }
+    }
+    if (arranque.recusado) {
+        Text(
+            RECUSA_DO_ARRANQUE,
+            style = Tipo.erro,
+            modifier = Modifier
+                .widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        )
     }
 }
 

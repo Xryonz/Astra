@@ -1,11 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -34,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -279,14 +274,8 @@ fun SettingsScreen(
                     .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = RECUO_DA_COLUNA_DE_CONFIG, vertical = 22.dp),
             ) {
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        fadeIn(tween(95)).togetherWith(fadeOut(tween(70))) using
-                            SizeTransform(clip = false) { _, _ -> tween(120) }
-                    },
-                    label = "settingsSection",
-                ) { current ->
+                key(tab) {
+                    val current = tab
                     val temPrevia = temPrevia(current)
                     Column(Modifier.fillMaxWidth()) {
                     Text(
@@ -385,14 +374,8 @@ fun SettingsScreen(
                             LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "fechar")
                         }
                         Spacer(Modifier.height(16.dp))
-                        AnimatedContent(
-                            targetState = tabAtiva,
-                            transitionSpec = {
-                                fadeIn(tween(110)).togetherWith(fadeOut(tween(80))) using
-                                    SizeTransform(clip = false) { _, _ -> tween(135) }
-                            },
-                            label = "previaDaSecao",
-                        ) { secao ->
+                        key(tabAtiva) {
+                            val secao = tabAtiva
                             Column(Modifier.fillMaxWidth()) {
                                 if (temPrevia(secao)) {
                                     SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth(), acoesDoCartao)

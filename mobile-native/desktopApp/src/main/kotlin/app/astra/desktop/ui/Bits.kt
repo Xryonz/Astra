@@ -47,13 +47,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Outline
@@ -100,29 +98,7 @@ fun Modifier.clickScale(
         animationSpec = tween(durationMillis = duracao, easing = EaseOutStd),
         label = "clickScale",
     )
-    val brilho = animateFloatAsState(
-        targetValue = if (pressed && !reduce) 1f else 0f,
-        animationSpec = tween(durationMillis = duracao),
-        label = "clickGlow",
-    )
-    val corDoBrilho = Obsidian.accent
     return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
-        .drawBehind {
-            val aceso = brilho.value
-            if (aceso <= 0.01f) return@drawBehind
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        corDoBrilho.copy(alpha = 0.34f * aceso),
-                        corDoBrilho.copy(alpha = 0.10f * aceso),
-                        Color.Transparent,
-                    ),
-                    center = center,
-                    radius = size.minDimension * 0.95f,
-                ),
-                radius = size.minDimension * 0.95f,
-            )
-        }
         .anelDeFoco(formaDoFoco, folgaDoFoco)
 }
 

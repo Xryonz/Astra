@@ -11,17 +11,17 @@ import java.awt.Container
 @Composable
 fun FrameWindowScope.MedindoCadaQuadro() {
     DisposableEffect(window) {
-        val desfazer = medirCadaQuadro(window)
+        val desfazer = embrulharODesenho(window, ::cronometrandoQuadros)
         onDispose { desfazer() }
     }
 }
 
-private fun medirCadaQuadro(janela: Container): () -> Unit {
+internal fun embrulharODesenho(janela: Container, embrulho: (SkikoRenderDelegate) -> SkikoRenderDelegate): () -> Unit {
     val camada = janela.camadaDoSkia() ?: return {}
     val original = camada.renderDelegate ?: return {}
-    val medidor = cronometrandoQuadros(original)
-    camada.renderDelegate = medidor
-    return { if (camada.renderDelegate === medidor) camada.renderDelegate = original }
+    val embrulhado = embrulho(original)
+    camada.renderDelegate = embrulhado
+    return { if (camada.renderDelegate === embrulhado) camada.renderDelegate = original }
 }
 
 private fun cronometrandoQuadros(original: SkikoRenderDelegate) = object : SkikoRenderDelegate {

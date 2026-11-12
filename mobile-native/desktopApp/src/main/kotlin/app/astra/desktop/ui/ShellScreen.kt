@@ -364,7 +364,7 @@ fun ShellScreen(
     }
     CompositionLocalProvider(
         LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
-        LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
+        LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves),
         LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
         LocalCoresDeCargo provides cores,
         LocalAcoesDoPerfil provides acoesDoPerfil,

@@ -69,6 +69,7 @@ import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
 import app.astra.desktop.ui.DesenhoDaJanela
 import app.astra.desktop.ui.Quadros
+import app.astra.desktop.ui.LimitandoOsQuadros
 import app.astra.desktop.ui.MedindoCadaQuadro
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
@@ -695,6 +696,8 @@ fun main(args: Array<String>) {
             remember { Vigia.janelaCriada() }
             remember { semBufferDuploDoSwing(window) }
             MedindoCadaQuadro()
+            val prefsDoQuadro = remember { GlobalContext.get().get<DesktopPrefs>() }
+            LimitandoOsQuadros { prefsDoQuadro.state.value.acompanharATela }
             LaunchedEffect(Unit) {
                 if (nascerEscondido) Arranque.nasceuEscondido()
                 Arranque.marcar("composição da janela pronta")
@@ -862,7 +865,7 @@ fun main(args: Array<String>) {
                     }
                     CompositionLocalProvider(
                         LocalRenderPrefs provides
-                            RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
+                            RenderPrefs(prefState.auroraQuality.octaves),
                         LocalReduceMotion provides
                             (prefState.reduceMotionEff || !janelaComFoco || transmitindo),
                     ) {

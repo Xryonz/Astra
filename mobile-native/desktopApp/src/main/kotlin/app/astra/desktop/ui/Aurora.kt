@@ -274,9 +274,6 @@ private fun desenharQuadro(construtor: RuntimeShaderBuilder, pintor: Paint, supe
     return superficie.makeImageSnapshot()
 }
 
-private fun tetoDaAurora(tetoDaInterface: Int): Int =
-    if (tetoDaInterface in 1..TETO_DA_AURORA_QPS) tetoDaInterface else TETO_DA_AURORA_QPS
-
 private fun posicaoNaVolta(tempo: Float): Float = tempo / AURORA_LOOP * QUADROS_DA_VOLTA
 
 private fun indiceDoTempo(tempo: Float): Int = floor(posicaoNaVolta(tempo)).toInt().mod(QUADROS_DA_VOLTA)
@@ -304,7 +301,6 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
 private fun relogioDaAurora(relogio: FloatArray, pronto: Boolean, peloProcessador: Boolean): State<Float> {
     val parado = LocalReduceMotion.current
     val ativa = rememberUpdatedState(LocalWindowActive.current)
-    val teto = rememberUpdatedState(LocalRenderPrefs.current.fpsCap)
     return produceState(relogio[0], parado, pronto, peloProcessador) {
         value = relogio[0]
         if (parado || !pronto) return@produceState
@@ -322,7 +318,7 @@ private fun relogioDaAurora(relogio: FloatArray, pronto: Boolean, peloProcessado
                 if (peloProcessador) {
                     delay((INTERVALO_NO_PROCESSADOR_MS - (System.nanoTime() - inicio) / 1_000_000).coerceAtLeast(0))
                 } else {
-                    esperarPeloTeto(tetoDaAurora(teto.value))
+                    esperarPeloTeto(TETO_DA_AURORA_QPS)
                 }
             }
         }

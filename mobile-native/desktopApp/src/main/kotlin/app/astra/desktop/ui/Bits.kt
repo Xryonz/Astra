@@ -70,7 +70,6 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
 import app.astra.desktop.net.RedeLog
-import app.astra.desktop.prefs.UiFps
 import coil3.compose.AsyncImagePainter
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -269,7 +268,7 @@ val LocalJanelaNaTela = compositionLocalOf { true }
 
 val LocalFundoLiso = staticCompositionLocalOf { false }
 
-data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = UiFps.CAP60.cap)
+data class RenderPrefs(val auroraOctaves: Int = 3)
 val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }
 
 val LocalMsgFontScale = staticCompositionLocalOf { 1f }

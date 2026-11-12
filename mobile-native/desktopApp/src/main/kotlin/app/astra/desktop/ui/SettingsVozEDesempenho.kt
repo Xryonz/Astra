@@ -34,7 +34,6 @@ import app.astra.desktop.InicioComWindows
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
-import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -238,13 +237,14 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
-        LabeledControl("FPS das animações", "teto de quadros das estrelas; a aurora fica em até 30") {
-            SegmentedRow(
-                listOf("60" to UiFps.CAP60, "30" to UiFps.CAP30),
-                p.uiFps, prefs::setUiFps,
-            )
-        }
     }
+
+    Spacer(Modifier.height(6.dp))
+    ToggleRow(
+        "Acompanhar a taxa de atualização da tela",
+        "desligado, o Astra desenha até 60 quadros por segundo; ligado, segue a taxa do monitor definida no Windows",
+        p.acompanharATela, prefs::setAcompanharATela,
+    )
 
     Spacer(Modifier.height(6.dp))
     ToggleRow(

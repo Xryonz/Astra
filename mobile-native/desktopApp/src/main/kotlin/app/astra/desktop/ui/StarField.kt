@@ -62,12 +62,12 @@ private const val TWINKLE_PERIOD = 5f
 private const val METEOR_PERIOD = 24f
 private const val STAR_LOOP = 360f
 private const val WANDER_DP = 9f
+private const val QUADROS_DAS_ESTRELAS = 60
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     val reduceMotion = LocalReduceMotion.current
     val active = rememberUpdatedState(LocalWindowActive.current)
-    val fpsCap = rememberUpdatedState(LocalRenderPrefs.current.fpsCap)
     val time by produceState(0f, reduceMotion) {
         if (reduceMotion) {
             value = 0f
@@ -85,7 +85,7 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
                     last = now
                     value = acc
                 }
-                esperarPeloTeto(fpsCap.value)
+                esperarPeloTeto(QUADROS_DAS_ESTRELAS)
             }
         }
     }

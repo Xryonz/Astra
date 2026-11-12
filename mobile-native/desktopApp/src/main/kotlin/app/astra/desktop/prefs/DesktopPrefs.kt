@@ -12,13 +12,6 @@ enum class AuroraQuality(val key: String, val octaves: Int) {
     }
 }
 
-enum class UiFps(val key: String, val cap: Int) {
-    CAP60("60", 60), CAP30("30", 30);
-    companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: CAP60
-    }
-}
-
 enum class ScreenQuality(
     val key: String, val label: String,
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
@@ -62,7 +55,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val auroraEnabled: Boolean = false,
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        val uiFps: UiFps = UiFps.CAP60,
+        val acompanharATela: Boolean = false,
         val windowTransparent: Boolean = true,
         val exitOnClose: Boolean = false,
         val altoContraste: Boolean = false,
@@ -161,8 +154,7 @@ class DesktopPrefs(private val store: SessionStore) {
         if (store.uiPref("ceuMigrado") == "2") return
         store.setUiPref("ceuMigrado", "2")
         store.setUiPref("auroraQuality", AuroraQuality.HIGH.key)
-        store.setUiPref("uiFps", UiFps.CAP60.key)
-        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.CAP60) }
+        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH) }
     }
 
     private fun read() = Prefs(
@@ -175,7 +167,7 @@ class DesktopPrefs(private val store: SessionStore) {
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") == "1",
-        uiFps = UiFps.from(store.uiPref("uiFps")),
+        acompanharATela = store.uiPref("acompanharATela") == "1",
         windowTransparent = store.uiPref("windowTransparent") != "0",
         exitOnClose = store.uiPref("exitOnClose") == "1",
         altoContraste = store.uiPref("altoContraste") == "1",
@@ -260,9 +252,9 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(starsEnabled = v) }
     }
 
-    fun setUiFps(v: UiFps) {
-        anotar("uiFps", v.key)
-        _state.update { it.copy(uiFps = v) }
+    fun setAcompanharATela(v: Boolean) {
+        persist("acompanharATela", v)
+        _state.update { it.copy(acompanharATela = v) }
     }
 
     fun setWindowTransparent(v: Boolean) {

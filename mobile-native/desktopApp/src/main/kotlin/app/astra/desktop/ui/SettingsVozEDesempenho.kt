@@ -89,8 +89,7 @@ internal fun VoiceSection(
 private fun BlocoDaTransmissao(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Transmissão de tela",
-        "Vale ao iniciar a transmissão. Quem comprime o vídeo é a placa; num computador sem " +
-            "aceleração de vídeo, a imagem fica em até 720p, mesmo na opção de 1080p.",
+        "Vale ao iniciar a transmissão.",
     )
     RadioList(
         ScreenQuality.entries.map { it.label to it },

@@ -49,6 +49,7 @@ class CallNaSala(
         const val VOLUME_CHEIO = 100
         private const val ALVO_DO_MICROFONE = "meu-microfone"
         private const val ALVO_DA_ESCUTA = "minha-escuta"
+        private const val PALCO_PROPRIO = "minha-tela"
         private const val TENTATIVAS_DE_VOLTA = 6
         private const val ESPERA_INICIAL_MS = 1_000L
         private const val ESPERA_MAXIMA_MS = 15_000L
@@ -187,10 +188,14 @@ class CallNaSala(
     }
 
     fun assistir(par: String?) {
-        val alvo = par.orEmpty()
+        val alvo = when (par) {
+            null -> ""
+            EU -> PALCO_PROPRIO
+            else -> par
+        }
         if (alvo == noPalco) return
         noPalco = alvo
-        sidecar.assistir(par)
+        sidecar.assistir(alvo)
     }
 
     private val _volumes = MutableStateFlow<Map<String, Int>>(emptyMap())

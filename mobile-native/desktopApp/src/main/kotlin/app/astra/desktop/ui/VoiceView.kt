@@ -230,13 +230,12 @@ fun VoiceView(
                     }
                 }
             } else {
-                val nomeDeQuemMostra = if (quemMostra == CallNaSala.EU) "sua tela"
-                else pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
+                val nomeDeQuemMostra = pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
                     ?: channel.name.ifBlank { "alguém" }
 
                 PalcoDaTela(
                     legenda = when {
-                        quemMostra == CallNaSala.EU -> "esta é a sua tela, como os outros a veem"
+                        quemMostra == CallNaSala.EU -> null
                         mostrando.size > 1 ->
                             "$nomeDeQuemMostra está compartilhando a tela · " +
                                 "clique em outra pessoa para ver a dela"
@@ -254,10 +253,12 @@ fun VoiceView(
                     },
                     tela = {
                         if (quemMostra !in comTela) {
-                            Text(
-                                "abrindo a tela de $nomeDeQuemMostra…",
-                                style = Tipo.descricao,
-                            )
+                            if (quemMostra != CallNaSala.EU) {
+                                Text(
+                                    "abrindo a tela de $nomeDeQuemMostra…",
+                                    style = Tipo.descricao,
+                                )
+                            }
                         } else {
                             TelaCompartilhada(call.telasDosOutros, quemMostra, Modifier.fillMaxSize())
                         }
@@ -887,7 +888,7 @@ private const val COMPASSO_DO_MOUSE = 250L
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PalcoDaTela(
-    legenda: String,
+    legenda: String?,
     rostos: @Composable () -> Unit,
     tela: @Composable BoxScope.() -> Unit,
 ) {
@@ -930,8 +931,10 @@ private fun PalcoDaTela(
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(legenda, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
-                Spacer(Modifier.height(8.dp))
+                if (legenda != null) {
+                    Text(legenda, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                    Spacer(Modifier.height(8.dp))
+                }
                 rostos()
             }
         }

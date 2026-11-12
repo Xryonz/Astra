@@ -126,6 +126,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 
 	case CmdDeixarSala:
 		a.emissor.Desligar()
+		a.emissor.VerAPropriaTela(false)
 		a.sala.Sair()
 		a.transmitindo, a.assistindo = false, false
 		a.atualizarVigilia()
@@ -242,6 +243,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		return nil
 
 	case CmdAssistir:
+		a.emissor.VerAPropriaTela(cmd.Par == PalcoProprio)
 		a.sala.Assistir(cmd.Par)
 		a.assistindo = cmd.Par != ""
 		a.atualizarVigilia()

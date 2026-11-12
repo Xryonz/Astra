@@ -12,55 +12,84 @@ const larguraDoEspelho = 320
 const compassoDoEspelho = 125 * time.Millisecond
 
 type Espelho struct {
-	reduzir *Redimensionador
-	l, a    int
+	gerente  objeto
+	deL, deA int
+	saidaL   int
+	cheio    func() bool
+
+	reduzir        *Redimensionador
+	l, a           int
+	emTamanhoCheio bool
 
 	proximo  time.Time
-	bytes    []byte
 	desistiu bool
 
 	entregar func(Quadro)
 }
 
-func AbrirEspelho(gerente objeto, deL, deA int, entregar func(Quadro)) (*Espelho, error) {
+func AbrirEspelho(gerente objeto, deL, deA, saidaL int, cheio func() bool, entregar func(Quadro)) (*Espelho, error) {
 	if entregar == nil || deL <= 0 || deA <= 0 {
 		return nil, nil
 	}
-
-	l := larguraDoEspelho
-	if deL < l {
-
-		l = deL
+	e := &Espelho{gerente: gerente, deL: deL, deA: deA, saidaL: saidaL, cheio: cheio, entregar: entregar}
+	if err := e.montar(false); err != nil {
+		return nil, err
 	}
-	a := deA * l / deL
-	l, a = l&^1, a&^1
+	return e, nil
+}
+
+func (e *Espelho) montar(cheio bool) error {
+	limite := larguraDoEspelho
+	if cheio {
+		limite = e.saidaL
+	}
+	l, a := tamanhoDoEspelho(e.deL, e.deA, limite)
 	if l <= 0 || a <= 0 {
-		return nil, nil
+		return fmt.Errorf("espelho sem tamanho para %dx%d", e.deL, e.deA)
 	}
 
-	r, err := AbrirRedimensionador(gerente, deL, deA, l, a, formatoNV12)
+	r, err := AbrirRedimensionador(e.gerente, e.deL, e.deA, l, a, formatoNV12)
 	if err != nil {
-		return nil, fmt.Errorf("abrir o espelho: %w", err)
+		return fmt.Errorf("abrir o espelho em %dx%d: %w", l, a, err)
 	}
-	return &Espelho{reduzir: r, l: l, a: a, entregar: entregar}, nil
+	if e.reduzir != nil {
+		e.reduzir.Fechar()
+	}
+	e.reduzir, e.l, e.a, e.emTamanhoCheio = r, l, a, cheio
+	return nil
+}
+
+func tamanhoDoEspelho(deL, deA, limite int) (int, int) {
+	l := min(limite, deL)
+	a := deA * l / deL
+	return l &^ 1, a &^ 1
 }
 
 func (e *Espelho) Talvez(amostra objeto) {
 	if e == nil || e.desistiu || amostra == 0 {
 		return
 	}
+	cheio := e.cheio != nil && e.cheio()
 	agora := time.Now()
-	if agora.Before(e.proximo) {
+	if !cheio && agora.Before(e.proximo) {
 		return
 	}
-
 	e.proximo = agora.Add(compassoDoEspelho)
 
-	if err := e.passar(amostra); err != nil {
-
-		fmt.Fprintf(os.Stderr, "espelho desligado: %v\n", err)
-		e.desistiu = true
+	if cheio != e.emTamanhoCheio {
+		if err := e.montar(cheio); err != nil {
+			e.desistir(err)
+			return
+		}
 	}
+	if err := e.passar(amostra); err != nil {
+		e.desistir(err)
+	}
+}
+
+func (e *Espelho) desistir(err error) {
+	fmt.Fprintf(os.Stderr, "espelho desligado: %v\n", err)
+	e.desistiu = true
 }
 
 func (e *Espelho) passar(amostra objeto) error {
@@ -89,21 +118,14 @@ func (e *Espelho) passar(amostra objeto) error {
 	if err := hr(r, "abrir a miniatura para leitura"); err != nil {
 		return err
 	}
+	defer buffer.chamar(bufDestrancar)
 
 	esperado := e.l * e.a * 3 / 2
 	if int(atual) != esperado {
-		buffer.chamar(bufDestrancar)
 		return fmt.Errorf("miniatura veio com %d bytes, esperava %d (%dx%d NV12)", atual, esperado, e.l, e.a)
 	}
 
-	if cap(e.bytes) < int(atual) {
-		e.bytes = make([]byte, atual)
-	}
-	e.bytes = e.bytes[:atual]
-	copy(e.bytes, unsafe.Slice((*byte)(unsafe.Pointer(p)), atual))
-	buffer.chamar(bufDestrancar)
-
-	e.entregar(Quadro{Dados: e.bytes, Largura: e.l, Altura: e.a, Passo: e.l})
+	e.entregar(Quadro{Dados: unsafe.Slice((*byte)(unsafe.Pointer(p)), atual), Largura: e.l, Altura: e.a, Passo: e.l})
 	return nil
 }
 

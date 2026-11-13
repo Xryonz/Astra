@@ -61,7 +61,6 @@ private const val TENTATIVAS = 25
 fun PainelDePermissoes(
     onTestarAviso: () -> Unit,
     modifier: Modifier = Modifier,
-    detalhado: Boolean = true,
 ) {
     val itens = remember { mutableStateListOf<Checagem>() }
     var conferindo by remember { mutableStateOf(true) }
@@ -129,7 +128,6 @@ fun PainelDePermissoes(
                 c = c,
                 atraso = i * 55,
                 esperando = vigiando.contains(c.permissao),
-                detalhado = detalhado,
                 onPermitir = { permitir(c) },
                 onDesfazer = { desfazer(c) },
             )
@@ -173,7 +171,6 @@ private fun LinhaPermissao(
     c: Checagem,
     atraso: Int,
     esperando: Boolean,
-    detalhado: Boolean,
     onPermitir: () -> Unit,
     onDesfazer: () -> Unit,
 ) {
@@ -209,17 +206,15 @@ private fun LinhaPermissao(
                 c.permissao.oQueE,
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
             )
-            if (detalhado || c.acesso != Acesso.OK) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    c.explica,
-                    style = TextStyle(
-                        color = if (c.acesso == Acesso.OK || c.acesso == Acesso.PENDENTE) Obsidian.text3 else tom,
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp,
-                    ),
-                )
-            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                c.explica,
+                style = TextStyle(
+                    color = if (c.acesso == Acesso.OK || c.acesso == Acesso.PENDENTE) Obsidian.text3 else tom,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                ),
+            )
         }
         Spacer(Modifier.width(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

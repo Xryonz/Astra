@@ -8,6 +8,7 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.TargetDataLine
+import kotlin.concurrent.thread
 
 enum class Acesso {
     OK,
@@ -102,15 +103,38 @@ object PermissoesWindows {
         }
     }
 
+    private const val PRIVACIDADE_DO_MICROFONE =
+        "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone"
+
+    private fun semMicrofone() = Checagem(
+        Permissao.MICROFONE, Acesso.SEM_APARELHO,
+        "Nenhum microfone encontrado. Conecte um ao computador.",
+        "ms-settings:sound",
+    )
+
+    private fun negadoNaPrivacidade(raiz: WinReg.HKEY, chave: String): Boolean = runCatching {
+        Advapi32Util.registryGetStringValue(raiz, chave, "Value") == "Deny"
+    }.getOrDefault(false)
+
+    private fun bloqueioDaPrivacidade(): Checagem? {
+        val texto = when {
+            negadoNaPrivacidade(WinReg.HKEY_LOCAL_MACHINE, PRIVACIDADE_DO_MICROFONE) ->
+                "O acesso ao microfone está desligado neste computador, na privacidade do Windows. " +
+                    "Ligue o acesso ao microfone."
+            negadoNaPrivacidade(WinReg.HKEY_CURRENT_USER, "$PRIVACIDADE_DO_MICROFONE\\NonPackaged") ->
+                "A privacidade do Windows bloqueia o microfone para aplicativos da área de trabalho, " +
+                    "como o Astra. Ligue esse acesso."
+            else -> return null
+        }
+        return Checagem(Permissao.MICROFONE, Acesso.BLOQUEADO, texto, "ms-settings:privacy-microphone")
+    }
+
+    fun microfoneSemAbrir(): Checagem? =
+        if (AudioDevices.inputs().isEmpty()) semMicrofone() else bloqueioDaPrivacidade()
+
     fun microfone(): Checagem {
         val nomes = AudioDevices.inputs()
-        if (nomes.isEmpty()) {
-            return Checagem(
-                Permissao.MICROFONE, Acesso.SEM_APARELHO,
-                "Nenhum microfone encontrado. Conecte um e confira de novo.",
-                "ms-settings:sound",
-            )
-        }
+        if (nomes.isEmpty()) return semMicrofone()
 
         val formato = AudioFormat(48_000f, 16, 1, true, false)
         val info = DataLine.Info(TargetDataLine::class.java, formato)
@@ -283,12 +307,12 @@ object PermissoesWindows {
         }.distinct()
     }
 
-    fun liberarNoFirewall(): Boolean {
+    fun liberarNoFirewall(aoAceitar: () -> Unit = {}): Boolean {
         val alvos = (quemFalaNaRede() + enderecoQueNaoMuda())
             .distinctBy { it.absolutePath.lowercase() }
         if (alvos.isEmpty()) return false
         val mortas = caminhosComRegra().filter { !java.io.File(it).exists() }
-        return elevado(apagar(mortas) + liberacao(alvos))
+        return elevado(apagar(mortas) + liberacao(alvos), aoAceitar)
     }
 
     fun revogarNoFirewall(): Boolean {
@@ -311,16 +335,29 @@ object PermissoesWindows {
             "program='$p' enable=yes profile=any | Out-Null\n"
     }
 
-    private fun elevado(roteiro: String): Boolean {
+    private const val SINAL_DE_ACEITE = "aceito"
+
+    private fun avisarNoAceite(processo: Process, aoAceitar: () -> Unit) {
+        thread(isDaemon = true, name = "astra-elevacao") {
+            runCatching {
+                processo.inputStream.bufferedReader().useLines { linhas ->
+                    if (linhas.any { it.trim() == SINAL_DE_ACEITE }) aoAceitar()
+                }
+            }
+        }
+    }
+
+    private fun elevado(roteiro: String, aoAceitar: () -> Unit = {}): Boolean {
         val embrulhado = java.util.Base64.getEncoder()
             .encodeToString(roteiro.toByteArray(Charsets.UTF_16LE))
-        val comando = "try { Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait " +
+        val comando = "try { \$p = Start-Process powershell -Verb RunAs -WindowStyle Hidden -PassThru " +
             "-ArgumentList '-NoProfile','-EncodedCommand','" + embrulhado + "' -ErrorAction Stop } " +
-            "catch { exit 1 }"
+            "catch { exit 1 }; '$SINAL_DE_ACEITE'; if (\$p) { \$p.WaitForExit() }"
         return runCatching {
             val p = ProcessBuilder("powershell", "-NoProfile", "-Command", comando)
                 .redirectErrorStream(true)
                 .start()
+            avisarNoAceite(p, aoAceitar)
             if (p.waitFor(2, java.util.concurrent.TimeUnit.MINUTES)) p.exitValue() == 0
             else { p.destroy(); false }
         }.getOrDefault(false)

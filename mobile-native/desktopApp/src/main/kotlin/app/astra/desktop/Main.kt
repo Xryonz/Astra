@@ -913,13 +913,9 @@ fun main(args: Array<String>) {
                                     if (onb) {
                                         OnboardingScreen(
                                             displayName = s.displayName,
-                                            onTestarAviso = {
-                                                bandeja.avisar("Astra", "Os avisos do Astra estão liberados.")
-                                            },
                                             onDone = {
                                                 store.setUiPref("onboarded:${s.userId}", "1")
                                                 store.setUiPref("checklist:${s.userId}", "1")
-                                                store.setUiPref("permsVistas", "1")
                                                 needsOnboarding = false
                                             },
                                         )

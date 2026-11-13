@@ -74,9 +74,7 @@ import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
-import app.astra.desktop.voice.Acesso
 import app.astra.desktop.voice.LeituraDoCaminho
-import app.astra.desktop.voice.PermissoesWindows
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.xp.MissoesStore
@@ -94,10 +92,8 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ServerDto
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
@@ -168,34 +164,6 @@ fun ShellScreen(
     }
 
     val sessionStore = remember { koin.get<SessionStore>() }
-    var permsOpen by remember { mutableStateOf(false) }
-    var permsResolvido by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (sessionStore.uiPref("permsVistas") == "1") {
-            permsResolvido = true
-            return@LaunchedEffect
-        }
-        kotlinx.coroutines.delay(900)
-        val pendencias = withContext(Dispatchers.IO) {
-            PermissoesWindows.todas().count { it.acesso != Acesso.OK }
-        }
-        if (pendencias == 0) {
-            sessionStore.setUiPref("permsVistas", "1")
-            permsResolvido = true
-        } else {
-            permsOpen = true
-        }
-    }
-    if (permsOpen) {
-        PermissoesDialog(
-            onTestarAviso = { notify("Astra", "Os avisos do Astra estão liberados.") },
-            onClose = {
-                permsOpen = false
-                sessionStore.setUiPref("permsVistas", "1")
-                permsResolvido = true
-            },
-        )
-    }
 
     val chaveDaEstreia = remember(session.userId) { chaveDoTour(session.userId) }
     suspend fun dicaUmaVez(marco: Marco, quando: Boolean) {
@@ -207,8 +175,7 @@ fun ShellScreen(
         if (Tour.ativo) return
         Tour.dica(marco) { sessionStore.setUiPref(chave, "1") }
     }
-    LaunchedEffect(permsResolvido) {
-        if (!permsResolvido) return@LaunchedEffect
+    LaunchedEffect(Unit) {
         if (sessionStore.uiPref(chaveDaEstreia) == "1") return@LaunchedEffect
         kotlinx.coroutines.delay(700)
         Tour.estreia { sessionStore.setUiPref(chaveDaEstreia, "1") }

@@ -4,13 +4,17 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 class CallNaSala(
@@ -24,6 +28,12 @@ class CallNaSala(
 
     private val _inicio = MutableStateFlow<Long?>(null)
     val inicio = _inicio.asStateFlow()
+
+    private val _redeDecidida = MutableStateFlow(true)
+    val redeDecidida = _redeDecidida.asStateFlow()
+
+    private val _avisoDoMicrofone = MutableStateFlow<Checagem?>(null)
+    val avisoDoMicrofone = _avisoDoMicrofone.asStateFlow()
 
     private val _microfones = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
     val microfones = _microfones.asStateFlow()
@@ -53,6 +63,7 @@ class CallNaSala(
         private const val TENTATIVAS_DE_VOLTA = 6
         private const val ESPERA_INICIAL_MS = 1_000L
         private const val ESPERA_MAXIMA_MS = 15_000L
+        private const val ESPERA_PELA_RESPOSTA_MS = 20_000L
     }
 
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
@@ -95,12 +106,43 @@ class CallNaSala(
         salaAtual = channelId
         credencial = VoiceTokenRequest(roomKind = tipo, roomId = channelId)
         _status.value = VoiceStatus.Connecting
+        _redeDecidida.value = false
+        _avisoDoMicrofone.value = null
 
-        sidecar.ligar()
         socket.voiceJoin(channelId)
-
         tarefas += scope.launch { ouvirSidecar() }
+        tarefas += scope.launch {
+            prepararARede()
+            sidecar.ligar()
+        }
         tarefas += scope.launch { manterPresenca(channelId) }
+        tarefas += scope.launch {
+            _avisoDoMicrofone.value = withContext(Dispatchers.IO) { PreparoDaVoz.microfoneComProblema() }
+        }
+    }
+
+    private suspend fun prepararARede() {
+        try {
+            val precisa = withContext(Dispatchers.IO) {
+                runCatching { PreparoDaVoz.precisaLiberarARede() }.getOrDefault(false)
+            }
+            if (precisa) PreparoDaVoz.pedirALiberacao()
+        } finally {
+            _redeDecidida.value = true
+        }
+        withTimeoutOrNull(ESPERA_PELA_RESPOSTA_MS) {
+            PreparoDaVoz.pedido.first { it != PedidoAoWindows.PERGUNTANDO }
+        }
+        PreparoDaVoz.pedido.first { it != PedidoAoWindows.LIBERANDO }
+    }
+
+    fun esconderAvisoDoMicrofone() {
+        _avisoDoMicrofone.value = null
+    }
+
+    fun dispensarAvisoDoMicrofone() {
+        PreparoDaVoz.dispensarOMicrofone()
+        _avisoDoMicrofone.value = null
     }
 
     fun sair() {
@@ -130,12 +172,19 @@ class CallNaSala(
         QuemFala.marcar(false)
     }
 
+    @Volatile private var querFalar = true
+    @Volatile private var querSurdo = false
+
     fun setMic(podeFalar: Boolean) {
+        querFalar = podeFalar
         sidecar.mudo(!podeFalar)
         if (!podeFalar && falando.remove("")) publicar()
     }
 
-    fun setEnsurdecido(on: Boolean) = sidecar.surdo(on)
+    fun setEnsurdecido(on: Boolean) {
+        querSurdo = on
+        sidecar.surdo(on)
+    }
 
     private var duasCamadas = false
 
@@ -271,6 +320,8 @@ class CallNaSala(
     fun dispose() = sair()
 
     private fun aplicarPreferencias() {
+        sidecar.mudo(!querFalar)
+        sidecar.surdo(querSurdo)
         microfoneEscolhido?.let { sidecar.usarAparelho("entrada", it) }
         saidaEscolhida?.let { sidecar.usarAparelho("saida", it) }
         sidecar.tratamento(eco, ruido, ganho)

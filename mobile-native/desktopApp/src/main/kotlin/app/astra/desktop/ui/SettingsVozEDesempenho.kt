@@ -22,9 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -318,9 +315,7 @@ private fun ArranqueComWindows() {
         Text(
             RECUSA_DO_ARRANQUE,
             style = Tipo.erro,
-            modifier = Modifier
-                .widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG)
-                .semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
         )
     }
 }

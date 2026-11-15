@@ -249,6 +249,7 @@ internal fun DeviceDropdown(
         Row(
             Modifier
                 .fillMaxWidth()
+                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -257,7 +258,7 @@ internal fun DeviceDropdown(
                     RoundedCornerShape(9.dp),
                 )
                 .hoverable(hov)
-                .clickable { open = !open }
+                .clickable(interactionSource = hov, indication = null) { open = !open }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -311,10 +312,11 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
+            .clickScale(hov, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (h) Obsidian.hover else Obsidian.overlay)
             .hoverable(hov)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = hov, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     )
 }
@@ -362,13 +364,15 @@ internal fun TituloExplicavel(titulo: String, explicacao: String) {
 @Composable
 internal fun InfoNote(title: String, body: String) {
     var open by remember { mutableStateOf(false) }
+    val fonte = remember { MutableInteractionSource() }
     Column(
         Modifier
             .fillMaxWidth()
+            .clickScale(fonte, formaDoFoco = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(Obsidian.overlay.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
-            .clickable { open = !open }
+            .clickable(interactionSource = fonte, indication = null) { open = !open }
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

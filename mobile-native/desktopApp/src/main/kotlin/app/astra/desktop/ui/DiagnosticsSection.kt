@@ -2,6 +2,9 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +29,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.clickable
 import app.astra.desktop.Arranque
 import app.astra.desktop.CrashLog
 import app.astra.desktop.net.DesktopSocket
@@ -183,13 +185,18 @@ internal fun DiagnosticsSection() {
         }
 
         Spacer(Modifier.height(16.dp))
+        val fonteDoCopiar = remember { MutableInteractionSource() }
+        val sobreOCopiar by fonteDoCopiar.collectIsHoveredAsState()
         Text(
             if (copied) "copiado" else "copiar tudo",
             style = TextStyle(color = Obsidian.accent, fontSize = 13.sp),
             modifier = Modifier
+                .clickScale(fonteDoCopiar)
                 .clip(RoundedCornerShape(8.dp))
+                .background(if (sobreOCopiar) Obsidian.hover else Color.Transparent)
                 .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                .clickable {
+                .hoverable(fonteDoCopiar)
+                .clickable(interactionSource = fonteDoCopiar, indication = null) {
                     clipboard.setText(
                         AnnotatedString(
                             buildReport(connected, servers, channels, dms, outputs, inputs, heapMb, heapMax, events),
@@ -209,8 +216,6 @@ internal fun DiagnosticsSection() {
 
 @Composable
 internal fun VoicePassos() {
-    val clipboard = LocalClipboardManager.current
-    var copiado by remember { mutableStateOf(false) }
     var tick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1000); tick++ } }
     val passos = remember(tick) { VoiceLog.linhas().asReversed() }
@@ -249,13 +254,25 @@ internal fun VoicePassos() {
         }
     }
     Spacer(Modifier.height(8.dp))
+    CopiarOsPassos()
+}
+
+@Composable
+private fun CopiarOsPassos() {
+    val clipboard = LocalClipboardManager.current
+    var copiado by remember { mutableStateOf(false) }
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Text(
         if (copiado) "copiado" else "copiar os passos",
         style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
         modifier = Modifier
+            .clickScale(fonte)
             .clip(RoundedCornerShape(8.dp))
+            .background(if (sobre) Obsidian.hover else Color.Transparent)
             .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-            .clickable {
+            .hoverable(fonte)
+            .clickable(interactionSource = fonte, indication = null) {
                 clipboard.setText(
                     AnnotatedString(
                         VoiceLog.linhas().joinToString("\n") { (at, t) ->
@@ -283,6 +300,8 @@ private fun ModoSeguroBloco() {
             style = Tipo.apoio,
         )
         Spacer(Modifier.height(8.dp))
+        val fonte = remember { MutableInteractionSource() }
+        val sobre by fonte.collectIsHoveredAsState()
         Text(
             if (desligado) "desligado a partir da próxima abertura" else "voltar ao desenho normal",
             style = TextStyle(
@@ -290,13 +309,16 @@ private fun ModoSeguroBloco() {
                 fontSize = 12.sp,
             ),
             modifier = Modifier
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
+                .background(if (sobre) Obsidian.hover else Color.Transparent)
                 .border(
                     1.dp,
                     if (desligado) Color.Transparent else Obsidian.accentDim,
                     RoundedCornerShape(8.dp),
                 )
-                .clickable(enabled = !desligado) {
+                .hoverable(fonte, enabled = !desligado)
+                .clickable(interactionSource = fonte, indication = null, enabled = !desligado) {
                     Arranque.sairDoModoSeguro()
                     desligado = true
                 }

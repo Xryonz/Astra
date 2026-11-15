@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,6 +123,7 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(results, key = { it.id }) { g ->
+                    val fonte = remember { MutableInteractionSource() }
                     AstraImage(
                         url = g.preview,
                         contentDescription = g.title,
@@ -129,9 +131,10 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1.4f)
+                            .clickScale(fonte)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Obsidian.base)
-                            .clickable { onPick(g) },
+                            .clickable(interactionSource = fonte, indication = null) { onPick(g) },
                     )
                 }
             }

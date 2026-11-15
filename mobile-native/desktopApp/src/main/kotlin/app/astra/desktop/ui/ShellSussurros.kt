@@ -219,10 +219,13 @@ internal fun DmList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
+                        .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
                         .clip(RoundedCornerShape(7.dp))
                         .background(itemBg)
                         .hoverable(interaction)
-                        .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
+                        .clickable(interactionSource = interaction, indication = null) {
+                            onOpenChat(ChatTarget.Dm(conv.id, name))
+                        }
                         .padding(horizontal = 8.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

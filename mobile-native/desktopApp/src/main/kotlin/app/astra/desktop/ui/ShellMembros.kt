@@ -265,10 +265,11 @@ internal fun FriendsNavRow(active: Boolean, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
             .padding(top = 8.dp)
+            .clickScale(interaction)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .hoverable(interaction)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

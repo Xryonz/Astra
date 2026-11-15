@@ -197,11 +197,12 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
                 Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp)
+                    .clickScale(interaction, formaDoFoco = RoundedCornerShape(10.dp))
                     .clip(RoundedCornerShape(10.dp))
                     .background(bg)
                     .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, RoundedCornerShape(10.dp))
                     .hoverable(interaction)
-                    .clickable { onSelect(value) }
+                    .clickable(interactionSource = interaction, indication = null) { onSelect(value) }
                     .padding(horizontal = 18.dp, vertical = 15.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

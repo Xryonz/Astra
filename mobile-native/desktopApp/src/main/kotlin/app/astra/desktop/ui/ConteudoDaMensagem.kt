@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -266,6 +265,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
         val w = att.width ?: 0
         val h = att.height ?: 0
         val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
+        val fonte = remember { MutableInteractionSource() }
         AstraImage(
             url = att.thumbUrl ?: att.url,
             contentDescription = if (cliqueToca) "${att.name}, GIF parado; ativar toca, ativar de novo abre" else att.name,
@@ -273,8 +273,9 @@ private fun AttachmentBlock(att: AttachmentDto) {
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
                 .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable {
+                .clickable(interactionSource = fonte, indication = null) {
                     if (cliqueToca) tocando = true else openImage(att.url)
                 },
             contentScale = ContentScale.Fit,

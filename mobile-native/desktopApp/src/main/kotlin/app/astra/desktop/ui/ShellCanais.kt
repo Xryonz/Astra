@@ -114,10 +114,11 @@ internal fun OrbitItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
+                .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
                 .clip(RoundedCornerShape(7.dp))
                 .background(itemBg)
                 .hoverable(interaction)
-                .clickable {
+                .clickable(interactionSource = interaction, indication = null) {
                     if (ch.type == "VOICE") onOpenVoice(ch)
                     else onOpenChat(ChatTarget.Channel(ch.id, ch.name))
                 }

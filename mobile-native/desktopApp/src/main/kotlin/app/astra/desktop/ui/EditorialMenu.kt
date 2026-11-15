@@ -185,10 +185,11 @@ private fun MenuRow(item: MenuEntry.Item, dismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickScale(interaction, formaDoFoco = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .hoverable(interaction)
-            .clickable {
+            .clickable(interactionSource = interaction, indication = null) {
                 dismiss()
                 item.onClick()
             }
@@ -245,10 +246,11 @@ private fun EmojiSubRow(sub: MenuEntry.EmojiSub, dismiss: () -> Unit) {
                         val eh by ei.collectIsHoveredAsState()
                         Box(
                             Modifier
+                                .clickScale(ei, formaDoFoco = CircleShape)
                                 .clip(CircleShape)
                                 .background(if (eh) Obsidian.hover else Color.Transparent)
                                 .hoverable(ei)
-                                .clickable {
+                                .clickable(interactionSource = ei, indication = null) {
                                     dismiss()
                                     sub.onPick(e)
                                 }

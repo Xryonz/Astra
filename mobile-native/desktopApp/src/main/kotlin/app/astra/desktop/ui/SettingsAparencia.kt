@@ -367,12 +367,14 @@ private fun PresetGrid(selAccent: String, selBg: String, onPick: (ThemePreset) -
 private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val bg = bgOption(preset.bgId)
     val accent = accentOption(preset.accentId).value
+    val fonte = remember { MutableInteractionSource() }
     Row(
         modifier
+            .clickScale(fonte, formaDoFoco = RoundedCornerShape(13.dp), folgaDoFoco = 3.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (active) Obsidian.accentDim else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, if (active) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = fonte, indication = null, onClick = onClick)
             .padding(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

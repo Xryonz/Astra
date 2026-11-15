@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -140,14 +142,18 @@ fun Lightbox(url: String, onClose: () -> Unit) {
 
 @Composable
 private fun LightboxAction(label: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val sobre by src.collectIsHoveredAsState()
     Text(
         label,
         style = Tipo.rotulo,
         modifier = Modifier
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
-            .background(Obsidian.raised.copy(alpha = 0.85f))
+            .background(if (sobre) Obsidian.hover else Obsidian.raised.copy(alpha = 0.85f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-            .clickable(onClick = onClick)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
 }
@@ -155,12 +161,14 @@ private fun LightboxAction(label: String, onClick: () -> Unit) {
 @Composable
 private fun LightboxAction(icon: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
+    val sobre by src.collectIsHoveredAsState()
     Box(
         Modifier
             .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
-            .background(Obsidian.raised.copy(alpha = 0.85f))
+            .background(if (sobre) Obsidian.hover else Obsidian.raised.copy(alpha = 0.85f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+            .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,

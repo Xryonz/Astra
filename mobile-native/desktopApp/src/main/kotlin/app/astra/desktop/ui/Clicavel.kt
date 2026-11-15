@@ -12,15 +12,6 @@ private fun Modifier.cursorDeClique(enabled: Boolean): Modifier =
     pointerHoverIcon(if (enabled) PointerIcon.Hand else PointerIcon.Default)
 
 fun Modifier.clickable(
-    enabled: Boolean = true,
-    onClickLabel: String? = null,
-    role: Role? = null,
-    onClick: () -> Unit,
-): Modifier = this
-    .cursorDeClique(enabled)
-    .clicavelDoCompose(enabled, onClickLabel, role, null, onClick)
-
-fun Modifier.clickable(
     interactionSource: MutableInteractionSource?,
     indication: Indication?,
     enabled: Boolean = true,

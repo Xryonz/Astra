@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -316,6 +317,7 @@ fun VoiceView(
                         Column(
                             Modifier
                                 .popupReveal(originX = 0.5f, originY = 1f)
+                                .width(IntrinsicSize.Max)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
@@ -329,11 +331,21 @@ fun VoiceView(
                                 )
                             }
                             sons.forEach { som ->
+                                val fonteDoSom = remember { MutableInteractionSource() }
+                                val sobreOSom by fonteDoSom.collectIsHoveredAsState()
+                                val fundoDoSom by animateColorAsState(
+                                    if (sobreOSom) Obsidian.hover else Color.Transparent,
+                                    tween(100),
+                                )
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickScale(fonteDoSom, formaDoFoco = RoundedCornerShape(6.dp))
                                         .clip(RoundedCornerShape(6.dp))
-                                        .clickable {
+                                        .background(fundoDoSom)
+                                        .hoverable(fonteDoSom)
+                                        .clickable(interactionSource = fonteDoSom, indication = null) {
                                             val sid = serverId
                                             if (sid != null) escopoSons.launch {
                                                 runCatching {
@@ -547,14 +559,18 @@ private fun SeletorDeAparelho(
 ) {
     var aberto by remember { mutableStateOf(false) }
     val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrão do Windows"
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.base)
+                .background(if (sobre) Obsidian.hover else Obsidian.base)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .clickable { aberto = true }
+                .hoverable(fonte)
+                .clickable(interactionSource = fonte, indication = null) { aberto = true }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

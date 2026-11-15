@@ -159,11 +159,16 @@ private fun RoleList(
         Spacer(Modifier.height(6.dp))
     }
     Spacer(Modifier.height(8.dp))
+    val fonteDoNovo = remember { MutableInteractionSource() }
+    val sobreONovo by fonteDoNovo.collectIsHoveredAsState()
     Row(
         Modifier
+            .clickScale(fonteDoNovo)
             .clip(RoundedCornerShape(8.dp))
+            .background(if (sobreONovo) Obsidian.hover else Color.Transparent)
             .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-            .clickable(onClick = onNew)
+            .hoverable(fonteDoNovo)
+            .clickable(interactionSource = fonteDoNovo, indication = null, onClick = onNew)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -360,13 +365,18 @@ private fun RoleEditor(
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         val canSave = name.isNotBlank() && !saving
+        val fonteDoSalvar = remember { MutableInteractionSource() }
+        val sobreOSalvar by fonteDoSalvar.collectIsHoveredAsState()
         Text(
             if (saving) "salvando…" else if (role == null) "criar cargo" else "salvar",
             style = TextStyle(color = if (canSave) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
             modifier = Modifier
+                .clickScale(fonteDoSalvar)
                 .clip(RoundedCornerShape(8.dp))
+                .background(if (sobreOSalvar) Obsidian.hover else Color.Transparent)
                 .border(1.dp, if (canSave) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .clickable(enabled = canSave) {
+                .hoverable(fonteDoSalvar, enabled = canSave)
+                .clickable(interactionSource = fonteDoSalvar, indication = null, enabled = canSave) {
                     saving = true
                     msg = null
                     onSave(RoleRequest(name.trim(), color, iconUrl, perms.toList(), hoist)) { err ->
@@ -377,13 +387,18 @@ private fun RoleEditor(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
         if (role != null) {
+            val fonteDoExcluir = remember { MutableInteractionSource() }
+            val sobreOExcluir by fonteDoExcluir.collectIsHoveredAsState()
             Text(
                 "excluir cargo",
                 style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
                 modifier = Modifier
+                    .clickScale(fonteDoExcluir)
                     .clip(RoundedCornerShape(8.dp))
+                    .background(if (sobreOExcluir) Obsidian.danger.copy(alpha = 0.12f) else Color.Transparent)
                     .border(1.dp, Obsidian.danger.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
-                    .clickable { confirmDelete = true }
+                    .hoverable(fonteDoExcluir)
+                    .clickable(interactionSource = fonteDoExcluir, indication = null) { confirmDelete = true }
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
@@ -491,11 +506,13 @@ private fun PermissionRow(
     enabled: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
+    val fonte = remember { MutableInteractionSource() }
     Row(
         Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onChange(!checked) }
+            .clickScale(fonte, folgaDoFoco = 4.dp)
+            .clickable(interactionSource = fonte, indication = null, enabled = enabled) { onChange(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -542,13 +559,17 @@ private fun PermissionRow(
 @Composable
 private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Box {
         Row(
             Modifier
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
+                .background(if (sobre) Obsidian.hover else Obsidian.raised)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .clickable { open = !open }
+                .hoverable(fonte)
+                .clickable(interactionSource = fonte, indication = null) { open = !open }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -583,9 +604,15 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             row.forEach { hex ->
                                 val active = selected.equals(hex, ignoreCase = true)
+                                val daAmostra = remember { MutableInteractionSource() }
                                 Box(
                                     Modifier
                                         .size(28.dp)
+                                        .clickScale(
+                                            daAmostra,
+                                            formaDoFoco = RoundedCornerShape(11.dp),
+                                            folgaDoFoco = 3.dp,
+                                        )
                                         .clip(FormaDeBotao)
                                         .background(roleColor(hex) ?: Obsidian.text3)
                                         .border(
@@ -593,7 +620,10 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                                             if (active) Obsidian.text1 else Obsidian.borderDim,
                                             FormaDeBotao,
                                         )
-                                        .clickable { onPick(hex); open = false },
+                                        .clickable(interactionSource = daAmostra, indication = null) {
+                                            onPick(hex)
+                                            open = false
+                                        },
                                 )
                             }
                         }

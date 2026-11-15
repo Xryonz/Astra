@@ -81,10 +81,11 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
                 Row(
                     Modifier
                         .fillMaxWidth()
+                        .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
                         .clip(RoundedCornerShape(7.dp))
                         .background(if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent)
                         .hoverable(interaction)
-                        .clickable { onPick(cmd) }
+                        .clickable(interactionSource = interaction, indication = null) { onPick(cmd) }
                         .padding(horizontal = 8.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

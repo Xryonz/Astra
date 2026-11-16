@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from 'express'
-import { type ZodSchema, ZodError } from 'zod'
+import { type ZodType, ZodError } from 'zod'
 
 type Source = 'body' | 'query' | 'params'
 
-export function validate(schema: ZodSchema, source: Source = 'body') {
+export function validate(schema: ZodType, source: Source = 'body') {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = schema.parse(req[source])
@@ -11,7 +11,7 @@ export function validate(schema: ZodSchema, source: Source = 'body') {
       next()
     } catch (error) {
       if (error instanceof ZodError) {
-        const errors = error.errors.map((e) => ({
+        const errors = error.issues.map((e) => ({
           field: e.path.join('.'),
           message: e.message,
         }))

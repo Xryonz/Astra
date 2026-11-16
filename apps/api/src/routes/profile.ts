@@ -242,7 +242,7 @@ router.get(
 )
 
 const PreferencesSchema = z.object({
-  preferences: z.record(z.unknown()),
+  preferences: z.record(z.string(), z.unknown()),
 })
 
 router.get(

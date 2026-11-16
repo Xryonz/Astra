@@ -18,8 +18,8 @@ const CreateRoleSchema = z.object({
   name: z.string().min(1).max(50),
   color: z.string().regex(HEX, 'Cor inválida (hex #RRGGBB)').optional().nullable(),
   iconUrl: z.string().max(6_500_000).optional().nullable(),
-  permissions: z.array(z.string().max(40)).max(20).optional().default([]),
-  hoist: z.boolean().optional().default(false),
+  permissions: z.array(z.string().max(40)).max(20).optional(),
+  hoist: z.boolean().optional(),
 })
 
 const UpdateRoleSchema = CreateRoleSchema.partial()

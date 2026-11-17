@@ -86,12 +86,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                 .fillMaxSize()
                 .graphicsLayer { alpha = reveal.value }
                 .background(Color.Black.copy(alpha = 0.84f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClose,
-                )
-                .semCursorDeClique()
+                .cliqueDeFundo(onClose)
                 .onPointerEvent(PointerEventType.Scroll) { e ->
                     val delta = e.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
                     scale = (scale * if (delta < 0) 1.12f else 0.89f).coerceIn(0.4f, 6f)

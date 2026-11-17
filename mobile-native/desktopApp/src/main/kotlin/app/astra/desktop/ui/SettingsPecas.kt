@@ -36,6 +36,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -211,7 +214,8 @@ internal fun NavRow(icon: ImageVector, label: String, sub: String, active: Boole
             .background(bg)
             .border(1.dp, border, RoundedCornerShape(8.dp))
             .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { selected = active }
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -293,7 +297,7 @@ internal fun DeviceDropdown(
                         DeviceRow(d.nome, selected == d.id) { onPick(d.id); open = false }
                     }
                     if (devices.isEmpty()) {
-                        DeviceRow("procurando os aparelhos…", false) {}
+                        LinhaDeEspera("procurando os aparelhos…")
                     }
                 }
             }
@@ -318,6 +322,17 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
             .hoverable(hov)
             .clickable(interactionSource = hov, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun LinhaDeEspera(texto: String) {
+    Text(
+        texto,
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
     )
 }
 

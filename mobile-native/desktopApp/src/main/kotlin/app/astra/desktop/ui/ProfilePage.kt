@@ -150,12 +150,7 @@ fun ProfilePage(
                     .fillMaxSize()
                     .graphicsLayer { alpha = appear.value.coerceIn(0f, 1f) }
                     .background(Color.Black.copy(alpha = 0.6f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { requestClose() },
-                    )
-                    .semCursorDeClique(),
+                    .cliqueDeFundo { requestClose() },
             )
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Row(
@@ -172,11 +167,7 @@ fun ProfilePage(
                         .clip(RoundedCornerShape(16.dp))
                         .background(Obsidian.base)
                         .border(1.dp, Obsidian.borderMid, RoundedCornerShape(16.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {},
-                        ),
+                        .cliqueDeFundo {},
                 ) {
                     val d = data
                     if (d == null) {

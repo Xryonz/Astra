@@ -189,11 +189,7 @@ fun SettingsScreen(
             Modifier
                 .matchParentSize()
                 .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { tentarFechar() },
-                ),
+                .cliqueDeFundo { tentarFechar() },
         )
         Box(
             Modifier
@@ -207,11 +203,7 @@ fun SettingsScreen(
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                ),
+                .cliqueDeFundo {},
         ) {
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),

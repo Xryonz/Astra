@@ -2,7 +2,6 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -101,8 +100,7 @@ fun DesejosPanel(
         Modifier
             .fillMaxSize()
             .background(Obsidian.void.copy(alpha = 0.55f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-            .semCursorDeClique(),
+            .cliqueDeFundo(onClose),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -112,7 +110,7 @@ fun DesejosPanel(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .cliqueDeFundo {},
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),

@@ -149,8 +149,7 @@ fun NotifPanel(
         Modifier
             .fillMaxSize()
             .onGloballyPositioned { areaAteABorda = distanciaAteABordaDireita(it) }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-            .semCursorDeClique(),
+            .cliqueDeFundo(onClose),
         contentAlignment = Alignment.TopEnd,
     ) {
         Column(
@@ -162,7 +161,7 @@ fun NotifPanel(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .cliqueDeFundo {},
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),

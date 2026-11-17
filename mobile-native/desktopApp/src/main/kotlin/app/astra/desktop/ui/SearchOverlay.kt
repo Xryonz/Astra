@@ -117,8 +117,7 @@ fun SearchOverlay(
         Modifier
             .fillMaxSize()
             .background(Obsidian.void.copy(alpha = 0.55f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-            .semCursorDeClique(),
+            .cliqueDeFundo(onClose),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(
@@ -128,7 +127,7 @@ fun SearchOverlay(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .cliqueDeFundo {}
                 .onPreviewKeyEvent { e ->
                     if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
                 }

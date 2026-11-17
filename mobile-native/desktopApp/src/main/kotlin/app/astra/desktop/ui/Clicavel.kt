@@ -16,10 +16,11 @@ fun Modifier.clickable(
     indication: Indication?,
     enabled: Boolean = true,
     onClickLabel: String? = null,
-    role: Role? = null,
+    role: Role? = Role.Button,
     onClick: () -> Unit,
 ): Modifier = this
     .cursorDeClique(enabled)
     .clicavelDoCompose(interactionSource, indication, enabled, onClickLabel, role, onClick)
 
-fun Modifier.semCursorDeClique(): Modifier = pointerHoverIcon(PointerIcon.Default)
+fun Modifier.cliqueDeFundo(onClick: () -> Unit): Modifier =
+    clicavelDoCompose(interactionSource = null, indication = null, onClick = onClick)

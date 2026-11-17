@@ -624,6 +624,7 @@ private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit
     Row(
         Modifier
             .fillMaxWidth()
+            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(fundo)
             .hoverable(interacao)

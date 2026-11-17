@@ -195,6 +195,7 @@ internal fun ContentBlock(
                 "tentar de novo",
                 style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
                 modifier = Modifier
+                    .clickScale(src, formaDoFoco = RoundedCornerShape(4.dp), folgaDoFoco = 1.5.dp)
                     .clickable(interactionSource = src, indication = null, onClick = onRetry),
             )
         }
@@ -557,6 +558,7 @@ private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Un
     Row(
         modifier = Modifier
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+            .clickScale(src, formaDoFoco = RoundedCornerShape(999.dp))
             .clip(RoundedCornerShape(999.dp))
             .background(if (mine) Obsidian.active else Obsidian.raised)
             .border(1.dp, if (mine) Obsidian.borderMid else Obsidian.borderDim, RoundedCornerShape(999.dp))

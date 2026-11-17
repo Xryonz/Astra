@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -799,7 +801,11 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
             if (current.isBlank()) {
                 LIcon(Lucide.SmilePlus, tint = Obsidian.text3, size = 18.dp, rotulo = "escolher o emoji do recado")
             } else {
-                Text(current, style = TextStyle(fontSize = 18.sp))
+                Text(
+                    current,
+                    style = TextStyle(fontSize = 18.sp),
+                    modifier = Modifier.semantics { contentDescription = "tirar o emoji do recado" },
+                )
             }
         }
         if (open) {

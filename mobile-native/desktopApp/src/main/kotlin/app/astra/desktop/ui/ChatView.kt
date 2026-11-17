@@ -493,6 +493,7 @@ fun ChatView(
                             "Tentar novamente",
                             style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                             modifier = Modifier
+                                .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp))
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable(interactionSource = src, indication = null) { vm.tentarDeNovo() }
                                 .padding(horizontal = 8.dp, vertical = 3.dp),

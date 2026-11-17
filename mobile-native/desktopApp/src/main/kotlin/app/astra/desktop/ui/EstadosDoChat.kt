@@ -218,8 +218,8 @@ internal fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> 
                     "tentar de novo",
                     style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
                         .clickScale(src)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Obsidian.overlay)
                         .clickable(interactionSource = src, indication = null, onClick = onRetry)
                         .padding(horizontal = 14.dp, vertical = 7.dp),

@@ -57,7 +57,9 @@ fun FirstStepsCard(
             Text(
                 "pular",
                 style = Tipo.descricao,
-                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onDismiss),
+                modifier = Modifier
+                    .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = 4.dp)
+                    .clickable(interactionSource = src, indication = null, onClick = onDismiss),
             )
         }
         Spacer(Modifier.height(13.dp))

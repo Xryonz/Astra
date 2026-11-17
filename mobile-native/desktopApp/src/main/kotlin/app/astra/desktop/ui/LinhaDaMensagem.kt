@@ -354,8 +354,9 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     Row(
         modifier = Modifier
             .widthIn(max = 420.dp)
-            .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) }
-            .padding(bottom = 3.dp),
+            .padding(bottom = 3.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = 2.dp)
+            .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)

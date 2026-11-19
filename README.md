@@ -37,15 +37,14 @@ missões.
 ### Voz e transmissão de tela
 
 - **LiveKit**: as salas de voz e de tela, pelo LiveKit Cloud
-- **Go**, com **Pion WebRTC** e o **LiveKit SDK para Go**: o motor de voz e tela atual,
-  que roda num processo à parte do app
+- **Rust**, com o **LiveKit SDK para Rust**, **Tokio** e **windows-rs**: o motor de voz e
+  tela, que roda num processo à parte do app
+- **libwebrtc**, o WebRTC do Google: o transporte da voz e da tela, compilado dentro do motor
 - **Opus**: o codec de voz
-- **AEC3** (webrtc-audio-processing): o cancelamento de eco, o mesmo do Chromium
+- **AEC3**: o cancelamento de eco do libwebrtc, o mesmo do Chromium
 - **Media Foundation**: a compressão de vídeo H.264 pela placa de vídeo
 - **DXGI Desktop Duplication** e **Windows.Graphics.Capture**: a captura da tela inteira e
   de uma janela
-- **Rust**, com o **LiveKit SDK para Rust**, **Tokio** e **windows-rs**: o motor novo, em
-  desenvolvimento para substituir o de Go
 
 ### Android
 
@@ -91,15 +90,14 @@ missões.
 
 ### Ferramentas
 
-- **Gradle**, **npm workspaces**, **Cargo** e **Go modules**: a construção de cada projeto
+- **Gradle**, **npm workspaces** e **Cargo**: a construção de cada projeto
 - **GitHub Actions**: integração contínua e publicação
 - **Biome**, **detekt** e **Clippy**: análise estática do TypeScript, do Kotlin e do Rust
-- **Vitest** e os testes nativos de Go e de Rust
+- **Vitest** e os testes nativos do Rust
 - **Python**: as provas de abertura do pacote
 - **Java**: as ferramentas de assinatura Ed25519 e as provas do shader
 - **Node.js** e **PowerShell**: scripts de conferência e de medição
-- **MinGW-w64**: compila o cancelador de eco, escrito em C++, para dentro do motor de voz
-- **goversioninfo** e **winresource**: nome, versão e ícone nos executáveis dos motores
+- **winresource**: nome, versão e ícone no executável do motor de voz
 
 ---
 
@@ -111,8 +109,8 @@ missões.
   todos, então só avança por pull request, com a integração contínua verde e aprovação.
 - Cada envio passa pela integração contínua: tipos, estilo, testes e auditoria de
   dependências no servidor; compilação e análise estática do app para computador;
-  compilação do Android; testes dos dois motores de voz; conferência das licenças e dos
-  acentos do texto visível.
+  compilação do Android; testes e análise estática do motor de voz; conferência das
+  licenças e dos acentos do texto visível.
 - Commits pequenos e frequentes, com mensagens longas que explicam o porquê.
 - **O código não tem comentários, de propósito.** O nome diz o que o código faz. O porquê
   de cada decisão (as medições, as armadilhas, os caminhos que não deram certo) fica no
@@ -234,16 +232,6 @@ A lua do estado "ausente" é o ícone "eclipse" (sólido) da
 MIT License. O arquivo fica sem alteração em
 `mobile-native/desktopApp/src/main/resources/icones/`, com o texto da licença ao lado.
 
-### Bibliotecas dentro do produto
-
-| Biblioteca | Para quê | Licença |
-| --- | --- | --- |
-| [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) `d0569cfa` | o cancelador de eco AEC3, o mesmo que roda dentro do Chromium | BSD 3-Clause (Google / projeto WebRTC) |
-
-Esta entra compilada dentro do motor de voz, e a licença viaja junto do código que a
-usa, em `sidecar-voz/eco3/`. Ela existe para cancelar o eco na taxa cheia de 48 kHz: o
-cancelador do Windows só opera em 16 kHz e derrubaria a qualidade de toda a voz.
-
 ### Código adaptado
 
 | Origem | Para quê | Licença |
@@ -271,23 +259,7 @@ instalador. Só existem os dos jogos que alguém aqui de fato abriu.
 
 | Biblioteca | Para quê | Licença |
 | --- | --- | --- |
-| [Opus](https://opus-codec.org) (`opus-0.dll`) | codec de voz das chamadas | BSD 3-Clause |
-| [Pion WebRTC](https://github.com/pion/webrtc) | transporte de mídia das chamadas | MIT |
-| [LiveKit server-sdk-go](https://github.com/livekit/server-sdk-go) | entrar na sala e publicar voz e tela | Apache 2.0 |
 | [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
 | [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois leitores acima | LGPL 2.1+ |
 | [Nucleus](https://github.com/NucleusFramework/Nucleus) (`nucleus.notification-windows` + `nucleus.core-runtime`) | gravar a identidade do Astra no atalho do menu Iniciar | MIT |
-
-### Ferramentas de construção
-
-| Ferramenta | Para quê | Licença |
-| --- | --- | --- |
-| [goversioninfo](https://github.com/josephspurrier/goversioninfo) | gerar o recurso que dá nome e ícone ao motor de voz no Windows | MIT |
-| [MinGW-w64](https://www.mingw-w64.org) via [winlibs](https://winlibs.com) | compilar o AEC3, escrito em C++, para dentro do motor de voz | GPL 3 com a *Runtime Library Exception* |
-
-O goversioninfo não entra no produto: roda uma vez, à mão, e o que fica no repositório é
-a saída dele. O MinGW está creditado porque pedaços da biblioteca de execução do GCC
-viajam dentro do executável distribuído. A *Runtime Library Exception* existe exatamente
-para isso e não impõe a GPL ao resultado; o crédito é a regra da casa, não exigência da
-licença.

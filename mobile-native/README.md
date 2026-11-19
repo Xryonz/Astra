@@ -12,7 +12,7 @@ os dois sobre a mesma API.
 
 O `:shared` não é KMP e não tem interface: cada app tem as próprias telas, e paridade entre
 eles é reescrita, não reuso. A voz e a transmissão de tela do desktop rodam num programa à
-parte, o `astra-voz.exe`, escrito em Go em `sidecar-voz/`.
+parte, o `astra-voz.exe`, escrito em Rust em `sidecar-voz-rs/`.
 
 ## Pilha
 
@@ -59,7 +59,5 @@ Os dois apps falam com a API publicada: `AstraShared.BASE_URL` no desktop e
 
 - `astraVersion`, em `gradle.properties`: a versão do desktop. Mudá-la na `main` dispara a
   publicação de uma versão nova.
-- `-Pastra.aec3=1`: monta o programa de voz com o cancelador de eco interno (48 kHz), como na
-  versão publicada. Sem ela, o eco é cancelado pelo Windows, a 16 kHz.
 - `-Pastra.canal=estavel`: o canal da versão publicada. O padrão é `dev`.
 - `-Pjfr`: liga a gravação de voo do Java no app.

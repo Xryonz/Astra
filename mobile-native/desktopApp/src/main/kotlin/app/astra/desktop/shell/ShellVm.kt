@@ -94,6 +94,7 @@ class ShellVm(
 ) {
     private val _state = MutableStateFlow(ShellUiState())
     val state = _state.asStateFlow()
+    val primeiraPagina = PrimeiraPaginaAdiantada()
 
     private val typingJobs = mutableMapOf<String, Job>()
 
@@ -261,6 +262,7 @@ class ShellVm(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {
+            adiantarUltimaConversa()
             val meD = async { insistindo("seu perfil") { userApi.me().data?.user } }
             val serversD = async { insistindo("suas constelações") { serverApi.servers().data.orEmpty() } }
             val dmsD = async { insistindo("seus sussurros") { dmApi.conversations().data.orEmpty() } }
@@ -270,6 +272,7 @@ class ShellVm(
 
             val servers = serversD.await()
             if (servers == null) {
+                primeiraPagina.descartar()
                 _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
                 return@launch
             }
@@ -320,6 +323,7 @@ class ShellVm(
                     }
                 }
             }
+            if (restoredChat == null) primeiraPagina.descartar()
 
             _state.update {
                 it.copy(
@@ -343,6 +347,18 @@ class ShellVm(
             tentarDeNovoAsImagens()
             preCarregarImagens()
         }
+    }
+
+    private fun adiantarUltimaConversa() {
+        val alvo = alvoSalvo(store.uiPref("lastChat")) ?: return
+        primeiraPagina.guardar(alvo, scope.async { buscarPaginaDaConversa(alvo, null, channelApi, dmApi, myId) })
+    }
+
+    private fun alvoSalvo(salvo: String?): ChatTarget? = when {
+        salvo == null -> null
+        salvo.startsWith("channel:") -> ChatTarget.Channel(salvo.removePrefix("channel:"), "")
+        salvo.startsWith("dm:") -> ChatTarget.Dm(salvo.removePrefix("dm:"), "")
+        else -> null
     }
 
     private fun preCarregarImagens() {

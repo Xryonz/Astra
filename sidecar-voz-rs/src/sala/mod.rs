@@ -1,3 +1,4 @@
+mod caminho;
 mod conferencia_do_eco;
 mod controles;
 mod escolha_de_aparelho;
@@ -15,11 +16,12 @@ use crate::emissao::PedidoDeTela;
 use crate::entrega::Entrega;
 use crate::ponte::{Escritor, Evento};
 use crate::vigilia::Vigilia;
+use caminho::medir_o_caminho;
 use conferencia_do_eco::{conferir_o_eco, relatar_o_cancelador_do_windows};
 use controles::{ALVO_DO_MICROFONE, Controles, PALCO_PROPRIO};
 use escolha_de_aparelho::{Escolhas, levar_ao_aparelho_certo};
 use escuta::aplicar_a_todos;
-use livekit::prelude::{LocalAudioTrack, PlatformAudio, Room, RoomOptions};
+use livekit::prelude::{LocalAudioTrack, LocalTrack, PlatformAudio, Room, RoomOptions};
 use microfone::{abrir_ou_fechar, gravar_sem_o_cancelador_do_windows, publicar_o_microfone};
 use palco::ajustar_ao_palco;
 use repasse::{Repasse, repassar};
@@ -85,6 +87,7 @@ impl Sala {
         let tarefas = vec![
             tokio::spawn(repassar(eventos, self.repasse(&sala))),
             tokio::spawn(conferir_o_eco(microfone.clone())),
+            tokio::spawn(medir_o_caminho(Arc::clone(&self.escritor), "voz", LocalTrack::Audio(microfone.clone()))),
         ];
         self.aberta = Some(SalaAberta { sala, microfone, audio, em_uso, tarefas, tela: None });
         self.contar_a_todos().await;

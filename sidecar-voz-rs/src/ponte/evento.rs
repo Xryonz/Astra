@@ -25,6 +25,16 @@ pub struct Evento {
     pub monitores: Option<Vec<Monitor>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub janelas: Option<Vec<Janela>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caminho: Option<LeituraDoCaminho>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub struct LeituraDoCaminho {
+    pub ida: i64,
+    pub pico: i64,
+    pub tremor: i64,
+    pub perda: i64,
 }
 
 impl Evento {
@@ -136,6 +146,10 @@ impl Evento {
 
     pub fn ritmo_da_tela(par: &str, msg: String) -> Self {
         Self { msg: Some(msg), ..Self::tela_com_decodificador(par, "ritmo") }
+    }
+
+    pub fn caminho(tipo: &str, leitura: LeituraDoCaminho) -> Self {
+        Self { ev: "caminho", tipo: Some(tipo.into()), caminho: Some(leitura), ..Default::default() }
     }
 
     fn de_estado(par: Option<String>, valor: &str) -> Self {
@@ -261,6 +275,15 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::transmissao_encerrada()).unwrap(),
             "{\"ev\":\"transmissao\",\"v\":\"0\"}"
+        );
+    }
+
+    #[test]
+    fn caminho_sai_como_no_go() {
+        let leitura = LeituraDoCaminho { ida: 42, pico: 80, tremor: 3, perda: 2 };
+        assert_eq!(
+            serde_json::to_string(&Evento::caminho("voz", leitura)).unwrap(),
+            "{\"ev\":\"caminho\",\"tipo\":\"voz\",\"caminho\":{\"ida\":42,\"pico\":80,\"tremor\":3,\"perda\":2}}"
         );
     }
 

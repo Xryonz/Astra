@@ -1,0 +1,29 @@
+name: libwebrtc conferido
+description: Baixa o libwebrtc que o motor de voz em Rust usa, confere o SHA-256 fixado e aponta o build para ele
+
+runs:
+  using: composite
+
+  steps:
+    - name: Baixar e conferir o libwebrtc
+      shell: pwsh
+      run: |
+        $etiqueta = 'webrtc-a545de4'
+        $soma = '862403fcb248c7d8803487e4c22b8821c6130e89100cb9c69be95ef45ff46146'
+        $zip = "$env:RUNNER_TEMP\libwebrtc.zip"
+        $destino = "$env:RUNNER_TEMP\libwebrtc"
+        curl.exe --fail --location --silent --show-error --retry 3 --retry-all-errors --output $zip `
+          "https://github.com/livekit/rust-sdks/releases/download/$etiqueta/webrtc-win-x64-release.zip"
+        if ($LASTEXITCODE -ne 0) { throw 'nao consegui baixar o libwebrtc' }
+        $vista = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+        if ($vista -ne $soma) {
+          Remove-Item $zip
+          throw "o libwebrtc baixado nao confere: $vista"
+        }
+        if (Test-Path $destino) { Remove-Item -Recurse -Force $destino }
+        New-Item -ItemType Directory -Force -Path $destino | Out-Null
+        tar -xf $zip -C $destino
+        Remove-Item $zip
+        $pasta = "$destino\win-x64-release"
+        if (-not (Test-Path "$pasta\lib\webrtc.lib")) { throw 'o libwebrtc nao chegou inteiro' }
+        "LK_CUSTOM_WEBRTC=$pasta" >> $env:GITHUB_ENV

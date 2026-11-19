@@ -1,5 +1,6 @@
 ﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.compose.desktop.application.tasks.AbstractJLinkTask
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDateTime
 import java.util.zip.CRC32
@@ -69,7 +70,8 @@ dependencies {
 }
 
 val motorFonte = project.file("../../sidecar-voz-rs")
-val motorSaida = project.file("appResources/windows/astra-voz.exe")
+val recursosDoPacote = project.file("appResources")
+val motorSaida = recursosDoPacote.resolve("windows/astra-voz.exe")
 val alvoDoCargo = providers.environmentVariable("CARGO_TARGET_DIR")
     .map { File(it) }
     .orElse(motorFonte.resolve("target"))
@@ -102,6 +104,12 @@ tasks.matching {
         it.name == "packageDistributionForCurrentOS" ||
         it.name == "prepareAppResources"
 }.configureEach { dependsOn(compilarMotorDeVoz) }
+
+tasks.withType<AbstractJPackageTask>().configureEach {
+    inputs.files(recursosDoPacote)
+        .withPropertyName("recursosDoPacote")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
 
 tasks.withType<AbstractJLinkTask>().configureEach {
     freeArgs.add("--include-locales=pt,en")
@@ -207,7 +215,7 @@ compose.desktop {
                 "jdk.localedata",
                 "jdk.jfr",
             )
-            appResourcesRootDir.set(project.file("appResources"))
+            appResourcesRootDir.set(recursosDoPacote)
             windows {
                 iconFile.set(project.file("icons/astra.ico"))
             }

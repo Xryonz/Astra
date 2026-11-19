@@ -80,6 +80,24 @@ async function userCanAccessDM(userId: string, conversationId: string): Promise<
   return !!row
 }
 
+async function anunciarChegada(socket: Socket, userId: string): Promise<void> {
+  const chosenStatus = (socket.data.status as 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE') ?? 'ONLINE'
+  await setUserOnline(userId, chosenStatus)
+  if (socket.disconnected) return
+
+  const broadcastStatus = chosenStatus === 'INVISIBLE' ? 'OFFLINE' : chosenStatus
+  void avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: broadcastStatus })
+
+  try {
+    const mine = await db
+      .select({ serverId: serverMembers.serverId })
+      .from(serverMembers)
+      .where(eq(serverMembers.userId, userId))
+    if (socket.disconnected) return
+    for (const s of mine) socket.join(`server:${s.serverId}`)
+  } catch {}
+}
+
 export function setupSocket(io: Server) {
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token
@@ -110,28 +128,15 @@ export function setupSocket(io: Server) {
     }
   })
 
-  io.on('connection', async (socket: Socket) => {
+  io.on('connection', (socket: Socket) => {
     const userId: string = socket.data.userId
 
     if (!userSockets.has(userId)) userSockets.set(userId, new Set())
     userSockets.get(userId)!.add(socket.id)
     socketConnections.inc()
 
-    const chosenStatus = (socket.data.status as 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE') ?? 'ONLINE'
-    await setUserOnline(userId, chosenStatus)
-
-    const broadcastStatus = chosenStatus === 'INVISIBLE' ? 'OFFLINE' : chosenStatus
-    void avisarQuemMeVe(socket, userId, 'presence_update', { userId, status: broadcastStatus })
-
     socket.join(`user:${userId}`)
-
-    try {
-      const mine = await db
-        .select({ serverId: serverMembers.serverId })
-        .from(serverMembers)
-        .where(eq(serverMembers.userId, userId))
-      for (const s of mine) socket.join(`server:${s.serverId}`)
-    } catch {}
+    const chegada = anunciarChegada(socket, userId)
 
     socket.on('join_server', async (serverId: string) => {
       if (typeof serverId !== 'string' || !serverId) return
@@ -615,6 +620,7 @@ export function setupSocket(io: Server) {
     })
 
     socket.on('disconnect', async () => {
+      await chegada
       for (const channelId of salasDeVoz) {
         await tirarDaVoz(channelId)
         void emitVoicePresence(channelId, false)

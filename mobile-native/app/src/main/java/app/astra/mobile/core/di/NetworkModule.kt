@@ -34,6 +34,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -71,11 +72,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @ClienteRaiz
+    fun provideClienteRaiz(): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(identidade())
+        .build()
+
+    @Provides
+    @Singleton
     fun provideOkHttp(
+        @ClienteRaiz raiz: OkHttpClient,
         authInterceptor: AuthInterceptor,
         authenticator: TokenAuthenticator,
-    ): OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(identidade())
+    ): OkHttpClient = raiz.newBuilder()
         .addInterceptor(authInterceptor)
         .addInterceptor(logging())
         .authenticator(authenticator)
@@ -186,9 +194,9 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRefreshApi(json: Json): RefreshApi {
-        val client = OkHttpClient.Builder()
-            .addInterceptor(identidade())
+    fun provideRefreshApi(@ClienteRaiz raiz: OkHttpClient, json: Json): RefreshApi {
+        val client = raiz.newBuilder()
+            .dispatcher(Dispatcher())
             .addInterceptor(logging())
             .build()
         val retrofit = Retrofit.Builder()

@@ -3,6 +3,7 @@ package app.astra.mobile.core.realtime
 import android.util.Log
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.di.ClienteRaiz
 import app.astra.mobile.core.network.TokenRefresher
 import io.socket.client.IO
 import io.socket.client.Manager
@@ -23,8 +24,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,7 +35,11 @@ import javax.inject.Singleton
 class SocketManager @Inject constructor(
     private val tokenStore: TokenStore,
     private val tokenRefresher: TokenRefresher,
+    @ClienteRaiz private val clienteRaiz: OkHttpClient,
 ) {
+    private val clienteDoSocket by lazy {
+        clienteRaiz.newBuilder().readTimeout(1, TimeUnit.MINUTES).build()
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: Socket? = null
     private var options: IO.Options? = null
@@ -114,6 +121,8 @@ class SocketManager @Inject constructor(
             transports = arrayOf(WebSocket.NAME, Polling.NAME)
             auth = mapOf("token" to token)
             reconnection = true
+            callFactory = clienteDoSocket
+            webSocketFactory = clienteDoSocket
         }
         options = opts
 

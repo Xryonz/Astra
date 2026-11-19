@@ -11,7 +11,6 @@ import { Server as SocketServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import { redis } from './lib/redis'
 import cors from 'cors'
-import compression from 'compression'
 
 import { env } from './lib/env'
 import { isAllowedOrigin } from './lib/allowedOrigins'
@@ -122,8 +121,6 @@ app.use(
     maxAge: 600,
   }),
 )
-
-app.use(compression())
 
 app.use(reqContext)
 app.use(httpMetrics)

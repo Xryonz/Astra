@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -85,11 +87,13 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
-import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.voice.AparelhoDeAudio
 import app.astra.desktop.voice.CallNaSala
+import app.astra.desktop.voice.Checagem
 import app.astra.desktop.voice.Permissao
 import app.astra.desktop.voice.PermissoesWindows
+import app.astra.desktop.voice.PedidoAoWindows
+import app.astra.desktop.voice.PreparoDaVoz
 import app.astra.desktop.voice.QuadroDeTela
 import app.astra.desktop.voice.VoiceStatus
 import kotlinx.coroutines.flow.StateFlow
@@ -125,6 +129,9 @@ fun VoiceView(
     }
     val prefState by prefs.state.collectAsState()
     val status by call.status.collectAsState()
+    val redeDecidida by call.redeDecidida.collectAsState()
+    val pedidoAoWindows by PreparoDaVoz.pedido.collectAsState()
+    val avisoDoMicrofone by call.avisoDoMicrofone.collectAsState()
     val microfones by call.microfones.collectAsState()
     val saidas by call.saidas.collectAsState()
     val micOn = !mudo
@@ -149,7 +156,19 @@ fun VoiceView(
         EstadoDaCall(label, color, call.inicio)
         Spacer(Modifier.height(14.dp))
 
-        FaixaDoFirewall()
+        when {
+            !redeDecidida -> Unit
+            pedidoAoWindows != PedidoAoWindows.NENHUM ->
+                FaixaDePreparo(liberando = pedidoAoWindows == PedidoAoWindows.LIBERANDO)
+            else -> FaixaDoFirewall()
+        }
+        avisoDoMicrofone?.let {
+            FaixaDoMicrofone(
+                it,
+                aoAbrirAjustes = call::esconderAvisoDoMicrofone,
+                aoDispensar = call::dispensarAvisoDoMicrofone,
+            )
+        }
 
         val connected = status as? VoiceStatus.Connected
 
@@ -230,13 +249,12 @@ fun VoiceView(
                     }
                 }
             } else {
-                val nomeDeQuemMostra = if (quemMostra == CallNaSala.EU) "sua tela"
-                else pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
+                val nomeDeQuemMostra = pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
                     ?: channel.name.ifBlank { "alguém" }
 
                 PalcoDaTela(
                     legenda = when {
-                        quemMostra == CallNaSala.EU -> "esta é a sua tela, como os outros a veem"
+                        quemMostra == CallNaSala.EU -> null
                         mostrando.size > 1 ->
                             "$nomeDeQuemMostra está compartilhando a tela · " +
                                 "clique em outra pessoa para ver a dela"
@@ -254,10 +272,12 @@ fun VoiceView(
                     },
                     tela = {
                         if (quemMostra !in comTela) {
-                            Text(
-                                "abrindo a tela de $nomeDeQuemMostra…",
-                                style = Tipo.descricao,
-                            )
+                            if (quemMostra != CallNaSala.EU) {
+                                Text(
+                                    "abrindo a tela de $nomeDeQuemMostra…",
+                                    style = Tipo.descricao,
+                                )
+                            }
                         } else {
                             TelaCompartilhada(call.telasDosOutros, quemMostra, Modifier.fillMaxSize())
                         }
@@ -297,6 +317,7 @@ fun VoiceView(
                         Column(
                             Modifier
                                 .popupReveal(originX = 0.5f, originY = 1f)
+                                .width(IntrinsicSize.Max)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Obsidian.overlay)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
@@ -310,11 +331,21 @@ fun VoiceView(
                                 )
                             }
                             sons.forEach { som ->
+                                val fonteDoSom = remember { MutableInteractionSource() }
+                                val sobreOSom by fonteDoSom.collectIsHoveredAsState()
+                                val fundoDoSom by animateColorAsState(
+                                    if (sobreOSom) Obsidian.hover else Color.Transparent,
+                                    tween(100),
+                                )
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickScale(fonteDoSom, formaDoFoco = RoundedCornerShape(6.dp))
                                         .clip(RoundedCornerShape(6.dp))
-                                        .clickable {
+                                        .background(fundoDoSom)
+                                        .hoverable(fonteDoSom)
+                                        .clickable(interactionSource = fonteDoSom, indication = null) {
                                             val sid = serverId
                                             if (sid != null) escopoSons.launch {
                                                 runCatching {
@@ -528,14 +559,18 @@ private fun SeletorDeAparelho(
 ) {
     var aberto by remember { mutableStateOf(false) }
     val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrão do Windows"
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.base)
+                .background(if (sobre) Obsidian.hover else Obsidian.base)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .clickable { aberto = true }
+                .hoverable(fonte)
+                .clickable(interactionSource = fonte, indication = null) { aberto = true }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -589,6 +624,7 @@ private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit
     Row(
         Modifier
             .fillMaxWidth()
+            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(fundo)
             .hoverable(interacao)
@@ -618,11 +654,8 @@ private fun PanelHeader(text: String) {
     )
 }
 
-private const val FIREWALL_DISPENSADO = "firewall:dispensado"
-
 @Composable
 private fun FaixaDoFirewall() {
-    val store = remember { GlobalContext.get().get<SessionStore>() }
     var recado by remember { mutableStateOf<String?>(null) }
     var liberando by remember { mutableStateOf(false) }
     val escopo = rememberCoroutineScope()
@@ -633,11 +666,58 @@ private fun FaixaDoFirewall() {
     }
 
     LaunchedEffect(Unit) {
-        if (store.uiPref(FIREWALL_DISPENSADO) == "1") return@LaunchedEffect
+        if (PreparoDaVoz.redeDispensada()) return@LaunchedEffect
         conferir()
     }
 
     val texto = recado ?: return
+    FaixaDaCall(texto) {
+        AcaoDaFaixa(
+            rotulo = if (liberando) "liberando…" else "liberar de vez",
+            cor = Obsidian.text1,
+            habilitado = !liberando,
+        ) {
+            liberando = true
+            escopo.launch {
+                withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
+                conferir()
+                liberando = false
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        AcaoDaFaixa(rotulo = "agora não", cor = Obsidian.text3, habilitado = !liberando) {
+            PreparoDaVoz.dispensarARede()
+            recado = null
+        }
+    }
+}
+
+@Composable
+private fun FaixaDePreparo(liberando: Boolean) {
+    FaixaDaCall(
+        if (liberando) {
+            "Liberando a voz no firewall do Windows…"
+        } else {
+            "O Windows vai pedir permissão de administrador uma única vez, para liberar a voz no firewall. " +
+                "A janela aparece com o nome Windows PowerShell."
+        },
+    )
+}
+
+@Composable
+private fun FaixaDoMicrofone(aviso: Checagem, aoAbrirAjustes: () -> Unit, aoDispensar: () -> Unit) {
+    FaixaDaCall(aviso.explica) {
+        AcaoDaFaixa(rotulo = "abrir ajustes do Windows", cor = Obsidian.text1, habilitado = true) {
+            aviso.ajustes?.let(PermissoesWindows::abrirAjustes)
+            aoAbrirAjustes()
+        }
+        Spacer(Modifier.width(10.dp))
+        AcaoDaFaixa(rotulo = "agora não", cor = Obsidian.text3, habilitado = true, aoClicar = aoDispensar)
+    }
+}
+
+@Composable
+private fun FaixaDaCall(texto: String, acoes: (@Composable RowScope.() -> Unit)? = null) {
     val forma = RoundedCornerShape(8.dp)
     Column(
         Modifier
@@ -649,25 +729,9 @@ private fun FaixaDoFirewall() {
             .padding(horizontal = 14.dp, vertical = 11.dp),
     ) {
         Text(texto, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp))
-        Spacer(Modifier.height(9.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AcaoDaFaixa(
-                rotulo = if (liberando) "liberando…" else "liberar de vez",
-                cor = Obsidian.text1,
-                habilitado = !liberando,
-            ) {
-                liberando = true
-                escopo.launch {
-                    withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
-                    conferir()
-                    liberando = false
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            AcaoDaFaixa(rotulo = "agora não", cor = Obsidian.text3, habilitado = !liberando) {
-                store.setUiPref(FIREWALL_DISPENSADO, "1")
-                recado = null
-            }
+        if (acoes != null) {
+            Spacer(Modifier.height(9.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, content = acoes)
         }
     }
     Spacer(Modifier.height(14.dp))
@@ -887,7 +951,7 @@ private const val COMPASSO_DO_MOUSE = 250L
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PalcoDaTela(
-    legenda: String,
+    legenda: String?,
     rostos: @Composable () -> Unit,
     tela: @Composable BoxScope.() -> Unit,
 ) {
@@ -930,8 +994,10 @@ private fun PalcoDaTela(
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(legenda, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
-                Spacer(Modifier.height(8.dp))
+                if (legenda != null) {
+                    Text(legenda, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                    Spacer(Modifier.height(8.dp))
+                }
                 rostos()
             }
         }

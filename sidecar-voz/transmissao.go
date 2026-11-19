@@ -497,10 +497,10 @@ func (c *Compressor) Reenquadrar(dispositivo objeto, largura, altura int) error 
 	c.reduzir = novo
 
 	if c.espelho != nil {
-		entregar := c.espelho.entregar
+		entregar, cheio := c.espelho.entregar, c.espelho.cheio
 		c.espelho.Fechar()
 		c.espelho = nil
-		c.LigarEspelho(entregar)
+		c.LigarEspelho(cheio, entregar)
 	}
 	return nil
 }
@@ -673,11 +673,11 @@ func (c *Compressor) embrulharUmQuadro(dispositivo objeto, desc descricaoDeTextu
 	return q, nil
 }
 
-func (c *Compressor) LigarEspelho(mandar func(Quadro)) {
+func (c *Compressor) LigarEspelho(cheio func() bool, mandar func(Quadro)) {
 	if c == nil || c.espelho != nil {
 		return
 	}
-	e, err := AbrirEspelho(c.gerente, c.largura, c.altura, mandar)
+	e, err := AbrirEspelho(c.gerente, c.largura, c.altura, c.saidaL, cheio, mandar)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sem prévia da própria tela: %v\n", err)
 		return

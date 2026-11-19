@@ -1,6 +1,10 @@
+use crate::aparelhos::Aparelho;
+use crate::tela::{Janela, Monitor};
 use serde::Serialize;
 
 const ESTADO: &str = "estado";
+const TRANSMISSAO: &str = "transmissao";
+const TELA: &str = "tela";
 
 #[derive(Debug, Default, Serialize)]
 pub struct Evento {
@@ -9,10 +13,18 @@ pub struct Evento {
     pub par: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tipo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dados: Option<String>,
     #[serde(rename = "v", skip_serializing_if = "Option::is_none")]
     pub valor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub msg: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aparelhos: Option<Vec<Aparelho>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitores: Option<Vec<Monitor>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub janelas: Option<Vec<Janela>>,
 }
 
 impl Evento {
@@ -44,9 +56,95 @@ impl Evento {
         Self { tipo: Some(tipo.into()), msg: Some(msg.into()), ..Self::de_estado(None, "disconnected") }
     }
 
+    pub fn aparelhos(tipo: &str, lista: Vec<Aparelho>) -> Self {
+        Self {
+            ev: "aparelhos",
+            tipo: Some(tipo.into()),
+            aparelhos: Some(lista).filter(|lista| !lista.is_empty()),
+            ..Default::default()
+        }
+    }
+
+    pub fn monitores(lista: Vec<Monitor>) -> Self {
+        Self { ev: "monitores", monitores: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
+    }
+
+    pub fn janelas(lista: Vec<Janela>) -> Self {
+        Self { ev: "janelas", janelas: Some(lista).filter(|lista| !lista.is_empty()), ..Default::default() }
+    }
+
+    pub fn miniatura(tipo: &str, par: String, dados: String) -> Self {
+        Self { ev: "miniatura", par: Some(par), tipo: Some(tipo.into()), dados: Some(dados), ..Default::default() }
+    }
+
+    pub fn fala(par: &str, ligado: bool) -> Self {
+        Self {
+            ev: "fala",
+            par: Some(par.to_owned()).filter(|p| !p.is_empty()),
+            valor: Some(um_ou_zero(ligado).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn estado_da_voz(par: &str, tipo: &str, ligado: bool) -> Self {
+        Self {
+            ev: "estado-da-voz",
+            par: Some(par.into()),
+            tipo: Some(tipo.into()),
+            valor: Some(um_ou_zero(ligado).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn transmissao(tipo: &str, msg: String) -> Self {
+        Self {
+            ev: TRANSMISSAO,
+            tipo: Some(tipo.into()),
+            valor: Some(um_ou_zero(true).into()),
+            msg: Some(msg),
+            ..Default::default()
+        }
+    }
+
+    pub fn transmissao_encerrada() -> Self {
+        Self { ev: TRANSMISSAO, valor: Some(um_ou_zero(false).into()), ..Default::default() }
+    }
+
+    pub fn tela_no_ar(par: &str) -> Self {
+        Self {
+            ev: TELA,
+            par: Some(par.into()),
+            tipo: Some("faixa".into()),
+            valor: Some(um_ou_zero(true).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn tela_fora_do_ar(par: &str) -> Self {
+        Self { ev: TELA, par: Some(par.into()), valor: Some(um_ou_zero(false).into()), ..Default::default() }
+    }
+
+    pub fn tela_com_decodificador(par: &str, nome: &str) -> Self {
+        Self {
+            ev: TELA,
+            par: Some(par.into()),
+            tipo: Some(nome.into()),
+            valor: Some(um_ou_zero(true).into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn ritmo_da_tela(par: &str, msg: String) -> Self {
+        Self { msg: Some(msg), ..Self::tela_com_decodificador(par, "ritmo") }
+    }
+
     fn de_estado(par: Option<String>, valor: &str) -> Self {
         Self { ev: ESTADO, par, valor: Some(valor.into()), ..Default::default() }
     }
+}
+
+fn um_ou_zero(ligado: bool) -> &'static str {
+    if ligado { "1" } else { "0" }
 }
 
 #[cfg(test)]
@@ -76,6 +174,93 @@ mod testes {
         assert_eq!(
             serde_json::to_string(&Evento::saiu("ana".into())).unwrap(),
             "{\"ev\":\"estado\",\"par\":\"ana\",\"v\":\"closed\"}"
+        );
+    }
+
+    #[test]
+    fn aparelhos_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let fone = Aparelho { id: "{0.0.1.00000000}.{abc}".into(), nome: "Fone".into() };
+        assert_eq!(
+            serde_json::to_string(&Evento::aparelhos("entrada", vec![fone])).unwrap(),
+            "{\"ev\":\"aparelhos\",\"tipo\":\"entrada\",\"aparelhos\":[{\"id\":\"{0.0.1.00000000}.{abc}\",\"nome\":\"Fone\"}]}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::aparelhos("saida", Vec::new())).unwrap(),
+            "{\"ev\":\"aparelhos\",\"tipo\":\"saida\"}"
+        );
+    }
+
+    #[test]
+    fn monitores_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let tela = Monitor { indice: 0, nome: "\\\\.\\DISPLAY1".into(), largura: 1920, altura: 1080, principal: true };
+        assert_eq!(
+            serde_json::to_string(&Evento::monitores(vec![tela])).unwrap(),
+            "{\"ev\":\"monitores\",\"monitores\":[{\"indice\":0,\"nome\":\"\\\\\\\\.\\\\DISPLAY1\",\"largura\":1920,\"altura\":1080,\"principal\":true}]}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::monitores(Vec::new())).unwrap(), "{\"ev\":\"monitores\"}");
+    }
+
+    #[test]
+    fn janelas_saem_como_no_go_e_lista_vazia_e_omitida() {
+        let janela = Janela { id: 132458, nome: "Bloco de Notas".into(), largura: 800, altura: 600 };
+        assert_eq!(
+            serde_json::to_string(&Evento::janelas(vec![janela])).unwrap(),
+            "{\"ev\":\"janelas\",\"janelas\":[{\"id\":132458,\"nome\":\"Bloco de Notas\",\"largura\":800,\"altura\":600}]}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::janelas(Vec::new())).unwrap(), "{\"ev\":\"janelas\"}");
+    }
+
+    #[test]
+    fn miniatura_sai_com_os_campos_na_ordem_do_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::miniatura("janela", "132458".into(), "iVBO".into())).unwrap(),
+            "{\"ev\":\"miniatura\",\"par\":\"132458\",\"tipo\":\"janela\",\"dados\":\"iVBO\"}"
+        );
+    }
+
+    #[test]
+    fn tela_dos_outros_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::tela_no_ar("ana")).unwrap(),
+            "{\"ev\":\"tela\",\"par\":\"ana\",\"tipo\":\"faixa\",\"v\":\"1\"}"
+        );
+        assert_eq!(serde_json::to_string(&Evento::tela_fora_do_ar("ana")).unwrap(), "{\"ev\":\"tela\",\"par\":\"ana\",\"v\":\"0\"}");
+        assert_eq!(
+            serde_json::to_string(&Evento::ritmo_da_tela("ana", "60 fps".into())).unwrap(),
+            "{\"ev\":\"tela\",\"par\":\"ana\",\"tipo\":\"ritmo\",\"v\":\"1\",\"msg\":\"60 fps\"}"
+        );
+    }
+
+    #[test]
+    fn fala_propria_sai_sem_par_e_a_dos_outros_com_par() {
+        assert_eq!(serde_json::to_string(&Evento::fala("", true)).unwrap(), "{\"ev\":\"fala\",\"v\":\"1\"}");
+        assert_eq!(
+            serde_json::to_string(&Evento::fala("ana", false)).unwrap(),
+            "{\"ev\":\"fala\",\"par\":\"ana\",\"v\":\"0\"}"
+        );
+    }
+
+    #[test]
+    fn estado_da_voz_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::estado_da_voz("ana", "mudo", true)).unwrap(),
+            "{\"ev\":\"estado-da-voz\",\"par\":\"ana\",\"tipo\":\"mudo\",\"v\":\"1\"}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::estado_da_voz("ana", "surdo", false)).unwrap(),
+            "{\"ev\":\"estado-da-voz\",\"par\":\"ana\",\"tipo\":\"surdo\",\"v\":\"0\"}"
+        );
+    }
+
+    #[test]
+    fn transmissao_sai_como_no_go() {
+        assert_eq!(
+            serde_json::to_string(&Evento::transmissao("ritmo", "60 fps".into())).unwrap(),
+            "{\"ev\":\"transmissao\",\"tipo\":\"ritmo\",\"v\":\"1\",\"msg\":\"60 fps\"}"
+        );
+        assert_eq!(
+            serde_json::to_string(&Evento::transmissao_encerrada()).unwrap(),
+            "{\"ev\":\"transmissao\",\"v\":\"0\"}"
         );
     }
 

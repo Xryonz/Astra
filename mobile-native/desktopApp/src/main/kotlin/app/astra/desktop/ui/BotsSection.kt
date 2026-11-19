@@ -3,6 +3,9 @@ package app.astra.desktop.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
@@ -209,20 +213,30 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                 ) { aoMudar(BotPersonaPatch(bannerScale = zoom, bannerPositionY = posY)) }
                 if (p.personalizado.bannerScale || p.personalizado.bannerPositionY) {
                     Spacer(Modifier.width(10.dp))
-                    Text(
-                        "voltar ao original",
-                        style = Tipo.descricao,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                aoMudar(BotPersonaPatch(limpar = listOf("bannerScale", "bannerPositionY")))
-                            }
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
-                    )
+                    BotaoVoltarAoOriginal {
+                        aoMudar(BotPersonaPatch(limpar = listOf("bannerScale", "bannerPositionY")))
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun BotaoVoltarAoOriginal(aoClicar: () -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
+    Text(
+        "voltar ao original",
+        style = Tipo.descricao,
+        modifier = Modifier
+            .clickScale(fonte)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (sobre) Obsidian.hover else Color.Transparent)
+            .hoverable(fonte)
+            .clickable(interactionSource = fonte, indication = null, onClick = aoClicar)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    )
 }
 
 @Composable
@@ -258,13 +272,18 @@ private fun TrilhaDaBot(rotulo: String, valor: Int, min: Int, max: Int, aoMudar:
 
 @Composable
 private fun BotaoSalvarEnquadramento(mudou: Boolean, aoClicar: () -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Text(
         if (mudou) "salvar enquadramento" else "enquadramento salvo",
         style = TextStyle(color = if (mudou) Obsidian.accent else Obsidian.text3, fontSize = 12.sp),
         modifier = Modifier
+            .clickScale(fonte)
             .clip(RoundedCornerShape(8.dp))
+            .background(if (sobre) Obsidian.hover else Color.Transparent)
             .border(1.dp, if (mudou) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(enabled = mudou, onClick = aoClicar)
+            .hoverable(fonte, enabled = mudou)
+            .clickable(interactionSource = fonte, indication = null, enabled = mudou, onClick = aoClicar)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     )
 }

@@ -74,7 +74,8 @@ type Emissor struct {
 	mu    sync.Mutex
 	atual *corridaDaTela
 
-	querChave atomic.Bool
+	querChave  atomic.Bool
+	verPropria atomic.Bool
 
 	perdas *PerdaDosPares
 
@@ -92,6 +93,8 @@ func (e *Emissor) BandaRelatada(par string, kbps int) { e.perdas.RelatarBanda(pa
 func (e *Emissor) EsquecerPar(par string) { e.perdas.Esquecer(par) }
 
 func (e *Emissor) PedirQuadroChave() { e.querChave.Store(true) }
+
+func (e *Emissor) VerAPropriaTela(sim bool) { e.verPropria.Store(sim) }
 
 func (e *Emissor) Ligar(aj AjustesDaTela) {
 	e.encerrar(true)
@@ -248,7 +251,7 @@ func (e *Emissor) transmitir(
 	}
 
 	if e.entrega != nil {
-		c.LigarEspelho(func(q Quadro) { e.entrega.Mandar("", q) })
+		c.LigarEspelho(e.verPropria.Load, func(q Quadro) { e.entrega.Mandar("", q) })
 	}
 
 	controle.SeguirDePerto(c.MudaBandaEmServico())

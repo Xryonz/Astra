@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,32 +47,8 @@ private const val TREMOR_MS = 380
 private const val TREMOR_VOLTAS = 3.0
 private val TREMOR_ALCANCE = 8.dp
 
-internal fun resumoDoRascunho(ajustes: Int, perfil: Boolean): String {
-    val emAjustes = when (ajustes) {
-        0 -> null
-        1 -> "1 ajuste"
-        else -> "$ajustes ajustes"
-    }
-    return when {
-        emAjustes != null && perfil -> "$emAjustes e o perfil"
-        emAjustes != null -> emAjustes
-        else -> "o perfil"
-    }
-}
-
-internal fun recadoDoSalvamento(ajustes: Int, perfil: Boolean): String {
-    val emAjustes = if (ajustes == 1) "1 ajuste" else "$ajustes ajustes"
-    return when {
-        ajustes > 0 && perfil -> "perfil e $emAjustes salvos"
-        perfil -> "perfil salvo"
-        ajustes == 1 -> "1 ajuste salvo"
-        else -> "$emAjustes salvos"
-    }
-}
-
 @Composable
 internal fun BarraDeSalvar(
-    ajustes: Int,
     perfil: Boolean,
     salvando: Boolean,
     confirmacao: String?,
@@ -83,7 +58,7 @@ internal fun BarraDeSalvar(
     aoDescartar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pendente = ajustes > 0 || perfil
+    val pendente = perfil
     val tremor = remember { Animatable(1f) }
     val paradinho = LocalReduceMotion.current
     val alcance = with(LocalDensity.current) { TREMOR_ALCANCE.toPx() }
@@ -114,17 +89,12 @@ internal fun BarraDeSalvar(
                     if (erro != null) Obsidian.danger else Obsidian.borderMid,
                     RoundedCornerShape(12.dp),
                 )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                )
-                .semCursorDeClique()
+                .cliqueDeFundo {}
                 .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (pendente) {
-                PendenciaDaBarra(ajustes, perfil, erro)
+                PendenciaDaBarra(erro)
                 Spacer(Modifier.width(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BotaoDeDialogo("descartar", TipoDeBotao.SECUNDARIO, onClick = aoDescartar, ligado = !salvando)
@@ -151,15 +121,15 @@ internal fun BarraDeSalvar(
 }
 
 @Composable
-private fun PendenciaDaBarra(ajustes: Int, perfil: Boolean, erro: String?) {
+private fun PendenciaDaBarra(erro: String?) {
     Column(Modifier.widthIn(max = 360.dp)) {
         Text(
-            if (erro != null) "não foi possível salvar tudo" else "alterações não salvas",
+            if (erro != null) "não foi possível salvar" else "alterações não salvas",
             style = Tipo.corpo,
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            erro ?: resumoDoRascunho(ajustes, perfil),
+            erro ?: "o perfil",
             style = if (erro != null) {
                 TextStyle(color = Obsidian.danger, fontSize = 11.sp, lineHeight = 15.sp)
             } else {

@@ -11,7 +11,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.hoverable
@@ -494,6 +493,7 @@ fun ChatView(
                             "Tentar novamente",
                             style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                             modifier = Modifier
+                                .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp))
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable(interactionSource = src, indication = null) { vm.tentarDeNovo() }
                                 .padding(horizontal = 8.dp, vertical = 3.dp),

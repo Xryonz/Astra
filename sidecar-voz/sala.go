@@ -58,7 +58,7 @@ func (s *Sala) AnunciarEstado(mudo, surdo bool) {
 	s.contarComoEstou(quarto)
 }
 
-func (s *Sala) contarComoEstou(quarto *lksdk.Room) {
+func (s *Sala) contarComoEstou(quarto *lksdk.Room, para ...string) {
 	if quarto == nil {
 		return
 	}
@@ -70,9 +70,24 @@ func (s *Sala) contarComoEstou(quarto *lksdk.Room) {
 	if err != nil {
 		return
 	}
-	if err := quarto.LocalParticipant.PublishData(dados); err != nil {
+	if err := quarto.LocalParticipant.PublishData(dados, opcoesDoRecado(para)...); err != nil {
 		fmt.Fprintf(os.Stderr, "não consegui contar meu estado à sala: %v\n", err)
 	}
+}
+
+func opcoesDoRecado(para []string) []lksdk.DataPublishOption {
+	opcoes := []lksdk.DataPublishOption{lksdk.WithDataPublishReliable(true)}
+	if len(para) > 0 {
+		opcoes = append(opcoes, lksdk.WithDataPublishDestination(para))
+	}
+	return opcoes
+}
+
+func (s *Sala) contarAQuemChegou(quem string) {
+	s.mu.Lock()
+	quarto := s.sala
+	s.mu.Unlock()
+	s.contarComoEstou(quarto, quem)
 }
 
 func (s *Sala) aoChegarRecado(pacote lksdk.DataPacket, de lksdk.DataReceiveParams) {
@@ -518,6 +533,7 @@ func (s *Sala) aoAssinar(
 		go ouvinte.receberTela(faixa)
 		return
 	}
+	go s.contarAQuemChegou(quem)
 	go ouvinte.receber(faixa)
 }
 

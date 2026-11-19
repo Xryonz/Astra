@@ -2,6 +2,9 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -176,13 +180,18 @@ internal fun Stage(
                         error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
                             Spacer(Modifier.height(10.dp))
+                            val fonte = remember { MutableInteractionSource() }
+                            val sobre by fonte.collectIsHoveredAsState()
                             Text(
                                 "tentar de novo",
                                 style = TextStyle(color = Obsidian.accent, fontSize = 13.sp),
                                 modifier = Modifier
+                                    .clickScale(fonte)
                                     .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sobre) Obsidian.hover else Color.Transparent)
                                     .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                                    .clickable(onClick = onRetry)
+                                    .hoverable(fonte)
+                                    .clickable(interactionSource = fonte, indication = null, onClick = onRetry)
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                             )
                         }

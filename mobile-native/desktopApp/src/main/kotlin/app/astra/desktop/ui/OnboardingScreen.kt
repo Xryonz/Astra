@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,20 +60,20 @@ import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 import app.astra.desktop.ui.theme.Tipo
 
-private enum class OnbStep { WELCOME, SKY, ENTRAR, PHOTO, PERMS }
+private enum class OnbStep { WELCOME, SKY, ENTRAR, PHOTO }
 
 private val ALTURA_PADRAO = 300.dp
 private val ALTURA_ENTRAR = 400.dp
-private val ALTURA_PERMS = 620.dp
 
 private const val ESPERA_DA_BUSCA_MS = 420L
 
 @Composable
-fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () -> Unit) {
+fun OnboardingScreen(displayName: String, onDone: () -> Unit) {
     val reduce = LocalReduceMotion.current
     var step by remember { mutableStateOf(OnbStep.WELCOME) }
     var avatarUrl by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var concluirAposAFoto by remember { mutableStateOf(false) }
     var entrou by remember { mutableStateOf<ServerDto?>(null) }
     val scope = rememberCoroutineScope()
     val steps = OnbStep.entries
@@ -94,15 +92,16 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                     avatarUrl = uri
                 }
             busy = false
+            if (concluirAposAFoto) onDone()
         }
     }
 
+    fun concluir() {
+        if (busy) concluirAposAFoto = true else onDone()
+    }
+
     val altura by animateDpAsState(
-        when (step) {
-            OnbStep.PERMS -> ALTURA_PERMS
-            OnbStep.ENTRAR -> ALTURA_ENTRAR
-            else -> ALTURA_PADRAO
-        },
+        if (step == OnbStep.ENTRAR) ALTURA_ENTRAR else ALTURA_PADRAO,
         tween(if (reduce) 0 else 320),
         label = "onbAltura",
     )
@@ -133,7 +132,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                             },
                         )
                         OnbStep.PHOTO -> PhotoStep(displayName, avatarUrl, busy, ::pickPhoto)
-                        OnbStep.PERMS -> PermsStep(onTestarAviso)
                     }
                 }
             }
@@ -154,8 +152,8 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                 text = when (step) {
                     OnbStep.WELCOME -> "começar"
                     OnbStep.ENTRAR -> if (entrou == null) "deixar para depois" else "continuar"
-                    OnbStep.SKY, OnbStep.PHOTO -> "continuar"
-                    OnbStep.PERMS -> "concluir"
+                    OnbStep.SKY -> "continuar"
+                    OnbStep.PHOTO -> "concluir"
                 },
                 onClick = {
                     when (step) {
@@ -165,8 +163,7 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                             entrou?.let { lembrarOndeAbrir("server:${it.id}") }
                             step = OnbStep.PHOTO
                         }
-                        OnbStep.PHOTO -> step = OnbStep.PERMS
-                        OnbStep.PERMS -> onDone()
+                        OnbStep.PHOTO -> concluir()
                     }
                 },
             )
@@ -177,7 +174,7 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                     "pular por agora",
                     style = Tipo.descricao,
                     modifier = Modifier.clickable(interactionSource = skip, indication = null) {
-                        step = OnbStep.PERMS
+                        concluir()
                     },
                 )
             }
@@ -389,27 +386,6 @@ private fun PhotoStep(displayName: String, avatarUrl: String?, busy: Boolean, on
             "opcional. Pode ser trocada depois nas configurações.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, textAlign = TextAlign.Center),
         )
-    }
-}
-
-@Composable
-private fun PermsStep(onTestarAviso: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        Text(
-            "o que o Astra precisa",
-            style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif, fontWeight = FontWeight.Light),
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "O Windows controla o acesso ao microfone e aos avisos por interruptores e não avisa " +
-                "quando bloqueia algo: o som simplesmente some. Você pode liberar agora ou depois, " +
-                "em Configurações > Permissões.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.5.sp, lineHeight = 18.sp),
-        )
-        Spacer(Modifier.height(16.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            PainelDePermissoes(onTestarAviso = onTestarAviso, detalhado = false)
-        }
     }
 }
 

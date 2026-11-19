@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -492,6 +494,7 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
+                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -500,7 +503,7 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                     RoundedCornerShape(9.dp),
                 )
                 .hoverable(hov)
-                .clickable { open = !open }
+                .clickable(interactionSource = hov, indication = null) { open = !open }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -543,9 +546,17 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                     FieldLabel("código hex")
                     HexField(selected, onPick)
                     Spacer(Modifier.height(12.dp))
-                    CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(10.dp)) {
+                    CartaoInterno(
+                        fundo = Obsidian.hover,
+                        padding = PaddingValues(start = 10.dp, top = 10.dp, end = 10.dp, bottom = 6.dp),
+                    ) {
                         FieldLabel("gradientes")
-                        Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                        Column(
+                            Modifier
+                                .heightIn(max = 240.dp)
+                                .verticalScroll(rememberScrollState())
+                                .padding(vertical = 4.dp),
+                        ) {
                             GradientGrid(selected) { onPick(it); open = false }
                         }
                     }
@@ -623,10 +634,12 @@ private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { g ->
                     val active = selected == g.css
+                    val fonte = remember { MutableInteractionSource() }
                     Box(
                         Modifier
                             .weight(1f)
                             .height(30.dp)
+                            .clickScale(fonte, formaDoFoco = RoundedCornerShape(10.dp), folgaDoFoco = 3.dp)
                             .clip(RoundedCornerShape(7.dp))
                             .drawBehind { drawRect(bannerBrush(g.css, size.width, size.height, Obsidian.overlay)) }
                             .border(
@@ -634,7 +647,7 @@ private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
                                 if (active) Obsidian.accent else Obsidian.borderDim,
                                 RoundedCornerShape(7.dp),
                             )
-                            .clickable { onPick(g.css) },
+                            .clickable(interactionSource = fonte, indication = null) { onPick(g.css) },
                     )
                 }
                 repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -654,6 +667,7 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
+                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -662,7 +676,7 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
                     RoundedCornerShape(9.dp),
                 )
                 .hoverable(hov)
-                .clickable { open = !open }
+                .clickable(interactionSource = hov, indication = null) { open = !open }
                 .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -701,10 +715,14 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
+                                .clickScale(rowHov)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (active) Obsidian.active else if (rh) Obsidian.hover else Color.Transparent)
                                 .hoverable(rowHov)
-                                .clickable { onPick(f.id); open = false }
+                                .clickable(interactionSource = rowHov, indication = null) {
+                                    onPick(f.id)
+                                    open = false
+                                }
                                 .padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -764,20 +782,30 @@ internal fun ProfileField(
 @Composable
 private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val fonte = remember { MutableInteractionSource() }
+    val sobre by fonte.collectIsHoveredAsState()
     Box {
         Box(
             Modifier
                 .size(40.dp)
+                .clickScale(fonte)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Obsidian.raised)
+                .background(if (sobre) Obsidian.hover else Obsidian.raised)
                 .border(1.dp, if (open) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(8.dp))
-                .clickable { if (current.isNotBlank()) onPick("") else open = true },
+                .hoverable(fonte)
+                .clickable(interactionSource = fonte, indication = null) {
+                    if (current.isNotBlank()) onPick("") else open = true
+                },
             contentAlignment = Alignment.Center,
         ) {
             if (current.isBlank()) {
-                LIcon(Lucide.SmilePlus, tint = Obsidian.text3, size = 18.dp)
+                LIcon(Lucide.SmilePlus, tint = Obsidian.text3, size = 18.dp, rotulo = "escolher o emoji do recado")
             } else {
-                Text(current, style = TextStyle(fontSize = 18.sp))
+                Text(
+                    current,
+                    style = TextStyle(fontSize = 18.sp),
+                    modifier = Modifier.semantics { contentDescription = "tirar o emoji do recado" },
+                )
             }
         }
         if (open) {

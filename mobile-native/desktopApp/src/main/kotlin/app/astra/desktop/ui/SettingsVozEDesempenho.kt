@@ -34,7 +34,6 @@ import app.astra.desktop.InicioComWindows
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
-import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -90,8 +89,7 @@ internal fun VoiceSection(
 private fun BlocoDaTransmissao(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Transmissão de tela",
-        "Vale ao iniciar a transmissão. Quem comprime o vídeo é a placa; num computador sem " +
-            "aceleração de vídeo, a imagem fica em até 720p, mesmo na opção de 1080p.",
+        "Vale ao iniciar a transmissão.",
     )
     RadioList(
         ScreenQuality.entries.map { it.label to it },
@@ -199,11 +197,12 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
                 Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp)
+                    .clickScale(interaction, formaDoFoco = RoundedCornerShape(10.dp))
                     .clip(RoundedCornerShape(10.dp))
                     .background(bg)
                     .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, RoundedCornerShape(10.dp))
                     .hoverable(interaction)
-                    .clickable { onSelect(value) }
+                    .clickable(interactionSource = interaction, indication = null) { onSelect(value) }
                     .padding(horizontal = 18.dp, vertical = 15.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -223,7 +222,7 @@ internal fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect
 }
 
 @Composable
-internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arranque: RascunhoDoArranque) {
+internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     ToggleRow(
         "Modo desempenho",
         "desliga aurora e estrelas e reduz as animações de uma vez, para jogar ou transmitir",
@@ -238,13 +237,14 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
-        LabeledControl("FPS das animações", "teto de quadros das estrelas; a aurora fica em até 30") {
-            SegmentedRow(
-                listOf("60" to UiFps.CAP60, "30" to UiFps.CAP30),
-                p.uiFps, prefs::setUiFps,
-            )
-        }
     }
+
+    Spacer(Modifier.height(6.dp))
+    ToggleRow(
+        "Acompanhar a taxa de atualização da tela",
+        "desligado, o Astra desenha até 60 quadros por segundo; ligado, segue a taxa do monitor definida no Windows",
+        p.acompanharATela, prefs::setAcompanharATela,
+    )
 
     Spacer(Modifier.height(6.dp))
     ToggleRow(
@@ -265,7 +265,7 @@ internal fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs, arra
         p.exitOnClose, prefs::setExitOnClose,
     )
     Spacer(Modifier.height(6.dp))
-    ArranqueComWindows(arranque)
+    ArranqueComWindows()
 }
 
 internal fun mascarar(email: String): String {
@@ -274,45 +274,50 @@ internal fun mascarar(email: String): String {
     return email.first() + "•••" + email.substring(arroba)
 }
 
-internal class RascunhoDoArranque {
-    private var ligadoGravado: Boolean by mutableStateOf(InicioComWindows.ligado())
-    private var escondidoGravado: Boolean by mutableStateOf(InicioComWindows.escondido())
+private const val RECUSA_DO_ARRANQUE =
+    "o Windows recusou a mudança na inicialização. Também é possível ligar e desligar isto pelo " +
+        "Gerenciador de Tarefas, na aba Inicializar."
 
-    var ligado: Boolean by mutableStateOf(ligadoGravado)
-    var escondido: Boolean by mutableStateOf(escondidoGravado)
+private class ArranqueNoWindows {
+    var ligado: Boolean by mutableStateOf(InicioComWindows.ligado())
+        private set
+    var escondido: Boolean by mutableStateOf(InicioComWindows.escondido())
+        private set
+    var recusado: Boolean by mutableStateOf(false)
+        private set
 
-    val mudou: Boolean get() = ligado != ligadoGravado || escondido != escondidoGravado
-
-    fun descartar() {
-        ligado = ligadoGravado
-        escondido = escondidoGravado
-    }
-
-    fun salvar(): Boolean {
-        if (!mudou) return true
-        if (!InicioComWindows.aplicar(ligado, escondido)) return false
-        ligadoGravado = ligado
-        escondidoGravado = escondido
-        return true
+    fun aplicar(ligar: Boolean, esconder: Boolean) {
+        recusado = !InicioComWindows.aplicar(ligar, esconder)
+        if (recusado) return
+        ligado = ligar
+        escondido = esconder
     }
 }
 
 @Composable
-private fun ArranqueComWindows(arranque: RascunhoDoArranque) {
+private fun ArranqueComWindows() {
     if (!InicioComWindows.disponivel()) return
+    val arranque = remember { ArranqueNoWindows() }
 
     ToggleRow(
         "Abrir junto com o Windows",
         "o Astra abre na bandeja quando o computador liga",
         arranque.ligado,
-    ) { arranque.ligado = it }
+    ) { arranque.aplicar(it, arranque.escondido) }
     if (arranque.ligado) {
         Spacer(Modifier.height(6.dp))
         ToggleRow(
             "Ao subir assim, começar sem janela",
             "só o ícone na bandeja: nada aparece na frente de quem acabou de ligar o PC",
             arranque.escondido,
-        ) { arranque.escondido = it }
+        ) { arranque.aplicar(arranque.ligado, it) }
+    }
+    if (arranque.recusado) {
+        Text(
+            RECUSA_DO_ARRANQUE,
+            style = Tipo.erro,
+            modifier = Modifier.widthIn(max = LARGURA_DO_TEXTO_DE_CONFIG),
+        )
     }
 }
 

@@ -59,6 +59,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -159,11 +162,7 @@ fun ServerSettingsScreen(
             Modifier
                 .matchParentSize()
                 .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClose,
-                ),
+                .cliqueDeFundo(onClose),
         )
         Row(
             Modifier
@@ -173,11 +172,7 @@ fun ServerSettingsScreen(
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                ),
+                .cliqueDeFundo {},
         ) {
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
@@ -721,10 +716,12 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .clickScale(src, formaDoFoco = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(if (active) Obsidian.active else if (hov) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent)
             .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .clickable(interactionSource = src, indication = null, role = Role.Tab, onClick = onClick)
+            .semantics { selected = active }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

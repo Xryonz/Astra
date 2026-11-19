@@ -49,7 +49,6 @@ enum class QualidadeAoTransmitir(
     val quadros: Int,
     val kbps: Int,
 ) {
-    NITIDA("s108060", "1080p a 60 quadros, nítida", 1920, 1080, 60, 8_000),
     FLUIDA("s72060", "720p a 60 quadros, fluida", 1280, 720, 60, 4_000),
     LEVE("l72030", "720p a 60 quadros, leve", 1280, 720, 60, 2_500),
     ECONOMICA("t54030", "540p a 60 quadros, econômica", 960, 540, 60, 1_200);

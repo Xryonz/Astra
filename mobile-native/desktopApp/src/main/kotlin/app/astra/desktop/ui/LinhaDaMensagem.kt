@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -355,8 +354,9 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     Row(
         modifier = Modifier
             .widthIn(max = 420.dp)
-            .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) }
-            .padding(bottom = 3.dp),
+            .padding(bottom = 3.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = 2.dp)
+            .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)

@@ -251,12 +251,7 @@ fun TourNaTela(prefs: DesktopPrefs) {
                 origem = it.boundsInWindow().topLeft
                 tamanho = Size(it.size.width.toFloat(), it.size.height.toFloat())
             }
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {},
-            )
-            .semCursorDeClique(),
+            .cliqueDeFundo {},
     ) {
         Canvas(
             Modifier
@@ -351,12 +346,7 @@ private fun CartaoDoTour(
             .clip(forma)
             .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderMid, forma)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {},
-            )
-            .semCursorDeClique()
+            .cliqueDeFundo {}
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(

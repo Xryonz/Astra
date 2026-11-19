@@ -65,7 +65,8 @@ const (
 	CmdMonitores = "monitores"
 	CmdJanelas   = "janelas"
 
-	CmdAssistir = "assistir"
+	CmdAssistir  = "assistir"
+	PalcoProprio = "minha-tela"
 
 	CmdVolume = "volume"
 

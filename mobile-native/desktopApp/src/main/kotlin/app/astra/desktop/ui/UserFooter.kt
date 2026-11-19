@@ -223,10 +223,12 @@ fun UserFooter(
                 trilho = trilhoDoAnel,
             ),
         ) {
+            val fonteDaJornada = remember { MutableInteractionSource() }
             Box(
                 Modifier
+                    .clickScale(fonteDaJornada, formaDoFoco = CircleShape, folgaDoFoco = 7.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = onAbrirJornada),
+                    .clickable(interactionSource = fonteDaJornada, indication = null, onClick = onAbrirJornada),
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30, fundo = Obsidian.hover)
                 MoedasDeXp(xpStore)
@@ -396,9 +398,10 @@ private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .clickScale(hov, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = (-2).dp)
                     .hoverable(hov)
                     .background(bg)
-                    .clickable { onPick(s) }
+                    .clickable(interactionSource = hov, indication = null) { onPick(s) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

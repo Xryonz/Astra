@@ -52,7 +52,6 @@ import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
-import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -632,7 +631,7 @@ private fun gpuCost(p: DesktopPrefs.Prefs): Float {
     var c = 0.06f
     if (p.starsOn) c += 0.14f
     if (p.windowTransparent) c += 0.08f
-    val mul = when (p.uiFps) { UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
+    val mul = if (p.acompanharATela) 1f else 0.82f
     val aurora = if (p.auroraOn) 0.08f * 0.6f else 0f
     return (0.06f + (c - 0.06f) * mul + aurora).coerceIn(0.05f, 1f)
 }
@@ -642,7 +641,7 @@ private fun cpuCost(p: DesktopPrefs.Prefs): Float {
     var c = 0.05f
     if (p.starsOn) c += 0.07f
     if (!p.reduceMotionEff) c += 0.05f
-    val mul = when (p.uiFps) { UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
+    val mul = if (p.acompanharATela) 1f else 0.85f
     val aurora = if (p.auroraOn) 0.08f * 0.65f else 0f
     return (0.05f + (c - 0.05f) * mul + aurora).coerceIn(0.04f, 1f)
 }

@@ -1,0 +1,63 @@
+name: Motor em Rust
+
+on:
+  push:
+    branches: [main, astra-dev]
+    paths:
+      - 'sidecar-voz-rs/**'
+      - 'tools/conferir-licencas-rust.mjs'
+      - '.github/workflows/voz-rs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sidecar-voz-rs/**'
+      - 'tools/conferir-licencas-rust.mjs'
+      - '.github/workflows/voz-rs.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSAO: '1.99.1'
+
+jobs:
+  voz-rs:
+    name: Motor em Rust · compilar, testar e conferir licenças
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: sidecar-voz-rs
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Instalar o Rust fixado
+        run: |
+          rustup toolchain install $env:RUST_VERSAO --profile minimal --component clippy
+          rustup default $env:RUST_VERSAO
+
+      - name: Cache do Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            sidecar-voz-rs/target
+          key: voz-rs-${{ runner.os }}-${{ env.RUST_VERSAO }}-${{ hashFiles('sidecar-voz-rs/Cargo.lock') }}
+          restore-keys: voz-rs-${{ runner.os }}-${{ env.RUST_VERSAO }}-
+
+      - name: Conferir as licenças das dependências
+        run: node ../tools/conferir-licencas-rust.mjs
+
+      - name: Compilar como na release
+        run: cargo build --release --locked
+
+      - name: Testar
+        run: cargo test --release --locked
+
+      - name: Conferir com o clippy
+        run: cargo clippy --release --all-targets --locked -- -D warnings

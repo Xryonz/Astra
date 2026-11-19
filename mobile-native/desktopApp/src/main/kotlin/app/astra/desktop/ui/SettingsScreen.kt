@@ -1,11 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -30,10 +24,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -117,9 +111,7 @@ private val RECUO_DA_COLUNA_DE_CONFIG = 28.dp
 internal val LARGURA_DO_TEXTO_DE_CONFIG = 520.dp
 private val ESPACO_PARA_A_BARRA = 78.dp
 private const val VIDA_DA_CONFIRMACAO_MS = 2_600L
-private const val RECUSA_DO_ARRANQUE =
-    "o Windows recusou a mudança na inicialização. Também é possível ligar e desligar isto pelo " +
-        "Gerenciador de Tarefas, na aba Inicializar."
+private const val PERFIL_SALVO = "perfil salvo"
 internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
 @Composable
@@ -139,22 +131,13 @@ fun SettingsScreen(
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
     var perfilSalvo by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
 
-    val arranque = remember { RascunhoDoArranque() }
-    val pendentesDePrefs by prefs.mudancasPendentes.collectAsState()
-    val ajustesPendentes = pendentesDePrefs + if (arranque.mudou) 1 else 0
     val perfilMudou = draft != perfilSalvo
-    val temRascunho = ajustesPendentes > 0 || perfilMudou
 
     var salvando by remember { mutableStateOf(false) }
     var confirmacao by remember { mutableStateOf<String?>(null) }
     var erro by remember { mutableStateOf<String?>(null) }
     var insistencia by remember { mutableStateOf(0) }
     val escopo = rememberCoroutineScope()
-
-    DisposableEffect(prefs) {
-        prefs.abrirRascunho()
-        onDispose { prefs.fecharRascunho() }
-    }
 
     LaunchedEffect(confirmacao) {
         if (confirmacao == null) return@LaunchedEffect
@@ -163,39 +146,31 @@ fun SettingsScreen(
     }
 
     fun salvar() {
-        if (salvando || !temRascunho) return
+        if (salvando || !perfilMudou) return
         salvando = true
         erro = null
         confirmacao = null
-        val queriaPerfil = perfilMudou
         val paraSalvar = draft
         escopo.launch {
-            var ajustes = prefs.salvarRascunho()
-            var falha: String? = null
-            if (arranque.mudou) {
-                if (arranque.salvar()) ajustes++ else falha = RECUSA_DO_ARRANQUE
-            }
-            if (queriaPerfil) {
-                salvarPerfil(paraSalvar, perfilSalvo)
-                    .onSuccess { perfilSalvo = paraSalvar; onProfileSaved() }
-                    .onFailure { falha = saveErrorMessage(it) }
-            }
+            salvarPerfil(paraSalvar, perfilSalvo)
+                .onSuccess {
+                    perfilSalvo = paraSalvar
+                    onProfileSaved()
+                    confirmacao = PERFIL_SALVO
+                }
+                .onFailure { erro = saveErrorMessage(it) }
             salvando = false
-            erro = falha
-            if (falha == null) confirmacao = recadoDoSalvamento(ajustes, queriaPerfil)
         }
     }
 
     fun descartar() {
-        prefs.descartarRascunho()
-        arranque.descartar()
         draft = perfilSalvo
         erro = null
         confirmacao = null
     }
 
     fun tentarFechar() {
-        if (temRascunho) insistencia++ else onClose()
+        if (perfilMudou) insistencia++ else onClose()
     }
 
     val focus = remember { FocusRequester() }
@@ -214,11 +189,7 @@ fun SettingsScreen(
             Modifier
                 .matchParentSize()
                 .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { tentarFechar() },
-                ),
+                .cliqueDeFundo { tentarFechar() },
         )
         Box(
             Modifier
@@ -232,11 +203,7 @@ fun SettingsScreen(
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                ),
+                .cliqueDeFundo {},
         ) {
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
@@ -279,14 +246,8 @@ fun SettingsScreen(
                     .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = RECUO_DA_COLUNA_DE_CONFIG, vertical = 22.dp),
             ) {
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        fadeIn(tween(95)).togetherWith(fadeOut(tween(70))) using
-                            SizeTransform(clip = false) { _, _ -> tween(120) }
-                    },
-                    label = "settingsSection",
-                ) { current ->
+                key(tab) {
+                    val current = tab
                     val temPrevia = temPrevia(current)
                     Column(Modifier.fillMaxWidth()) {
                     Text(
@@ -350,7 +311,7 @@ fun SettingsScreen(
                         SettingsTab.PETS -> PetsSection(prefState, prefs)
 
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
-                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs, arranque)
+                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs, aparelhos)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
@@ -385,14 +346,8 @@ fun SettingsScreen(
                             LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "fechar")
                         }
                         Spacer(Modifier.height(16.dp))
-                        AnimatedContent(
-                            targetState = tabAtiva,
-                            transitionSpec = {
-                                fadeIn(tween(110)).togetherWith(fadeOut(tween(80))) using
-                                    SizeTransform(clip = false) { _, _ -> tween(135) }
-                            },
-                            label = "previaDaSecao",
-                        ) { secao ->
+                        key(tabAtiva) {
+                            val secao = tabAtiva
                             Column(Modifier.fillMaxWidth()) {
                                 if (temPrevia(secao)) {
                                     SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth(), acoesDoCartao)
@@ -404,7 +359,6 @@ fun SettingsScreen(
             }
         }
             BarraDeSalvar(
-                ajustes = ajustesPendentes,
                 perfil = perfilMudou,
                 salvando = salvando,
                 confirmacao = confirmacao,

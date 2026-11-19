@@ -111,8 +111,7 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(Obsidian.void.copy(alpha = 0.55f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-            .semCursorDeClique(),
+            .cliqueDeFundo(onClose),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(
@@ -122,7 +121,7 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .cliqueDeFundo {},
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 14.dp, bottom = 12.dp),

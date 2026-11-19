@@ -8,7 +8,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -219,8 +218,8 @@ internal fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> 
                     "tentar de novo",
                     style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
                         .clickScale(src)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Obsidian.overlay)
                         .clickable(interactionSource = src, indication = null, onClick = onRetry)
                         .padding(horizontal = 14.dp, vertical = 7.dp),

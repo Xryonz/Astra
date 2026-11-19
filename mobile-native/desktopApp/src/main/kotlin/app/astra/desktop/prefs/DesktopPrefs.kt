@@ -4,6 +4,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import app.astra.desktop.auth.SessionStore
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+private const val ESPERA_PARA_GRAVAR_MS = 600L
 
 enum class AuroraQuality(val key: String, val octaves: Int) {
     HIGH("high", 3), MEDIUM("med", 2), LOW("low", 1);
@@ -12,18 +16,10 @@ enum class AuroraQuality(val key: String, val octaves: Int) {
     }
 }
 
-enum class UiFps(val key: String, val cap: Int) {
-    CAP60("60", 60), CAP30("30", 30);
-    companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: CAP60
-    }
-}
-
 enum class ScreenQuality(
     val key: String, val label: String,
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
 ) {
-    SHARP_1080_60("s108060", "1080p 60fps · nítida", 1920, 1080, 60, 8_000_000),
     SMOOTH_720_60("s72060", "720p 60fps · fluida", 1280, 720, 60, 4_000_000),
     LIGHT_720_60("l72030", "720p 60fps · leve", 1280, 720, 60, 2_500_000),
 
@@ -62,7 +58,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val auroraEnabled: Boolean = false,
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        val uiFps: UiFps = UiFps.CAP60,
+        val acompanharATela: Boolean = false,
         val windowTransparent: Boolean = true,
         val exitOnClose: Boolean = false,
         val altoContraste: Boolean = false,
@@ -100,41 +96,23 @@ class DesktopPrefs(private val store: SessionStore) {
     val state = _state.asStateFlow()
 
     private val pendentes = LinkedHashMap<String, String>()
-    private var gravado = emptyMap<String, String>()
-    private var rascunhando = false
-    private val _mudancasPendentes = MutableStateFlow(0)
-    val mudancasPendentes = _mudancasPendentes.asStateFlow()
-
-    init { migrarCeu(); desfazerEconomiaImposta() }
-
-    fun abrirRascunho() {
-        pendentes.clear()
-        _mudancasPendentes.value = 0
-        gravado = store.todasUiPrefs()
-        rascunhando = true
+    private var gravacaoMarcada = false
+    private val gravador = Executors.newSingleThreadScheduledExecutor { tarefa ->
+        Thread(tarefa, "astra-prefs").apply { isDaemon = true }
     }
 
-    fun salvarRascunho(): Int {
-        val quantas = pendentes.size
-        if (quantas > 0) {
-            store.setUiPrefs(LinkedHashMap(pendentes))
-            gravado = gravado + pendentes
+    init {
+        migrarCeu()
+        desfazerEconomiaImposta()
+        Runtime.getRuntime().addShutdownHook(Thread { gravarAgrupadas(); store.gravarPendencias() })
+    }
+
+    private fun gravarAgrupadas() {
+        synchronized(pendentes) {
+            gravacaoMarcada = false
+            store.setUiPrefs(pendentes)
             pendentes.clear()
-            _mudancasPendentes.value = 0
         }
-        return quantas
-    }
-
-    fun descartarRascunho() {
-        if (pendentes.isEmpty()) return
-        pendentes.clear()
-        _mudancasPendentes.value = 0
-        _state.value = read()
-    }
-
-    fun fecharRascunho() {
-        descartarRascunho()
-        rascunhando = false
     }
 
     fun aplicarPerfil(perfil: PerfilDeDesempenho) {
@@ -161,8 +139,7 @@ class DesktopPrefs(private val store: SessionStore) {
         if (store.uiPref("ceuMigrado") == "2") return
         store.setUiPref("ceuMigrado", "2")
         store.setUiPref("auroraQuality", AuroraQuality.HIGH.key)
-        store.setUiPref("uiFps", UiFps.CAP60.key)
-        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.CAP60) }
+        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH) }
     }
 
     private fun read() = Prefs(
@@ -175,7 +152,7 @@ class DesktopPrefs(private val store: SessionStore) {
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") == "1",
-        uiFps = UiFps.from(store.uiPref("uiFps")),
+        acompanharATela = store.uiPref("acompanharATela") == "1",
         windowTransparent = store.uiPref("windowTransparent") != "0",
         exitOnClose = store.uiPref("exitOnClose") == "1",
         altoContraste = store.uiPref("altoContraste") == "1",
@@ -207,12 +184,12 @@ class DesktopPrefs(private val store: SessionStore) {
     private fun persist(key: String, on: Boolean) = anotar(key, if (on) "1" else "0")
 
     private fun anotar(chave: String, valor: String) {
-        if (!rascunhando) {
-            store.setUiPref(chave, valor)
-            return
+        synchronized(pendentes) {
+            pendentes[chave] = valor
+            if (gravacaoMarcada) return
+            gravacaoMarcada = true
         }
-        if (gravado[chave] == valor) pendentes.remove(chave) else pendentes[chave] = valor
-        _mudancasPendentes.value = pendentes.size
+        gravador.schedule(::gravarAgrupadas, ESPERA_PARA_GRAVAR_MS, TimeUnit.MILLISECONDS)
     }
 
     fun setReduceMotion(v: Boolean) {
@@ -260,9 +237,9 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(starsEnabled = v) }
     }
 
-    fun setUiFps(v: UiFps) {
-        anotar("uiFps", v.key)
-        _state.update { it.copy(uiFps = v) }
+    fun setAcompanharATela(v: Boolean) {
+        persist("acompanharATela", v)
+        _state.update { it.copy(acompanharATela = v) }
     }
 
     fun setWindowTransparent(v: Boolean) {

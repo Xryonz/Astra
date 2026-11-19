@@ -8,6 +8,7 @@ import app.astra.desktop.net.insistindoOuNulo
 import app.astra.desktop.net.mensagemDaApi
 import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.profile.FotoPerdida
+import app.astra.desktop.ui.Quadros
 import app.astra.desktop.ui.invalidateProfileCache
 import app.astra.desktop.ui.tentarDeNovoAsImagens
 import app.astra.desktop.voice.Sfx
@@ -1319,7 +1320,7 @@ class ShellVm(
     }
 
     private inline fun <reified T> decode(raw: String): T? =
-        runCatching { json.decodeFromString<T>(raw) }.getOrNull()
+        Quadros.cronometrar("socket") { runCatching { json.decodeFromString<T>(raw) }.getOrNull() }
 
     private fun tirarCanal(serverId: String, channelId: String) {
         if (_state.value.voiceChannel?.id == channelId) leaveVoice()

@@ -4,7 +4,9 @@ import app.astra.desktop.EscopoSupervisionado
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
+import app.astra.desktop.net.RelogioDeRede
 import app.astra.desktop.net.insistir
+import app.astra.desktop.ui.Quadros
 import app.astra.desktop.net.tipoPelaExtensao
 import app.astra.desktop.voice.CompressorDeVideo
 import app.astra.desktop.voice.PreparoDoVideo
@@ -232,6 +234,7 @@ class ChatVm(
                 adiantada?.let { runCatching { it.await() }.getOrNull() } ?: buscarPagina(null)
             }
                 .onSuccess { (list, cursor) ->
+                    RelogioDeRede.marcar("conversa carregada")
                     val frescas = list.sortedBy { m -> m.createdAt ?: "" }
                     cache.guardar(target, frescas)
                     _state.update {
@@ -918,7 +921,7 @@ class ChatVm(
     }
 
     private inline fun <reified T> decode(raw: String): T? =
-        runCatching { json.decodeFromString<T>(raw) }.getOrNull()
+        Quadros.cronometrar("socket") { runCatching { json.decodeFromString<T>(raw) }.getOrNull() }
 
     private fun ChannelMessageDto.toChat(): ChatMessage = paraMensagem(myId)
 

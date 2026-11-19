@@ -68,33 +68,32 @@ dependencies {
     implementation(libs.nucleus.notification.windows)
 }
 
-val sidecarFonte = project.file("../../sidecar-voz")
-val sidecarSaida = project.file("appResources/windows/astra-voz.exe")
-val comCancelador = providers.gradleProperty("astra.aec3").orNull == "1"
-val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
-    inputs.dir(sidecarFonte).withPropertyName("fonte")
-    inputs.property("cancelador", comCancelador)
-    outputs.file(sidecarSaida)
+val motorFonte = project.file("../../sidecar-voz-rs")
+val motorSaida = project.file("appResources/windows/astra-voz.exe")
+val alvoDoCargo = providers.environmentVariable("CARGO_TARGET_DIR")
+    .map { File(it) }
+    .orElse(motorFonte.resolve("target"))
+val compilarMotorDeVoz = tasks.register("compilarMotorDeVoz") {
+    inputs.dir(motorFonte.resolve("src")).withPropertyName("fonte")
+    inputs.files(
+        motorFonte.resolve("Cargo.toml"),
+        motorFonte.resolve("Cargo.lock"),
+        motorFonte.resolve("build.rs"),
+        project.file("icons/astra.ico"),
+    ).withPropertyName("receita")
+    outputs.file(motorSaida)
     doLast {
-        sidecarSaida.parentFile.mkdirs()
-        logger.lifecycle(
-            if (comCancelador) "Compilando o sidecar de voz (Go + cancelador de eco) ..."
-            else "Compilando o sidecar de voz (Go) ...",
-        )
-        val comando = buildList {
-            addAll(listOf("go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"))
-            if (comCancelador) addAll(listOf("-tags", "aec3"))
-            addAll(listOf("-o", sidecarSaida.absolutePath, "."))
-        }
-        val p = ProcessBuilder(comando)
-            .directory(sidecarFonte)
+        logger.lifecycle("Compilando o motor de voz (Rust) ...")
+        val p = ProcessBuilder("cargo", "build", "--release", "--locked")
+            .directory(motorFonte)
             .redirectErrorStream(true)
             .start()
         val saida = p.inputStream.bufferedReader().readText()
         if (p.waitFor() != 0) {
-            throw GradleException("go build falhou. Go instalado? Saida:\n$saida")
+            throw GradleException("cargo build falhou. Rust instalado? Saida:\n$saida")
         }
-        logger.lifecycle("astra-voz.exe -> ${sidecarSaida.length() / 1024} KB")
+        alvoDoCargo.get().resolve("release/astra-voz.exe").copyTo(motorSaida, overwrite = true)
+        logger.lifecycle("astra-voz.exe -> ${motorSaida.length() / 1024} KB")
     }
 }
 
@@ -102,7 +101,7 @@ tasks.matching {
     it.name == "createDistributable" ||
         it.name == "packageDistributionForCurrentOS" ||
         it.name == "prepareAppResources"
-}.configureEach { dependsOn(compilarSidecarVoz) }
+}.configureEach { dependsOn(compilarMotorDeVoz) }
 
 tasks.withType<AbstractJLinkTask>().configureEach {
     freeArgs.add("--include-locales=pt,en")

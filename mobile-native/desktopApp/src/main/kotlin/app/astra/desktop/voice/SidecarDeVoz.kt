@@ -38,7 +38,6 @@ data class ComandoDeVoz(
     val fps: Int? = null,
     val kbps: Int? = null,
     val volume: Int? = null,
-    val duasCamadas: Boolean? = null,
 )
 
 @Serializable
@@ -129,12 +128,11 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     fun tratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) =
         mandar(ComandoDeVoz(cmd = "tratamento", eco = eco, ruido = ruido, ganho = ganho))
 
-    fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int, duasCamadas: Boolean = false) =
+    fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) =
         mandar(
             ComandoDeVoz(
                 cmd = "transmitir", ligado = true,
                 monitor = monitor, largura = largura, altura = altura, fps = fps, kbps = kbps,
-                duasCamadas = duasCamadas,
             ),
         )
 
@@ -144,13 +142,11 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         altura: Int,
         fps: Int,
         kbps: Int,
-        duasCamadas: Boolean = false,
     ) =
         mandar(
             ComandoDeVoz(
                 cmd = "transmitir", ligado = true,
                 janela = janela, largura = largura, altura = altura, fps = fps, kbps = kbps,
-                duasCamadas = duasCamadas,
             ),
         )
 

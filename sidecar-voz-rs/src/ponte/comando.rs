@@ -21,7 +21,6 @@ pub struct Comando {
     pub altura: Option<i32>,
     pub fps: Option<i32>,
     pub kbps: Option<i32>,
-    pub duas_camadas: Option<bool>,
     pub volume: Option<i32>,
     pub sentido: Option<String>,
     pub id: Option<String>,
@@ -52,9 +51,9 @@ mod testes {
     }
 
     #[test]
-    fn le_duas_camadas_e_ignora_campo_desconhecido() {
+    fn ignora_campo_desconhecido_inclusive_o_das_duas_camadas_que_saiu() {
         let comando = ler("{\"cmd\":\"transmitir\",\"duasCamadas\":true,\"novo\":1}").unwrap().unwrap();
-        assert_eq!(comando.duas_camadas, Some(true));
+        assert_eq!(comando.cmd, "transmitir");
     }
 
     #[test]

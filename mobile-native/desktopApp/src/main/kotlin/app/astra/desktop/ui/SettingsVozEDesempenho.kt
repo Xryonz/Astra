@@ -95,15 +95,6 @@ private fun BlocoDaTransmissao(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
     )
-    Spacer(Modifier.height(10.dp))
-    ToggleRow(
-        "Transmitir em duas qualidades",
-        "em teste. Manda a tela cheia e uma versão menor ao mesmo tempo, para que quem está com " +
-            "a rede curta receba a menor em vez de derrubar a qualidade de todo mundo. Exige placa " +
-            "com aceleração; sem ela, segue em uma qualidade só",
-        p.duasCamadas,
-        prefs::setDuasCamadas,
-    )
 }
 
 @Composable

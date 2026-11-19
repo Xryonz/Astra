@@ -186,16 +186,12 @@ class CallNaSala(
         sidecar.surdo(on)
     }
 
-    private var duasCamadas = false
-
-    fun lembrarDuasCamadas(ligado: Boolean) { duasCamadas = ligado }
-
     fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) {
-        sidecar.transmitir(monitor, largura, altura, fps, kbps, duasCamadas)
+        sidecar.transmitir(monitor, largura, altura, fps, kbps)
     }
 
     fun transmitirJanela(janela: ULong, largura: Int, altura: Int, fps: Int, kbps: Int) {
-        sidecar.transmitirJanela(janela, largura, altura, fps, kbps, duasCamadas)
+        sidecar.transmitirJanela(janela, largura, altura, fps, kbps)
     }
 
     private fun guardarEstadoDoPar(quem: String?, oQue: String?, ligado: Boolean) {

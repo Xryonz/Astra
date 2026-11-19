@@ -1,9 +1,12 @@
-versao 1.0.58
-A transmissão de tela voltou a funcionar. Desde setembro, a maioria das tentativas falhava logo ao começar.
-Painéis, mensagens, configurações, Amigos e a call se separam pelo fundo, sem contornos. No alto contraste, as bordas continuam.
-Ao passar o mouse, a mensagem ganha um fundo discreto, e as que mencionam você ficam sempre com fundo.
-Salvar foto e banner ficou mais rápido, e remover a foto do perfil passou a funcionar.
-Em Cores do nome, o degradê pode seguir oito direções, e o leitor de tela anuncia cada cor e cada troca.
-Sair e excluir uma constelação pedem confirmação na mesma janela das outras ações graves.
-A janela abre inteira dentro da área útil da tela, e os emojis do texto de exemplo da caixa de mensagem ficam retos.
-Por dentro, o Astra passa a usar o Java 25.
+versao 1.0.59
+A transmissão de tela vai até 720p a 60 quadros por segundo.
+Ao transmitir, a sua própria tela aparece no palco em tamanho cheio, sem legenda e no ritmo da transmissão.
+Quem entra numa call passa a ver na hora quem já estava com o microfone ou o som desligado.
+Na primeira call, o Astra pede uma única vez ao Windows a liberação da voz no firewall e explica a janela de administrador. Se o Windows bloquear o microfone, a call avisa.
+O painel de permissões não abre mais sozinho na estreia, e o cadastro de conta nova tem um passo a menos.
+As configurações valem assim que você as muda, e as abas trocam sem transição. A barra de salvar ficou só para o perfil.
+Por padrão, o Astra desenha até 60 quadros por segundo. Em Configurações › Desempenho, a chave “Acompanhar a taxa de atualização da tela” segue o monitor.
+Parado, o Astra gasta menos processador: os enfeites animados andam a 30 quadros, e o GIF da conversa fica parado até o primeiro clique.
+Os cliques ficaram mais limpos: sem clarão ao pressionar, com cursor de mão nos botões e anel de foco visível pelo teclado.
+Pelo teclado, o Tab não para mais em pontos invisíveis dos painéis, e clicar na área vazia de um painel não tira o foco do campo de texto.
+Com leitor de tela, botões e abas se anunciam como tais.

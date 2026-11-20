@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
-const h = vi.hoisted(() => ({ ordem: [] as string[] }))
+const h = vi.hoisted(() => ({
+  ordem: [] as string[],
+  derrubadas: [] as Array<{ id: string; sessionId: string | null }>,
+}))
+
+vi.mock('../db', () => ({
+  db: {
+    update: () => ({ set: () => ({ where: () => ({ returning: async () => h.derrubadas }) }) }),
+  },
+}))
 
 vi.mock('./redis', () => ({
   encerrarSessao: vi.fn(async (sessao: string, segundos: number) => {
@@ -13,7 +23,7 @@ vi.mock('./realtime', () => ({
   }),
 }))
 
-import { encerrarAoVivo, sessaoDaLinha } from './sessoes'
+import { encerrarAoVivo, encerrarAsOutras, foraDaSessao, sessaoDaLinha } from './sessoes'
 import { derrubarSessoes } from './realtime'
 
 describe('encerrar sessao ao vivo', () => {
@@ -41,5 +51,29 @@ describe('a sessao de cada linha', () => {
 
   it('linha de antes da coluna vira a propria sessao, e a renovacao herda esse id', () => {
     expect(sessaoDaLinha({ id: 'r1', sessionId: null })).toBe('r1')
+  })
+})
+
+describe('encerrar as outras sessoes (troca de senha)', () => {
+  beforeEach(() => {
+    h.ordem.length = 0
+  })
+
+  it('derruba a sessao de cada linha revogada e conta quantas', async () => {
+    h.derrubadas = [
+      { id: 'r5', sessionId: 's5' },
+      { id: 'r6', sessionId: null },
+    ]
+    await expect(encerrarAsOutras('u1', 's1')).resolves.toBe(2)
+    expect(h.ordem).toEqual(['marcou s5 por 900 s', 'marcou r6 por 900 s', 'derrubou s5,r6'])
+  })
+
+  it('a condicao poupa a sessao atual e NAO deixa escapar a linha antiga sem sessao (NULL)', () => {
+    const { sql, params } = new PgDialect().sqlToQuery(
+      foraDaSessao('s1') as NonNullable<ReturnType<typeof foraDaSessao>>,
+    )
+    expect(sql).toContain('"RefreshToken"."id" <> $1')
+    expect(sql).toContain('("RefreshToken"."sessionId" is null or "RefreshToken"."sessionId" <> $2)')
+    expect(params).toEqual(['s1', 's1'])
   })
 })

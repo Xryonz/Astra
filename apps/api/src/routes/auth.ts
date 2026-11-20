@@ -10,7 +10,7 @@ import { blacklistToken } from '../lib/redis'
 import { contarNaJanela } from '../lib/contagemNaJanela'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } from '../lib/jwt'
 import { requireAuth } from '../middleware/auth'
-import { encerrarAoVivo, sessaoDaLinha } from '../lib/sessoes'
+import { encerrarAoVivo, encerrarAsOutras, sessaoDaLinha } from '../lib/sessoes'
 import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
@@ -287,6 +287,7 @@ router.post(
     }
     const passwordHash = await bcrypt.hash(newPassword, 12)
     await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
+    if (req.sid) await encerrarAsOutras(req.userId!, req.sid)
     res.json({ message: 'Senha alterada' })
   }),
 )

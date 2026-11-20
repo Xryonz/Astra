@@ -11,6 +11,7 @@ declare global {
     interface Request {
       userId?: string
       jti?: string
+      sid?: string
     }
   }
 }
@@ -40,6 +41,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     req.userId = payload.userId
     req.jti = payload.jti
+    req.sid = payload.sid
     next()
   } catch (err: any) {
     const isExpired = err?.name === 'TokenExpiredError'

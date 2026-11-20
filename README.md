@@ -98,6 +98,7 @@ missões.
 - **Java**: as ferramentas de assinatura Ed25519 e as provas do shader
 - **Node.js** e **PowerShell**: scripts de conferência e de medição
 - **winresource**: nome, versão e ícone no executável do motor de voz
+- **cargo-about**: o texto das licenças das bibliotecas do motor, gerado a cada versão
 
 ---
 
@@ -231,6 +232,29 @@ A lua do estado "ausente" é o ícone "eclipse" (sólido) da
 [Myna UI Icons](https://github.com/praveenjuge/mynaui-icons), de **Praveen Juge**, sob a
 MIT License. O arquivo fica sem alteração em
 `mobile-native/desktopApp/src/main/resources/icones/`, com o texto da licença ao lado.
+
+### Motor de voz e tela
+
+O motor em Rust (`astra-voz.exe`) leva dentro as bibliotecas abaixo. Ao lado dele, o
+pacote traz o texto completo de cada licença: `LICENCAS-DO-MOTOR-DE-VOZ.txt`, com as
+bibliotecas em Rust, gerado a cada versão pelo cargo-about, e `LICENCAS-DO-LIBWEBRTC.md`,
+com o libwebrtc e os componentes que ele reúne.
+
+| Biblioteca | Para quê | Licença |
+| --- | --- | --- |
+| [LiveKit Rust SDK](https://github.com/livekit/rust-sdks) | entrar na sala e publicar a voz e a tela | Apache 2.0 |
+| [libwebrtc](https://webrtc.org), compilado pela LiveKit | o WebRTC: transporte, cancelamento de eco e codecs | BSD 3-Clause |
+| [FFmpeg](https://ffmpeg.org), dentro do libwebrtc | decodificar o vídeo das transmissões | LGPL 2.1 |
+| [Opus](https://opus-codec.org), dentro do libwebrtc | o codec de voz | BSD 3-Clause |
+| [OpenH264](https://www.openh264.org), [libvpx](https://chromium.googlesource.com/webm/libvpx), [libaom](https://aomedia.googlesource.com/aom) e [dav1d](https://code.videolan.org/videolan/dav1d), dentro do libwebrtc | os codecs de vídeo H.264, VP8, VP9 e AV1 | BSD |
+| [BoringSSL](https://boringssl.googlesource.com/boringssl), dentro do libwebrtc | a criptografia das chamadas | Apache 2.0 |
+| [Tokio](https://tokio.rs) | as tarefas simultâneas do motor | MIT |
+| [windows-rs](https://github.com/microsoft/windows-rs) | a captura de tela, a compressão de vídeo e o resto do Windows | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
+| [serde](https://serde.rs) | a conversa com o app | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
+
+O FFmpeg, sob a LGPL 2.1, vai ligado de forma estática ao motor. Para cumprir a licença,
+cada versão publicada leva junto o código-fonte do FFmpeg usado, o libwebrtc exatamente
+como entrou no motor e as instruções para refazer o motor com outra versão do FFmpeg.
 
 ### Código adaptado
 

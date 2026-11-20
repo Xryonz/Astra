@@ -1,0 +1,30 @@
+name: cargo-about conferido
+description: Baixa o cargo-about que gera o texto das licencas do motor de voz, confere o SHA-256 fixado e o poe no PATH
+
+runs:
+  using: composite
+
+  steps:
+    - name: Baixar e conferir o cargo-about
+      shell: pwsh
+      run: |
+        $versao = '0.9.3'
+        $soma = '9e2942533ef1c592c4a70bdb384cae1550a3f5fc9ae40379b6662e3d2f16fe02'
+        $nome = "cargo-about-$versao-x86_64-pc-windows-msvc"
+        $arquivo = "$env:RUNNER_TEMP\cargo-about.tar.gz"
+        $destino = "$env:RUNNER_TEMP\cargo-about"
+        curl.exe --fail --location --silent --show-error --retry 3 --retry-all-errors --output $arquivo `
+          "https://github.com/EmbarkStudios/cargo-about/releases/download/$versao/$nome.tar.gz"
+        if ($LASTEXITCODE -ne 0) { throw 'nao consegui baixar o cargo-about' }
+        $vista = (Get-FileHash $arquivo -Algorithm SHA256).Hash.ToLower()
+        if ($vista -ne $soma) {
+          Remove-Item $arquivo
+          throw "o cargo-about baixado nao confere: $vista"
+        }
+        if (Test-Path $destino) { Remove-Item -Recurse -Force $destino }
+        New-Item -ItemType Directory -Force -Path $destino | Out-Null
+        tar -xzf $arquivo -C $destino
+        Remove-Item $arquivo
+        $pasta = "$destino\$nome"
+        if (-not (Test-Path "$pasta\cargo-about.exe")) { throw 'o cargo-about nao chegou inteiro' }
+        $pasta >> $env:GITHUB_PATH

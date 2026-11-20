@@ -19,3 +19,8 @@ keystore.properties
 # ffmpeg empacotado (captura DXGI 60fps) — grande, baixado via :desktopApp:fetchFfmpeg
 desktopApp/appResources/windows/ffmpeg.exe
 desktopApp/appResources/windows/astra-voz.exe
+
+# licencas do motor de voz, postas no pacote pela release (a do libwebrtc traz texto da GPL e nao entra no repositorio)
+desktopApp/appResources/windows/LICENCAS-DO-MOTOR-DE-VOZ.txt
+desktopApp/appResources/windows/LICENCAS-DO-LIBWEBRTC.md
+desktopApp/appResources/windows/LICENCA-moq-video.txt

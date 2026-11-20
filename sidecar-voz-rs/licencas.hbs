@@ -1,0 +1,33 @@
+Licenças das bibliotecas do motor de voz do Astra
+
+O motor de voz e tela do Astra (astra-voz.exe, nesta pasta) é escrito em Rust e leva dentro
+as bibliotecas abaixo, cada uma com o texto da licença sob a qual é distribuída. Quando uma
+biblioteca oferece mais de uma licença, vale a MIT; se ela não estiver entre as opções, a
+Apache 2.0.
+
+Também vão dentro do motor:
+
+- o libwebrtc, do projeto WebRTC, compilado pela LiveKit. As licenças dele e dos componentes
+  que ele reúne estão em LICENCAS-DO-LIBWEBRTC.md, nesta pasta. Entre esses componentes está
+  o FFmpeg, sob a GNU Lesser General Public License 2.1. O código-fonte do FFmpeg e o
+  necessário para refazer o motor com outra versão dele acompanham cada versão do Astra, em
+  https://github.com/Xryonz/Astra/releases
+- trechos adaptados do moq-video, de Luke Curley, sob a licença MIT, em
+  LICENCA-moq-video.txt, nesta pasta.
+
+Número de bibliotecas sob cada licença:
+{{#each overview}}
+- {{{name}}}: {{count}}
+{{/each}}
+{{#each licenses}}
+
+--------------------------------------------------------------------------------
+{{{name}}}
+
+Usada por:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+{{/each}}
+
+{{{text}}}
+{{/each}}

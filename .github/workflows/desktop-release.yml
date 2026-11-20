@@ -69,8 +69,97 @@ jobs:
           rustup default $env:RUST_VERSAO
 
       - name: Preparar o libwebrtc conferido
+        id: libwebrtc
         if: steps.checar.outputs.existe == 'False'
         uses: ./.github/actions/libwebrtc-conferido
+
+      - name: Preparar o cargo-about conferido
+        if: steps.checar.outputs.existe == 'False'
+        uses: ./.github/actions/cargo-about-conferido
+
+      - name: Por as licencas do motor no pacote
+        if: steps.checar.outputs.existe == 'False'
+        shell: pwsh
+        working-directory: sidecar-voz-rs
+        run: |
+          $destino = '../mobile-native/desktopApp/appResources/windows'
+          New-Item -ItemType Directory -Force -Path $destino | Out-Null
+          cargo fetch --locked
+          if ($LASTEXITCODE -ne 0) { throw 'cargo fetch falhou' }
+          cargo about generate --frozen -o "$destino/LICENCAS-DO-MOTOR-DE-VOZ.txt" licencas.hbs
+          if ($LASTEXITCODE -ne 0) { throw 'cargo about falhou: alguma licenca fora da lista do about.toml?' }
+          Copy-Item "$env:LK_CUSTOM_WEBRTC/LICENSE.md" "$destino/LICENCAS-DO-LIBWEBRTC.md"
+          Copy-Item src/tela/LICENCA-moq-video.txt $destino
+
+      - name: Juntar o material da LGPL
+        if: steps.checar.outputs.existe == 'False'
+        shell: pwsh
+        env:
+          ETIQUETA_DO_LIBWEBRTC: ${{ steps.libwebrtc.outputs.etiqueta }}
+          ZIP_DO_LIBWEBRTC: ${{ steps.libwebrtc.outputs.zip }}
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          $etiquetaDocumentada = 'webrtc-a545de4'
+          $webrtcSdk = 'a545de45259b47dfac5f3635863e47cb601f1bb2'
+          $rustSdks = '524123ee0069e8c01342c90978ad0dd5e4c58275'
+          $ffmpeg = 'ad41607c61898cf7150e0fb20fe4bbabd44922a3'
+          $etiqueta = $env:ETIQUETA_DO_LIBWEBRTC
+          if ($etiqueta -ne $etiquetaDocumentada) {
+            throw "o libwebrtc mudou para $($etiqueta): atualize aqui a revisao do FFmpeg (DEPS do webrtc-sdk/webrtc) e os commits de origem"
+          }
+          $versao = $env:VERSAO
+          $material = "$env:RUNNER_TEMP\material-lgpl"
+          New-Item -ItemType Directory -Force -Path $material | Out-Null
+          $libwebrtc = "lib$etiqueta-win-x64.zip"
+          Copy-Item $env:ZIP_DO_LIBWEBRTC "$material\$libwebrtc"
+          $somaDoLibwebrtc = (Get-FileHash "$material\$libwebrtc" -Algorithm SHA256).Hash.ToLower()
+          $curto = $ffmpeg.Substring(0, 8)
+          $fonteDoFfmpeg = "ffmpeg-$curto-fonte.tar.gz"
+          $git = "$env:RUNNER_TEMP\ffmpeg-git"
+          git init -q $git
+          git -C $git fetch -q --depth 1 https://chromium.googlesource.com/chromium/third_party/ffmpeg $ffmpeg
+          if ($LASTEXITCODE -ne 0) { throw 'nao consegui buscar o codigo-fonte do FFmpeg' }
+          if ((git -C $git rev-parse FETCH_HEAD) -ne $ffmpeg) { throw 'o FFmpeg buscado nao e a revisao fixada' }
+          git -C $git archive --format=tar.gz --prefix="ffmpeg-$curto/" -o "$material\$fonteDoFfmpeg" FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'nao consegui empacotar o codigo-fonte do FFmpeg' }
+          $instrucoes = @"
+          Astra $($versao): como refazer o motor de voz com outra versão do FFmpeg
+
+          O motor de voz e tela do Astra (app\resources\astra-voz.exe, na pasta do Astra) leva
+          dentro o libwebrtc, e o libwebrtc leva o FFmpeg, ligado de forma estática e distribuído
+          sob a GNU Lesser General Public License 2.1. O texto da licença está em
+          app\resources\LICENCAS-DO-LIBWEBRTC.md, na seção do ffmpeg. A LGPL garante o direito de
+          trocar o FFmpeg e refazer o motor, e esta versão traz, ao lado do pacote, o que é
+          preciso para isso:
+
+          - $($libwebrtc): o libwebrtc exatamente como entrou no motor (lib\webrtc.lib, os
+            cabeçalhos, o args.gn da compilação e as licenças). É a publicação $etiqueta da
+            LiveKit (https://github.com/livekit/rust-sdks/releases/tag/$etiqueta), compilada a
+            partir de https://github.com/webrtc-sdk/webrtc no commit $webrtcSdk,
+            com os ajustes de webrtc-sys/libwebrtc de https://github.com/livekit/rust-sdks no
+            commit $rustSdks.
+            SHA-256: $somaDoLibwebrtc
+          - $($fonteDoFfmpeg): o código-fonte do FFmpeg que está dentro do webrtc.lib, na
+            revisão $ffmpeg de
+            https://chromium.googlesource.com/chromium/third_party/ffmpeg
+          - o código-fonte do Astra desta versão, na etiqueta desktop-v$versao de
+            https://github.com/Xryonz/Astra. O motor fica em sidecar-voz-rs.
+
+          Para refazer o motor:
+
+          1. Instale o Rust $env:RUST_VERSAO e as ferramentas de C++ do Visual Studio (MSVC).
+          2. Monte um webrtc.lib com o FFmpeg modificado: compile o libwebrtc com o mesmo
+             args.gn, como em webrtc-sys\libwebrtc\build_windows.cmd do rust-sdks, ou troque os
+             objetos do FFmpeg dentro de lib\webrtc.lib com o lib.exe do Visual Studio.
+          3. Aponte a variável de ambiente LK_CUSTOM_WEBRTC para a pasta win-x64-release que
+             contém o novo lib\webrtc.lib.
+          4. Na pasta sidecar-voz-rs do código do Astra, rode: cargo build --release --locked
+          5. Troque app\resources\astra-voz.exe, na pasta do Astra, pelo
+             target\release\astra-voz.exe gerado. A próxima atualização do Astra devolve o motor
+             publicado.
+          "@
+          Set-Content -Path "$material\COMO-REFAZER-O-MOTOR.txt" -Value $instrucoes -Encoding utf8
+          Get-ChildItem $material | ForEach-Object { Write-Host "$($_.Name): $($_.Length) bytes" }
 
       - name: Empacotar
         if: steps.checar.outputs.existe == 'False'
@@ -79,22 +168,31 @@ jobs:
         run: |
           ./gradlew.bat :desktopApp:zipDistributable --no-daemon "-Pastra.canal=estavel"
 
-      - name: Conferir que o pacote leva o motor em Rust
+      - name: Conferir que o pacote leva o motor em Rust e as licencas dele
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
         run: |
           $zip = Resolve-Path "mobile-native/desktopApp/build/${{ steps.versao.outputs.asset }}"
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $pacote = [IO.Compression.ZipFile]::OpenRead($zip)
+          $lerUnico = {
+            param($nome)
+            $achados = @($pacote.Entries | Where-Object { $_.Name -eq $nome })
+            if ($achados.Count -ne 1) { throw "esperava um $nome no pacote e achei $($achados.Count)" }
+            $leitor = New-Object IO.StreamReader($achados[0].Open(), [Text.Encoding]::GetEncoding(28591))
+            try { $leitor.ReadToEnd() } finally { $leitor.Dispose() }
+          }
           try {
-            $motores = @($pacote.Entries | Where-Object { $_.Name -eq 'astra-voz.exe' })
-            if ($motores.Count -ne 1) { throw "esperava um astra-voz.exe no pacote e achei $($motores.Count)" }
-            $tamanho = $motores[0].Length
-            $leitor = New-Object IO.StreamReader($motores[0].Open(), [Text.Encoding]::GetEncoding(28591))
-            try { $conteudo = $leitor.ReadToEnd() } finally { $leitor.Dispose() }
+            $motor = & $lerUnico 'astra-voz.exe'
+            $licencasDoMotor = & $lerUnico 'LICENCAS-DO-MOTOR-DE-VOZ.txt'
+            $licencasDoLibwebrtc = & $lerUnico 'LICENCAS-DO-LIBWEBRTC.md'
+            $licencaDoMoq = & $lerUnico 'LICENCA-moq-video.txt'
           } finally { $pacote.Dispose() }
-          if (-not $conteudo.Contains('libavcodec')) { throw 'o astra-voz.exe do pacote nao e o motor em Rust' }
-          Write-Host "astra-voz.exe do pacote: motor em Rust ($tamanho bytes)"
+          if (-not $motor.Contains('libavcodec')) { throw 'o astra-voz.exe do pacote nao e o motor em Rust' }
+          if (-not $licencasDoMotor.Contains('- livekit 0.')) { throw 'as licencas do motor nao listam o livekit' }
+          if (-not $licencasDoLibwebrtc.Contains('# ffmpeg')) { throw 'as licencas do libwebrtc nao trazem a do ffmpeg' }
+          if (-not $licencaDoMoq.Contains('Luke Curley')) { throw 'a licenca do moq-video nao e a esperada' }
+          Write-Host "astra-voz.exe do pacote: motor em Rust ($($motor.Length) bytes), com as licencas"
 
       - name: Abrir o Astra em doze condicoes diferentes
         if: steps.checar.outputs.existe == 'False'
@@ -128,6 +226,16 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Entregar o material da LGPL ao trabalho que publica
+        if: steps.checar.outputs.existe == 'False'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: material-lgpl
+          path: ${{ runner.temp }}/material-lgpl
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
   publicar:
     needs: empacotar
     if: needs.empacotar.outputs.existe == 'False'
@@ -154,6 +262,12 @@ jobs:
         with:
           name: pacote
           path: pacote
+
+      - name: Receber o material da LGPL
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: material-lgpl
+          path: material-lgpl
 
       - name: Assinar
         shell: pwsh
@@ -192,7 +306,9 @@ jobs:
           "$sha  $asset" | Out-File -FilePath $hashFile -Encoding ascii -NoNewline
           Write-Host "sha256: $sha"
 
-          $arquivos = @($zip, $hashFile, "$base.manifesto", "$base.manifesto.sig")
+          $material = @(Get-ChildItem material-lgpl -File | ForEach-Object { $_.FullName })
+          if ($material.Count -ne 3) { throw "esperava 3 arquivos do material da LGPL e chegaram $($material.Count)" }
+          $arquivos = @($zip, $hashFile, "$base.manifesto", "$base.manifesto.sig") + $material
 
           gh release create $tag @arquivos `
             --repo $env:GITHUB_REPOSITORY `

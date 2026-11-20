@@ -147,6 +147,12 @@ jobs:
       - name: Conferir as licenças das dependências
         run: node ../tools/conferir-licencas-rust.mjs
 
+      - name: Preparar o cargo-about conferido
+        uses: ./.github/actions/cargo-about-conferido
+
+      - name: Gerar o texto das licenças como na release
+        run: cargo about generate --frozen -o "$env:RUNNER_TEMP/LICENCAS-DO-MOTOR-DE-VOZ.txt" licencas.hbs
+
       - name: Compilar como na release
         run: cargo build --release --locked
 

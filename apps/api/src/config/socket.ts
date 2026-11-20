@@ -6,6 +6,7 @@ import { users, dmConversations, directMessages, channels, messages, serverMembe
 import { notify, resumoDaMensagem } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import {
+  isSessaoEncerrada,
   isTokenBlacklisted,
   setUserOnline,
   setUserOffline,
@@ -105,7 +106,8 @@ export function setupSocket(io: Server) {
 
     try {
       const payload = verifyAccessToken(token)
-      const revoked = await isTokenBlacklisted(payload.jti)
+      const revoked =
+        (await isTokenBlacklisted(payload.jti)) || (payload.sid ? await isSessaoEncerrada(payload.sid) : false)
       if (revoked) return next(new Error('TOKEN_REVOKED'))
 
       const [user] = await db
@@ -119,6 +121,7 @@ export function setupSocket(io: Server) {
         .limit(1)
 
       socket.data.userId = payload.userId
+      socket.data.sid = payload.sid
       socket.data.username = user?.username ?? 'usuario'
       socket.data.displayName = user?.displayName ?? 'Usuário'
       socket.data.status = (user?.status as 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE') ?? 'ONLINE'

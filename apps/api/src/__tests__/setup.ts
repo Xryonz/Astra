@@ -17,6 +17,8 @@ vi.mock('../lib/redis', async () => {
     redis: mock,
     isTokenBlacklisted: async () => false,
     blacklistToken: async () => {},
+    isSessaoEncerrada: async () => false,
+    encerrarSessao: async () => {},
     setUserOnline: async () => {},
     setUserOffline: async () => {},
     refreshPresence: async () => {},

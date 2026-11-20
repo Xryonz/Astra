@@ -4,15 +4,20 @@ import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRef
 
 describe('access token', () => {
   it('sign + verify roundtrip', () => {
-    const { token, jti } = generateAccessToken('user-123')
+    const { token, jti } = generateAccessToken('user-123', 'sessao-1')
     const decoded = verifyAccessToken(token)
     expect(decoded.userId).toBe('user-123')
     expect(decoded.jti).toBe(jti)
   })
 
+  it('leva a sessão dentro, para encerrar a sessão derrubar quem usa esta credencial', () => {
+    const { token } = generateAccessToken('user-123', 'sessao-1')
+    expect(verifyAccessToken(token).sid).toBe('sessao-1')
+  })
+
   it('jti é único entre chamadas (mesmo userId no mesmo ms)', () => {
-    const a = generateAccessToken('u1').jti
-    const b = generateAccessToken('u1').jti
+    const a = generateAccessToken('u1', 'sessao-1').jti
+    const b = generateAccessToken('u1', 'sessao-1').jti
     expect(a).not.toBe(b)
   })
 
@@ -41,7 +46,7 @@ describe('refresh token', () => {
   })
 
   it('refresh assinado com access secret é rejeitado', () => {
-    const { token } = generateAccessToken('user-abc')
+    const { token } = generateAccessToken('user-abc', 'sessao-1')
     expect(() => verifyRefreshToken(token)).toThrow()
   })
 })

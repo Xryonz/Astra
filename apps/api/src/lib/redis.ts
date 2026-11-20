@@ -121,3 +121,11 @@ export async function isTokenBlacklisted(jti: string): Promise<boolean> {
     return false
   }
 }
+
+export function encerrarSessao(sessaoId: string, expiresInSeconds: number): Promise<void> {
+  return blacklistToken(`sessao:${sessaoId}`, expiresInSeconds)
+}
+
+export function isSessaoEncerrada(sessaoId: string): Promise<boolean> {
+  return isTokenBlacklisted(`sessao:${sessaoId}`)
+}

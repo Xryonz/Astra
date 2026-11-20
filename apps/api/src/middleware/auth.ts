@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { eq } from 'drizzle-orm'
 import { verifyAccessToken } from '../lib/jwt'
-import { isTokenBlacklisted } from '../lib/redis'
+import { isSessaoEncerrada, isTokenBlacklisted } from '../lib/redis'
 import { isMailEnabled } from '../lib/mailer'
 import { db } from '../db'
 import { users } from '../db/schema'
@@ -32,7 +32,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const payload = verifyAccessToken(token)
 
-    const revoked = await isTokenBlacklisted(payload.jti)
+    const revoked =
+      (await isTokenBlacklisted(payload.jti)) || (payload.sid ? await isSessaoEncerrada(payload.sid) : false)
     if (revoked) {
       return res.status(401).json({ error: 'Token revogado', code: 'TOKEN_REVOKED' })
     }

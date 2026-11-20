@@ -1,4 +1,7 @@
 import type { Server as SocketServer } from 'socket.io'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { channels } from '../db/schema'
 import { salasQueMeVeem } from './quemMeVe'
 import { logger } from './logger'
 
@@ -83,11 +86,37 @@ export function serverGone(serverId: string) {
   io?.to(`server:${serverId}`).emit('server_gone', { serverId })
 }
 
+export async function tirarDaConstelacao(userId: string, serverId: string): Promise<void> {
+  const servidor = io
+  if (!servidor) return
+  const conexoesDaPessoa = servidor.in(`user:${userId}`)
+  const salaDaConstelacao = `server:${serverId}`
+  try {
+    conexoesDaPessoa.socketsLeave(salaDaConstelacao)
+    const canais = await db.select({ id: channels.id }).from(channels).where(eq(channels.serverId, serverId))
+    conexoesDaPessoa.socketsLeave([salaDaConstelacao, ...canais.map((canal) => `channel:${canal.id}`)])
+  } catch (e) {
+    logger.error('Realtime', 'Falha ao tirar das salas da constelação', e as Error)
+  }
+}
+
+export async function derrubarSessoes(userId: string, sessoes: ReadonlySet<string>): Promise<void> {
+  const servidor = io
+  if (!servidor || sessoes.size === 0) return
+  try {
+    const conexoes = await servidor.in(`user:${userId}`).fetchSockets()
+    for (const conexao of conexoes) if (sessoes.has(conexao.data.sid)) conexao.disconnect(true)
+  } catch (e) {
+    logger.error('Realtime', 'Falha ao derrubar as conexões da sessão encerrada', e as Error)
+  }
+}
+
 export function leftServer(
   userId: string,
   serverId: string,
   motivo: 'expulso' | 'banido' | 'saiu' = 'saiu',
   reason?: string | null,
 ) {
+  void tirarDaConstelacao(userId, serverId)
   io?.to(`user:${userId}`).emit('server_left', { serverId, motivo, reason: reason ?? null })
 }

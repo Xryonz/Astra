@@ -29,7 +29,8 @@ import { redis, presenceKeys } from '../lib/redis'
 import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
-import { joinedServer, serverGone, leftServer } from '../lib/realtime'
+import { joinedServer, serverGone, leftServer, tirarDaConstelacao } from '../lib/realtime'
+import { tirarDasSalasDeVoz } from '../lib/livekit'
 import { canalMudou, canalSumiu, categoriaMudou, categoriaSumiu, constelacaoMudou } from '../lib/canais'
 import { membroEntrou, membroSaiu, membroMudouDeCargo, listarMembros } from '../lib/membros'
 
@@ -441,6 +442,7 @@ serversRouter.delete(
     void invalidateMembersCache(serverId)
     membroSaiu(serverId, target.userId)
     leftServer(target.userId, serverId, 'expulso')
+    void tirarDasSalasDeVoz(target.userId, serverId)
     void audit({
       serverId,
       actorId: req.userId!,
@@ -503,6 +505,7 @@ serversRouter.delete(
     await db.delete(serverMembers).where(eq(serverMembers.id, membership.id))
     void invalidateMembersCache(serverId)
     membroSaiu(serverId, req.userId!)
+    void tirarDaConstelacao(req.userId!, serverId)
     res.json({ message: 'Você saiu do servidor' })
   }),
 )

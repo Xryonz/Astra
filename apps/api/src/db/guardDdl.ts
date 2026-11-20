@@ -171,6 +171,7 @@ ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "iconScale"       integer NOT NULL DEFAULT 100;
 
 ALTER TABLE "RefreshToken" ADD COLUMN IF NOT EXISTS "deviceId" text;
+ALTER TABLE "RefreshToken" ADD COLUMN IF NOT EXISTS "sessionId" text;
 
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pronouns"     text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "statusEmoji"  text;

@@ -10,6 +10,7 @@ import { blacklistToken } from '../lib/redis'
 import { contarNaJanela } from '../lib/contagemNaJanela'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } from '../lib/jwt'
 import { requireAuth } from '../middleware/auth'
+import { encerrarAoVivo, sessaoDaLinha } from '../lib/sessoes'
 import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
@@ -127,10 +128,11 @@ router.post(
         console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e),
       )
 
-    const { token: accessToken } = generateAccessToken(user.id)
+    const sessaoId = createId()
+    const { token: accessToken } = generateAccessToken(user.id, sessaoId)
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken } = await createRefreshToken(user.id, {
+    const { refreshToken } = await createRefreshToken(user.id, sessaoId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip: req.ip,
       deviceId,
@@ -162,10 +164,11 @@ router.post(
       return res.status(401).json({ error: 'E-mail ou senha incorretos' })
     }
 
-    const { token: accessToken } = generateAccessToken(user.id)
+    const sessaoId = createId()
+    const { token: accessToken } = generateAccessToken(user.id, sessaoId)
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken } = await createRefreshToken(user.id, {
+    const { refreshToken } = await createRefreshToken(user.id, sessaoId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip: req.ip,
       deviceId,
@@ -201,7 +204,7 @@ router.post(
           gt(refreshTokens.expiresAt, new Date()),
         ),
       )
-      .returning({ id: refreshTokens.id, userId: refreshTokens.userId })
+      .returning({ id: refreshTokens.id, userId: refreshTokens.userId, sessionId: refreshTokens.sessionId })
 
     if (claimed.length === 0) {
       const [seen] = await db
@@ -210,16 +213,19 @@ router.post(
         .where(eq(refreshTokens.token, tokenHash))
         .limit(1)
       if (seen?.revokedAt && Date.now() - seen.revokedAt.getTime() > 30_000) {
-        await db
+        const derrubadas = await db
           .update(refreshTokens)
           .set({ revokedAt: new Date() })
           .where(and(eq(refreshTokens.userId, seen.userId), isNull(refreshTokens.revokedAt)))
+          .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
+        await encerrarAoVivo(seen.userId, derrubadas.map(sessaoDaLinha))
       }
       return res.status(401).json({ error: 'Refresh token inválido ou expirado' })
     }
 
-    const { token: newAccessToken } = generateAccessToken(payload.userId)
-    const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, {
+    const sessaoId = sessaoDaLinha(claimed[0])
+    const { token: newAccessToken } = generateAccessToken(payload.userId, sessaoId)
+    const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, sessaoId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip: req.ip,
       deviceId: req.header('x-device-id') ?? undefined,
@@ -634,7 +640,7 @@ router.get('/google/callback', (req: Request, res: Response, next) => {
           .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
           .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
 
-        const { refreshToken } = await createRefreshToken(user.id, {
+        const { refreshToken } = await createRefreshToken(user.id, createId(), {
           userAgent: req.header('user-agent') ?? undefined,
           ip: req.ip,
         })
@@ -662,7 +668,11 @@ function truncateIp(ip: string | undefined): string | null {
   return null
 }
 
-async function createRefreshToken(userId: string, meta?: { userAgent?: string; ip?: string; deviceId?: string }) {
+async function createRefreshToken(
+  userId: string,
+  sessaoId: string,
+  meta?: { userAgent?: string; ip?: string; deviceId?: string },
+) {
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS)
   const refreshToken = generateRefreshToken(userId)
   const tokenHash = hashToken(refreshToken)
@@ -673,6 +683,7 @@ async function createRefreshToken(userId: string, meta?: { userAgent?: string; i
     userAgent: meta?.userAgent?.slice(0, 256) ?? null,
     ip: truncateIp(meta?.ip),
     deviceId: meta?.deviceId?.slice(0, 128) ?? null,
+    sessionId: sessaoId,
     lastUsedAt: new Date(),
   })
   return { refreshToken }

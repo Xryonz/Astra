@@ -1,9 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
-import { attachRealtime, joinedServer, presenceChanged, serverGone, leftServer, profileChanged } from './realtime'
+import {
+  attachRealtime,
+  joinedServer,
+  presenceChanged,
+  serverGone,
+  leftServer,
+  profileChanged,
+  tirarDaConstelacao,
+  derrubarSessoes,
+} from './realtime'
 import { salasQueMeVeem } from './quemMeVe'
 
+const h = vi.hoisted(() => ({ canais: [] as Array<{ id: string }>, bancoFalha: false }))
+
 vi.mock('./quemMeVe', () => ({ salasQueMeVeem: vi.fn() }))
+vi.mock('../db', () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: async () => {
+          if (h.bancoFalha) throw new Error('banco caiu')
+          return h.canais
+        },
+      }),
+    }),
+  },
+}))
 const quemMeVe = vi.mocked(salasQueMeVeem)
 
 function fakeIo() {
@@ -12,7 +35,18 @@ function fakeIo() {
     return { to, emit }
   })
   const global = vi.fn()
-  return { io: { to, emit: global } as unknown as SocketServer, to, emit, global }
+  const socketsLeave = vi.fn()
+  const fetchSockets = vi.fn(async () => [] as Array<{ data: { sid?: string }; disconnect: (fechar: boolean) => void }>)
+  const conexoesDe = vi.fn(() => ({ socketsLeave, fetchSockets }))
+  return {
+    io: { to, emit: global, in: conexoesDe } as unknown as SocketServer,
+    to,
+    emit,
+    global,
+    conexoesDe,
+    socketsLeave,
+    fetchSockets,
+  }
 }
 
 describe('avisos de constelacao', () => {
@@ -48,6 +82,89 @@ describe('avisos de constelacao', () => {
 
     leftServer('u9', 'srv1', 'banido', 'spam')
     expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'banido', reason: 'spam' })
+  })
+})
+
+describe('quem perde o acesso sai das salas da constelacao', () => {
+  let f: ReturnType<typeof fakeIo>
+  beforeEach(() => {
+    f = fakeIo()
+    attachRealtime(f.io)
+    h.canais = [{ id: 'c1' }, { id: 'c2' }]
+    h.bancoFalha = false
+  })
+
+  it('as conexoes da pessoa saem da sala da constelacao na hora e das salas dos canais dela depois', async () => {
+    await tirarDaConstelacao('u9', 'srv1')
+    expect(f.conexoesDe).toHaveBeenCalledWith('user:u9')
+    expect(f.socketsLeave).toHaveBeenNthCalledWith(1, 'server:srv1')
+    expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1', 'channel:c1', 'channel:c2'])
+  })
+
+  it('quem entrou pelo meio (pedido que ja estava no banco) sai de novo da sala da constelacao', async () => {
+    const salas = new Set(['user:u9', 'server:srv1', 'channel:c1'])
+    f.socketsLeave.mockImplementation((sair: string | string[]) => {
+      for (const sala of [sair].flat()) salas.delete(sala)
+    })
+    const pronto = tirarDaConstelacao('u9', 'srv1')
+    salas.add('server:srv1')
+    await pronto
+    expect([...salas]).toEqual(['user:u9'])
+  })
+
+  it('expulsao e banimento tiram das salas, alem de avisar', async () => {
+    leftServer('u9', 'srv1', 'expulso')
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'expulso', reason: null })
+    await vi.waitFor(() => expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1', 'channel:c1', 'channel:c2']))
+  })
+
+  it('com o banco fora, a sala da constelacao sai mesmo assim e nada estoura', async () => {
+    h.bancoFalha = true
+    await expect(tirarDaConstelacao('u9', 'srv1')).resolves.toBeUndefined()
+    expect(f.socketsLeave).toHaveBeenCalledTimes(1)
+    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
+  })
+
+  it('constelacao sem canais repete so a sala da constelacao', async () => {
+    h.canais = []
+    await tirarDaConstelacao('u9', 'srv1')
+    expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1'])
+  })
+})
+
+describe('sessao encerrada perde a conexao na hora', () => {
+  function conexao(sid?: string) {
+    return { data: sid ? { sid } : {}, disconnect: vi.fn() }
+  }
+
+  it('cai so a conexao da sessao encerrada; as outras da mesma conta continuam', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    const encerrada = conexao('s1')
+    const outra = conexao('s2')
+    const antiga = conexao()
+    f.fetchSockets.mockResolvedValue([encerrada, outra, antiga])
+
+    await derrubarSessoes('u1', new Set(['s1']))
+
+    expect(f.conexoesDe).toHaveBeenCalledWith('user:u1')
+    expect(encerrada.disconnect).toHaveBeenCalledWith(true)
+    expect(outra.disconnect).not.toHaveBeenCalled()
+    expect(antiga.disconnect).not.toHaveBeenCalled()
+  })
+
+  it('sem sessao para derrubar, nem procura as conexoes', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    await derrubarSessoes('u1', new Set())
+    expect(f.fetchSockets).not.toHaveBeenCalled()
+  })
+
+  it('falha ao procurar as conexoes vira log, nao promessa rejeitada', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    f.fetchSockets.mockRejectedValue(new Error('adaptador caiu'))
+    await expect(derrubarSessoes('u1', new Set(['s1']))).resolves.toBeUndefined()
   })
 })
 
@@ -125,6 +242,7 @@ describe('sem io (boot, testes, worker)', () => {
     attachRealtime(undefined as unknown as SocketServer)
     serverGone('srv1')
     await expect(presenceChanged('u1', 'ONLINE')).resolves.toBeUndefined()
+    await expect(tirarDaConstelacao('u1', 'srv1')).resolves.toBeUndefined()
   })
 })
 

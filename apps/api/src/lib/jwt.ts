@@ -5,16 +5,19 @@ import { env } from './env'
 interface TokenPayload {
   userId: string
   jti: string
+  sid?: string
 }
 
 interface RefreshPayload {
   userId: string
 }
 
-export function generateAccessToken(userId: string): { token: string; jti: string } {
+export const VIDA_DO_ACESSO_S = 15 * 60
+
+export function generateAccessToken(userId: string, sessaoId: string): { token: string; jti: string } {
   const jti = crypto.randomUUID()
-  const token = jwt.sign({ userId, jti }, env.JWT_ACCESS_SECRET, {
-    expiresIn: '15m',
+  const token = jwt.sign({ userId, jti, sid: sessaoId }, env.JWT_ACCESS_SECRET, {
+    expiresIn: VIDA_DO_ACESSO_S,
   })
   return { token, jti }
 }

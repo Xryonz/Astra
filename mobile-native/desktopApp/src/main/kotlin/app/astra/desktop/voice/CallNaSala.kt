@@ -3,6 +3,7 @@ package app.astra.desktop.voice
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -99,11 +100,13 @@ class CallNaSala(
     @Volatile private var credencial: VoiceTokenRequest? = null
     private val tarefas = mutableListOf<Job>()
     private var voltando: Job? = null
+    private val resumo = ResumoDaCall()
 
     fun entrar(tipo: String, channelId: String) {
         if (salaAtual == channelId) return
         sair()
         salaAtual = channelId
+        resumo.comecar()
         credencial = VoiceTokenRequest(roomKind = tipo, roomId = channelId)
         _status.value = VoiceStatus.Connecting
         _redeDecidida.value = false
@@ -147,6 +150,7 @@ class CallNaSala(
 
     fun sair() {
         val sala = salaAtual ?: return
+        VoiceLog.nota("[call] ${resumo.linha()}")
         salaAtual = null
         credencial = null
         pronto = false
@@ -327,6 +331,7 @@ class CallNaSala(
     private suspend fun pedirCredencialEEntrar() {
         val pedido = credencial ?: return
         val dados = runCatching { voiceApi.token(pedido).data }
+            .onFailure { if (it is CancellationException) throw it }
             .onFailure { VoiceLog.nota("[call] o servidor negou a credencial da sala: ${it.message}") }
             .getOrNull()
 
@@ -364,9 +369,17 @@ class CallNaSala(
         }
         if (voltando?.isActive == true) return
 
+        resumo.conexaoCaiu()
         VoiceLog.nota("[call] a conexão com a sala caiu ($motivo); voltando")
         _status.value = VoiceStatus.Connecting
         voltando = scope.launch { voltarParaSala() }
+    }
+
+    private fun aoPerderOMotor() {
+        pronto = false
+        voltando?.cancel()
+        voltando = null
+        _status.value = VoiceStatus.Failed("O antivírus pode ter bloqueado o motor de voz. Reinstale o Astra.")
     }
 
     private suspend fun voltarParaSala() {
@@ -424,7 +437,12 @@ class CallNaSala(
                 }
                 "caminho" -> {
                     val leitura = ev.caminho ?: return@collect
-                    if (ev.tipo == "voz") _caminhoDaVoz.value = leitura else _caminhoDaTela.value = leitura
+                    if (ev.tipo == "voz") {
+                        _caminhoDaVoz.value = leitura
+                        resumo.perdaDaVoz(leitura.perda)
+                    } else {
+                        _caminhoDaTela.value = leitura
+                    }
                 }
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()
                 "janelas" -> _janelas.value = ev.janelas.orEmpty()
@@ -449,6 +467,7 @@ class CallNaSala(
                     val noAr = ev.valor == "1"
                     val virou = _transmitindo.value != noAr
                     _transmitindo.value = noAr
+                    if (noAr) resumo.transmitiu()
                     Transmitindo.marcar(noAr)
                     if (virou) if (noAr) Sfx.shareStart() else Sfx.shareStop()
                     when {
@@ -479,8 +498,10 @@ class CallNaSala(
                     naSala.clear()
                     falando.clear()
                     publicar()
+                    resumo.motorCaiu()
                     VoiceLog.nota("[call] o componente de voz reiniciou; entrando na sala de novo")
                 }
+                "sem-motor" -> aoPerderOMotor()
                 "erro" -> {
                     VoiceLog.nota("[call] erro: ${ev.msg}")
                 }

@@ -238,7 +238,7 @@ jobs:
 
   publicar:
     needs: empacotar
-    if: needs.empacotar.outputs.existe == 'False'
+    if: needs.empacotar.outputs.existe == 'False' && github.ref == 'refs/heads/main'
     runs-on: windows-latest
     permissions:
       contents: write

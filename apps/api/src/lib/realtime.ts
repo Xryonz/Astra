@@ -90,10 +90,11 @@ export async function tirarDaConstelacao(userId: string, serverId: string): Prom
   const servidor = io
   if (!servidor) return
   const conexoesDaPessoa = servidor.in(`user:${userId}`)
+  const salaDaConstelacao = `server:${serverId}`
   try {
-    conexoesDaPessoa.socketsLeave(`server:${serverId}`)
+    conexoesDaPessoa.socketsLeave(salaDaConstelacao)
     const canais = await db.select({ id: channels.id }).from(channels).where(eq(channels.serverId, serverId))
-    if (canais.length) conexoesDaPessoa.socketsLeave(canais.map((canal) => `channel:${canal.id}`))
+    conexoesDaPessoa.socketsLeave([salaDaConstelacao, ...canais.map((canal) => `channel:${canal.id}`)])
   } catch (e) {
     logger.error('Realtime', 'Falha ao tirar das salas da constelação', e as Error)
   }

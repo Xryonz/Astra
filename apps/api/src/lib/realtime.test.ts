@@ -94,18 +94,28 @@ describe('quem perde o acesso sai das salas da constelacao', () => {
     h.bancoFalha = false
   })
 
-  it('as conexoes da pessoa saem da sala da constelacao e das salas dos canais dela', async () => {
+  it('as conexoes da pessoa saem da sala da constelacao na hora e das salas dos canais dela depois', async () => {
     await tirarDaConstelacao('u9', 'srv1')
     expect(f.conexoesDe).toHaveBeenCalledWith('user:u9')
-    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
-    expect(f.socketsLeave).toHaveBeenCalledWith(['channel:c1', 'channel:c2'])
+    expect(f.socketsLeave).toHaveBeenNthCalledWith(1, 'server:srv1')
+    expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1', 'channel:c1', 'channel:c2'])
+  })
+
+  it('quem entrou pelo meio (pedido que ja estava no banco) sai de novo da sala da constelacao', async () => {
+    const salas = new Set(['user:u9', 'server:srv1', 'channel:c1'])
+    f.socketsLeave.mockImplementation((sair: string | string[]) => {
+      for (const sala of [sair].flat()) salas.delete(sala)
+    })
+    const pronto = tirarDaConstelacao('u9', 'srv1')
+    salas.add('server:srv1')
+    await pronto
+    expect([...salas]).toEqual(['user:u9'])
   })
 
   it('expulsao e banimento tiram das salas, alem de avisar', async () => {
     leftServer('u9', 'srv1', 'expulso')
     expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'expulso', reason: null })
-    await vi.waitFor(() => expect(f.socketsLeave).toHaveBeenCalledWith(['channel:c1', 'channel:c2']))
-    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
+    await vi.waitFor(() => expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1', 'channel:c1', 'channel:c2']))
   })
 
   it('com o banco fora, a sala da constelacao sai mesmo assim e nada estoura', async () => {
@@ -115,10 +125,10 @@ describe('quem perde o acesso sai das salas da constelacao', () => {
     expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
   })
 
-  it('constelacao sem canais nao pede saida de lista vazia', async () => {
+  it('constelacao sem canais repete so a sala da constelacao', async () => {
     h.canais = []
     await tirarDaConstelacao('u9', 'srv1')
-    expect(f.socketsLeave).toHaveBeenCalledTimes(1)
+    expect(f.socketsLeave).toHaveBeenLastCalledWith(['server:srv1'])
   })
 })
 

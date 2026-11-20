@@ -15,6 +15,7 @@ import { forbidden, badRequest } from '../lib/errors'
 
 const router = Router()
 
+const VALIDADE_DA_CREDENCIAL = '10m'
 const PRESENCE_TTL_MS = 5_000
 const presenceCache = new Map<string, { at: number; ids: string[] }>()
 
@@ -71,7 +72,7 @@ router.post(
       identity,
       name: u?.displayName || u?.username || identity,
       metadata: JSON.stringify({ avatarUrl: u?.avatarUrl ?? null, username: u?.username ?? null }),
-      ttl: '6h',
+      ttl: VALIDADE_DA_CREDENCIAL,
     })
     at.addGrant({
       room: roomName,

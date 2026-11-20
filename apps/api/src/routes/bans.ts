@@ -11,6 +11,7 @@ import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { leftServer } from '../lib/realtime'
+import { tirarDasSalasDeVoz } from '../lib/livekit'
 import { membroSaiu } from '../lib/membros'
 
 export const bansRouter = Router()
@@ -96,6 +97,7 @@ bansRouter.post(
     void invalidateMembersCache(serverId)
     membroSaiu(serverId, userId)
     leftServer(userId, serverId, 'banido', reason ?? null)
+    void tirarDasSalasDeVoz(userId, serverId)
 
     void audit({
       serverId,

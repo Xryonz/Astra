@@ -1,9 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
-import { attachRealtime, joinedServer, presenceChanged, serverGone, leftServer, profileChanged } from './realtime'
+import {
+  attachRealtime,
+  joinedServer,
+  presenceChanged,
+  serverGone,
+  leftServer,
+  profileChanged,
+  tirarDaConstelacao,
+} from './realtime'
 import { salasQueMeVeem } from './quemMeVe'
 
+const h = vi.hoisted(() => ({ canais: [] as Array<{ id: string }>, bancoFalha: false }))
+
 vi.mock('./quemMeVe', () => ({ salasQueMeVeem: vi.fn() }))
+vi.mock('../db', () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: async () => {
+          if (h.bancoFalha) throw new Error('banco caiu')
+          return h.canais
+        },
+      }),
+    }),
+  },
+}))
 const quemMeVe = vi.mocked(salasQueMeVeem)
 
 function fakeIo() {
@@ -12,7 +34,16 @@ function fakeIo() {
     return { to, emit }
   })
   const global = vi.fn()
-  return { io: { to, emit: global } as unknown as SocketServer, to, emit, global }
+  const socketsLeave = vi.fn()
+  const conexoesDe = vi.fn(() => ({ socketsLeave }))
+  return {
+    io: { to, emit: global, in: conexoesDe } as unknown as SocketServer,
+    to,
+    emit,
+    global,
+    conexoesDe,
+    socketsLeave,
+  }
 }
 
 describe('avisos de constelacao', () => {
@@ -48,6 +79,43 @@ describe('avisos de constelacao', () => {
 
     leftServer('u9', 'srv1', 'banido', 'spam')
     expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'banido', reason: 'spam' })
+  })
+})
+
+describe('quem perde o acesso sai das salas da constelacao', () => {
+  let f: ReturnType<typeof fakeIo>
+  beforeEach(() => {
+    f = fakeIo()
+    attachRealtime(f.io)
+    h.canais = [{ id: 'c1' }, { id: 'c2' }]
+    h.bancoFalha = false
+  })
+
+  it('as conexoes da pessoa saem da sala da constelacao e das salas dos canais dela', async () => {
+    await tirarDaConstelacao('u9', 'srv1')
+    expect(f.conexoesDe).toHaveBeenCalledWith('user:u9')
+    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
+    expect(f.socketsLeave).toHaveBeenCalledWith(['channel:c1', 'channel:c2'])
+  })
+
+  it('expulsao e banimento tiram das salas, alem de avisar', async () => {
+    leftServer('u9', 'srv1', 'expulso')
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'expulso', reason: null })
+    await vi.waitFor(() => expect(f.socketsLeave).toHaveBeenCalledWith(['channel:c1', 'channel:c2']))
+    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
+  })
+
+  it('com o banco fora, a sala da constelacao sai mesmo assim e nada estoura', async () => {
+    h.bancoFalha = true
+    await expect(tirarDaConstelacao('u9', 'srv1')).resolves.toBeUndefined()
+    expect(f.socketsLeave).toHaveBeenCalledTimes(1)
+    expect(f.socketsLeave).toHaveBeenCalledWith('server:srv1')
+  })
+
+  it('constelacao sem canais nao pede saida de lista vazia', async () => {
+    h.canais = []
+    await tirarDaConstelacao('u9', 'srv1')
+    expect(f.socketsLeave).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -125,6 +193,7 @@ describe('sem io (boot, testes, worker)', () => {
     attachRealtime(undefined as unknown as SocketServer)
     serverGone('srv1')
     await expect(presenceChanged('u1', 'ONLINE')).resolves.toBeUndefined()
+    await expect(tirarDaConstelacao('u1', 'srv1')).resolves.toBeUndefined()
   })
 })
 

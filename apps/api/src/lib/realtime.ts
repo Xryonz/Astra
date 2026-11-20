@@ -99,6 +99,17 @@ export async function tirarDaConstelacao(userId: string, serverId: string): Prom
   }
 }
 
+export async function derrubarSessoes(userId: string, sessoes: ReadonlySet<string>): Promise<void> {
+  const servidor = io
+  if (!servidor || sessoes.size === 0) return
+  try {
+    const conexoes = await servidor.in(`user:${userId}`).fetchSockets()
+    for (const conexao of conexoes) if (sessoes.has(conexao.data.sid)) conexao.disconnect(true)
+  } catch (e) {
+    logger.error('Realtime', 'Falha ao derrubar as conexões da sessão encerrada', e as Error)
+  }
+}
+
 export function leftServer(
   userId: string,
   serverId: string,

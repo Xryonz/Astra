@@ -8,6 +8,7 @@ import {
   leftServer,
   profileChanged,
   tirarDaConstelacao,
+  derrubarSessoes,
 } from './realtime'
 import { salasQueMeVeem } from './quemMeVe'
 
@@ -35,7 +36,8 @@ function fakeIo() {
   })
   const global = vi.fn()
   const socketsLeave = vi.fn()
-  const conexoesDe = vi.fn(() => ({ socketsLeave }))
+  const fetchSockets = vi.fn(async () => [] as Array<{ data: { sid?: string }; disconnect: (fechar: boolean) => void }>)
+  const conexoesDe = vi.fn(() => ({ socketsLeave, fetchSockets }))
   return {
     io: { to, emit: global, in: conexoesDe } as unknown as SocketServer,
     to,
@@ -43,6 +45,7 @@ function fakeIo() {
     global,
     conexoesDe,
     socketsLeave,
+    fetchSockets,
   }
 }
 
@@ -116,6 +119,42 @@ describe('quem perde o acesso sai das salas da constelacao', () => {
     h.canais = []
     await tirarDaConstelacao('u9', 'srv1')
     expect(f.socketsLeave).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('sessao encerrada perde a conexao na hora', () => {
+  function conexao(sid?: string) {
+    return { data: sid ? { sid } : {}, disconnect: vi.fn() }
+  }
+
+  it('cai so a conexao da sessao encerrada; as outras da mesma conta continuam', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    const encerrada = conexao('s1')
+    const outra = conexao('s2')
+    const antiga = conexao()
+    f.fetchSockets.mockResolvedValue([encerrada, outra, antiga])
+
+    await derrubarSessoes('u1', new Set(['s1']))
+
+    expect(f.conexoesDe).toHaveBeenCalledWith('user:u1')
+    expect(encerrada.disconnect).toHaveBeenCalledWith(true)
+    expect(outra.disconnect).not.toHaveBeenCalled()
+    expect(antiga.disconnect).not.toHaveBeenCalled()
+  })
+
+  it('sem sessao para derrubar, nem procura as conexoes', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    await derrubarSessoes('u1', new Set())
+    expect(f.fetchSockets).not.toHaveBeenCalled()
+  })
+
+  it('falha ao procurar as conexoes vira log, nao promessa rejeitada', async () => {
+    const f = fakeIo()
+    attachRealtime(f.io)
+    f.fetchSockets.mockRejectedValue(new Error('adaptador caiu'))
+    await expect(derrubarSessoes('u1', new Set(['s1']))).resolves.toBeUndefined()
   })
 })
 

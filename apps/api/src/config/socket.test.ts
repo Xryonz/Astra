@@ -13,6 +13,7 @@ vi.mock('../lib/redis', () => ({
   vozKeys: { membro: () => 'voz' },
   VOZ_TTL_SEGUNDOS: 60,
   isTokenBlacklisted: async () => false,
+  isSessaoEncerrada: async () => false,
   setUserOnline: () =>
     new Promise<void>((pronto) => {
       h.terminarOnline.push(() => {

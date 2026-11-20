@@ -1,11 +1,12 @@
 import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
-import { and, desc, eq, isNull, ne } from 'drizzle-orm'
+import { and, desc, eq, isNull, ne, or } from 'drizzle-orm'
 import { db } from '../db'
 import { refreshTokens } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { hashToken } from '../lib/jwt'
+import { encerrarAoVivo, sessaoDaLinha } from '../lib/sessoes'
 
 const router = Router()
 
@@ -38,16 +39,33 @@ router.delete(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id
+    const [alvo] = await db
+      .select({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
+      .from(refreshTokens)
+      .where(and(eq(refreshTokens.id, id), eq(refreshTokens.userId, req.userId!)))
+      .limit(1)
+    if (!alvo) {
+      return res.status(404).json({ error: 'Sessão não encontrada ou já revogada' })
+    }
+
+    const sessao = sessaoDaLinha(alvo)
     const result = await db
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
-      .where(and(eq(refreshTokens.id, id), eq(refreshTokens.userId, req.userId!), isNull(refreshTokens.revokedAt)))
+      .where(
+        and(
+          eq(refreshTokens.userId, req.userId!),
+          isNull(refreshTokens.revokedAt),
+          or(eq(refreshTokens.id, sessao), eq(refreshTokens.sessionId, sessao)),
+        ),
+      )
       .returning({ id: refreshTokens.id })
 
     if (result.length === 0) {
       return res.status(404).json({ error: 'Sessão não encontrada ou já revogada' })
     }
-    res.json({ data: { revoked: result[0].id } })
+    await encerrarAoVivo(req.userId!, [sessao])
+    res.json({ data: { revoked: id } })
   }),
 )
 
@@ -67,8 +85,9 @@ router.post(
       .where(
         and(eq(refreshTokens.userId, req.userId!), isNull(refreshTokens.revokedAt), ne(refreshTokens.token, tokenHash)),
       )
-      .returning({ id: refreshTokens.id })
+      .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
 
+    await encerrarAoVivo(req.userId!, result.map(sessaoDaLinha))
     res.json({ data: { revokedCount: result.length } })
   }),
 )

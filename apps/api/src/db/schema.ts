@@ -104,6 +104,8 @@ export const refreshTokens = pgTable(
 
     deviceId: text('deviceId'),
 
+    sessionId: text('sessionId'),
+
     lastUsedAt: timestamp('lastUsedAt', { precision: 3 }),
   },
   (t) => ({

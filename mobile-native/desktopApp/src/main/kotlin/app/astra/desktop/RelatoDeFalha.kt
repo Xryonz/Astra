@@ -9,6 +9,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -38,6 +39,8 @@ object RelatoDeFalha {
 
     @Volatile private var enviados = 0
 
+    private val tiposDeVozJaEnviados = ConcurrentHashMap.newKeySet<String>()
+
     private val json = Json { encodeDefaults = true }
 
     private val cliente by lazy {
@@ -54,14 +57,42 @@ object RelatoDeFalha {
 
     fun contar(erro: Throwable, rastroCompleto: String) {
         val versao = System.getProperty("astra.version") ?: return
-        synchronized(this) {
-            if (enviados >= MAXIMO_POR_SESSAO) return
-            enviados++
-        }
+        if (!reservarUmEnvio()) return
         thread(isDaemon = true, name = "astra-relato-de-falha") {
             runCatching { enviar(montar(versao, erro, rastroCompleto)) }
         }
     }
+
+    fun contarVoz(tipo: String, mensagem: String, rastro: String) {
+        val versao = System.getProperty("astra.version") ?: return
+        if (!tiposDeVozJaEnviados.add(tipo)) return
+        if (!reservarUmEnvio()) return
+        thread(isDaemon = true, name = "astra-relato-de-voz") {
+            runCatching {
+                enviar(
+                    Relato(
+                        instalacao = instalacao,
+                        versao = versao,
+                        so = sistema(),
+                        placa = semNome(Placas.daTela?.nome.orEmpty()).take(TETO_CURTO),
+                        tipo = tipo.take(TETO_CURTO),
+                        mensagem = semNome(mensagem).take(TETO_DA_MENSAGEM),
+                        rastro = semNome(rastro.ifBlank { "sem rastro" }).take(TETO_DO_TEXTO),
+                        arranque = "",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun reservarUmEnvio(): Boolean = synchronized(this) {
+        if (enviados >= MAXIMO_POR_SESSAO) return false
+        enviados++
+        true
+    }
+
+    private fun sistema(): String =
+        semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO)
 
     fun contarTroca(versaoAlvo: String) {
         val versao = System.getProperty("astra.version") ?: return
@@ -72,7 +103,7 @@ object RelatoDeFalha {
                     Relato(
                         instalacao = instalacao,
                         versao = versao,
-                        so = semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO),
+                        so = sistema(),
                         placa = "",
                         tipo = TIPO_DA_TROCA,
                         mensagem = semNome("a troca para $versaoAlvo não se completou").take(TETO_DA_MENSAGEM),
@@ -87,7 +118,7 @@ object RelatoDeFalha {
     private fun montar(versao: String, erro: Throwable, rastroCompleto: String) = Relato(
         instalacao = instalacao,
         versao = versao,
-        so = semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO),
+        so = sistema(),
         placa = semNome(Placas.daTela?.nome.orEmpty()).take(TETO_CURTO),
         tipo = erro::class.qualifiedName.orEmpty().ifBlank { "Throwable" }.take(TETO_CURTO),
         mensagem = semNome(erro.message.orEmpty()).take(TETO_DA_MENSAGEM),
@@ -99,9 +130,15 @@ object RelatoDeFalha {
         runCatching { File(CrashLog.dataDir(), "arranque.txt").readText() }.getOrDefault("")
 
     private fun semNome(texto: String): String {
+        val pasta = System.getProperty("user.home").orEmpty()
         val nome = System.getProperty("user.name").orEmpty()
-        if (nome.isBlank()) return texto
-        return texto.replace(nome, "···", ignoreCase = true)
+        var limpo = texto
+        if (pasta.isNotBlank()) {
+            limpo = limpo.replace(pasta, "%USERPROFILE%", ignoreCase = true)
+                .replace(pasta.replace('\\', '/'), "%USERPROFILE%", ignoreCase = true)
+        }
+        if (nome.isNotBlank()) limpo = limpo.replace(nome, "···", ignoreCase = true)
+        return limpo
     }
 
     private fun enviar(relato: Relato) {

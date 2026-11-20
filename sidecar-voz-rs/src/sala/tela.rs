@@ -1,3 +1,4 @@
+use super::caminho::Medicao;
 use crate::emissao::{Emissor, PedidoDeTela};
 use crate::entrega::Entrega;
 use crate::ponte::Escritor;
@@ -14,6 +15,7 @@ pub struct TelaNoAr {
     publicacao: TrackSid,
     fonte: NativeVideoSource,
     emissor: Emissor,
+    _medicao: Medicao,
 }
 
 impl TelaNoAr {
@@ -24,10 +26,15 @@ impl TelaNoAr {
         entrega: Option<Entrega>,
     ) -> Result<Self, String> {
         let fonte = NativeVideoSource::new_encoded(VideoResolution { width: pedido.largura, height: pedido.altura });
-        let mut emissor = Emissor::ligar(pedido, fonte.clone(), escritor, entrega)?;
+        let mut emissor = Emissor::ligar(pedido, fonte.clone(), Arc::clone(&escritor), entrega)?;
         let faixa = LocalVideoTrack::create_video_track(NOME_DA_TELA, RtcVideoSource::Native(fonte.clone()));
-        match sala.local_participant().publish_track(LocalTrack::Video(faixa), opcoes_da_tela(pedido)).await {
-            Ok(publicacao) => Ok(Self { publicacao: publicacao.sid(), fonte, emissor }),
+        match sala.local_participant().publish_track(LocalTrack::Video(faixa.clone()), opcoes_da_tela(pedido)).await {
+            Ok(publicacao) => Ok(Self {
+                publicacao: publicacao.sid(),
+                fonte,
+                emissor,
+                _medicao: Medicao::comecar(escritor, "tela", LocalTrack::Video(faixa)),
+            }),
             Err(e) => {
                 emissor.parar().await;
                 Err(format!("publicar a tela: {e}"))

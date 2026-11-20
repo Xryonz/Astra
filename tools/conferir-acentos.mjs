@@ -81,6 +81,7 @@ const PERDOADAS = new Set([
   'Erro que a interface engoliu? saida.txt guarda tudo que o app imprimiu.',
   'nasceu escondido na bandeja — sem quadro por decisao',
   '(?iU)\\\\b(não|nao|caiu|negou|negado|erro|desisti|falhou|failed|ilegível|reiniciou|reiniciar)\\\\b',
+  'voz:motor-nao-abriu',
 ])
 
 const LITERAL = /"(?:[^"\\\n]|\\.)*"/g

@@ -316,6 +316,7 @@ fun ShellScreen(
                 koin.get<ChannelApi>(), koin.get<DmApi>(), koin.get<UploadApi>(),
                 socket, koin.get<Json>(), session.userId,
                 cache = cacheDeConversas,
+                primeiraPagina = vm.primeiraPagina,
                 myProfile = { vm.state.value.me },
             )
         }

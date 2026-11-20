@@ -80,12 +80,6 @@ class VoiceSession(private val scope: EscopoSupervisionado, private val koin: Ko
                 .distinctUntilChanged()
                 .collect { (mic, escuta) -> call?.definirVolumes(mic, escuta) }
         }
-        scope.launch {
-            prefs.state
-                .map { it.duasCamadas }
-                .distinctUntilChanged()
-                .collect { call?.lembrarDuasCamadas(it) }
-        }
     }
 
     fun alternarMudo() {
@@ -134,7 +128,6 @@ class VoiceSession(private val scope: EscopoSupervisionado, private val koin: Ko
             val p = prefs.state.value
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
             it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
-            it.lembrarDuasCamadas(p.duasCamadas)
             it.definirVolumes(p.volumeDoMicrofone, p.volumeDaEscuta)
             it.entrar(tipo, sala.id)
             espelhoDosAparelhos?.cancel()

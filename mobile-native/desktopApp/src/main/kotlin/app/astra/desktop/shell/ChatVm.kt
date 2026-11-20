@@ -4,7 +4,9 @@ import app.astra.desktop.EscopoSupervisionado
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
+import app.astra.desktop.net.RelogioDeRede
 import app.astra.desktop.net.insistir
+import app.astra.desktop.ui.Quadros
 import app.astra.desktop.net.tipoPelaExtensao
 import app.astra.desktop.voice.CompressorDeVideo
 import app.astra.desktop.voice.PreparoDoVideo
@@ -27,7 +29,6 @@ import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
 import app.astra.mobile.core.network.dto.MessagePinnedEventDto
 import app.astra.mobile.core.network.dto.CreatePollRequest
-import app.astra.mobile.core.network.dto.MsgAuthorDto
 import app.astra.mobile.core.network.dto.CallLogDto
 import app.astra.mobile.core.network.dto.PollDto
 import app.astra.mobile.core.network.dto.PollUpdateDto
@@ -118,7 +119,6 @@ data class ChatUiState(
     val buscandoAnteriores: Boolean = false,
 )
 
-private const val PAGE = 50
 private const val FADE_OUT_MS = 340L
 private const val FAST_SEND_TIMEOUT_MS = 6_000L
 
@@ -145,6 +145,7 @@ class ChatVm(
     private val json: Json,
     val myId: String?,
     private val cache: CacheDeConversas,
+    private val primeiraPagina: PrimeiraPaginaAdiantada? = null,
     private val myProfile: () -> ProfileUserDto? = { null },
 ) {
     private val _state = MutableStateFlow(
@@ -193,12 +194,8 @@ class ChatVm(
 
     fun tentarDeNovo() = load(forcar = true)
 
-    private suspend fun buscarPagina(cursor: String?): Pair<List<ChatMessage>, String?> = when (target) {
-        is ChatTarget.Channel -> channelApi.messages(target.id, cursor, PAGE).data
-            .let { p -> p?.items.orEmpty().map { it.toChat() } to p?.nextCursor }
-        is ChatTarget.Dm -> dmApi.messages(target.id, cursor, PAGE).data
-            .let { p -> p?.items.orEmpty().map { it.toChat() } to p?.nextCursor }
-    }
+    private suspend fun buscarPagina(cursor: String?): Pair<List<ChatMessage>, String?> =
+        buscarPaginaDaConversa(target, cursor, channelApi, dmApi, myId)
 
     fun carregarAnteriores(): Boolean {
         val cursor = _state.value.cursorAnterior ?: return false
@@ -229,13 +226,15 @@ class ChatVm(
         cargaJob?.cancel()
         cargaJob = scope.launch {
             _state.update { it.copy(loading = it.messages.isEmpty(), error = null, acordando = false) }
+            val adiantada = if (forcar) null else primeiraPagina?.tomar(target)
             insistir(
                 oQue = "esta conversa",
                 aoTentarDeNovo = { _state.update { it.copy(acordando = true) } },
             ) {
-                buscarPagina(null)
+                adiantada?.let { runCatching { it.await() }.getOrNull() } ?: buscarPagina(null)
             }
                 .onSuccess { (list, cursor) ->
+                    RelogioDeRede.marcar("conversa carregada")
                     val frescas = list.sortedBy { m -> m.createdAt ?: "" }
                     cache.guardar(target, frescas)
                     _state.update {
@@ -922,38 +921,9 @@ class ChatVm(
     }
 
     private inline fun <reified T> decode(raw: String): T? =
-        runCatching { json.decodeFromString<T>(raw) }.getOrNull()
+        Quadros.cronometrar("socket") { runCatching { json.decodeFromString<T>(raw) }.getOrNull() }
 
-    private fun MsgAuthorDto?.name(fallbackId: String): String =
-        this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguém"
+    private fun ChannelMessageDto.toChat(): ChatMessage = paraMensagem(myId)
 
-    private fun ChannelMessageDto.toChat(): ChatMessage {
-        val autor = authorId.ifBlank { author?.id.orEmpty() }
-        return ChatMessage(
-            id = id, content = content, authorId = autor,
-            authorName = author.name(autor), authorAvatar = author?.avatarUrl,
-            authorFont = author?.displayFont,
-            createdAt = createdAt,
-            mine = autor.isNotBlank() && autor == myId,
-            edited = edited,
-            pinned = pinned,
-            reactions = reactions, mentions = mentions, replyTo = replyTo,
-            attachments = attachments,
-            poll = poll,
-            clientNonce = clientNonce,
-            kind = kind,
-        )
-    }
-
-    private fun DmMessageDto.toChat() = ChatMessage(
-        id = id, content = content, authorId = senderId,
-        authorName = author.name(senderId), authorAvatar = author?.avatarUrl,
-        authorFont = author?.displayFont,
-        createdAt = createdAt,
-        mine = senderId == myId,
-        replyTo = replyTo,
-        attachments = attachments,
-        clientNonce = clientNonce,
-        call = call,
-    )
+    private fun DmMessageDto.toChat(): ChatMessage = paraMensagem(myId)
 }

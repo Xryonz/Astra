@@ -113,29 +113,51 @@ jobs:
   sidecar:
     name: Sidecar de voz · compilar e testar
     runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      RUST_VERSAO: '1.99.1'
+    defaults:
+      run:
+        working-directory: sidecar-voz-rs
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
 
-      - name: Setup Go 1.26.10
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+      - name: Instalar o Rust fixado
+        run: |
+          rustup toolchain install $env:RUST_VERSAO --profile minimal --component clippy
+          rustup default $env:RUST_VERSAO
+
+      - name: Cache do Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          go-version: '1.26.10'
-          cache-dependency-path: sidecar-voz/go.sum
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            sidecar-voz-rs/target
+          key: voz-rs-${{ runner.os }}-${{ env.RUST_VERSAO }}-${{ hashFiles('sidecar-voz-rs/Cargo.lock') }}
+          restore-keys: voz-rs-${{ runner.os }}-${{ env.RUST_VERSAO }}-
 
-      - name: Testar sem o cancelador
-        working-directory: sidecar-voz
-        run: go test ./...
+      - name: Preparar o libwebrtc conferido
+        uses: ./.github/actions/libwebrtc-conferido
 
-      - name: Preparar o cancelador de eco
-        uses: ./.github/actions/cancelador-de-eco
+      - name: Conferir as licenças das dependências
+        run: node ../tools/conferir-licencas-rust.mjs
 
-      - name: Testar com o cancelador
-        working-directory: sidecar-voz
-        run: go test -tags aec3 ./...
+      - name: Preparar o cargo-about conferido
+        uses: ./.github/actions/cargo-about-conferido
+
+      - name: Gerar o texto das licenças como na release
+        run: cargo about generate --frozen -o "$env:RUNNER_TEMP/LICENCAS-DO-MOTOR-DE-VOZ.txt" licencas.hbs
 
       - name: Compilar como na release
-        working-directory: sidecar-voz
-        run: go build -tags aec3 -trimpath -buildvcs=false "-ldflags=-s -w" -o astra-voz.exe .
+        run: cargo build --release --locked
+
+      - name: Testar
+        run: cargo test --release --locked
+
+      - name: Conferir com o clippy
+        run: cargo clippy --release --all-targets --locked -- -D warnings

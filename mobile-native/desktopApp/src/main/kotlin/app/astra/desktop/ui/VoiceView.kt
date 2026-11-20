@@ -263,7 +263,6 @@ fun VoiceView(
                     rostos = {
                         ParticipantGrid(
                             tiles,
-                            call.telasDosOutros,
                             volumeDe = { volumes[it] ?: CallNaSala.VOLUME_CHEIO },
                             aoMudarVolume = call::definirVolume,
                         ) { escolha ->

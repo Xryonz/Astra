@@ -1,449 +1,205 @@
 # Astra
 
-Plataforma de mensagens em tempo real — editorial-dark, anti-Discord. Constelações
-(servidores), órbitas (canais), sussurros (DMs), voz e transmissão de tela, cargos,
-reações, enquetes, busca, notificações, XP e missões.
+O Astra é uma plataforma de conversa em tempo real, com estética editorial e escura.
+Reúne **constelações** (comunidades), **órbitas** (canais de texto e de voz) e
+**sussurros** (conversas privadas), com chamadas de voz, transmissão de tela, cargos,
+reações, enquetes, busca, notificações, uma bot com inteligência artificial, níveis e
+missões.
 
-**Três clientes sobre uma API só:**
-
-| Cliente | Onde | Stack | Estado |
-|---|---|---|---|
-| **Desktop** | `mobile-native/desktopApp` | Kotlin · Compose Multiplatform/JVM | **fase ativa** |
-| **Android** | `mobile-native/app` | Kotlin · Jetpack Compose | versões de teste |
-| **Web** | etiqueta `arquivo/web` | React 19 · Vite | arquivado |
-
-O desktop é onde o trabalho acontece hoje. O web serviu de mapa: o que ele já
-resolvia virou o alvo de paridade dos clientes nativos. Saiu do ar e saiu da branch
-principal em 14/09/2026; o ponto em que saiu fica na etiqueta `arquivo/web`, com o
-histórico inteiro.
-
-O Android saiu da branch principal em 06/09/2026 e voltou em 19/09/2026; o ponto em
-que saiu fica na etiqueta `arquivo/android`. Por enquanto ele publica **só versões de
-teste**: pré-lançamentos `android-teste-v…`, que nunca aparecem como a versão atual do
-Astra. Não há download oficial de Android, e o `APK/README.md` diz isso a quem vai
-procurar. A release do desktop publica só o que o app usa: o pacote e o hash dele.
-
-O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
-processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo
-aplicativo e morre com ele.
-
-> **O código não tem comentários, e isso é deliberado.** O *porquê* de cada decisão
-> — as medições, as armadilhas, os caminhos tentados que não deram certo — está no
-> **histórico de commits**, que é onde ele fica pesquisável por `git log -S` e amarrado
-> à mudança que o produziu.
+| Aplicativo | Situação |
+| --- | --- |
+| **Computador** (Windows) | fase atual do projeto |
+| **Android** | só versões de teste |
+| **Web** | arquivado na etiqueta `arquivo/web` |
 
 ---
 
-## Stack
+## Tecnologias
 
-**Backend** (`apps/api`) — 39 grupos de rota
-- Express 5 · TypeScript · Drizzle ORM 0.45
-- PostgreSQL (Supabase) · Redis (Upstash, presença + cache) · Socket.io (realtime)
-- LiveKit — voz e tela do desktop e do Android; o desktop entra na mesma sala por um
-  processo à parte (ver `sidecar-voz`)
-- Armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
-- IA da bot: Groq (Gemini como alternativa; `IA_PROVIDER` desempata)
+### Aplicativo para computador
 
-**Desktop** (`mobile-native/desktopApp`) — a fase ativa
-- Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
-- **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
-- Coil3 · socket.io-client · JNA (foco de janela, identidade na barra de tarefas, lista
-  de placas, início com o Windows, permissões) · Nucleus (identidade no atalho do menu
-  Iniciar) · RikkaUI · Lucide
-- Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
+- **Kotlin** e **Compose Multiplatform**: a linguagem e a interface, desenhada pela
+  placa de vídeo (Skia sobre Direct3D)
+- **Java 25**: o ambiente em que o app roda, empacotado junto, sem nada para instalar à parte
+- **Koin**: organização das dependências internas
+- **Retrofit**, **OkHttp** e **kotlinx.serialization**: a conversa com o servidor
+- **Coroutines** e **Flow**: tarefas simultâneas e estado que se atualiza sozinho
+- **Socket.IO**: mensagens, presença e avisos ao vivo
+- **Coil**: imagens e GIFs
+- **Compottie**: animações Lottie
+- **RikkaUI** e **Lucide**: componentes de interface e ícones
+- **JNA**: integração com o Windows (barra de tarefas, foco da janela, início com o
+  sistema e sessão protegida pelo próprio Windows)
+- **Nucleus**: a identidade do Astra no menu Iniciar
+- **MP3SPI** e **VorbisSPI**: os sons em MP3 e OGG da soundboard
+- **SkSL**: os shaders do fundo de aurora
 
-**Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
-- **pion/webrtc** por baixo e **livekit/server-sdk-go** por cima: o sidecar entra na
-  sala do LiveKit como um participante e publica lá, igual aos outros clientes. O SFU
-  encaminha — não há malha ponto a ponto nem travessia de NAT por conta própria
-- Captura de tela inteira por **DXGI Desktop Duplication** e de **uma janela** por
-  **Windows.Graphics.Capture**; compressão H.264 pelo **Media Foundation**, na placa
-  quando há uma e em software quando não há. Baixa latência, taxa variável com pico
-  limitado e CABAC quando o compressor aceita
-- A taxa da camada cheia se ajusta sozinha entre **30 e 60 por segundo**, refeita a cada
-  segundo pelo custo medido de comprimir: cai depressa quando a máquina não acompanha e
-  sobe devagar quando volta a sobrar folga. A troca acontece com o compressor em
-  funcionamento — quem assiste não vê degrau
-- A tela pode subir em **duas qualidades** (a cheia e uma pela metade a 30 fps), para
-  que quem está com a rede curta receba a menor em vez de derrubar a de todo mundo.
-  Exige placa com aceleração e **começa desligado** — Configurações › Voz
-- A banda se ajusta sozinha pelo que o TWCC e os relatórios de recepção contam, e o
-  pedido de quadro-chave de quem acabou de chegar é atendido na hora
-- Áudio em Opus a 64 kbps em banda cheia. O eco é cancelado pelo **AEC3**, o mesmo motor
-  que roda dentro do Chromium, na taxa cheia de 48 kHz; a supressão de ruído e o ganho
-  automático acompanham o que estiver marcado em Configurações › Voz. Se o AEC3 não
-  puder abrir, o cancelador do Windows assume — ao custo de 16 kHz — e, na falta dos
-  dois, a voz segue sem cancelamento
-- Pacote perdido é reconstruído a partir da redundância que o próprio Opus embute em cada
-  pacote, e a dose dessa redundância segue a perda medida na chamada em vez de supor um
-  valor fixo. O colchão contra engasgo parte de um quadro (20 ms) e cresce para quem teve
-  engasgo comprovado
-- Fala com o app por **entrada e saída padrão** (uma linha de JSON por mensagem) e
-  entrega os quadros por um cano TCP separado na volta local
-- Processo separado de propósito: interoperar com COM/Media Foundation dentro da JVM
-  significaria superfície nativa no processo do aplicativo, e uma falha ali derruba a
-  janela inteira. Aqui, o pior caso é a chamada cair — o Astra continua de pé
+### Voz e transmissão de tela
 
-**Android** (`mobile-native/app`, versões de teste)
-- Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
-- Hilt (DI/KSP) · Room (cache offline-first) · DataStore · Baseline Profile
-- LiveKit Android · FCM (push)
+- **LiveKit**: as salas de voz e de tela, pelo LiveKit Cloud
+- **Rust**, com o **LiveKit SDK para Rust**, **Tokio** e **windows-rs**: o motor de voz e
+  tela, que roda num processo à parte do app
+- **libwebrtc**, o WebRTC do Google: o transporte da voz e da tela, compilado dentro do motor
+- **Opus**: o codec de voz
+- **AEC3**: o cancelamento de eco do libwebrtc, o mesmo do Chromium
+- **Media Foundation**: a compressão de vídeo H.264 pela placa de vídeo
+- **DXGI Desktop Duplication** e **Windows.Graphics.Capture**: a captura da tela inteira e
+  de uma janela
 
-**Web** (etiqueta `arquivo/web`, arquivado)
-- React 19 · Vite 8 · TypeScript · Tailwind v4 · shadcn/ui · motion/react
-- Zustand · React Query 5 · React Router 6
+### Android
 
-**Monorepo:** npm workspaces · `packages/types` (Zod compartilhado). O projeto
-nativo é um build Gradle à parte em `mobile-native/`, e `sidecar-voz/` é um módulo
-Go independente — o Gradle do desktop o compila e empacota junto do aplicativo.
+- **Kotlin**, **Jetpack Compose** e **Material 3**
+- **Hilt**, **Room**, **DataStore**, **Navigation** e **Lifecycle**
+- **Retrofit**, **OkHttp**, **kotlinx.serialization**, **Socket.IO** e **Coil**
+- **Media3**: tocar e comprimir vídeos
+- **LiveKit Android**: voz e tela
+- **Firebase Cloud Messaging**: notificações
+- **Baseline Profiles** e **Macrobenchmark**: abertura mais rápida
+- **LeakCanary**: caça a vazamentos de memória nas versões de desenvolvimento
 
-> **`:shared` não é KMP.** Apesar do nome, ele tem só o source set `main`, é
-> Kotlin/JVM puro e carrega apenas a camada de rede (`core/network`) e os DTOs.
-> **A UI não é compartilhada** entre Android e desktop — cada um tem as próprias
-> telas. Paridade entre eles é reescrita, não reuso; planejar como se fosse reuso
-> já custou tempo aqui.
+### Servidor
 
-**Hospedagem:** API → Render (US East) · Postgres → Supabase · Redis → Upstash ·
-arquivos → bucket S3 ou R2 · voz e tela do desktop e do Android → LiveKit Cloud. O web saiu
-da lista quando foi arquivado.
+- **Node.js** e **TypeScript**, com **Express**
+- **PostgreSQL**, com **Drizzle ORM**
+- **Redis**: presença e cache
+- **Socket.IO**: o tempo real, com adaptador Redis
+- **Zod**: validação dos dados, com os tipos num pacote compartilhado
+- **Passport** (entrar com Google), **JWT** e **bcrypt**: contas e sessões
+- **Multer**, **Sharp** e **BlurHash**: envio e tratamento de imagens
+- **AWS SDK (S3)**: os arquivos, guardados no Supabase Storage
+- **LiveKit Server SDK**: o acesso às salas de voz
+- **Firebase Admin**: o envio das notificações do Android
+- **Helmet**, **CORS** e **express-rate-limit**: a proteção da API
+- **Sentry** e **prom-client**: erros e métricas
 
----
+### Serviços
 
-## O que o app faz
+| Serviço | Para quê |
+| --- | --- |
+| Render | hospeda o servidor |
+| Supabase | banco PostgreSQL e armazenamento de arquivos |
+| Upstash | Redis |
+| LiveKit Cloud | voz e transmissão de tela |
+| Groq e Google Gemini | a IA da bot e a tradução de mensagens |
+| GIPHY | busca de GIFs |
+| Brevo | e-mail |
+| Firebase | notificações do Android |
+| Google | entrar com a conta Google |
+| Sentry | registro de erros |
+| GitHub | código, integração contínua, distribuição das versões e Dependabot |
 
-**Conversa**
-Órbitas de texto e de voz, categorias, sussurros (DM), grupos, respostas, edição,
-menções com `@` e autocomplete, reações, enquetes, GIFs, figurinhas por
-constelação, emojis, anexos com prévia e lightbox, marcadores, busca global,
-histórico de destinos, tradução, fixar mensagem e menus de botão-direito em tudo.
-A mensagem guarda **quem a escreveu no instante do envio** — nome, foto e cor —, então
-trocar de perfil não reescreve o passado. Mensagem anterior a essa regra cai no perfil
-atual: não há de onde tirar a identidade da época, e carimbá-la seria inventar.
+### Ferramentas
 
-**Voz e tela**
-Sala de voz por órbita com antessala, chamada de voz dentro do sussurro
-com registro no histórico ("Chamada perdida", "Chamada de 12 min"), transmissão
-de tela, painel flutuante da call ao navegar, soundboard por constelação.
-Não há câmera: o Astra é voz e tela, por decisão de escopo.
-Volume de entrada e de saída, volume por pessoa no botão-direito do cartão, e um
-sinal de três barras no rodapé que mostra ida e volta, tremor e perda da chamada.
-
-**Pessoas**
-Amigos com pedidos nos dois sentidos, presença ao vivo (online/ausente/ocupado/
-invisível), bloqueio, perfil com avatar, banner, pronomes, bio, recado, cor e
-fonte próprias, recorte de imagem embutido, cartão de perfil completo, cargos com
-cores/hierarquia/permissões, banimentos, convites e prévia de convite.
-
-**A bot da casa**
-Duas personas que se revezam: **Sparkle** na semana, **Sparxie** no fim de semana.
-A troca de turno é anunciada no canal, e a que estava de plantão fica gravada na
-mensagem — quando a outra assume, o aviso antigo continua assinado por quem o
-escreveu. Ela saúda quem chega na constelação, comemora nível, e atende por
-`/sparkle` ou `/sparxie` com 21 comandos entre utilidade e entretenimento (ajuda,
-status, sorteio, dado, enquete-relâmpago, "quem mandou"). Conversa por IA: Groq,
-com Gemini como alternativa.
-
-**Descoberta e chegada**
-Descobrir constelações públicas, entrada por convite, onboarding com checklist de
-primeiros passos, constelação nova nasce povoada.
-
-**Sinal**
-Notificações com painel, badge, marcar tudo como lido e limpar histórico,
-silenciar por canal e por constelação, não-lidos com contagem, push (Android).
-Silenciar tudo por uma hora ou até de manhã vale só nesta máquina, por escolha —
-quem quer calar a conta inteira já tem o "não perturbe" — e o rodapé mostra um sino
-cortado enquanto o prazo corre, que desfaz num clique.
-
-**Progressão**
-XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
-com aviso, distintivos.
-
-**Casa da máquina (desktop)**
-Auto-update por zip-swap assinado com Ed25519, que baixa só o que mudou, insiste
-quando a conexão oscila, retoma de onde parou o download do pacote inteiro e só mostra
-a versão nova ao atalho quando ela está inteira, bandeja do sistema que troca o
-estado (brilhando, ausente, não perturbe, invisível) e silencia os avisos sem abrir
-a janela, atalho no menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede
-e permissões,
-configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
-duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento.
-
-Abrir o Astra começa pela tela de abertura, que procura versão nova e conta o que
-está acontecendo — as palavras espaciais enquanto procura, o nome da versão quando
-há uma, o progresso quando baixa. Ela sai sozinha: na hora, se estiver em dia; depois
-de dizer o motivo, se a consulta falhar. Se há versão nova, ela fica até a atualização
-terminar e o Astra reabrir já atualizado — a não ser que a conexão passe um minuto
-inteiro sem entregar nada; aí ela dá lugar à janela, e a atualização segue por trás,
-com um aviso na barra de título. E ao sair entrega o lugar para a janela principal.
-
-**O Astra não mede a máquina de quem usa.** Não há afinação automática, degrau
-escondido nem qualidade escolhida por número de núcleos: todo mundo recebe o mesmo
-app. Quem cria conta escolhe um perfil — Leve, Equilibrado ou Completo — num passo
-do tour de estreia, com a tela mudando ao vivo enquanto escolhe, e tudo continua
-item a item em *Aparência*.
-
-Quando algo dá errado, o app deixa laudo em `%LOCALAPPDATA%\Astra`:
-`arranque.txt` marca por onde o arranque passou e em quanto tempo — onde a lista
-para é onde o app parou; `diagnostico.txt` traz placa, motor de desenho e versão;
-`falhas.txt` guarda o que estourou; `voz.txt` recebe o relato do sidecar;
-`recuo.txt` diz que uma segunda cópia reconheceu a primeira e saiu — e, quando foi
-o caso, que ela encerrou uma primeira que havia travado.
-
-**Só um Astra por vez, e sem pedir nada à rede.** Quem responde "já há um aberto?" é
-um cadeado nomeado do Windows: o sistema o solta no instante em que o processo
-termina, por saída limpa, queda ou encerramento forçado — então fechar e reabrir na
-hora seguinte simplesmente abre. O recado "traga a janela para a frente" viaja por um
-socket de arquivo (`aviso.sock`), não por porta de rede, para que o firewall não tenha
-nada a decidir. Onde o caminho do arquivo passa do teto do Windows (~108 caracteres),
-o Astra recua sozinho para uma porta em 127.0.0.1.
+- **Gradle**, **npm workspaces** e **Cargo**: a construção de cada projeto
+- **GitHub Actions**: integração contínua e publicação
+- **Biome**, **detekt** e **Clippy**: análise estática do TypeScript, do Kotlin e do Rust
+- **Vitest** e os testes nativos do Rust
+- **Python**: as provas de abertura do pacote
+- **Java**: as ferramentas de assinatura Ed25519 e as provas do shader
+- **Node.js** e **PowerShell**: scripts de conferência e de medição
+- **winresource**: nome, versão e ícone no executável do motor de voz
+- **cargo-about**: o texto das licenças das bibliotecas do motor, gerado a cada versão
 
 ---
 
-## Acessibilidade
+## Como o Astra é feito
 
-Não é item de backlog aqui — é regra de aceite para tela nova:
+### Fluxo de trabalho
 
-- Todo botão só-ícone tem nome para o leitor de tela.
-- Foco de teclado é sempre visível, e o anel só aparece na navegação por teclado
-  (o equivalente ao `:focus-visible` da web) — clicar com o mouse não desenha anel.
-- Alvo de clique mínimo de 24dp; o padrão do app é 26–34dp.
-- Toda animação respeita "reduzir movimento". O app cobre **WCAG 2.3.3 (AAA)**.
-- Contraste mira **AA, não AAA**: passar do ponto produz halação, que cansa em
-  sessão longa à noite — que é o uso real.
-- Windows: o leitor de tela enxerga via Java Access Bridge, então o módulo
-  `jdk.accessibility` precisa continuar no empacotamento.
+- O trabalho do dia acontece num ramo de desenvolvimento. O ramo principal publica para
+  todos, então só avança por pull request, com a integração contínua verde e aprovação.
+- Cada envio passa pela integração contínua: tipos, estilo, testes e auditoria de
+  dependências no servidor; compilação e análise estática do app para computador;
+  compilação do Android; testes e análise estática do motor de voz; conferência das
+  licenças e dos acentos do texto visível.
+- Commits pequenos e frequentes, com mensagens longas que explicam o porquê.
+- **O código não tem comentários, de propósito.** O nome diz o que o código faz. O porquê
+  de cada decisão (as medições, as armadilhas, os caminhos que não deram certo) fica no
+  histórico de commits, amarrado à mudança que o produziu.
+- Peças pequenas e nomeadas, em vez de arquivos que concentram tudo.
 
----
+### Medir antes de mexer
 
-## Setup local
+- Mudança de desempenho só entra medida: a versão antiga e a nova se alternam por várias
+  rodadas numa cópia de teste isolada, e a mediana decide.
+- Antes de cada fase grande vem uma pesquisa a fundo. A troca do motor de voz de Go para
+  Rust, por exemplo, passa por portões com critérios numéricos antes de chegar a todos.
+- Todo mundo recebe o mesmo app: o Astra não mede a máquina de quem usa nem escolhe a
+  qualidade sozinho. Quem quer leveza escolhe um perfil (Leve, Equilibrado ou Completo).
 
-Requer Node 24, PostgreSQL e Redis. Para o desktop, JDK 25.
+### Publicação
 
-```bash
-# 1. Instalar deps
-npm install
+- Cada versão para computador é assinada (Ed25519), e o app só instala o que confere com
+  a assinatura e com a lista de arquivos.
+- A atualização baixa só o que mudou.
+- Antes de publicar, o pacote é aberto treze vezes, em treze condições difíceis: máquina
+  fraca, sem placa de vídeo, sem internet, preferências corrompidas, uma segunda cópia
+  aberta, entre outras. Se uma falhar, nada é publicado.
+- O Android publica só versões de teste, que nunca aparecem como a versão atual.
 
-# 2. Configurar envs (copia .example, preenche)
-cp apps/api/.env.example apps/api/.env
+### Design
 
-# 3. Migrar DB
-npm run db:migrate
+- Estética editorial e escura ("obsidiana"), sem tema claro, por escolha.
+- **Cartão dentro de cartão:** o conteúdo se separa por superfícies aninhadas, não por
+  linhas de borda a borda.
+- **Hierarquia por elevação, não por cor:** quanto mais clara a superfície, mais
+  importante. A cor de destaque entra por último e em pouca área.
+- **Movimento com orçamento:** a animação marca o que importa (mensagem nova, alguém
+  entrando na call), e o resto fica quieto.
+- Texto em tom adulto e editorial.
 
-# 4. Dev (API)
-npm run dev
-```
+### Acessibilidade
 
-API em `http://localhost:3001`. O desktop aponta para ela sozinho em desenvolvimento.
+É regra de aceite para tela nova, não item de lista de pendências:
 
-**Desktop:**
+- todo botão só com ícone tem nome para o leitor de tela;
+- o foco do teclado é sempre visível;
+- todo alvo de clique tem pelo menos 24dp;
+- toda animação respeita "reduzir movimento" (WCAG 2.3.3, nível AAA);
+- o contraste mira o nível AA, porque passar disso ofusca e cansa em sessões longas à
+  noite, que é o uso real.
 
-```bash
-cd mobile-native
-./gradlew :desktopApp:run                  # roda
-./gradlew :desktopApp:compileKotlin        # só compila (checagem rápida)
-./gradlew :desktopApp:zipDistributable     # zip distribuível
-```
+### Licenças e segurança
 
-**Android** (o módulo só entra no build com `-Pastra.android=1`):
-
-```bash
-cd mobile-native
-./gradlew -Pastra.android=1 :app:assembleDebug
-```
-
----
-
-## Deploy
-
-### API → Render (+ Supabase + Upstash)
-
-Postgres e Redis são serviços externos, não add-ons do Render.
-
-1. Supabase → cria um Postgres, copia a string do **Session pooler, porta 5432** →
-   `DATABASE_URL` (a conexão direta é IPv6 e o Render não alcança; a 6543 é o
-   transaction pooler e quebra os prepared statements do Drizzle)
-2. Upstash → cria um Redis, copia a URL (TLS `rediss://`) → `REDIS_URL`
-3. Render → New Web Service → conecta o repo
-   - Build Command: `npm run build:api`
-   - Start Command: `npm run start:api`
-   - Auto-Deploy: **On** (senão os pushes não sobem sozinhos — isso já custou
-     uma caçada a um bug que estava corrigido no código e não no ar)
-4. Environment Variables (lista completa em `apps/api/.env.example`):
-   - `DATABASE_URL` (Supabase) · `REDIS_URL` (Upstash)
-   - `JWT_ACCESS_SECRET` + `JWT_REFRESH_SECRET`
-     (gere com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
-   - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
-   - `CLIENT_URL` = URL pública do cliente web, sem barra final. Obrigatória: a API
-     usa em CORS, no CSP, no retorno do login Google e no destino dos convites.
-     O site foi arquivado, então hoje ela aponta para um endereço fora do ar
-   - `API_URL` = URL pública desta API (sem barra final)
-
-Sem passo de migration: o schema é garantido no boot por `ensureSchema`
-(DDL idempotente).
-
-O plano free dorme após ~15min sem tráfego de entrada — a API se cutuca sozinha no
-`/live` a cada 10min (`lib/naoDormir.ts`, só em produção e só com `RENDER_EXTERNAL_URL`
-ou `API_URL`), e um pinger externo (ex: cron-job.org) cobre o resto, também no **`/live`**.
-
-> Aponte o pinger para o `/live`, **não** para o `/health`. O `/health` consulta Postgres
-> e Redis a cada chamada: pingado de minuto em minuto ele segura o banco acordado sem
-> necessidade — foi assim que a cota de compute do Neon estourou em 2026-07-31 (erro
-> `53000: exceeded the compute time quota`) e derrubou o deploy, antes da mudança para
-> o Supabase. `/live` só responde uptime.
-
-> Acordado 24h o serviço consome ~744 das **750 horas free por mês da conta inteira**.
-> Cabe, com folga curta: um segundo serviço free na mesma conta suspende todos até o
-> mês virar. O Render também reinicia serviços free quando quer, e voltar leva ~1min —
-> no plano free não existe "nunca cair".
-
-### Desktop → GitHub Releases
-
-Publicar é **só subir a versão**. Não há tag para criar nem zip para arrastar:
-
-1. `mobile-native/gradle.properties` → `astraVersion=x.y.z`
-2. pull request da `astra-dev` para a `main`, juntado com commit de merge quando a CI
-   passar — a `main` não aceita push direto
-
-O workflow `desktop-release.yml` trabalha em duas etapas separadas. A primeira monta o
-zip e o prova, com permissão só de leitura. A segunda não baixa nem executa nada do
-build: gera a lista com o SHA-256 de cada arquivo do pacote, assina essa lista com
-Ed25519, confere a assinatura contra a chave pública embutida no app e só então cria a
-tag `desktop-v<versão>` com o zip, o hash, a lista e a assinatura. O app procura
-sozinho e só instala se a assinatura bater com a chave dele e cada arquivo montado
-bater com a lista, nos dois caminhos de atualização.
-
-A chave privada vive **só** no segredo `ASTRA_CHAVE_DE_ASSINATURA` do repositório, e
-não existe reserva. Sem ela nenhuma release sai; se ela se perder ou vazar, quem estiver
-numa versão que confere assinatura só volta a atualizar reinstalando à mão. As
-ferramentas estão em `tools/assinatura`.
-
-Antes de publicar, o zip recém-montado é aberto **treze vezes**, em treze condições
-diferentes (`tools/provas-de-abertura`): máquina fraca, sem placa de vídeo, modo
-seguro, preferências corrompidas ou travadas, sessão pela metade, sem internet,
-abertura depois de uma queda, uma segunda cópia com o app já aberto, a vaga da cópia
-única presa por um programa que nunca responde, e fechar e reabrir no instante
-seguinte. Se qualquer uma falhar, **a publicação para** — nada chega a ninguém.
-
-Desenhar um quadro é necessário e não é suficiente: uma janela pode desenhar atrás de
-todas as outras, e para quem está na frente do computador isso é igual a não abrir.
-Por isso as provas de segunda cópia e de reabertura cobram também que a janela que já
-existia seja trazida para a frente, e que a vaga fique livre depressa.
-
-As provas são Python de biblioteca padrão e rodam à mão:
-
-```bash
-python -u tools/provas-de-abertura/provas.py --de <pasta do app> --tempo 75
-```
-
-> O banco recusa começar se já houver um Astra aberto — uma cópia viva faria toda
-> prova sair pelo caminho errado. E use `--base` com uma pasta curta: o recado entre
-> cópias viaja por arquivo, e caminho de arquivo tem teto de ~108 caracteres no
-> Windows; acima disso as provas exercitam o recuo em vez do caminho principal.
-
-> O app minimiza para a bandeja em vez de fechar. Para testar um build novo, use
-> **Sair** na bandeja e reabra — fechar a janela não encerra o processo.
-
-### Pós-deploy
-
-1. Google Console: adicionar `https://<client-url>/auth/callback` em
-   "Authorized redirect URIs"
-
-> **Convites apontam para o site arquivado.** `GET /invite/:code` monta o cartão de
-> prévia do link e depois manda a pessoa para `CLIENT_URL/invite/<code>`. Com o site
-> fora do ar, quem recebe um convite cai numa página morta. Pendente decidir o novo
-> destino.
-
----
-
-## Scripts úteis
-
-```bash
-npm run dev          # api (com predev hook)
-npm run dev:fast     # mesmo, sem predev (skip migrate + port check)
-npm run build        # build types + api
-npm run build:api    # mesmo que build
-npm run db:migrate   # migrations Drizzle
-
-# API workspace
-npm test -w apps/api          # vitest
-npm run db:studio -w apps/api # Drizzle Studio
-```
-
----
-
-## Variáveis opcionais
-
-A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
-fallback, e não quebra o boot:
-
-- `LIVEKIT_*` — sem isso, voz e tela off nos três clientes
-- `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
-- `S3_*` / `R2_*` — em desenvolvimento, o upload cai para o disco local
-  (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do
-  servidor é efêmero, e gravar ali produziria URLs que morrem no próximo deploy,
-  deixando a imagem quebrada no banco para sempre. O log diz quais variáveis faltam
-- `BREVO_API_KEY` + `MAIL_FROM` — sem isso, e-mail off
-- `GIPHY_API_KEY` — sem isso, o seletor de GIF some
-- `VAPID_*` — sem isso, push off
-- `SENTRY_DSN` — sem isso, sem error tracking
-- `METRICS_TOKEN` — sem isso, `/metrics` responde 404 em produção
-
----
-
-## Design
-
-Editorial-dark "obsidiana", dark-only por escolha. O acento de fábrica é
-**branco** (`#D4D8E0`, preset "Obsidiana") — âmbar é uma opção entre 19, não o
-padrão. O fundo padrão é liso; aurora e estrelas são escolha em
-*Aparência › Fundo*, e dá para ligar as duas.
-
-Três regras carregam o resto:
-
-1. **Cartão dentro de cartão.** Conteúdo se separa por aninhamento de superfície,
-   não por linha divisória. Traço de borda a borda lê como grade de tabela; quando
-   um separador é mesmo necessário, ele é curto e centralizado.
-2. **Hierarquia por elevação, não por cor.** A rampa `void → base → raised →
-   overlay → hover → active` é a ferramenta principal de "isto importa mais". Cor
-   entra por último e em pouca área — o acento nunca vira fundo.
-3. **Movimento com orçamento.** Movimento é sinal, não enfeite: gasta-se nos
-   eventos que importam (mensagem nova, alguém entrando na call, entrada de tela)
-   e mantém-se hover e repouso quietos. App que pisca por tudo ensina a ignorar o
-   piscar.
-
-Tipografia: Cinzel (letreiro) + Cormorant (títulos) + DM Sans + DM Mono + Great Vibes.
-Paleta completa de tokens do desktop em `mobile-native/desktopApp/…/ui/theme/`.
+- Nada sob GPL ou AGPL entra no produto, e as licenças das dependências do motor em Rust
+  são conferidas a cada mudança.
+- Todo recurso de terceiros entra com o texto da licença ao lado e uma linha nos
+  créditos, no mesmo commit.
+- Segredos ficam fora do repositório. A chave que assina as versões vive só no cofre do
+  GitHub.
+- Dependências auditadas a cada envio, limite de pedidos na API e proteção contra acesso
+  a endereços internos na prévia de links.
 
 ---
 
 ## Créditos
 
-Nem tudo que dá cara ao Astra foi feito aqui. O que veio de fora está nomeado
-abaixo, com o autor e a origem.
+Nem tudo que dá cara ao Astra foi feito aqui. O que veio de fora está nomeado abaixo,
+com o autor e a origem.
 
-**Regra da casa:** todo asset de terceiro entra junto do texto da licença dele *e*
-de uma linha nesta seção, no mesmo commit. Várias dessas licenças pedem atribuição,
-e mesmo as que não pedem merecem — a arte é de quem a desenhou.
+**Regra da casa:** todo recurso de terceiros entra junto do texto da licença dele *e* de
+uma linha nesta seção, no mesmo commit. Várias dessas licenças pedem atribuição, e mesmo
+as que não pedem merecem: a arte é de quem a desenhou.
 
 ### Arte
 
 | O quê | Autor | Origem |
 | --- | --- | --- |
-| Gato do companheiro — "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
-| Gato do companheiro — "Travesso" | **Jump Button** ([@Jump_Button](https://twitter.com/Jump_Button)) | Cat Player — crédito exigido em uso comercial |
-| Companheiro — "Sátiro" | *autor a confirmar* | pacote sem arquivo de licença; uso liberado pelo autor ao dono do Astra |
+| Gato do companheiro, "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
+| Gato do companheiro, "Travesso" | **Jump Button** ([@Jump_Button](https://twitter.com/Jump_Button)) | Cat Player, com crédito exigido em uso comercial |
+| Companheiro "Sátiro" | *autor a confirmar* | pacote sem arquivo de licença; uso liberado pelo autor ao dono do Astra |
 
 A licença dos companheiros viaja junto da arte, em
-`mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada
-folha fica no `enum Pet`, em `ui/PetDoAstra.kt`.
+`mobile-native/desktopApp/src/main/resources/pet/`.
 
 ### Animações
 
 Feitas por animadores e publicadas no [LottieFiles](https://lottiefiles.com) sob a
-Lottie Simple License, que permite uso comercial e não exige crédito — o crédito aqui
-é a regra da casa. Os arquivos ficam sem alteração em
+Lottie Simple License, que permite uso comercial e não exige crédito; o crédito aqui é a
+regra da casa. Os arquivos ficam sem alteração em
 `mobile-native/desktopApp/src/main/resources/animacoes/`, com o texto da licença ao
-lado; a cor do tema é aplicada na hora de tocar, pela biblioteca
-[Compottie](https://github.com/alexzhirkevich/compottie) (MIT).
+lado, e tocam pela biblioteca [Compottie](https://github.com/alexzhirkevich/compottie)
+(MIT), que aplica a cor do tema na hora.
 
 | O quê | Autor | Origem |
 | --- | --- | --- |
@@ -454,119 +210,80 @@ lado; a cor do tema é aplicada na hora de tocar, pela biblioteca
 
 ### Tipografia
 
-| Fonte | Autor | Licença |
-| --- | --- | --- |
-| Cormorant | Christian Thalmann ([Catharsis Fonts](https://github.com/CatharsisFonts/Cormorant)) | SIL Open Font License 1.1 |
-| DM Sans · DM Mono | Colophon Foundry / Jonny Pinhorn | SIL Open Font License 1.1 |
-| Cinzel (letreiro "Astra") | Natanael Gama ([NDISCOVER](https://github.com/NDISCOVER/Cinzel)) | SIL Open Font License 1.1 |
-| Great Vibes | Robert Leuschke | SIL Open Font License 1.1 |
+| Fonte | Onde | Autor | Licença |
+| --- | --- | --- | --- |
+| Cormorant | computador | Christian Thalmann ([Catharsis Fonts](https://github.com/CatharsisFonts/Cormorant)) | SIL Open Font License 1.1 |
+| Cinzel (letreiro "Astra") | computador | Natanael Gama ([NDISCOVER](https://github.com/NDISCOVER/Cinzel)) | SIL Open Font License 1.1 |
+| DM Sans · DM Mono | computador e Android | Colophon Foundry / Jonny Pinhorn | SIL Open Font License 1.1 |
+| DM Serif Display | Android | Colophon Foundry / Frank Grießhammer, a partir da Source Serif, da Adobe | SIL Open Font License 1.1 |
+| Great Vibes | computador e Android | Robert Leuschke | SIL Open Font License 1.1 |
 
-O texto de cada licença viaja junto do arquivo da fonte, em
-`mobile-native/desktopApp/src/main/resources/font/LICENCA-*.txt`. **Não é
-formalidade:** a SIL OFL exige que a licença acompanhe o *Font Software* sempre que
-ele for redistribuído, e o Astra é um zip público — a linha nesta tabela credita, mas
-quem cumpre a licença é o arquivo ao lado da fonte.
+O texto de cada licença viaja junto das fontes: em
+`mobile-native/desktopApp/src/main/resources/font/` no computador e em
+`mobile-native/app/src/main/assets/licencas/` no Android. **Não é formalidade:** a SIL
+OFL exige que a licença acompanhe a fonte sempre que ela é redistribuída, e os pacotes
+do Astra são públicos.
 
 ### Ícones
 
-[Lucide](https://lucide.dev) — ISC License.
+[Lucide](https://lucide.dev), sob a ISC License.
 
 A lua do estado "ausente" é o ícone "eclipse" (sólido) da
-[Myna UI Icons](https://github.com/praveenjuge/mynaui-icons), de **Praveen Juge** — MIT
-License. O arquivo fica sem alteração em
+[Myna UI Icons](https://github.com/praveenjuge/mynaui-icons), de **Praveen Juge**, sob a
+MIT License. O arquivo fica sem alteração em
 `mobile-native/desktopApp/src/main/resources/icones/`, com o texto da licença ao lado.
 
-### Bibliotecas dentro do produto
+### Motor de voz e tela
+
+O motor em Rust (`astra-voz.exe`) leva dentro as bibliotecas abaixo. Ao lado dele, o
+pacote traz o texto completo de cada licença: `LICENCAS-DO-MOTOR-DE-VOZ.txt`, com as
+bibliotecas em Rust, gerado a cada versão pelo cargo-about, e `LICENCAS-DO-LIBWEBRTC.md`,
+com o libwebrtc e os componentes que ele reúne.
 
 | Biblioteca | Para quê | Licença |
 | --- | --- | --- |
-| [webrtc-audio-processing](https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing) `d0569cfa` | o cancelador de eco AEC3, o mesmo que roda dentro do Chromium | BSD 3-Clause (Google / projeto WebRTC) |
+| [LiveKit Rust SDK](https://github.com/livekit/rust-sdks) | entrar na sala e publicar a voz e a tela | Apache 2.0 |
+| [libwebrtc](https://webrtc.org), compilado pela LiveKit | o WebRTC: transporte, cancelamento de eco e codecs | BSD 3-Clause |
+| [FFmpeg](https://ffmpeg.org), dentro do libwebrtc | decodificar o vídeo das transmissões | LGPL 2.1 |
+| [Opus](https://opus-codec.org), dentro do libwebrtc | o codec de voz | BSD 3-Clause |
+| [OpenH264](https://www.openh264.org), [libvpx](https://chromium.googlesource.com/webm/libvpx), [libaom](https://aomedia.googlesource.com/aom) e [dav1d](https://code.videolan.org/videolan/dav1d), dentro do libwebrtc | os codecs de vídeo H.264, VP8, VP9 e AV1 | BSD |
+| [BoringSSL](https://boringssl.googlesource.com/boringssl), dentro do libwebrtc | a criptografia das chamadas | Apache 2.0 |
+| [Tokio](https://tokio.rs) | as tarefas simultâneas do motor | MIT |
+| [windows-rs](https://github.com/microsoft/windows-rs) | a captura de tela, a compressão de vídeo e o resto do Windows | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
+| [serde](https://serde.rs) | a conversa com o app | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
 
-Esta entra **compilada dentro** do `astra-voz.exe`, então a licença viaja junto do
-código que a usa, em `sidecar-voz/eco3/`. Ela existe por um motivo específico: o
-cancelador de eco do Windows só opera em 8 ou 16 kHz, e ligá-lo derrubava **toda** a
-voz do Astra para 16 kHz — metade da taxa que o site usa. O AEC3 cancela na taxa
-cheia de 48 kHz.
-
-O ponto travado é um **commit**, não a versão 2.1 lançada: a 2.1 não compila com
-GCC 15 ou 16, porque essas versões deixaram de arrastar `<cstdint>` junto de outros
-cabeçalhos e o código conta com isso. O `d0569cfa` é o primeiro estado já corrigido.
+O FFmpeg, sob a LGPL 2.1, vai ligado de forma estática ao motor. Para cumprir a licença,
+cada versão publicada leva junto o código-fonte do FFmpeg usado, o libwebrtc exatamente
+como entrou no motor e as instruções para refazer o motor com outra versão do FFmpeg.
 
 ### Código adaptado
 
 | Origem | Para quê | Licença |
 | --- | --- | --- |
-| [moq-video](https://github.com/moq-dev/moq/tree/main/rs/moq-video), de **Luke Curley** | trechos do codificador H.264 por Media Foundation e do conversor de cores do Direct3D 11, adaptados no protótipo da tela em Rust (`sidecar-voz-rs/src/tela/`) | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
+| [moq-video](https://github.com/moq-dev/moq/tree/main/rs/moq-video), de **Luke Curley** | trechos do codificador H.264 por Media Foundation e do conversor de cores do Direct3D 11, adaptados no motor em Rust (`sidecar-voz-rs/src/tela/`) | MIT (o projeto oferece MIT ou Apache 2.0; aqui vale a MIT) |
 
 O texto da licença fica ao lado do código adaptado, em
 `sidecar-voz-rs/src/tela/LICENCA-moq-video.txt`.
 
 ### Dados
 
-O catálogo que traduz nome de executável em título de jogo
+O catálogo que traduz o nome do executável no título do jogo
 (`mobile-native/desktopApp/src/main/resources/jogos.tsv`) é destilado da lista de
 aplicações detectáveis que o **Discord** publica em
-`discord.com/api/v9/applications/detectable`.
-
-Ser honesto sobre o que isso é: um endpoint **público mas não documentado**, sem
-licença declarada. Os títulos são marcas dos respectivos donos e aparecem só para
+`discord.com/api/v9/applications/detectable`: um endereço público, mas não documentado e
+sem licença declarada. Os títulos são marcas dos respectivos donos e aparecem só para
 dizer o que a pessoa está jogando.
 
-Um segundo arquivo (`jogos-arte.tsv`) guarda, por título, o identificador do
-aplicativo e a impressão do ícone. Com esses dois o Astra monta o endereço da arte
-do jogo. **Ela não é servida do Discord:** o servidor do Astra busca a imagem uma
-vez, converte, guarda no armazenamento próprio e serve dali em diante. Isso é
-deliberado, por duas razões — nenhuma máquina de usuário fala com o Discord, e o que
-já foi guardado sobrevive se a fonte sair do ar.
-
-Sobre a arte em si: os ícones são das desenvolvedoras dos jogos, não do Discord, que
-apenas os hospeda. O Astra os reexibe para identificar o jogo que alguém está
-jogando — o mesmo uso nominativo dos títulos. Nenhum ícone é redistribuído no
-instalador; eles só existem no armazenamento do servidor, e só os dos jogos que
-alguém aqui de fato abriu.
-
-O instantâneo tem data no cabeçalho de cada arquivo e se refaz com
-`node tools/atualizar-catalogo-de-jogos.mjs`. Se a fonte sair do ar, o Astra continua
-funcionando: o catálogo é a primeira tentativa, a descrição do próprio executável
-segue como resposta, e o desenho vetorial cobre quem não tem arte.
+A arte dos jogos pertence às desenvolvedoras, não ao Discord, que apenas a hospeda. O
+servidor do Astra busca cada ícone uma vez, guarda no armazenamento próprio e serve dali
+em diante: nenhuma máquina de usuário fala com o Discord, e nenhum ícone viaja no
+instalador. Só existem os dos jogos que alguém aqui de fato abriu.
 
 ### Bibliotecas nativas
 
 | Biblioteca | Para quê | Licença |
 | --- | --- | --- |
-| [Opus](https://opus-codec.org) (`opus-0.dll`) | codec de voz das chamadas | BSD 3-Clause |
-| [Pion WebRTC](https://github.com/pion/webrtc) | transporte de mídia das chamadas | MIT |
-| [LiveKit server-sdk-go](https://github.com/livekit/server-sdk-go) | entrar na sala e publicar voz e tela | Apache 2.0 |
 | [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
 | [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
-| [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
+| [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois leitores acima | LGPL 2.1+ |
 | [Nucleus](https://github.com/NucleusFramework/Nucleus) (`nucleus.notification-windows` + `nucleus.core-runtime`) | gravar a identidade do Astra no atalho do menu Iniciar | MIT |
-
-### Ferramentas de construção
-
-| Ferramenta | Para quê | Licença |
-| --- | --- | --- |
-| [goversioninfo](https://github.com/josephspurrier/goversioninfo) | gerar o recurso que dá nome e ícone ao `astra-voz.exe` no Windows | MIT |
-| [MinGW-w64](https://www.mingw-w64.org) via [winlibs](https://winlibs.com) (GCC 16.1.0) | compilar o AEC3, que é C++, para dentro do `astra-voz.exe` | GPL 3 com a *Runtime Library Exception* |
-
-O goversioninfo não entra no produto: ele roda **uma vez, à mão**, e o que fica
-versionado é a saída (`sidecar-voz/resource_windows_amd64.syso`, gerada de
-`versioninfo.json`). Foi escolhido assim de propósito — gerar a cada build
-acrescentaria uma dependência de rede ao empacotamento e faria o binário do sidecar
-mudar em toda release, o que custaria 9,58 MB de download por atualização a quem já
-o tem.
-
-O MinGW é caso diferente, e por isso está creditado: a ligação é estática
-(`-static-libstdc++ -static-libgcc`), então pedaços da biblioteca de execução do GCC
-**viajam dentro** do executável distribuído. A *Runtime Library Exception* existe
-exatamente para isso e não impõe a GPL ao resultado — o crédito aqui é a regra da
-casa, não exigência da licença.
-
----
-
-## Adiante
-
-- **A bot no sussurro** — hoje ela só fala nas constelações; falta responder na DM.
-- **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
-- **Destino dos convites** — a prévia do link manda a pessoa para o site, que foi
-  arquivado. Falta escolher para onde ela deve ir agora.

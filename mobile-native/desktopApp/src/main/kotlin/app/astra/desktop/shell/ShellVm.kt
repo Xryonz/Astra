@@ -63,6 +63,7 @@ import app.astra.mobile.core.network.dto.UpdateChannelKeepRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.VoicePresenceEventDto
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -71,10 +72,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 
 private const val TETO_HISTORICO = 12
 private const val ESPERA_ANTES_DE_PRE_CARREGAR_MS = 5_000L
+private const val ESPERA_PELOS_SILENCIOS_MS = 3_000L
 
 class ShellVm(
     private val scope: EscopoSupervisionado,
@@ -101,7 +104,6 @@ class ShellVm(
 
     init {
         load()
-        loadNotifPrefs()
         listenRealtime()
         pollVoicePresence()
     }
@@ -260,6 +262,10 @@ class ShellVm(
     private suspend fun <T : Any> insistindo(oQue: String, bloco: suspend () -> T?): T? =
         insistindoOuNulo(oQue, bloco)
 
+    suspend fun esperarACasca() {
+        state.first { !it.loading }
+    }
+
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {
@@ -270,9 +276,11 @@ class ShellVm(
             val channelReadsD = async { insistindo("suas leituras") { serverApi.channelReads().data.orEmpty() } }
             val unreadCountsD = async { insistindo("as não lidas") { serverApi.channelUnreadCounts().data.orEmpty() } }
             val dmReadsD = async { insistindo("as leituras dos sussurros") { dmApi.dmReads().data.orEmpty() } }
+            val silenciosD = async { insistindo("seus silêncios") { buscarSilencios(notifApi) } }
 
             val servers = serversD.await()
             if (servers == null) {
+                silenciosD.cancel()
                 primeiraPagina.descartar()
                 _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
                 return@launch
@@ -326,9 +334,14 @@ class ShellVm(
             }
             if (restoredChat == null) primeiraPagina.descartar()
 
+            val silencios = withTimeoutOrNull(ESPERA_PELOS_SILENCIOS_MS) { silenciosD.await() }
+            if (silencios == null) aplicarQuandoChegarem(silenciosD)
             _state.update {
                 it.copy(
                     loading = false,
+                    mutedChannels = silencios?.orbitas ?: it.mutedChannels,
+                    mutedServers = silencios?.constelacoes ?: it.mutedServers,
+                    avisoForcado = silencios?.forcados ?: it.avisoForcado,
                     me = meD.await() ?: it.me,
                     servers = servers,
                     dms = dms,
@@ -347,6 +360,15 @@ class ShellVm(
             recuperarFotosPerdidas()
             tentarDeNovoAsImagens()
             preCarregarImagens()
+        }
+    }
+
+    private fun aplicarQuandoChegarem(silencios: Deferred<Silencios?>) {
+        scope.launch {
+            val s = silencios.await() ?: return@launch
+            _state.update {
+                it.copy(mutedChannels = s.orbitas, mutedServers = s.constelacoes, avisoForcado = s.forcados)
+            }
         }
     }
 
@@ -683,18 +705,6 @@ class ShellVm(
                 if (oldPos[id] != np) runCatching { serverApi.updateCategory(serverId, id, UpdateCategoryRequest(position = np)) }
             }
             reloadServers()
-        }
-    }
-
-    private fun loadNotifPrefs() {
-        scope.launch {
-            val ch = async { runCatching { notifApi.channelNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
-            val sv = async { runCatching { notifApi.serverNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
-            val doCanal = ch.await()
-            val mutedCh = doCanal.filter { it.mode == "mute" }.map { it.channelId }.toSet()
-            val forcados = doCanal.filter { it.mode == "all" }.map { it.channelId }.toSet()
-            val mutedSv = sv.await().filter { it.mode == "mute" }.map { it.serverId }.toSet()
-            _state.update { it.copy(mutedChannels = mutedCh, mutedServers = mutedSv, avisoForcado = forcados) }
         }
     }
 

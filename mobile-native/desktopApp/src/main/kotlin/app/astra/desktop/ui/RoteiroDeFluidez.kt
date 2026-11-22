@@ -98,6 +98,7 @@ private suspend fun esperarAConversa(alvo: String): ConversaEmprestada? {
 
 private suspend fun rolar(conversa: ConversaEmprestada, fase: String, pxPorSegundo: Float, duracaoMs: Long): String {
     RoteiroDeFluidez.etapa = fase
+    val partida = posicaoDaLista(conversa)
     val paraCima = pxPorSegundo < 0
     QuadrosPorFase.comecar(fase)
     val inicio = System.nanoTime()
@@ -121,7 +122,13 @@ private suspend fun rolar(conversa: ConversaEmprestada, fase: String, pxPorSegun
     }
     val segundos = (System.nanoTime() - inicio) / NS_POR_SEGUNDO
     val percurso = "%.0f px despachados em %.1f s, %d esperas por página".format(despachados, segundos, esperas)
-    return "${QuadrosPorFase.encerrar().linha()}\t$percurso\t${motivo ?: "durou o tempo previsto"}"
+    val trajeto = "de $partida a ${posicaoDaLista(conversa)}"
+    return "${QuadrosPorFase.encerrar().linha()}\t$percurso\t${motivo ?: "durou o tempo previsto"}\t$trajeto"
+}
+
+private fun posicaoDaLista(conversa: ConversaEmprestada): String {
+    val historico = if (conversa.aindaHaHistorico()) "com histórico antes" else "sem histórico antes"
+    return "item ${conversa.lista.firstVisibleItemIndex} de ${conversa.lista.layoutInfo.totalItemsCount}, $historico"
 }
 
 private suspend fun motivoParaParar(conversa: ConversaEmprestada, paraCima: Boolean): String? = when {

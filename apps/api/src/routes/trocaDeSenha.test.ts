@@ -4,17 +4,7 @@ import bcrypt from 'bcryptjs'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-const h = vi.hoisted(() => ({
-  hashAtual: '',
-  encerrarAsOutras: vi.fn(async (_userId: string, _sessao: string) => 0),
-}))
-
-vi.mock('../db', () => ({
-  db: {
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ passwordHash: h.hashAtual }] }) }) }),
-    update: () => ({ set: () => ({ where: async () => undefined }) }),
-  },
-}))
+vi.mock('../db', async () => ({ db: (await import('../__tests__/bancoGravador')).bancoGravador }))
 vi.mock('../middleware/auth', () => ({
   requireAuth: (
     req: { userId?: string; sid?: string; header: (n: string) => string | undefined },
@@ -28,13 +18,21 @@ vi.mock('../middleware/auth', () => ({
 }))
 vi.mock('../lib/sessoes', async (importOriginal) => {
   const real = await importOriginal<typeof import('../lib/sessoes')>()
-  return { ...real, encerrarAsOutras: h.encerrarAsOutras }
+  const { gravador } = await import('../__tests__/bancoGravador')
+  return {
+    ...real,
+    encerrarAoVivo: async (_userId: string, sessoes: string[]) => {
+      if (sessoes.length) gravador.anotar(`encerrou ${sessoes.join(',')}`)
+    },
+  }
 })
 
 import authRouter from './auth'
+import { gravador } from '../__tests__/bancoGravador'
 
 let servidor: Server
 let base = ''
+let hashAtual = ''
 
 async function trocarSenha(sessao?: string) {
   const cabecalhos: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -49,7 +47,7 @@ async function trocarSenha(sessao?: string) {
 
 describe('trocar a senha encerra as outras sessoes', () => {
   beforeAll(async () => {
-    h.hashAtual = await bcrypt.hash('Antiga123', 4)
+    hashAtual = await bcrypt.hash('Antiga123', 4)
     const app = express()
     app.use(express.json())
     app.use('/api/auth', authRouter)
@@ -60,15 +58,52 @@ describe('trocar a senha encerra as outras sessoes', () => {
 
   afterAll(() => new Promise<void>((fechado) => servidor.close(() => fechado())))
 
-  beforeEach(() => h.encerrarAsOutras.mockClear())
+  beforeEach(() => {
+    gravador.limpar()
+    gravador.responder('select:User', [{ passwordHash: hashAtual }], [{ apagadaEm: null, senha: hashAtual }])
+  })
 
-  it('encerra todas menos a sessao de quem trocou', async () => {
+  it('a senha nova e a revogacao das outras saem na mesma transacao, com a conta travada', async () => {
+    gravador.responder('update:RefreshToken', [{ id: 'r5', sessionId: 's5' }])
     expect(await trocarSenha('s-atual')).toBe(200)
-    expect(h.encerrarAsOutras).toHaveBeenCalledWith('u1', 's-atual')
+    expect(gravador.passos).toEqual([
+      'db:select User',
+      'begin',
+      'tx:select User for no key update',
+      'tx:update User',
+      'tx:update RefreshToken',
+      'commit',
+      'encerrou s5',
+    ])
+  })
+
+  it('poupa a sessao de quem trocou', async () => {
+    await trocarSenha('s-atual')
+    const revogacao = gravador.consulta('tx:update RefreshToken')
+    expect(revogacao?.sql).toContain('"RefreshToken"."sessionId" <> ')
+    expect(revogacao?.params).toContain('s-atual')
+  })
+
+  it('a senha mudou entre a conferencia e a trava: recusa e nao grava nada', async () => {
+    gravador.responder('select:User', [{ passwordHash: hashAtual }], [{ apagadaEm: null, senha: 'outro-hash' }])
+    expect(await trocarSenha('s-atual')).toBe(401)
+    expect(gravador.passos).toEqual(['db:select User', 'begin', 'tx:select User for no key update', 'commit'])
+  })
+
+  it('a conta foi apagada entre a conferencia e a trava: recusa e nao grava nada', async () => {
+    gravador.responder('select:User', [{ passwordHash: hashAtual }], [{ apagadaEm: new Date(), senha: hashAtual }])
+    expect(await trocarSenha('s-atual')).toBe(401)
+    expect(gravador.passos).toEqual(['db:select User', 'begin', 'tx:select User for no key update', 'commit'])
   })
 
   it('credencial antiga, sem sessao dentro: troca a senha e nao derruba ninguem as cegas', async () => {
     expect(await trocarSenha()).toBe(200)
-    expect(h.encerrarAsOutras).not.toHaveBeenCalled()
+    expect(gravador.passos).toEqual([
+      'db:select User',
+      'begin',
+      'tx:select User for no key update',
+      'tx:update User',
+      'commit',
+    ])
   })
 })

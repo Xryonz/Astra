@@ -3,15 +3,9 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 
 const h = vi.hoisted(() => ({
   ordem: [] as string[],
-  derrubadas: [] as Array<{ id: string; sessionId: string | null }>,
 }))
 
-vi.mock('../db', () => ({
-  db: {
-    update: () => ({ set: () => ({ where: () => ({ returning: async () => h.derrubadas }) }) }),
-  },
-}))
-
+vi.mock('../db', async () => ({ db: (await import('../__tests__/bancoGravador')).bancoGravador }))
 vi.mock('./redis', () => ({
   encerrarSessao: vi.fn(async (sessao: string, segundos: number) => {
     h.ordem.push(`marcou ${sessao} por ${segundos} s`)
@@ -23,8 +17,11 @@ vi.mock('./realtime', () => ({
   }),
 }))
 
-import { encerrarAoVivo, encerrarAsOutras, foraDaSessao, sessaoDaLinha } from './sessoes'
+import { comAContaTravada, encerrarAoVivo, foraDaSessao, revogarAsOutras, sessaoDaLinha } from './sessoes'
 import { derrubarSessoes } from './realtime'
+import { gravador } from '../__tests__/bancoGravador'
+
+const TRAVA = 'tx:select User for no key update'
 
 describe('encerrar sessao ao vivo', () => {
   beforeEach(() => {
@@ -54,18 +51,34 @@ describe('a sessao de cada linha', () => {
   })
 })
 
-describe('encerrar as outras sessoes (troca de senha)', () => {
-  beforeEach(() => {
-    h.ordem.length = 0
+describe('a trava da conta', () => {
+  beforeEach(() => gravador.limpar())
+
+  it('e o primeiro comando da transacao, na linha da pessoa, em modo que nao barra as chaves estrangeiras', async () => {
+    gravador.responder('select:User', [{ apagadaEm: null, senha: 'h' }])
+    await comAContaTravada('u1', (tx) => revogarAsOutras(tx, 'u1', 's1'))
+    expect(gravador.passos).toEqual(['begin', TRAVA, 'tx:update RefreshToken', 'commit'])
+    expect(gravador.consulta(TRAVA)?.params).toEqual(['u1'])
   })
 
-  it('derruba a sessao de cada linha revogada e conta quantas', async () => {
-    h.derrubadas = [
+  it('trava mesmo a conta apagada, e avisa que ela nao esta ativa', async () => {
+    gravador.responder('select:User', [{ apagadaEm: new Date(), senha: null }])
+    await expect(comAContaTravada('u1', async (_tx, conta) => conta)).resolves.toEqual({ ativa: false, senha: null })
+  })
+
+  it('conta que nao existe nao esta ativa', async () => {
+    await expect(comAContaTravada('u1', async (_tx, conta) => conta.ativa)).resolves.toBe(false)
+  })
+})
+
+describe('revogar as outras sessoes', () => {
+  beforeEach(() => gravador.limpar())
+
+  it('revoga pelo executor recebido e devolve as linhas, para derrubar depois do commit', async () => {
+    gravador.responder('update:RefreshToken', [{ id: 'r5', sessionId: 's5' }])
+    await expect(comAContaTravada('u1', (tx) => revogarAsOutras(tx, 'u1', 's1'))).resolves.toEqual([
       { id: 'r5', sessionId: 's5' },
-      { id: 'r6', sessionId: null },
-    ]
-    await expect(encerrarAsOutras('u1', 's1')).resolves.toBe(2)
-    expect(h.ordem).toEqual(['marcou s5 por 900 s', 'marcou r6 por 900 s', 'derrubou s5,r6'])
+    ])
   })
 
   it('a condicao poupa a sessao atual e NAO deixa escapar a linha antiga sem sessao (NULL)', () => {

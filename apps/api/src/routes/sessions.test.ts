@@ -3,18 +3,7 @@ import express from 'express'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-const h = vi.hoisted(() => ({
-  alvo: [] as Array<{ id: string; sessionId: string | null }>,
-  revogadas: [] as Array<{ id: string; sessionId?: string | null }>,
-  encerrar: vi.fn(async (_userId: string, _sessoes: string[]) => {}),
-}))
-
-vi.mock('../db', () => ({
-  db: {
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => h.alvo }) }) }),
-    update: () => ({ set: () => ({ where: () => ({ returning: async () => h.revogadas }) }) }),
-  },
-}))
+vi.mock('../db', async () => ({ db: (await import('../__tests__/bancoGravador')).bancoGravador }))
 vi.mock('../middleware/auth', () => ({
   requireAuth: (req: { userId?: string }, _res: unknown, next: () => void) => {
     req.userId = 'u1'
@@ -23,13 +12,22 @@ vi.mock('../middleware/auth', () => ({
 }))
 vi.mock('../lib/sessoes', async (importOriginal) => {
   const real = await importOriginal<typeof import('../lib/sessoes')>()
-  return { ...real, encerrarAoVivo: h.encerrar }
+  const { gravador } = await import('../__tests__/bancoGravador')
+  return {
+    ...real,
+    encerrarAoVivo: async (_userId: string, sessoes: string[]) => {
+      if (sessoes.length) gravador.anotar(`encerrou ${sessoes.join(',')}`)
+    },
+  }
 })
 
 import sessionsRouter from './sessions'
+import { gravador } from '../__tests__/bancoGravador'
 
 let servidor: Server
 let base = ''
+
+const TRAVA = 'tx:select User for no key update'
 
 async function pedir(metodo: 'DELETE' | 'POST', caminho: string, corpo?: unknown) {
   const resposta = await fetch(`${base}/api/sessions${caminho}`, {
@@ -53,48 +51,64 @@ describe('encerrar sessoes derruba os aparelhos ao vivo', () => {
   afterAll(() => new Promise<void>((fechado) => servidor.close(() => fechado())))
 
   beforeEach(() => {
-    h.alvo = []
-    h.revogadas = []
-    h.encerrar.mockClear()
+    gravador.limpar()
+    gravador.responder('select:User', [{ apagadaEm: null, senha: 'h' }])
   })
 
-  it('encerrar uma sessao derruba a sessao inteira, nao so a linha da lista', async () => {
-    h.alvo = [{ id: 'r2', sessionId: 's1' }]
-    h.revogadas = [{ id: 'r2' }]
+  it('encerrar uma sessao trava a conta, revoga a sessao inteira e so derruba depois do commit', async () => {
+    gravador.responder('select:RefreshToken', [{ id: 'r2', sessionId: 's1' }])
+    gravador.responder('update:RefreshToken', [{ id: 'r2' }])
     const { status, corpo } = await pedir('DELETE', '/r2')
     expect(status).toBe(200)
     expect(corpo.data).toEqual({ revoked: 'r2' })
-    expect(h.encerrar).toHaveBeenCalledWith('u1', ['s1'])
+    expect(gravador.passos).toEqual([
+      'db:select RefreshToken',
+      'begin',
+      TRAVA,
+      'tx:update RefreshToken',
+      'commit',
+      'encerrou s1',
+    ])
+  })
+
+  it('a revogacao pega a sessao inteira, nao so a linha da lista', async () => {
+    gravador.responder('select:RefreshToken', [{ id: 'r2', sessionId: 's1' }])
+    gravador.responder('update:RefreshToken', [{ id: 'r9' }])
+    await pedir('DELETE', '/r2')
+    const revogacao = gravador.consulta('tx:update RefreshToken')
+    expect(revogacao?.sql).toContain('("RefreshToken"."id" = ')
+    expect(revogacao?.sql).toContain(' or "RefreshToken"."sessionId" = ')
+    expect(revogacao?.params).toEqual(expect.arrayContaining(['u1', 's1']))
   })
 
   it('linha de antes da coluna: a sessao e a propria linha', async () => {
-    h.alvo = [{ id: 'r1', sessionId: null }]
-    h.revogadas = [{ id: 'r3' }]
+    gravador.responder('select:RefreshToken', [{ id: 'r1', sessionId: null }])
+    gravador.responder('update:RefreshToken', [{ id: 'r1' }])
     await pedir('DELETE', '/r1')
-    expect(h.encerrar).toHaveBeenCalledWith('u1', ['r1'])
+    expect(gravador.passos[gravador.passos.length - 1]).toBe('encerrou r1')
   })
 
   it('sessao de outra conta ou inexistente: 404 e ninguem cai', async () => {
     const { status } = await pedir('DELETE', '/r9')
     expect(status).toBe(404)
-    expect(h.encerrar).not.toHaveBeenCalled()
+    expect(gravador.passos).toEqual(['db:select RefreshToken'])
   })
 
   it('sessao ja encerrada: 404 e ninguem cai de novo', async () => {
-    h.alvo = [{ id: 'r2', sessionId: 's1' }]
+    gravador.responder('select:RefreshToken', [{ id: 'r2', sessionId: 's1' }])
     const { status } = await pedir('DELETE', '/r2')
     expect(status).toBe(404)
-    expect(h.encerrar).not.toHaveBeenCalled()
+    expect(gravador.passos).toEqual(['db:select RefreshToken', 'begin', TRAVA, 'tx:update RefreshToken', 'commit'])
   })
 
-  it('encerrar as outras derruba cada sessao revogada, e so elas', async () => {
-    h.revogadas = [
+  it('encerrar as outras trava a conta e derruba cada sessao revogada, depois do commit', async () => {
+    gravador.responder('update:RefreshToken', [
       { id: 'r5', sessionId: 's5' },
       { id: 'r6', sessionId: null },
-    ]
+    ])
     const { status, corpo } = await pedir('POST', '/revoke-others', { refreshToken: 'atual' })
     expect(status).toBe(200)
     expect(corpo.data).toEqual({ revokedCount: 2 })
-    expect(h.encerrar).toHaveBeenCalledWith('u1', ['s5', 'r6'])
+    expect(gravador.passos).toEqual(['begin', TRAVA, 'tx:update RefreshToken', 'commit', 'encerrou s5,r6'])
   })
 })

@@ -99,6 +99,11 @@ async function anunciarChegada(socket: Socket, userId: string): Promise<void> {
   } catch {}
 }
 
+async function derrubarSeASessaoAcabou(socket: Socket): Promise<void> {
+  const sessao: string | undefined = socket.data.sid
+  if (sessao && (await isSessaoEncerrada(sessao))) socket.disconnect(true)
+}
+
 export function setupSocket(io: Server) {
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token
@@ -139,6 +144,7 @@ export function setupSocket(io: Server) {
     socketConnections.inc()
 
     socket.join(`user:${userId}`)
+    void derrubarSeASessaoAcabou(socket)
     const chegada = anunciarChegada(socket, userId)
 
     socket.on('join_server', async (serverId: string) => {

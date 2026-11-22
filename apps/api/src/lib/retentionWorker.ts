@@ -1,13 +1,20 @@
 import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { servers, channels, messages, notifications } from '../db/schema'
+import { servers, channels, messages, notifications, refreshTokens } from '../db/schema'
 import { removerSeNinguemUsa } from './arquivoCompartilhado'
 import { logger } from './logger'
 
 const NOTIFICATION_TTL_DAYS = 30
+const UM_DIA_MS = 24 * 60 * 60 * 1000
 
 const RUN_INTERVAL_MS = 5 * 60 * 1000
 let intervalRef: ReturnType<typeof setInterval> | null = null
+let ultimaLimpezaDeRenovacoes = 0
+
+export async function apagarRenovacoesVencidas(agora: number): Promise<number> {
+  const apagadas = await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date(agora - UM_DIA_MS)))
+  return apagadas.rowCount ?? 0
+}
 
 export function startRetentionWorker() {
   if (process.env.NODE_ENV === 'test') return
@@ -72,6 +79,12 @@ export function startRetentionWorker() {
         .returning({ id: notifications.id })
       if (delNotifs.length > 0) {
         logger.info('Retention', `apagou ${delNotifs.length} notifs lidas > ${NOTIFICATION_TTL_DAYS}d`)
+      }
+
+      if (Date.now() - ultimaLimpezaDeRenovacoes >= UM_DIA_MS) {
+        const apagadas = await apagarRenovacoesVencidas(Date.now())
+        ultimaLimpezaDeRenovacoes = Date.now()
+        if (apagadas > 0) logger.info('Retention', `apagou ${apagadas} renovações vencidas há mais de 1 dia`)
       }
     } catch (err: any) {
       const cause = err?.cause ?? err

@@ -1,5 +1,6 @@
-import { eq, or } from 'drizzle-orm'
+import { and, eq, isNull, or } from 'drizzle-orm'
 import { db } from './../db'
+import { sessaoDaLinha } from './sessoes'
 import {
   channelNotifPrefs,
   channelReads,
@@ -22,10 +23,14 @@ export async function constelacoesQueImpedem(userId: string) {
 
 export const NOME_DA_LAPIDE = 'conta apagada'
 
-export async function virarLapide(userId: string): Promise<void> {
+function aindaComASenha(hashConferido: string | null) {
+  return hashConferido === null ? isNull(users.passwordHash) : eq(users.passwordHash, hashConferido)
+}
+
+export async function virarLapide(userId: string, hashConferido: string | null): Promise<string[] | null> {
   const marca = userId.slice(-12).toLowerCase()
 
-  await db
+  const [lapide] = await db
     .update(users)
     .set({
       email: `apagada+${marca}@astra.invalid`,
@@ -45,9 +50,14 @@ export async function virarLapide(userId: string): Promise<void> {
       status: 'INVISIBLE',
       deletedAt: new Date(),
     })
-    .where(eq(users.id, userId))
+    .where(and(eq(users.id, userId), aindaComASenha(hashConferido)))
+    .returning({ id: users.id })
+  if (!lapide) return null
 
-  await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
+  const apagadas = await db
+    .delete(refreshTokens)
+    .where(eq(refreshTokens.userId, userId))
+    .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId, revokedAt: refreshTokens.revokedAt })
   await db.delete(fcmTokens).where(eq(fcmTokens.userId, userId))
   await db.delete(serverMembers).where(eq(serverMembers.userId, userId))
   await db.delete(channelNotifPrefs).where(eq(channelNotifPrefs.userId, userId))
@@ -58,4 +68,5 @@ export async function virarLapide(userId: string): Promise<void> {
   await db.delete(mutedMembers).where(eq(mutedMembers.userId, userId))
   await db.delete(friendships).where(or(eq(friendships.userAId, userId), eq(friendships.userBId, userId)))
   await db.delete(userBlocks).where(or(eq(userBlocks.blockerId, userId), eq(userBlocks.blockedId, userId)))
+  return [...new Set(apagadas.filter((linha) => linha.revokedAt === null).map(sessaoDaLinha))]
 }

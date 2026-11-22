@@ -28,8 +28,7 @@ class XpStore(
     private val _ganhos = MutableSharedFlow<GanhoXpDto>(extraBufferCapacity = 8)
     val ganhos: SharedFlow<GanhoXpDto> = _ganhos.asSharedFlow()
 
-    fun iniciar(escopo: CoroutineScope) {
-        escopo.launch { recarregar() }
+    fun ouvir(escopo: CoroutineScope) {
         escopo.launch {
             socket.xpGain.collect { cru ->
                 val g = runCatching { json.decodeFromString<GanhoXpDto>(cru) }.getOrNull() ?: return@collect

@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   ordem: [] as string[],
   terminarOnline: [] as Array<() => void>,
   responderMembros: [] as Array<(linhas: Array<{ serverId: string }>) => void>,
+  encerradas: new Set<string>(),
 }))
 
 vi.mock('../lib/redis', () => ({
@@ -13,7 +14,7 @@ vi.mock('../lib/redis', () => ({
   vozKeys: { membro: () => 'voz' },
   VOZ_TTL_SEGUNDOS: 60,
   isTokenBlacklisted: async () => false,
-  isSessaoEncerrada: async () => false,
+  isSessaoEncerrada: async (sessao: string) => h.encerradas.has(sessao),
   setUserOnline: () =>
     new Promise<void>((pronto) => {
       h.terminarOnline.push(() => {
@@ -71,14 +72,15 @@ vi.mock('../lib/quemMeVe', () => ({ salasQueMeVeem: async () => null }))
 vi.mock('../lib/permissions', () => ({ membrosQueVeemCanal: vi.fn(), userCanSeeChannel: vi.fn() }))
 vi.mock('../lib/fichaDoCanal', () => ({ fichaDoCanal: vi.fn() }))
 
-function soqueteFalso() {
+function soqueteFalso(sid?: string) {
   const ouvintes = new Map<string, (...args: unknown[]) => unknown>()
   const salas: string[] = []
   const semNinguem = { emit: () => {} }
   const socket = {
     id: 'sock-1',
-    data: { userId: 'u1', status: 'ONLINE' },
+    data: { userId: 'u1', status: 'ONLINE', sid },
     disconnected: false,
+    disconnect: vi.fn(),
     rooms: new Set<string>(),
     on: (evento: string, ouvinte: (...args: unknown[]) => unknown) => {
       ouvintes.set(evento, ouvinte)
@@ -110,7 +112,23 @@ describe('chegada de uma conexao', () => {
     h.ordem.length = 0
     h.terminarOnline.length = 0
     h.responderMembros.length = 0
+    h.encerradas.clear()
     userSockets.clear()
+  })
+
+  it('sessao encerrada entre a conferencia do aperto de mao e a entrada na sala: a conexao cai', async () => {
+    h.encerradas.add('s-morta')
+    const { socket, salas } = soqueteFalso('s-morta')
+    conectar(socket)
+    expect(salas).toEqual(['user:u1'])
+    await vi.waitFor(() => expect(socket.disconnect).toHaveBeenCalledWith(true))
+  })
+
+  it('sessao valendo continua conectada depois de entrar na sala', async () => {
+    const { socket } = soqueteFalso('s-viva')
+    conectar(socket)
+    await new Promise((pronto) => setTimeout(pronto, 20))
+    expect(socket.disconnect).not.toHaveBeenCalled()
   })
 
   it('os pedidos de entrar ja tem ouvinte enquanto o Redis e o banco ainda respondem', () => {

@@ -155,11 +155,19 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { socket.connect() }
 
-    LaunchedEffect(Unit) { koin.get<XpStore>().iniciar(scope) }
+    LaunchedEffect(Unit) {
+        val xp = koin.get<XpStore>()
+        xp.limpar()
+        xp.ouvir(scope)
+        vm.esperarACasca()
+        xp.recarregar()
+    }
 
     LaunchedEffect(Unit) {
         val missoes = koin.get<MissoesStore>()
+        missoes.limpar()
         missoes.iniciar(scope)
+        vm.esperarACasca()
         missoes.recarregar()
     }
 
@@ -207,6 +215,7 @@ fun ShellScreen(
     var notifRefresh by remember { mutableStateOf(0) }
     var notifCount by remember { mutableStateOf(0) }
     LaunchedEffect(notifRefresh) {
+        vm.esperarACasca()
         while (true) {
             val c = runCatching { koin.get<NotificationApi>().unread().data?.count }.getOrNull() ?: 0
             notifCount = c
@@ -216,7 +225,10 @@ fun ShellScreen(
     }
     val json = remember { koin.get<Json>() }
     val avisosDaConta = remember { koin.get<AvisosDaConta>() }
-    LaunchedEffect(Unit) { avisosDaConta.carregar() }
+    LaunchedEffect(Unit) {
+        vm.esperarACasca()
+        avisosDaConta.carregar()
+    }
     LaunchedEffect(Unit) {
         socket.notification.collect { raw ->
             notifCount += 1

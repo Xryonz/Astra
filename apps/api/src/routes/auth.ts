@@ -10,7 +10,15 @@ import { blacklistToken } from '../lib/redis'
 import { contarNaJanela } from '../lib/contagemNaJanela'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } from '../lib/jwt'
 import { requireAuth } from '../middleware/auth'
-import { encerrarAoVivo, sessaoDaLinha } from '../lib/sessoes'
+import {
+  comAContaTravada,
+  encerrarAoVivo,
+  revogarAsOutras,
+  sessaoDaLinha,
+  type ContaTravada,
+  type Executor,
+  type LinhaRevogada,
+} from '../lib/sessoes'
 import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
@@ -131,8 +139,8 @@ router.post(
     const sessaoId = createId()
     const { token: accessToken } = generateAccessToken(user.id, sessaoId)
     const deviceId = req.header('x-device-id') ?? undefined
-    await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken } = await createRefreshToken(user.id, sessaoId, {
+    await revokeDeviceSessions(db, user.id, deviceId)
+    const { refreshToken } = await createRefreshToken(db, user.id, sessaoId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip: req.ip,
       deviceId,
@@ -165,14 +173,19 @@ router.post(
     }
 
     const sessaoId = createId()
-    const { token: accessToken } = generateAccessToken(user.id, sessaoId)
     const deviceId = req.header('x-device-id') ?? undefined
-    await revokeDeviceSessions(user.id, deviceId)
-    const { refreshToken } = await createRefreshToken(user.id, sessaoId, {
-      userAgent: req.header('user-agent') ?? undefined,
-      ip: req.ip,
-      deviceId,
+    const refreshToken = await comAContaTravada(user.id, async (tx, conta) => {
+      if (!conta.ativa || conta.senha !== user.passwordHash) return null
+      await revokeDeviceSessions(tx, user.id, deviceId)
+      const criada = await createRefreshToken(tx, user.id, sessaoId, {
+        userAgent: req.header('user-agent') ?? undefined,
+        ip: req.ip,
+        deviceId,
+      })
+      return criada.refreshToken
     })
+    if (!refreshToken) return res.status(401).json({ error: 'E-mail ou senha incorretos' })
+    const { token: accessToken } = generateAccessToken(user.id, sessaoId)
     const { passwordHash: _, ...userSafe } = user
 
     res.json({ data: { user: userSafe, accessToken, refreshToken } })
@@ -192,46 +205,20 @@ router.post(
       return res.status(401).json({ error: 'Refresh token inválido' })
     }
 
+    const userId = payload.userId
     const tokenHash = hashToken(token)
-
-    const claimed = await db
-      .update(refreshTokens)
-      .set({ revokedAt: new Date() })
-      .where(
-        and(
-          eq(refreshTokens.token, tokenHash),
-          isNull(refreshTokens.revokedAt),
-          gt(refreshTokens.expiresAt, new Date()),
-        ),
-      )
-      .returning({ id: refreshTokens.id, userId: refreshTokens.userId, sessionId: refreshTokens.sessionId })
-
-    if (claimed.length === 0) {
-      const [seen] = await db
-        .select({ userId: refreshTokens.userId, revokedAt: refreshTokens.revokedAt })
-        .from(refreshTokens)
-        .where(eq(refreshTokens.token, tokenHash))
-        .limit(1)
-      if (seen?.revokedAt && Date.now() - seen.revokedAt.getTime() > 30_000) {
-        const derrubadas = await db
-          .update(refreshTokens)
-          .set({ revokedAt: new Date() })
-          .where(and(eq(refreshTokens.userId, seen.userId), isNull(refreshTokens.revokedAt)))
-          .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
-        await encerrarAoVivo(seen.userId, derrubadas.map(sessaoDaLinha))
-      }
-      return res.status(401).json({ error: 'Refresh token inválido ou expirado' })
-    }
-
-    const sessaoId = sessaoDaLinha(claimed[0])
-    const { token: newAccessToken } = generateAccessToken(payload.userId, sessaoId)
-    const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, sessaoId, {
+    const meta: MetaDaSessao = {
       userAgent: req.header('user-agent') ?? undefined,
       ip: req.ip,
       deviceId: req.header('x-device-id') ?? undefined,
-    })
+    }
 
-    res.json({ data: { accessToken: newAccessToken, refreshToken: newRefreshToken } })
+    const giro = await comAContaTravada(userId, (tx, conta) => girarRenovacao(tx, conta, userId, tokenHash, meta))
+    if (giro.tipo === 'renovada') {
+      return res.json({ data: { accessToken: giro.accessToken, refreshToken: giro.refreshToken } })
+    }
+    if (giro.tipo === 'reuso') await encerrarAoVivo(userId, giro.derrubadas.map(sessaoDaLinha))
+    res.status(401).json({ error: 'Refresh token inválido ou expirado' })
   }),
 )
 
@@ -286,7 +273,14 @@ router.post(
       return res.status(400).json({ error: 'A nova senha precisa ser diferente da atual' })
     }
     const passwordHash = await bcrypt.hash(newPassword, 12)
-    await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
+    const sessaoAtual = req.sid
+    const derrubadas = await comAContaTravada(req.userId!, async (tx, conta) => {
+      if (!conta.ativa || conta.senha !== user.passwordHash) return null
+      await tx.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
+      return sessaoAtual ? revogarAsOutras(tx, req.userId!, sessaoAtual) : []
+    })
+    if (!derrubadas) return res.status(401).json({ error: 'Senha atual incorreta' })
+    await encerrarAoVivo(req.userId!, derrubadas.map(sessaoDaLinha))
     res.json({ message: 'Senha alterada' })
   }),
 )
@@ -579,7 +573,9 @@ router.post(
       })
     }
 
-    await virarLapide(req.userId!)
+    const sessoesVivas = await virarLapide(req.userId!, u.passwordHash)
+    if (!sessoesVivas) return res.status(401).json({ error: 'Senha incorreta' })
+    await encerrarAoVivo(req.userId!, sessoesVivas)
     res.json({ data: { apagada: true } })
   }),
 )
@@ -640,7 +636,7 @@ router.get('/google/callback', (req: Request, res: Response, next) => {
           .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
           .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
 
-        const { refreshToken } = await createRefreshToken(user.id, createId(), {
+        const { refreshToken } = await createRefreshToken(db, user.id, createId(), {
           userAgent: req.header('user-agent') ?? undefined,
           ip: req.ip,
         })
@@ -668,15 +664,63 @@ function truncateIp(ip: string | undefined): string | null {
   return null
 }
 
-async function createRefreshToken(
+type MetaDaSessao = { userAgent?: string; ip?: string; deviceId?: string }
+
+type Giro =
+  | { tipo: 'renovada'; accessToken: string; refreshToken: string }
+  | { tipo: 'reuso'; derrubadas: LinhaRevogada[] }
+  | { tipo: 'recusada' }
+
+const JANELA_DE_REUSO_MS = 30_000
+
+async function girarRenovacao(
+  tx: Executor,
+  conta: ContaTravada,
   userId: string,
-  sessaoId: string,
-  meta?: { userAgent?: string; ip?: string; deviceId?: string },
-) {
+  tokenHash: string,
+  meta: MetaDaSessao,
+): Promise<Giro> {
+  if (!conta.ativa) return { tipo: 'recusada' }
+  const agora = new Date()
+  const [reivindicada] = await tx
+    .update(refreshTokens)
+    .set({ revokedAt: agora })
+    .where(
+      and(
+        eq(refreshTokens.token, tokenHash),
+        eq(refreshTokens.userId, userId),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, agora),
+      ),
+    )
+    .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
+  if (reivindicada) {
+    const sessaoId = sessaoDaLinha(reivindicada)
+    const { token: accessToken } = generateAccessToken(userId, sessaoId)
+    const { refreshToken } = await createRefreshToken(tx, userId, sessaoId, meta)
+    return { tipo: 'renovada', accessToken, refreshToken }
+  }
+  const [vista] = await tx
+    .select({ revokedAt: refreshTokens.revokedAt })
+    .from(refreshTokens)
+    .where(and(eq(refreshTokens.token, tokenHash), eq(refreshTokens.userId, userId)))
+    .limit(1)
+  if (!vista?.revokedAt || agora.getTime() - vista.revokedAt.getTime() <= JANELA_DE_REUSO_MS) {
+    return { tipo: 'recusada' }
+  }
+  const derrubadas = await tx
+    .update(refreshTokens)
+    .set({ revokedAt: agora })
+    .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
+    .returning({ id: refreshTokens.id, sessionId: refreshTokens.sessionId })
+  return { tipo: 'reuso', derrubadas }
+}
+
+async function createRefreshToken(executor: Executor, userId: string, sessaoId: string, meta?: MetaDaSessao) {
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS)
   const refreshToken = generateRefreshToken(userId)
   const tokenHash = hashToken(refreshToken)
-  await db.insert(refreshTokens).values({
+  await executor.insert(refreshTokens).values({
     token: tokenHash,
     userId,
     expiresAt,
@@ -689,10 +733,10 @@ async function createRefreshToken(
   return { refreshToken }
 }
 
-async function revokeDeviceSessions(userId: string, deviceId?: string) {
+async function revokeDeviceSessions(executor: Executor, userId: string, deviceId?: string) {
   const id = deviceId?.slice(0, 128)
   if (!id) return
-  await db
+  await executor
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), eq(refreshTokens.deviceId, id), isNull(refreshTokens.revokedAt)))

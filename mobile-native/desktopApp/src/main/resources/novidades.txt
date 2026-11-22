@@ -1,7 +1,4 @@
-versao 1.0.60
-A voz e a transmissão de tela passam a rodar num motor novo, escrito em Rust. Assistir a uma transmissão gasta menos processador e bem menos memória.
-A opção “Transmitir em duas qualidades” saiu: o motor novo transmite numa qualidade só.
-Se o antivírus bloquear o motor de voz, a call avisa e diz o que fazer.
-Se o motor de voz cair, o Astra envia um relato técnico da falha, sem nomes, salas nem endereços.
-Ao transmitir a própria tela, o seu cartão na barra sobre o palco mostra a sua foto, e não uma miniatura da tela.
-Com a conexão lenta, a conversa aberta podia ficar sem mensagens ao vivo até a troca de canal. Isso foi corrigido.
+versao 1.0.61
+Ao abrir, as constelações e órbitas silenciadas já aparecem silenciadas. Antes, por um instante, elas apareciam acesas.
+Ao entrar na conta, ao trocar de conta ou com a conexão lenta, a primeira tela fica completa mais cedo e a última conversa abre antes.
+A contagem de notificações, as missões e o XP carregam logo depois da primeira tela, sem atrasá-la.

@@ -28,7 +28,9 @@ private fun cronometrandoQuadros(original: SkikoRenderDelegate) = object : Skiko
     override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
         val inicio = System.nanoTime()
         original.onRender(canvas, width, height, nanoTime)
-        Quadros.anotarQuadro((System.nanoTime() - inicio) / 1_000_000.0)
+        val ms = (System.nanoTime() - inicio) / 1_000_000.0
+        Quadros.anotarQuadro(ms)
+        QuadrosPorFase.anotar(ms)
     }
 }
 

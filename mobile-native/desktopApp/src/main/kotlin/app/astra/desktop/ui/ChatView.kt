@@ -200,6 +200,9 @@ fun ChatView(
 ) {
     val state by vm.state.collectAsState()
     val listState = lembrarListaQueSeAdianta()
+    if (RoteiroDeFluidez.ligado) {
+        EmprestarListaAoRoteiro(target.id, listState, state.cursorAnterior != null || state.buscandoAnteriores)
+    }
     val scope = rememberCoroutineScope()
     val isChannel = target is ChatTarget.Channel
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }

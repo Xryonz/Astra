@@ -1,6 +1,7 @@
 package app.astra.desktop.net
 
 import app.astra.desktop.CrashLog
+import app.astra.desktop.ui.RoteiroDeFluidez
 import okhttp3.Call
 import okhttp3.EventListener
 import java.io.File
@@ -8,7 +9,7 @@ import java.io.IOException
 import java.lang.management.ManagementFactory
 
 object RelogioDeRede {
-    val ligado: Boolean = System.getProperty("astra.medir") != null
+    val ligado: Boolean = System.getProperty("astra.medir") != null && !RoteiroDeFluidez.ligado
 
     private val arquivo: File by lazy { File(CrashLog.dataDir(), "relogio-de-rede.txt") }
 

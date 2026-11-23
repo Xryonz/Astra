@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
@@ -185,7 +187,25 @@ private fun ondeEsta(linhas: List<LinhaDoChat>, messageId: String): Int =
         (it is LinhaDoChat.Fala && it.msg.id == messageId) || (it is LinhaDoChat.Passagem && it.id == messageId)
     }
 
-private data class AncoraDoHistorico(val chave: String, val deslocamento: Int, val quantasTinha: Int)
+private fun LazyListItemInfo.ehMensagem(): Boolean = (key as? String)?.startsWith("dia:") == false
+
+private class TopoDoHistorico {
+    var primeiraFala: String? = null
+}
+
+@Composable
+private fun SegurarAPosicaoQuandoEntramAnteriores(lista: LazyListState, linhas: List<LinhaDoChat>) {
+    val topo = remember { TopoDoHistorico() }
+    SideEffect {
+        val primeira = linhas.firstNotNullOfOrNull { (it as? LinhaDoChat.Fala)?.msg?.id }
+        val antes = topo.primeiraFala
+        topo.primeiraFala = primeira
+        if (antes == null || antes == primeira) return@SideEffect
+        val visivel = lista.layoutInfo.visibleItemsInfo.firstOrNull { it.ehMensagem() } ?: return@SideEffect
+        val onde = ondeEsta(linhas, visivel.key as String)
+        if (onde >= 0) lista.requestScrollToItem(onde, -visivel.offset)
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -282,30 +302,11 @@ fun ChatView(
         }
     }
 
-    var ancora by remember(target.id) { mutableStateOf<AncoraDoHistorico?>(null) }
-    var ancorasAplicadas by remember(target.id) { mutableIntStateOf(0) }
-    LaunchedEffect(pertoDoTopo, state.cursorAnterior, pousouNoFim, ancorasAplicadas) {
-        val pendente = ancora
-        if (pendente != null) {
-            if (state.buscandoAnteriores || state.messages.size > pendente.quantasTinha) return@LaunchedEffect
-            ancora = null
-        }
+    SegurarAPosicaoQuandoEntramAnteriores(listState, linhas)
+    LaunchedEffect(pertoDoTopo, state.cursorAnterior, pousouNoFim) {
         if (!pousouNoFim || !pertoDoTopo || state.cursorAnterior == null) return@LaunchedEffect
-        val alvo = listState.layoutInfo.visibleItemsInfo
-            .firstOrNull { (it.key as? String)?.startsWith("dia:") == false } ?: return@LaunchedEffect
-        val quantasTinha = state.messages.size
-        if (vm.carregarAnteriores()) {
-            ancora = AncoraDoHistorico(alvo.key as String, alvo.offset, quantasTinha)
-        }
-    }
-    LaunchedEffect(linhas, state.buscandoAnteriores) {
-        val marca = ancora ?: return@LaunchedEffect
-        if (state.buscandoAnteriores) return@LaunchedEffect
-        ancora = null
-        if (state.messages.size <= marca.quantasTinha) return@LaunchedEffect
-        val onde = ondeEsta(linhas, marca.chave)
-        if (onde >= 0) listState.scrollToItem(onde, -marca.deslocamento)
-        ancorasAplicadas++
+        if (listState.layoutInfo.visibleItemsInfo.none { it.ehMensagem() }) return@LaunchedEffect
+        vm.carregarAnteriores()
     }
 
     fun jumpTo(id: String) {

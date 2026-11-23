@@ -69,6 +69,8 @@ import app.astra.desktop.ui.DecodificadorNitido
 import app.astra.desktop.ui.TelaDeCarregamento
 import app.astra.desktop.ui.DesenhoDaJanela
 import app.astra.desktop.ui.Quadros
+import app.astra.desktop.ui.RoteiroDeFluidez
+import app.astra.desktop.ui.vigiarRoteiroDeFluidez
 import app.astra.desktop.ui.LimitandoOsQuadros
 import app.astra.desktop.ui.MedindoCadaQuadro
 import app.astra.desktop.ui.AstraTitleBar
@@ -850,7 +852,9 @@ fun main(args: Array<String>) {
                     ) {
                     Box(Modifier.fillMaxSize()) {
                     var aquecido by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) { Quadros.medirParaArquivo(this) }
+                    LaunchedEffect(Unit) {
+                        if (RoteiroDeFluidez.ligado) vigiarRoteiroDeFluidez() else Quadros.medirParaArquivo(this)
+                    }
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     val alguemFala by QuemFala.alguem.collectAsState()

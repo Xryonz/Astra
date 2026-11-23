@@ -171,6 +171,8 @@ fun ShellScreen(
         missoes.recarregar()
     }
 
+    if (RoteiroDeFluidez.ligado) LaunchedEffect(Unit) { rodarRoteiroDeFluidez(vm) }
+
     val sessionStore = remember { koin.get<SessionStore>() }
 
     val chaveDaEstreia = remember(session.userId) { chaveDoTour(session.userId) }

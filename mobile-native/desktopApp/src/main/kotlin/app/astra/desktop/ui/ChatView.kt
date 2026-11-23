@@ -262,8 +262,9 @@ fun ChatView(
 
     var ultimaVista by remember(target.id) { mutableStateOf<String?>(null) }
     var pousouNoFim by remember(target.id) { mutableStateOf(false) }
-    LaunchedEffect(state.messages.lastOrNull()?.id) {
-        val ultima = state.messages.lastOrNull() ?: return@LaunchedEffect
+    val ultimaMensagem = state.messages.lastOrNull()
+    LaunchedEffect(ultimaMensagem?.id) {
+        val ultima = ultimaMensagem ?: return@LaunchedEffect
         if (ultima.id == ultimaVista) return@LaunchedEffect
         val primeiraCarga = ultimaVista == null
         ultimaVista = ultima.id
@@ -282,7 +283,13 @@ fun ChatView(
     }
 
     var ancora by remember(target.id) { mutableStateOf<AncoraDoHistorico?>(null) }
-    LaunchedEffect(pertoDoTopo, state.cursorAnterior, pousouNoFim) {
+    var ancorasAplicadas by remember(target.id) { mutableIntStateOf(0) }
+    LaunchedEffect(pertoDoTopo, state.cursorAnterior, pousouNoFim, ancorasAplicadas) {
+        val pendente = ancora
+        if (pendente != null) {
+            if (state.buscandoAnteriores || state.messages.size > pendente.quantasTinha) return@LaunchedEffect
+            ancora = null
+        }
         if (!pousouNoFim || !pertoDoTopo || state.cursorAnterior == null) return@LaunchedEffect
         val alvo = listState.layoutInfo.visibleItemsInfo
             .firstOrNull { (it.key as? String)?.startsWith("dia:") == false } ?: return@LaunchedEffect
@@ -298,6 +305,7 @@ fun ChatView(
         if (state.messages.size <= marca.quantasTinha) return@LaunchedEffect
         val onde = ondeEsta(linhas, marca.chave)
         if (onde >= 0) listState.scrollToItem(onde, -marca.deslocamento)
+        ancorasAplicadas++
     }
 
     fun jumpTo(id: String) {

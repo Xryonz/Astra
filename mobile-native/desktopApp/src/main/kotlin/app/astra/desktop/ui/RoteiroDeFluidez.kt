@@ -23,6 +23,7 @@ private const val ASSENTAR_MS = 3_000L
 private const val MS_POR_SEGUNDO = 1_000L
 private const val NS_POR_MS = 1_000_000L
 private const val NS_POR_SEGUNDO = 1_000_000_000f
+private const val INTERVALO_LONGO_NS = 25_000_000L
 private const val RAPIDA_PX_POR_S = 2_400f
 private const val LEITURA_PX_POR_S = 600f
 private const val SUBIDA_RAPIDA_MS = 20_000L
@@ -106,10 +107,15 @@ private suspend fun rolar(conversa: ConversaEmprestada, fase: String, pxPorSegun
     var despachados = 0f
     var esperas = 0
     var motivo: String? = null
+    var intervalosLongos = 0
+    var maiorIntervaloNs = 0L
     var anterior = withFrameNanos { it }
     while (motivo == null && System.nanoTime() < fim) {
         val agora = withFrameNanos { it }
-        val andou = conversa.lista.dispatchRawDelta(pxPorSegundo * (agora - anterior) / NS_POR_SEGUNDO)
+        val intervalo = agora - anterior
+        if (intervalo > INTERVALO_LONGO_NS) intervalosLongos++
+        maiorIntervaloNs = maxOf(maiorIntervaloNs, intervalo)
+        val andou = conversa.lista.dispatchRawDelta(pxPorSegundo * intervalo / NS_POR_SEGUNDO)
         despachados += abs(andou)
         anterior = agora
         if (andou == 0f) {
@@ -122,8 +128,13 @@ private suspend fun rolar(conversa: ConversaEmprestada, fase: String, pxPorSegun
     }
     val segundos = (System.nanoTime() - inicio) / NS_POR_SEGUNDO
     val percurso = "%.0f px despachados em %.1f s, %d esperas por página".format(despachados, segundos, esperas)
+    val ritmo = "%d intervalos acima de %d ms, maior %.0f ms".format(
+        intervalosLongos,
+        INTERVALO_LONGO_NS / NS_POR_MS,
+        maiorIntervaloNs.toDouble() / NS_POR_MS,
+    )
     val trajeto = "de $partida a ${posicaoDaLista(conversa)}"
-    return "${QuadrosPorFase.encerrar().linha()}\t$percurso\t${motivo ?: "durou o tempo previsto"}\t$trajeto"
+    return "${QuadrosPorFase.encerrar().linha()}\t$ritmo\t$percurso\t${motivo ?: "durou o tempo previsto"}\t$trajeto"
 }
 
 private fun posicaoDaLista(conversa: ConversaEmprestada): String {

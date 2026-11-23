@@ -1,4 +1,3 @@
-versao 1.0.61
-Ao abrir, as constelações e órbitas silenciadas já aparecem silenciadas. Antes, por um instante, elas apareciam acesas.
-Ao entrar na conta, ao trocar de conta ou com a conexão lenta, a primeira tela fica completa mais cedo e a última conversa abre antes.
-A contagem de notificações, as missões e o XP carregam logo depois da primeira tela, sem atrasá-la.
+versao 1.0.62
+Ao abrir, a última conversa volta a aparecer na mensagem mais recente. Desde a 1.0.60, ela podia abrir no começo do dia e baixar de uma vez as mensagens antigas desse dia.
+Ao subir pelo histórico, as mensagens antigas chegam uma página por vez, e a tela fica na mensagem em que você estava.

@@ -239,16 +239,18 @@ internal fun ThinProgress(
             }
         }
         Spacer(Modifier.height(9.dp))
-        Canvas(Modifier.fillMaxWidth(0.62f).height(2.dp)) {
-            val h = size.height
-            val cr = CornerRadius(h / 2f)
-            drawRoundRect(color = Obsidian.raised, size = size, cornerRadius = cr)
-            val w = (size.width * progress).coerceIn(0f, size.width)
-            if (w > 0f) {
-                drawRoundRect(color = Obsidian.accent, size = Size(w, h), cornerRadius = cr)
-                drawCircle(color = Obsidian.accent.copy(alpha = 0.5f), radius = h * 1.6f, center = Offset(w, h / 2f))
-            }
-        }
+        BarraDoProgresso(progress)
+    }
+}
+
+@Composable
+private fun BarraDoProgresso(progress: Float) {
+    Canvas(Modifier.fillMaxWidth(0.62f).height(2.dp)) {
+        val h = size.height
+        val cr = CornerRadius(h / 2f)
+        drawRoundRect(color = Obsidian.raised, size = size, cornerRadius = cr)
+        val w = (size.width * progress).coerceIn(0f, size.width)
+        if (w > 0f) drawRoundRect(color = Obsidian.accent, size = Size(w, h), cornerRadius = cr)
     }
 }
 

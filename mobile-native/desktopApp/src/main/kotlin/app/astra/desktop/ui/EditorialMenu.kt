@@ -162,12 +162,9 @@ internal fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
             entries.forEach { entry ->
                 when (entry) {
                     is MenuEntry.Separator ->
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                                .height(1.dp)
-                                .background(Obsidian.borderDim.copy(alpha = 0.6f)),
+                        TracoDoKit(
+                            Obsidian.borderDim.copy(alpha = 0.6f),
+                            Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                         )
                     is MenuEntry.Item -> MenuRow(entry, dismiss)
                     is MenuEntry.EmojiSub -> EmojiSubRow(entry, dismiss)

@@ -194,7 +194,7 @@ fun NotifPanel(
                     )
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+            TracoDoKit(Obsidian.borderDim.copy(alpha = 0.6f))
 
             when {
                 loading -> Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {

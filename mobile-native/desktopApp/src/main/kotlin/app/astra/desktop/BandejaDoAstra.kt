@@ -38,6 +38,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.StatusDot
+import app.astra.desktop.ui.TracoDoKit
 import app.astra.desktop.ui.UserStatus
 import app.astra.desktop.ui.clickable
 import app.astra.desktop.ui.theme.Obsidian
@@ -190,12 +191,7 @@ private fun SeparadorNaBandeja() {
         Modifier.fillMaxWidth().height(ALTURA_SEPARADOR),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .fillMaxWidth(FATIA_DO_SEPARADOR)
-                .height(1.dp)
-                .background(Obsidian.borderDim),
-        )
+        TracoDoKit(Obsidian.borderDim, Modifier.fillMaxWidth(FATIA_DO_SEPARADOR))
     }
 }
 

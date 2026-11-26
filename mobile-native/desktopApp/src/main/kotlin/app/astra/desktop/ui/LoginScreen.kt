@@ -358,13 +358,13 @@ private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
 @Composable
 private fun OrDivider() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        TracoDoKit(Obsidian.borderDim, Modifier.weight(1f))
         Text(
             "ou",
             style = Tipo.apoio,
             modifier = Modifier.padding(horizontal = 12.dp),
         )
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        TracoDoKit(Obsidian.borderDim, Modifier.weight(1f))
     }
 }
 

@@ -58,9 +58,9 @@ internal fun SeparadorDoChat(rotulo: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
+        TracoDoKit(traco, Modifier.width(LARGURA_DO_TRACO))
         Text(rotulo, style = Tipo.nota, modifier = Modifier.padding(horizontal = 12.dp))
-        Box(Modifier.width(LARGURA_DO_TRACO).height(1.dp).background(traco))
+        TracoDoKit(traco, Modifier.width(LARGURA_DO_TRACO))
     }
 }
 
@@ -72,13 +72,13 @@ internal fun MarcaDeNovasMensagens() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
+        TracoDoKit(accent.copy(alpha = 0.45f), Modifier.width(28.dp))
         Text(
             "novas mensagens",
             style = Tipo.nota.copy(color = accent),
             modifier = Modifier.padding(horizontal = 10.dp),
         )
-        Box(Modifier.width(28.dp).height(1.dp).background(accent.copy(alpha = 0.45f)))
+        TracoDoKit(accent.copy(alpha = 0.45f), Modifier.width(28.dp))
     }
 }
 

@@ -798,7 +798,7 @@ private fun CallSplitButton(
                 }
             }
 
-            Box(Modifier.width(1.dp).height(22.dp).background(Obsidian.borderMid))
+            TracoEmPeDoKit(Obsidian.borderMid, Modifier.height(22.dp))
 
             val daSeta = remember { MutableInteractionSource() }
             val sobreASeta by daSeta.collectIsHoveredAsState()

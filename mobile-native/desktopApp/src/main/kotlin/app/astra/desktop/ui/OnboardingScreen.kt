@@ -326,9 +326,9 @@ private fun EntrarStep(entrou: ServerDto?, aoEntrar: (ServerDto) -> Unit, aoExpl
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim))
+            TracoDoKit(Obsidian.borderDim, Modifier.width(28.dp))
             Text("ou", style = Tipo.apoio)
-            Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim))
+            TracoDoKit(Obsidian.borderDim, Modifier.width(28.dp))
         }
         Spacer(Modifier.height(14.dp))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

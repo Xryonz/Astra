@@ -170,7 +170,7 @@ fun SearchOverlay(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+            TracoDoKit(Obsidian.borderDim.copy(alpha = 0.6f))
             Spacer(Modifier.height(8.dp))
 
             val showMsgs = tab == SearchTab.ALL || tab == SearchTab.MESSAGES

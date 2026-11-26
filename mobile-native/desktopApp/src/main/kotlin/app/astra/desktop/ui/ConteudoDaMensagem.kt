@@ -215,7 +215,7 @@ internal fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
         Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        TracoDoKit(Obsidian.borderDim, Modifier.weight(1f))
         Row(
             Modifier.padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -227,7 +227,7 @@ internal fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
             Spacer(Modifier.width(7.dp))
             Text(texto, style = TextStyle(color = cor, fontSize = 11.sp, fontFamily = DmMono))
         }
-        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        TracoDoKit(Obsidian.borderDim, Modifier.weight(1f))
     }
 }
 

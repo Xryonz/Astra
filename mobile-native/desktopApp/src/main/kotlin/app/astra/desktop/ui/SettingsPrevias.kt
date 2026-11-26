@@ -559,11 +559,7 @@ private const val INTERVALO_DA_MEDIDA_MS = 1_000L
 @Composable
 private fun TracoDeCapitulo() {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(
-            Modifier.fillMaxWidth(0.28f)
-                .height(1.dp)
-                .background(Obsidian.borderDim),
-        )
+        TracoDoKit(Obsidian.borderDim, Modifier.fillMaxWidth(0.28f))
     }
 }
 

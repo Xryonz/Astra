@@ -62,8 +62,8 @@ class DesktopPrefs(private val store: SessionStore) {
         val windowTransparent: Boolean = true,
         val exitOnClose: Boolean = false,
         val altoContraste: Boolean = false,
-        val accentId: String = "white",
-        val bgId: String = "void",
+        val accentId: String = "neutral-white",
+        val bgId: String = "neutral-black",
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
@@ -155,8 +155,8 @@ class DesktopPrefs(private val store: SessionStore) {
         windowTransparent = store.uiPref("windowTransparent") != "0",
         exitOnClose = store.uiPref("exitOnClose") == "1",
         altoContraste = store.uiPref("altoContraste") == "1",
-        accentId = store.uiPref("accentId") ?: "white",
-        bgId = store.uiPref("bgId") ?: "void",
+        accentId = store.uiPref("accentId") ?: "neutral-white",
+        bgId = store.uiPref("bgId") ?: "neutral-black",
         fontSize = FontSizePref.from(store.uiPref("fontSize")),
         density = DensityPref.from(store.uiPref("density")),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
@@ -264,6 +264,9 @@ class DesktopPrefs(private val store: SessionStore) {
         anotar("bgId", bgId)
         _state.update { it.copy(accentId = accentId, bgId = bgId) }
     }
+
+    fun temaGravadoNoAparelho(): Boolean =
+        synchronized(pendentes) { "accentId" in pendentes } || store.uiPref("accentId") != null
 
     fun setFontSize(v: FontSizePref) {
         anotar("fontSize", v.key)

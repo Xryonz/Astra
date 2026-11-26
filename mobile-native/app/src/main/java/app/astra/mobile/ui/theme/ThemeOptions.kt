@@ -22,7 +22,8 @@ data class ThemePreset(
 )
 
 val AccentOptions = listOf(
-    AccentOption("white", "Branco", Color(0xFFD4D8E0)),
+    AccentOption("neutral-white", "Branco", Color(0xFFD8D8D8)),
+    AccentOption("white", "Prata", Color(0xFFD4D8E0)),
     AccentOption("gold", "Âmbar", Color(0xFFC9A96E)),
     AccentOption("violet", "Violeta", Color(0xFF9B7AC4)),
     AccentOption("teal", "Ciano", Color(0xFF6AAECA)),
@@ -44,6 +45,7 @@ val AccentOptions = listOf(
 )
 
 val BgOptions = listOf(
+    BgOption("neutral-black", "Preto", Color(0xFF070707), Color(0xFF121212)),
     BgOption("void", "Obsidiana", Color(0xFF06060E), Color(0xFF0F0F24)),
     BgOption("dark", "Carvão", Color(0xFF0D0D0D), Color(0xFF161616)),
     BgOption("navy", "Marinho", Color(0xFF05080F), Color(0xFF0B1020)),
@@ -65,13 +67,14 @@ val BgOptions = listOf(
 )
 
 val ThemePresets = listOf(
+    ThemePreset("preto-e-branco", "Preto e branco", "Branco sobre preto", "neutral-white", "neutral-black", FamiliaDeTema.NEUTRO),
     ThemePreset("obsidian", "Obsidiana", "Prata fria + void", "white", "void", FamiliaDeTema.NEUTRO),
     ThemePreset("solar", "Solar", "Âmbar editorial", "gold", "void", FamiliaDeTema.QUENTE),
     ThemePreset("nebula", "Nebulosa", "Violeta cósmica", "violet", "navy", FamiliaDeTema.FRIO),
     ThemePreset("aurora", "Aurora", "Ciano + floresta", "teal", "forest", FamiliaDeTema.FRIO),
     ThemePreset("eclipse", "Eclipse", "Carmim sobre vinho", "crimson", "wine", FamiliaDeTema.QUENTE),
     ThemePreset("meridian", "Meridiano", "Esmeralda + carvão", "emerald", "dark", FamiliaDeTema.FRIO),
-    ThemePreset("amoled", "AMOLED", "Branco em preto puro", "white", "pure-black", FamiliaDeTema.NEUTRO),
+    ThemePreset("amoled", "AMOLED", "Prata em preto puro", "white", "pure-black", FamiliaDeTema.NEUTRO),
     ThemePreset("nortada", "Nortada", "Ardósia no gelo", "slate", "arctic", FamiliaDeTema.NEUTRO),
     ThemePreset("terracota", "Terracota", "Cobre sobre terra", "copper", "clay", FamiliaDeTema.QUENTE),
     ThemePreset("equinocio", "Equinócio", "Índigo de cidade", "indigo", "indigo-night", FamiliaDeTema.FRIO),

@@ -12,8 +12,8 @@ import zed.rainxch.rikkaui.foundation.RikkaTheme
 
 @Composable
 fun AstraTheme(
-    accentId: String = "white",
-    bgId: String = "void",
+    accentId: String = "neutral-white",
+    bgId: String = "neutral-black",
     content: @Composable () -> Unit,
 ) {
     val colors = remember(accentId, bgId) { buildAstraColors(accentId, bgId) }

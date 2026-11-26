@@ -7,26 +7,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
 object Obsidian {
-    var void by mutableStateOf(Color(0xFF030308))
+    var void by mutableStateOf(Color(0xFF040404))
         private set
-    var base by mutableStateOf(Color(0xFF09091A))
+    var base by mutableStateOf(Color(0xFF0B0B0B))
         private set
-    var raised by mutableStateOf(Color(0xFF0F0F24))
+    var raised by mutableStateOf(Color(0xFF121212))
         private set
-    var overlay by mutableStateOf(Color(0xFF15152E))
+    var overlay by mutableStateOf(Color(0xFF1D1D1D))
         private set
-    var hover by mutableStateOf(Color(0xFF1C1C38))
+    var hover by mutableStateOf(Color(0xFF252525))
         private set
-    var active by mutableStateOf(Color(0xFF22223F))
+    var active by mutableStateOf(Color(0xFF2D2D2D))
         private set
-    var accent by mutableStateOf(Color(0xFFD4D8E0))
+    var accent by mutableStateOf(Color(0xFFD8D8D8))
         private set
-    var accentDim by mutableStateOf(Color(0x33D4D8E0))
+    var accentDim by mutableStateOf(Color(0x33D8D8D8))
         private set
 
-    var borderDim by mutableStateOf(Color(0xFF363741))
+    var borderDim by mutableStateOf(Color(0xFF393939))
         private set
-    var borderMid by mutableStateOf(Color(0xFF494A54))
+    var borderMid by mutableStateOf(Color(0xFF4D4D4D))
         private set
 
     var text1 by mutableStateOf(TEXT1_PADRAO)
@@ -67,7 +67,7 @@ object Obsidian {
 
     var altoContraste by mutableStateOf(false)
         private set
-    private var ultimoRaised = Color(0xFF0F0F24)
+    private var ultimoRaised = Color(0xFF121212)
 }
 
 private val TEXT1_PADRAO = Color(0xFFE4E4EB)

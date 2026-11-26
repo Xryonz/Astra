@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -73,7 +71,6 @@ import com.composables.icons.lucide.Move
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -322,36 +319,7 @@ internal fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) 
             style = Tipo.rotulo,
             modifier = Modifier.width(150.dp),
         )
-        Box(
-            Modifier
-                .weight(1f)
-                .height(22.dp)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { change, _ ->
-                        change.consume()
-                        onChange(((change.position.x / size.width).coerceIn(0f, 1f) * 100).roundToInt())
-                    }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            val fracao = (valor / 100f).coerceIn(0f, 1f)
-            Box(
-                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Obsidian.void.copy(alpha = 0.6f)),
-            )
-            Box(
-                Modifier.fillMaxWidth(fracao).height(5.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Obsidian.accent),
-            )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (fracao > 0f) Spacer(Modifier.weight(fracao))
-                Box(
-                    Modifier.size(14.dp).clip(CircleShape)
-                        .background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape),
-                )
-                if (fracao < 1f) Spacer(Modifier.weight(1f - fracao))
-            }
-        }
+        DeslizanteDoKit(valor, onChange, rotulo, Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
         Text(
             "$valor%",
@@ -363,44 +331,12 @@ internal fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) 
 
 @Composable
 private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
-    val faixa = (ZOOM_MAX - ZOOM_MIN).toFloat()
-    val pct = ((scale - ZOOM_MIN) / faixa).coerceIn(0f, 1f)
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
-        Box(
-            Modifier
-                .weight(1f)
-                .height(22.dp)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { change, _ ->
-                        change.consume()
-                        val f = (change.position.x / size.width).coerceIn(0f, 1f)
-                        onChange(ZOOM_MIN + (f * faixa).toInt())
-                    }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(
-                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Obsidian.void.copy(alpha = 0.6f)),
-            )
-            Box(
-                Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Obsidian.accent),
-            )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                val f = pct.coerceIn(0f, 1f)
-                if (f > 0f) Spacer(Modifier.weight(f))
-                Box(
-                    Modifier.size(14.dp).clip(CircleShape)
-                        .background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape),
-                )
-                if (f < 1f) Spacer(Modifier.weight(1f - f))
-            }
-        }
+        DeslizanteDoKit(scale, onChange, "zoom", Modifier.weight(1f), minimo = ZOOM_MIN, maximo = ZOOM_MAX)
         Spacer(Modifier.width(10.dp))
         Text("${scale}%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
     }

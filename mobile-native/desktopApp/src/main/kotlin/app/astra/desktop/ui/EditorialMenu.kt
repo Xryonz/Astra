@@ -14,7 +14,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -326,38 +325,7 @@ private fun VolumeSubRow(sub: MenuEntry.VolumeSub) {
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val fracao = (sub.porcento / 100f).coerceIn(0f, 1f)
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(20.dp)
-                            .pointerInput(Unit) {
-                                detectHorizontalDragGestures { change, _ ->
-                                    change.consume()
-                                    val f = (change.position.x / size.width).coerceIn(0f, 1f)
-                                    sub.onChange((f * 100).roundToInt())
-                                }
-                            },
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        Box(
-                            Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
-                                .background(Obsidian.void.copy(alpha = 0.6f)),
-                        )
-                        Box(
-                            Modifier.fillMaxWidth(fracao).height(4.dp).clip(RoundedCornerShape(2.dp))
-                                .background(Obsidian.accent),
-                        )
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            if (fracao > 0f) Spacer(Modifier.weight(fracao))
-                            Box(
-                                Modifier.size(12.dp).clip(CircleShape)
-                                    .background(Obsidian.accent)
-                                    .border(2.dp, Obsidian.overlay, CircleShape),
-                            )
-                            if (fracao < 1f) Spacer(Modifier.weight(1f - fracao))
-                        }
-                    }
+                    DeslizanteDoKit(sub.porcento, sub.onChange, sub.label, Modifier.weight(1f))
                 }
             }
         }

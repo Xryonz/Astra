@@ -3,7 +3,6 @@ package app.astra.desktop.ui
 import com.composables.ui.components.ButtonStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -228,30 +226,9 @@ private fun BotaoVoltarAoOriginal(aoClicar: () -> Unit) {
 
 @Composable
 private fun TrilhaDaBot(rotulo: String, valor: Int, min: Int, max: Int, aoMudar: (Int) -> Unit) {
-    val f = ((valor - min).toFloat() / (max - min)).coerceIn(0f, 1f)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(rotulo, style = Tipo.apoio, modifier = Modifier.width(48.dp))
-        Box(
-            Modifier
-                .weight(1f)
-                .height(22.dp)
-                .pointerInput(min, max) {
-                    detectHorizontalDragGestures { change, _ ->
-                        change.consume()
-                        val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                        aoMudar((min + x * (max - min)).toInt())
-                    }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
-            Box(Modifier.fillMaxWidth(f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (f > 0f) Spacer(Modifier.weight(f))
-                Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))
-                if (f < 1f) Spacer(Modifier.weight(1f - f))
-            }
-        }
+        DeslizanteDoKit(valor, aoMudar, rotulo, Modifier.weight(1f), minimo = min, maximo = max)
         Spacer(Modifier.width(10.dp))
         Text("$valor", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), modifier = Modifier.width(34.dp))
     }

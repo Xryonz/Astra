@@ -2,9 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -428,30 +425,9 @@ fun CropDialog(
 
 @Composable
 private fun CropZoomTrack(pct: Int, onChange: (Int) -> Unit) {
-    val f = ((pct - 100) / 200f).coerceIn(0f, 1f)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
-        Box(
-            Modifier
-                .weight(1f)
-                .height(22.dp)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { change, _ ->
-                        change.consume()
-                        val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                        onChange((100 + x * 200).toInt())
-                    }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
-            Box(Modifier.fillMaxWidth(f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (f > 0f) Spacer(Modifier.weight(f))
-                Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))
-                if (f < 1f) Spacer(Modifier.weight(1f - f))
-            }
-        }
+        DeslizanteDoKit(pct, onChange, "zoom", Modifier.weight(1f), minimo = 100, maximo = 300)
         Spacer(Modifier.width(10.dp))
         Text("$pct%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
     }

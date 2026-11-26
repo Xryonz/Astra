@@ -50,7 +50,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -297,21 +296,38 @@ internal fun CampoDeDialogo(
     icone: ImageVector? = null,
     estilo: TextStyle = Tipo.corpo,
 ) {
+    val comFoco = modifier.fillMaxWidth().then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
+    if (segredo) {
+        CampoDeSenhaDeCasa(valor, aoMudar, comFoco, dica, aoEnviar, ligado, icone, estilo)
+    } else {
+        CampoDoKit(valor, aoMudar, comFoco, dica, aoEnviar, ligado, umaLinha, LINHAS_DO_CAMPO_LONGO, icone, estilo)
+    }
+}
+
+@Composable
+private fun CampoDeSenhaDeCasa(
+    valor: String,
+    aoMudar: (String) -> Unit,
+    modifier: Modifier,
+    dica: String,
+    aoEnviar: () -> Unit,
+    ligado: Boolean,
+    icone: ImageVector?,
+    estilo: TextStyle,
+) {
     val toque = remember { MutableInteractionSource() }
     val focado by toque.collectIsFocusedAsState()
     BasicTextField(
         value = valor,
         onValueChange = aoMudar,
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (foco != null) Modifier.focusRequester(foco) else Modifier),
+        modifier = modifier,
         readOnly = !ligado,
         textStyle = estilo,
-        keyboardOptions = KeyboardOptions(imeAction = if (umaLinha) ImeAction.Done else ImeAction.Default),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { aoEnviar() }),
-        singleLine = umaLinha,
-        maxLines = if (umaLinha) 1 else LINHAS_DO_CAMPO_LONGO,
-        visualTransformation = if (segredo) PasswordVisualTransformation() else VisualTransformation.None,
+        singleLine = true,
+        maxLines = 1,
+        visualTransformation = PasswordVisualTransformation(),
         interactionSource = toque,
         cursorBrush = SolidColor(Obsidian.accent),
         decorationBox = { campo ->

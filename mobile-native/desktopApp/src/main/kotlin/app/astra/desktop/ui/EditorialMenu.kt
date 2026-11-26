@@ -18,6 +18,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -47,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.ChevronRight
@@ -55,6 +55,8 @@ import com.composables.icons.lucide.Lucide
 import app.astra.desktop.ui.theme.Text
 import kotlin.math.roundToInt
 import app.astra.desktop.ui.theme.Tipo
+import com.composables.ui.components.DropdownMenuPanelContentScope
+import com.composables.ui.components.DropdownMenuSeparator
 
 sealed interface MenuEntry {
     data class Item(
@@ -98,6 +100,7 @@ fun EditorialContextMenu(
     content: @Composable () -> Unit,
 ) {
     var menuAt by remember { mutableStateOf<IntOffset?>(null) }
+    var aberto by remember { mutableStateOf(false) }
     Box(
         modifier.pointerInput(Unit) {
             awaitPointerEventScope {
@@ -107,6 +110,7 @@ fun EditorialContextMenu(
                         val change = event.changes.first()
                         if (!change.isConsumed) {
                             menuAt = IntOffset(change.position.x.roundToInt(), change.position.y.roundToInt())
+                            aberto = true
                             change.consume()
                         }
                     }
@@ -116,13 +120,26 @@ fun EditorialContextMenu(
     ) {
         content()
         menuAt?.let { at ->
-            Popup(
-                popupPositionProvider = remember(at) { AtPointer(at) },
-                onDismissRequest = { menuAt = null },
-                properties = PopupProperties(focusable = true),
+            MenuDoKit(
+                aberto = aberto,
+                aoMudar = { aberto = it },
+                modifier = Modifier.offset { at },
+                itens = { EntradasDoMenu(entries(), fechar = { aberto = false }) },
             ) {
-                MenuCard(entries(), dismiss = { menuAt = null })
+                Spacer(Modifier.size(1.dp))
             }
+        }
+    }
+}
+
+@Composable
+internal fun DropdownMenuPanelContentScope.EntradasDoMenu(entradas: List<MenuEntry>, fechar: () -> Unit) {
+    entradas.forEach { entrada ->
+        when (entrada) {
+            is MenuEntry.Separator -> DropdownMenuSeparator()
+            is MenuEntry.Item -> ItemDoMenu(entrada.label, entrada.icon, entrada.danger, onClick = entrada.onClick)
+            is MenuEntry.EmojiSub -> EmojiSubRow(entrada, fechar)
+            is MenuEntry.VolumeSub -> VolumeSubRow(entrada)
         }
     }
 }

@@ -7,6 +7,8 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,10 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Pencil
@@ -43,9 +42,9 @@ fun FotoEditavel(
 ) {
     val fonte = remember { MutableInteractionSource() }
     val hover by fonte.collectIsHoveredAsState()
-    var menuEm by remember { mutableStateOf<IntOffset?>(null) }
+    var menuAberto by remember { mutableStateOf(false) }
 
-    val aceso = hover || menuEm != null
+    val aceso = hover || menuAberto
     val veu = animateFloatAsState(if (aceso) 1f else 0f, tween(140), label = "veuDaFoto")
     val veuNaTela by remember { derivedStateOf { veu.value > 0f } }
 
@@ -54,7 +53,7 @@ fun FotoEditavel(
             .clip(forma)
             .hoverable(fonte)
             .clickable(interactionSource = fonte, indication = null, onClickLabel = rotulo) {
-                menuEm = IntOffset(0, 0)
+                menuAberto = true
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -70,14 +69,13 @@ fun FotoEditavel(
                 LIcon(Lucide.Pencil, tint = Obsidian.text1, size = glifo)
             }
         }
-        menuEm?.let { em ->
-            Popup(
-                popupPositionProvider = remember(em) { AbaixoDoAlvo(AlinhamentoNoAlvo.ESQUERDA) },
-                onDismissRequest = { menuEm = null },
-                properties = PopupProperties(focusable = true),
-            ) {
-                MenuCard(acoes(), dismiss = { menuEm = null })
-            }
+        MenuDoKit(
+            aberto = menuAberto,
+            aoMudar = { menuAberto = it },
+            modifier = Modifier.matchParentSize(),
+            itens = { EntradasDoMenu(acoes(), fechar = { menuAberto = false }) },
+        ) {
+            Spacer(Modifier.fillMaxSize())
         }
     }
 }

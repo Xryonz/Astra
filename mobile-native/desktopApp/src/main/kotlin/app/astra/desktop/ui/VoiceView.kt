@@ -560,7 +560,24 @@ private fun SeletorDeAparelho(
     val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrão do Windows"
     val fonte = remember { MutableInteractionSource() }
     val sobre by fonte.collectIsHoveredAsState()
-    Box {
+    MenuDoKit(
+        aberto = aberto,
+        aoMudar = { aberto = it },
+        modifier = Modifier.fillMaxWidth(),
+        itens = {
+            ItemDoMenu("Padrão do Windows", marca = Lucide.Check.takeIf { atual == null }) { aoEscolher(null) }
+            opcoes.forEach { ap ->
+                ItemDoMenu(ap.nome, marca = Lucide.Check.takeIf { ap.id == atual }) { aoEscolher(ap.id) }
+            }
+            if (opcoes.isEmpty()) {
+                Text(
+                    "procurando aparelhos…",
+                    style = Tipo.apoio,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+        },
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -580,66 +597,6 @@ private fun SeletorDeAparelho(
                 modifier = Modifier.weight(1f),
             )
             LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
-        }
-        if (aberto) {
-            Popup(
-                onDismissRequest = { aberto = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                Column(
-                    Modifier
-                        .width(240.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Obsidian.overlay)
-                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                        .padding(4.dp),
-                ) {
-                    LinhaDeAparelho("Padrão do Windows", atual == null) {
-                        aoEscolher(null); aberto = false
-                    }
-                    opcoes.forEach { ap ->
-                        LinhaDeAparelho(ap.nome, ap.id == atual) {
-                            aoEscolher(ap.id); aberto = false
-                        }
-                    }
-                    if (opcoes.isEmpty()) {
-                        Text(
-                            "procurando aparelhos…",
-                            style = Tipo.apoio,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit) {
-    val interacao = remember { MutableInteractionSource() }
-    val sobHover by interacao.collectIsHoveredAsState()
-    val fundo by animateColorAsState(if (sobHover) Obsidian.hover else Color.Transparent, tween(100))
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
-            .clip(RoundedCornerShape(6.dp))
-            .background(fundo)
-            .hoverable(interacao)
-            .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            rotulo,
-            style = TextStyle(color = if (ativo) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (ativo) {
-            Spacer(Modifier.width(6.dp))
-            LIcon(Lucide.Check, tint = Obsidian.accent, size = 13.dp)
         }
     }
 }

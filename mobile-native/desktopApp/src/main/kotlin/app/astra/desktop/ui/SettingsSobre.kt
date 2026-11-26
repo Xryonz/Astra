@@ -20,7 +20,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -42,8 +41,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.system.exitProcess
 import org.koin.core.context.GlobalContext
-import zed.rainxch.rikkaui.components.ui.progress.Progress
-import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
 
 @Composable
 internal fun AboutSection() {
@@ -89,14 +86,7 @@ internal fun AboutSection() {
         is UpdateState.Downloading -> {
             AboutStatus("baixando ${s.version}… ${(s.progress * 100).toInt()}%")
             Spacer(Modifier.height(10.dp))
-            Progress(
-                s.progress,
-                Modifier.fillMaxWidth(),
-                Obsidian.accent,
-                Obsidian.overlay,
-                6.dp,
-                ProgressAnimation.Spring,
-            )
+            BarraDeProgressoDoKit(s.progress, 6.dp, Modifier.fillMaxWidth())
         }
         is UpdateState.Ready -> {
             AboutStatus("${s.version} baixada. Reinicie para aplicar.")
@@ -271,29 +261,10 @@ private fun BotaoProcurarAtualizacao(procurar: suspend () -> Unit) {
     }
 }
 
-private const val VOLTA_DA_VARREDURA_MS = 1_100
 
 @Composable
 private fun BarraDeVarredura() {
-    val reduzMovimento = LocalReduceMotion.current
-    val posicao = faseDeEnfeite(VOLTA_DA_VARREDURA_MS, repouso = 0f)
-    Canvas(Modifier.fillMaxWidth().height(2.dp)) {
-        drawRect(color = Obsidian.borderDim, size = size)
-        if (reduzMovimento) {
-            drawRect(color = Obsidian.accentDim, size = size)
-        } else {
-            val largura = size.width * 0.35f
-            val x = posicao.value * (size.width + largura) - largura
-            drawRect(
-                color = Obsidian.accentDim,
-                topLeft = Offset(x.coerceAtLeast(0f), 0f),
-                size = Size(
-                    width = (x + largura).coerceAtMost(size.width) - x.coerceAtLeast(0f),
-                    height = size.height,
-                ),
-            )
-        }
-    }
+    EsperaDoKit(2.dp, Modifier.fillMaxWidth())
 }
 
 private fun haQuantoTempo(quando: Long): String {

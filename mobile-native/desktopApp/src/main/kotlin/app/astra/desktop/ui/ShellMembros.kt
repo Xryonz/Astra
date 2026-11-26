@@ -196,7 +196,7 @@ private fun MemberRow(
                 aoFechar = { confirmMember = null },
             )
         }
-        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles, entraPelaDireita = true) {
+        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
             val linha = remember { MutableInteractionSource() }
             val linhaComOMouse by linha.collectIsHoveredAsState()
             Row(

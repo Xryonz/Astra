@@ -5,8 +5,6 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import app.astra.desktop.ui.theme.EaseSpring
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.AtividadeDto
@@ -45,6 +43,7 @@ import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import org.koin.core.context.GlobalContext
 
 private const val CACHE_MS = 5 * 60_000L
+private const val ENTRADA_DO_CARTAO_MS = 180
 
 private val ALTURA_MIN_CARTAO = 420.dp
 private val profileCache = mutableMapOf<String, Pair<ProfileViewWrapper, Long>>()
@@ -85,7 +84,6 @@ fun ProfileAnchor(
     isMe: Boolean,
     onStartDm: (username: String, title: String) -> Unit,
     cargos: List<MemberRoleDto> = emptyList(),
-    entraPelaDireita: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -119,7 +117,6 @@ fun ProfileAnchor(
                     onChamar = { u, t -> open = false; acoes.chamar(u, t) },
                     onEditarPerfil = { open = false; acoes.editarPerfil() },
                     onOpenFull = { open = false; full = true },
-                    entraPelaDireita = entraPelaDireita,
                 )
             }
         }
@@ -179,7 +176,6 @@ private fun ProfilePopupCard(
     onChamar: (String, String) -> Unit,
     onEditarPerfil: () -> Unit,
     onOpenFull: () -> Unit,
-    entraPelaDireita: Boolean = false,
 ) {
     val koin = GlobalContext.get()
     var visao by remember(userId) { mutableStateOf(cached(userId)) }
@@ -195,13 +191,9 @@ private fun ProfilePopupCard(
     }
 
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
-    val entrada = when {
-        LocalReduceMotion.current -> EnterTransition.None
-        entraPelaDireita -> fadeIn(tween(240, easing = EaseSpring)) +
-            slideInHorizontally(tween(280, easing = EaseSpring)) { it / 8 }
-        else -> fadeIn(tween(240, easing = EaseSpring)) +
-            slideInVertically(tween(280, easing = EaseSpring)) { it / 10 }
-    }
+    val entrada =
+        if (LocalReduceMotion.current) EnterTransition.None
+        else fadeIn(tween(ENTRADA_DO_CARTAO_MS, easing = EaseOutStd))
     AnimatedVisibility(visibleState = entered, enter = entrada) {
         val v = visao
         if (v == null) {

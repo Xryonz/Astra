@@ -33,6 +33,9 @@ desugar = "2.1.2"
 lucide = "1.1.0"
 browser = "1.8.0"
 rikkaui = "0.3.0"
+composablesUi = "0.2.0"
+composeUnstyled = "2.7.0"
+interactionCapabilities = "1.1.0"
 # DPAPI do Windows via JNA (so :desktopApp) — sessao cifrada em repouso.
 jna = "5.14.0"
 errorprone = "2.36.0"
@@ -101,6 +104,9 @@ androidx-browser = { group = "androidx.browser", name = "browser", version.ref =
 rikkaui-foundation = { group = "dev.rikkaui", name = "foundation", version.ref = "rikkaui" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
 rikkaui-components = { group = "dev.rikkaui", name = "components", version.ref = "rikkaui" }
+composables-ui = { group = "com.composables", name = "ui", version.ref = "composablesUi" }
+composables-unstyled = { group = "com.composables", name = "composeunstyled", version.ref = "composeUnstyled" }
+composables-interaction-capabilities = { group = "com.composables", name = "compose-interaction-capabilities", version.ref = "interactionCapabilities" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorprone" }
 # Ambos arrastam junto o decodificador de verdade (JLayer / JOrbis) e o
 # tritonus-share. Nao ha nada a chamar neles: eles se REGISTRAM no JavaSound, e a

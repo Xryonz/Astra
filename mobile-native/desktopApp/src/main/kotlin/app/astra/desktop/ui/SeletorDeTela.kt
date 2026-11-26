@@ -1,5 +1,6 @@
 package app.astra.desktop.ui
 
+import com.composables.ui.components.ButtonStyle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -187,24 +188,8 @@ private fun AbaDaFonte(rotulo: String, ativa: Boolean, aoClicar: () -> Unit) {
 
 @Composable
 private fun BotaoDeParar(aoClicar: () -> Unit) {
-    val interacao = remember { MutableInteractionSource() }
-    val sobre by interacao.collectIsHoveredAsState()
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (sobre) Obsidian.active else Obsidian.hover)
-            .border(1.dp, Obsidian.danger.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
-            .hoverable(interacao)
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
-            .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Parar de transmitir",
-            style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
-        )
+    BotaoDoKit(onClick = aoClicar, estilo = ButtonStyle.Destructive, modifier = Modifier.fillMaxWidth()) {
+        RotuloDoBotao("Parar de transmitir", tamanho = 12.sp)
     }
 }
 

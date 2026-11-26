@@ -119,6 +119,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
+import app.astra.desktop.ui.theme.TemaDoAstraNoKit
 import zed.rainxch.rikkaui.foundation.RikkaColors
 import zed.rainxch.rikkaui.foundation.RikkaTheme
 
@@ -820,6 +821,7 @@ fun main(args: Array<String>) {
                 LocalFundoLiso provides (!prefState.auroraOn && !prefState.starsOn),
             ) {
             RikkaTheme(colors = obsidianRikkaColors()) {
+            TemaDoAstraNoKit {
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -978,6 +980,7 @@ fun main(args: Array<String>) {
                     }
                     }
                 }
+            }
             }
             }
         }

@@ -1,19 +1,13 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,14 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
+import com.composables.ui.components.ButtonStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -148,33 +142,11 @@ internal fun GestosDoPet(
 
 @Composable
 private fun BotaoDeGesto(rotulo: String, ativo: Boolean, onClick: () -> Unit) {
-    val fonte = remember { MutableInteractionSource() }
-    val sobMouse by fonte.collectIsHoveredAsState()
-    val fundo by animateColorAsState(
-        when {
-            ativo -> Obsidian.active
-            sobMouse -> Obsidian.hover
-            else -> Obsidian.base
-        },
-        tween(120),
-        label = "fundoDoGesto",
-    )
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(fundo)
-            .border(1.dp, if (ativo) Obsidian.borderMid else Color.Transparent, RoundedCornerShape(8.dp))
-            .hoverable(fonte)
-            .clickScale(fonte)
-            .clickable(interactionSource = fonte, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+    BotaoDoKit(
+        onClick = onClick,
+        estilo = if (ativo) ButtonStyle.Secondary else ButtonStyle.Ghost,
+        modifier = Modifier.semantics { selected = ativo },
     ) {
-        Text(
-            rotulo,
-            style = TextStyle(
-                color = if (ativo) Obsidian.text1 else Obsidian.text2,
-                fontSize = 12.sp,
-            ),
-        )
+        RotuloDoBotao(rotulo, tamanho = 12.sp)
     }
 }

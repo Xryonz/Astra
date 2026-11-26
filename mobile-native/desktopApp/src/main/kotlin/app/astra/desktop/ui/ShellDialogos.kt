@@ -50,12 +50,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.selected
@@ -65,6 +62,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -74,8 +72,9 @@ import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
+import com.composables.ui.components.ButtonStyle
+import com.composeunstyled.LocalContentColor
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.clickable as clicavelDoCompose
 
 enum class TipoDeBotao { PRINCIPAL, SECUNDARIO, PERIGO }
 
@@ -235,44 +234,29 @@ internal fun BotaoDeDialogo(
     foco: FocusRequester? = null,
     icone: ImageVector? = null,
 ) {
-    val toque = remember { MutableInteractionSource() }
-    val parado = remember { MutableInteractionSource() }
-    val sobre by toque.collectIsHoveredAsState()
-    val aceso = sobre && ligado
-    val fundo = when (tipo) {
-        TipoDeBotao.PRINCIPAL -> if (aceso) Obsidian.active else Obsidian.hover
-        TipoDeBotao.SECUNDARIO -> if (aceso) Obsidian.hover else Color.Transparent
-        TipoDeBotao.PERIGO -> Obsidian.danger.copy(alpha = if (aceso) TINTA_DO_PERIGO_ACESO else TINTA_DO_PERIGO)
-    }
-    val cor = when {
-        !ligado -> Obsidian.text3
-        tipo == TipoDeBotao.PERIGO -> Obsidian.danger
-        tipo == TipoDeBotao.PRINCIPAL || aceso -> Obsidian.text1
-        else -> Obsidian.text2
-    }
-    Row(
-        modifier
-            .then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
-            .clickScale(if (ligado) toque else parado)
-            .defaultMinSize(minHeight = ALTURA_DO_BOTAO)
-            .clip(FormaDeBotao)
-            .background(fundo)
-            .hoverable(toque, enabled = ligado)
-            .pointerHoverIcon(if (ligado) PointerIcon.Hand else PointerIcon.Default)
-            .semantics { if (!ligado) disabled() }
-            .clicavelDoCompose(interactionSource = toque, indication = null, role = Role.Button) {
-                if (ligado) onClick()
-            }
-            .padding(horizontal = RESPIRO_DO_BOTAO),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+    BotaoDoKit(
+        onClick = onClick,
+        estilo = tipo.estiloNoKit,
+        modifier = modifier,
+        ligado = ligado,
+        foco = foco,
     ) {
-        if (icone != null) {
-            LIcon(icone, tint = cor, size = 14.dp)
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
+        RotuloDoBotao(rotulo, icone)
     }
+}
+
+private val TipoDeBotao.estiloNoKit: ButtonStyle
+    get() = when (this) {
+        TipoDeBotao.PRINCIPAL -> ButtonStyle.Primary
+        TipoDeBotao.SECUNDARIO -> ButtonStyle.Ghost
+        TipoDeBotao.PERIGO -> ButtonStyle.Destructive
+    }
+
+@Composable
+internal fun RotuloDoBotao(rotulo: String, icone: ImageVector? = null, tamanho: TextUnit = 13.sp) {
+    val cor = LocalContentColor.current
+    if (icone != null) LIcon(icone, tint = cor, size = 14.dp)
+    Text(rotulo, style = TextStyle(color = cor, fontSize = tamanho))
 }
 
 @Composable
@@ -383,15 +367,11 @@ private val FormaDoCampo = RoundedCornerShape(8.dp)
 private val RESPIRO_DO_DIALOGO = 20.dp
 private val MARGEM_DA_JANELA = 24.dp
 private val SUBIDA_DE_ENTRADA = 8.dp
-private val ALTURA_DO_BOTAO = 32.dp
 private val ALTURA_DA_ESCOLHA = 28.dp
-private val RESPIRO_DO_BOTAO = 14.dp
 private const val ESCURO_ATRAS_DO_DIALOGO = 0.72f
 private const val ESCALA_DE_ENTRADA = 0.98f
 private const val ENTRADA_DO_DIALOGO_MS = 160
 private const val SAIDA_DO_DIALOGO_MS = 120
-private const val TINTA_DO_PERIGO = 0.08f
-private const val TINTA_DO_PERIGO_ACESO = 0.12f
 private const val BORDA_EM_FOCO = 0.6f
 private const val BORDA_DA_ESCOLHA_ATIVA = 0.55f
 private const val LINHAS_DO_CAMPO_LONGO = 4

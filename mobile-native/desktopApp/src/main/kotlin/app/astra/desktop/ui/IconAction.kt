@@ -4,12 +4,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,11 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import com.composables.ui.components.ButtonStyle
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.LoaderCircle
 import com.composables.icons.lucide.Lucide
@@ -70,28 +67,13 @@ fun BotaoIcone(
         if (sobHover) (if (danger) Obsidian.danger else Obsidian.text1) else corBase,
         tween(120),
     )
-    val fundo by animateColorAsState(
-        if (sobHover) (if (danger) Obsidian.danger.copy(alpha = 0.10f) else Obsidian.hover)
-        else Color.Transparent,
-        tween(120),
-    )
-    val borda = when {
-        danger -> Obsidian.danger.copy(alpha = 0.45f)
-        accent -> Obsidian.accentDim
-        else -> Obsidian.borderDim
-    }
 
     Box {
-        Box(
-            Modifier
-                .size(34.dp)
-                .clickScale(interacao)
-                .clip(RoundedCornerShape(8.dp))
-                .background(fundo)
-                .border(1.dp, borda, RoundedCornerShape(8.dp))
-                .hoverable(interacao)
-                .clickable(interactionSource = interacao, indication = null, enabled = !ocupado, onClick = onClick),
-            contentAlignment = Alignment.Center,
+        BotaoIconeDoKit(
+            onClick = onClick,
+            estilo = ButtonStyle.Outlined,
+            ligado = !ocupado,
+            toque = interacao,
         ) {
             if (ocupado) {
                 val giro = faseDeEnfeite(VOLTA_DO_GIRO_MS, repouso = 0f)

@@ -27,7 +27,7 @@ missões.
 - **Socket.IO**: mensagens, presença e avisos ao vivo
 - **Coil**: imagens e GIFs
 - **Compottie**: animações Lottie
-- **RikkaUI** e **Lucide**: componentes de interface e ícones
+- **RikkaUI**, **Composables UI** e **Lucide**: componentes de interface e ícones
 - **JNA**: integração com o Windows (barra de tarefas, foco da janela, início com o
   sistema e sessão protegida pelo próprio Windows)
 - **Nucleus**: a identidade do Astra no menu Iniciar
@@ -232,6 +232,14 @@ A lua do estado "ausente" é o ícone "eclipse" (sólido) da
 [Myna UI Icons](https://github.com/praveenjuge/mynaui-icons), de **Praveen Juge**, sob a
 MIT License. O arquivo fica sem alteração em
 `mobile-native/desktopApp/src/main/resources/icones/`, com o texto da licença ao lado.
+
+### Componentes de interface
+
+| Biblioteca | Para quê | Licença |
+| --- | --- | --- |
+| [Composables UI](https://composables.com/ui), da **Composable Horizons** | botões, diálogos, menus, chaves, campos e as demais peças do computador, com a paleta do Astra | MIT |
+| [Compose Unstyled](https://composeunstyled.com), da **Composable Horizons**, que o Composables UI usa por baixo | o comportamento das peças: teclado, foco e leitor de tela | MIT |
+| [Compose Interaction Capabilities](https://github.com/composablehorizons/compose-interaction-capabilities) e [Compose Ripple Indication](https://github.com/composablehorizons/compose-ripple-indication), da **Composable Horizons** | detectar mouse ou toque, e o retorno visual do clique | MIT |
 
 ### Motor de voz e tela
 

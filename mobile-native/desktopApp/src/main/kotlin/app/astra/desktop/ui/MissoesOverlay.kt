@@ -1,5 +1,7 @@
 package app.astra.desktop.ui
 
+import com.composables.ui.components.ButtonStyle
+import com.composeunstyled.LocalContentColor
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -390,24 +392,11 @@ private fun Moeda(
 
 @Composable
 private fun BotaoDeResgate(rotulo: String, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val sobHover by src.collectIsHoveredAsState()
-    val forma = RoundedCornerShape(7.dp)
-    Box(
-        Modifier
-            .width(44.dp)
-            .height(24.dp)
-            .clickScale(src, formaDoFoco = forma)
-            .clip(forma)
-            .background(if (sobHover) Obsidian.text1 else Obsidian.accent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    BotaoDoKit(onClick = onClick, estilo = ButtonStyle.Primary) {
         Text(
             rotulo,
             style = TextStyle(
-                color = Obsidian.textInv, fontSize = 11.sp,
+                color = LocalContentColor.current, fontSize = 11.sp,
                 fontFamily = DmMono, fontWeight = FontWeight.Medium,
             ),
         )
@@ -484,15 +473,7 @@ private fun Marcador(concluida: Boolean, conquista: Boolean) {
 private fun BotaoFechar(onClose: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    Box(
-        Modifier
-            .size(30.dp)
-            .clickScale(interaction)
-            .clip(RoundedCornerShape(7.dp))
-            .hoverable(interaction)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClose),
-        contentAlignment = Alignment.Center,
-    ) {
+    BotaoIconeDoKit(onClick = onClose, estilo = ButtonStyle.Ghost, toque = interaction) {
         LIcon(
             Lucide.X,
             tint = if (hovered) Obsidian.text1 else Obsidian.text3,

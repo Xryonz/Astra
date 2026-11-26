@@ -1,5 +1,6 @@
 package app.astra.desktop.ui
 
+import com.composables.ui.components.ButtonStyle
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -381,16 +382,7 @@ private fun LinhaDeConstelacao(
 internal fun BotaoDeLigar(icone: ImageVector, titulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
-    Box(
-        Modifier
-            .size(28.dp)
-            .clickScale(src, formaDoFoco = RoundedCornerShape(8.dp))
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (hov) Obsidian.accentDim else Color.Transparent, RoundedCornerShape(8.dp))
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    BotaoIconeDoKit(onClick = onClick, estilo = ButtonStyle.Ghost, toque = src) {
         LIcon(icone, tint = if (hov) Obsidian.accent else Obsidian.text3, size = 15.dp, rotulo = titulo)
     }
 }

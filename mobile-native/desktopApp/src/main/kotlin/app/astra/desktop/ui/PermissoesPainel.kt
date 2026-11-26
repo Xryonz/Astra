@@ -1,12 +1,11 @@
 package app.astra.desktop.ui
 
+import com.composables.ui.components.ButtonStyle
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -255,20 +254,8 @@ private fun BotaoDaPermissao(
     pronto: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    val forma = RoundedCornerShape(8.dp)
     val realce = if (destaque) Obsidian.accent else Obsidian.text2
-    Box(
-        Modifier
-            .clip(forma)
-            .background(if (ativo && hov) realce.copy(alpha = 0.12f) else Color.Transparent)
-            .border(1.dp, if (ativo && destaque) Obsidian.accentDim else Obsidian.borderDim, forma)
-            .hoverable(src, enabled = ativo)
-            .clickable(interactionSource = src, indication = null, enabled = ativo, onClick = onClick)
-            .padding(horizontal = 11.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+    BotaoDoKit(onClick = onClick, estilo = ButtonStyle.Outlined, ligado = ativo) {
         Text(
             rotulo,
             style = TextStyle(

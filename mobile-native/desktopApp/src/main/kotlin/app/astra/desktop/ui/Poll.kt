@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,10 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.toggleableState
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,7 +41,6 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.PollDto
-import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import java.time.Duration
@@ -302,28 +296,7 @@ fun CriarEnqueteDialog(
 
 @Composable
 private fun CaixaDeMarcar(rotulo: String, marcada: Boolean, onClick: () -> Unit) {
-    val toque = remember { MutableInteractionSource() }
-    Row(
-        Modifier
-            .clickScale(toque)
-            .defaultMinSize(minHeight = 28.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .semantics { toggleableState = ToggleableState(marcada) }
-            .clickable(interactionSource = toque, indication = null, role = Role.Checkbox, onClick = onClick)
-            .padding(end = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(16.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(if (marcada) Obsidian.accent.copy(alpha = 0.22f) else Color.Transparent)
-                .border(1.dp, if (marcada) Obsidian.accent else Obsidian.borderMid, RoundedCornerShape(5.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (marcada) LIcon(Lucide.Check, tint = Obsidian.accent, size = 11.dp)
-        }
-        Spacer(Modifier.width(8.dp))
-        Text(rotulo, style = Tipo.rotulo)
+    CaixaDoKit(marcada = marcada, aoMudar = { onClick() }) {
+        Text(rotulo, style = Tipo.rotulo, modifier = Modifier.padding(end = 6.dp))
     }
 }

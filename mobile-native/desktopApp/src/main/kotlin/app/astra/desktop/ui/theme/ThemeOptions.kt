@@ -65,7 +65,10 @@ val BgOptions = listOf(
 )
 
 val ThemePresets = listOf(
-    ThemePreset("preto-e-branco", "Preto e branco", "Branco sobre preto", "neutral-white", "neutral-black", FamiliaDeTema.NEUTRO),
+    ThemePreset(
+        "preto-e-branco", "Preto e branco", "Branco sobre preto",
+        "neutral-white", "neutral-black", FamiliaDeTema.NEUTRO,
+    ),
     ThemePreset("obsidian", "Obsidiana", "Prata fria + void", "white", "void", FamiliaDeTema.NEUTRO),
     ThemePreset("solar", "Solar", "Âmbar editorial", "gold", "void", FamiliaDeTema.QUENTE),
     ThemePreset("nebula", "Nebulosa", "Violeta cósmica", "violet", "navy", FamiliaDeTema.FRIO),

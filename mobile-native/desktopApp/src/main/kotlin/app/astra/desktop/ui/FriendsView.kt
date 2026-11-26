@@ -2,8 +2,6 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,7 +12,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -170,15 +167,13 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         }
         Spacer(Modifier.height(14.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TabPill("Amigos", friends.size, tab == FriendsTab.FRIENDS) { tab = FriendsTab.FRIENDS }
-            TabPill(
-                "Pendentes",
-                incoming.size + outgoing.size,
-                tab == FriendsTab.PENDING,
-                destaque = incoming.isNotEmpty(),
-            ) { tab = FriendsTab.PENDING }
-            TabPill("Adicionar", null, tab == FriendsTab.ADD) { tab = FriendsTab.ADD }
+        AbasDoKit(selecionada = tab, aoSelecionar = { tab = it }, abas = FriendsTab.entries) { aba, cor ->
+            val contagem = when (aba) {
+                FriendsTab.FRIENDS -> friends.size
+                FriendsTab.PENDING -> incoming.size + outgoing.size
+                FriendsTab.ADD -> null
+            }
+            RotuloDaAba(aba.label, cor, contagem, destaque = aba == FriendsTab.PENDING && incoming.isNotEmpty())
         }
         Spacer(Modifier.height(16.dp))
 
@@ -224,49 +219,11 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun TabPill(
-    label: String,
-    count: Int?,
-    active: Boolean,
-    destaque: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val src = remember { MutableInteractionSource() }
-    val comOMouse by src.collectIsHoveredAsState()
-    val transicao = if (LocalReduceMotion.current) snap<Color>() else tween(130)
-    val bg by animateColorAsState(
-        when {
-            active -> Obsidian.active
-            comOMouse -> Obsidian.overlay
-            else -> Color.Transparent
-        },
-        transicao,
-        label = "tabBg",
-    )
-    val borderC by animateColorAsState(
-        bordaDoItem(Obsidian.accent.copy(alpha = 0.55f).takeIf { active }, comOMouse),
-        transicao,
-        label = "tabBorder",
-    )
-    Row(
-        Modifier
-            .clickScale(src)
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .border(1.dp, borderC, RoundedCornerShape(8.dp))
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            label,
-            style = TextStyle(color = if (active) Obsidian.text1 else Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
-        )
-        if (count != null && count > 0) {
-            Spacer(Modifier.width(7.dp))
-            UnreadCountBadge(count, destaque = destaque)
-        }
+private fun RotuloDaAba(rotulo: String, cor: Color, contagem: Int?, destaque: Boolean) {
+    Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp, fontFamily = DmSerif))
+    if (contagem != null && contagem > 0) {
+        Spacer(Modifier.width(7.dp))
+        UnreadCountBadge(contagem, destaque = destaque)
     }
 }
 

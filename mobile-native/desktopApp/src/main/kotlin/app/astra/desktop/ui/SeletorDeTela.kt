@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -91,12 +90,15 @@ fun SeletorDeTela(
         )
         Spacer(Modifier.height(10.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            AbaDaFonte("telas inteiras", !emJanelas) { emJanelas = false }
-            AbaDaFonte("uma janela", emJanelas) {
-                emJanelas = true
-                if (janelas == null) aoPedirJanelas()
-            }
+        AbasDoKit(
+            selecionada = emJanelas,
+            aoSelecionar = { querJanelas ->
+                emJanelas = querJanelas
+                if (querJanelas && janelas == null) aoPedirJanelas()
+            },
+            abas = FontesDaTela,
+        ) { emJanela, cor ->
+            Text(if (emJanela) "uma janela" else "telas inteiras", style = TextStyle(color = cor, fontSize = 11.sp))
         }
         Spacer(Modifier.height(12.dp))
 
@@ -160,31 +162,7 @@ private fun <T> ListaDeFontes(
     }
 }
 
-@Composable
-private fun AbaDaFonte(rotulo: String, ativa: Boolean, aoClicar: () -> Unit) {
-    val interacao = remember { MutableInteractionSource() }
-    val sobre by interacao.collectIsHoveredAsState()
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                when {
-                    ativa -> Obsidian.active
-                    sobre -> Obsidian.hover
-                    else -> Color.Transparent
-                },
-            )
-            .hoverable(interacao)
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
-            .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-    ) {
-        Text(
-            rotulo,
-            style = TextStyle(color = if (ativa) Obsidian.text1 else Obsidian.text3, fontSize = 11.sp),
-        )
-    }
-}
+private val FontesDaTela = listOf(false, true)
 
 @Composable
 private fun BotaoDeParar(aoClicar: () -> Unit) {

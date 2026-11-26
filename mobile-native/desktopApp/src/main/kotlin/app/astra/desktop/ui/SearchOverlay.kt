@@ -160,9 +160,8 @@ fun SearchOverlay(
             val temBusca = query.trim().length >= 2
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (temBusca) {
-                    SearchTab.entries.forEach { t ->
-                        TabPill(t.label, active = tab == t) { tab = t }
-                        Spacer(Modifier.width(6.dp))
+                    AbasDoKit(selecionada = tab, aoSelecionar = { tab = it }, abas = SearchTab.entries) { t, cor ->
+                        Text(t.label, style = TextStyle(color = cor, fontSize = 12.sp))
                     }
                 }
                 Spacer(Modifier.weight(1f))
@@ -261,23 +260,6 @@ private fun SectionLabel(t: String) {
         t.uppercase(),
         style = Tipo.secao,
         modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun TabPill(label: String, active: Boolean, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    val bg by animateColorAsState(if (active) Obsidian.accentDim else if (hov) Obsidian.hover else Color.Transparent, tween(120))
-    Text(
-        label,
-        style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
     )
 }
 

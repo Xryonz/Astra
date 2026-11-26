@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.FonteSemApertoNemFoco
 import app.astra.desktop.ui.theme.FormaDoKit
+import app.astra.desktop.ui.theme.Obsidian
 import com.composables.ui.components.Button
 import com.composables.ui.components.ButtonSize
 import com.composables.ui.components.ButtonStyle
@@ -52,6 +53,28 @@ internal fun BotaoDoKit(
         buttonSize = ButtonSize.Small,
         contentPadding = RespiroDoBotaoDoKit,
         interactionSource = fonteDoKit,
+        content = conteudo,
+    )
+}
+
+@Composable
+internal fun BotaoDePerigoDoKit(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    ligado: Boolean = true,
+    foco: FocusRequester? = null,
+    conteudo: @Composable RowScope.() -> Unit,
+) {
+    val toque = remember { MutableInteractionSource() }
+    Button(
+        onClick = onClick,
+        modifier = modifier.comportamentoDoAstra(toque, ligado, foco),
+        enabled = ligado,
+        style = ButtonStyle.Outlined,
+        buttonSize = ButtonSize.Small,
+        contentPadding = RespiroDoBotaoDoKit,
+        interactionSource = rememberFonteDoKit(toque),
+        contentColor = Obsidian.danger,
         content = conteudo,
     )
 }

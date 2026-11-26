@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,6 +55,7 @@ import com.composeunstyled.theme.Theme
 private const val VIRADA_DA_CHAVE_MS = 160
 private const val MARCA_DA_CAIXA_MS = 120
 private val FormaDaAlca = RoundedCornerShape(3.dp)
+private val ALTURA_MINIMA_DA_CAIXA = 28.dp
 
 @Composable
 internal fun ChaveDoKit(ligada: Boolean, rotulo: String, aoMudar: (Boolean) -> Unit) {
@@ -96,7 +98,10 @@ internal fun CaixaDoKit(
     UnstyledCheckbox(
         checked = marcada,
         onCheckedChange = aoMudar,
-        modifier = Modifier.clickScale(toque, formaDoFoco = FormaDoKit).pointerHoverIcon(PointerIcon.Hand),
+        modifier = Modifier
+            .clickScale(toque, formaDoFoco = FormaDoKit)
+            .defaultMinSize(minHeight = ALTURA_MINIMA_DA_CAIXA)
+            .pointerHoverIcon(PointerIcon.Hand),
         interactionSource = toque,
         accessibilityLabel = rotulo,
     ) {

@@ -1,6 +1,5 @@
 package app.astra.desktop.ui
 
-import com.composables.ui.components.ButtonStyle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -166,7 +165,7 @@ private val FontesDaTela = listOf(false, true)
 
 @Composable
 private fun BotaoDeParar(aoClicar: () -> Unit) {
-    BotaoDoKit(onClick = aoClicar, estilo = ButtonStyle.Destructive, modifier = Modifier.fillMaxWidth()) {
+    BotaoDePerigoDoKit(onClick = aoClicar, modifier = Modifier.fillMaxWidth()) {
         RotuloDoBotao("Parar de transmitir", tamanho = 12.sp)
     }
 }

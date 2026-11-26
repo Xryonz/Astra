@@ -173,7 +173,7 @@ internal fun Dialogo(
         overlay = { VeuDoDialogo(reduzir) },
     ) {
         Box(Modifier.fillMaxSize().padding(MARGEM_DA_JANELA), contentAlignment = Alignment.Center) {
-            PainelDoDialogo(titulo, largura, reduzir) { conteudo(fechar) }
+            PainelDoDialogo(titulo, largura, reduzir, entraSemAnimar = reduzir || !animarEntrada) { conteudo(fechar) }
         }
     }
 }
@@ -192,6 +192,7 @@ private fun DialogScope.PainelDoDialogo(
     titulo: String,
     largura: LarguraDoDialogo,
     reduzir: Boolean,
+    entraSemAnimar: Boolean,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
     val forma = Theme[shapes][dialogShape]
@@ -203,7 +204,7 @@ private fun DialogScope.PainelDoDialogo(
             .clip(forma)
             .background(Theme[colors][panelColor], forma),
         paneTitle = titulo,
-        enter = if (reduzir) EnterTransition.None else entradaDoPainel(subida),
+        enter = if (entraSemAnimar) EnterTransition.None else entradaDoPainel(subida),
         exit = if (reduzir) ExitTransition.None else saidaDoPainel(),
     ) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(RESPIRO_DO_DIALOGO)) {
@@ -252,9 +253,15 @@ internal fun BotaoDeDialogo(
     foco: FocusRequester? = null,
     icone: ImageVector? = null,
 ) {
+    if (tipo == TipoDeBotao.PERIGO) {
+        BotaoDePerigoDoKit(onClick = onClick, modifier = modifier, ligado = ligado, foco = foco) {
+            RotuloDoBotao(rotulo, icone)
+        }
+        return
+    }
     BotaoDoKit(
         onClick = onClick,
-        estilo = tipo.estiloNoKit,
+        estilo = if (tipo == TipoDeBotao.PRINCIPAL) ButtonStyle.Primary else ButtonStyle.Ghost,
         modifier = modifier,
         ligado = ligado,
         foco = foco,
@@ -262,13 +269,6 @@ internal fun BotaoDeDialogo(
         RotuloDoBotao(rotulo, icone)
     }
 }
-
-private val TipoDeBotao.estiloNoKit: ButtonStyle
-    get() = when (this) {
-        TipoDeBotao.PRINCIPAL -> ButtonStyle.Primary
-        TipoDeBotao.SECUNDARIO -> ButtonStyle.Ghost
-        TipoDeBotao.PERIGO -> ButtonStyle.Destructive
-    }
 
 @Composable
 internal fun RotuloDoBotao(rotulo: String, icone: ImageVector? = null, tamanho: TextUnit = 13.sp) {

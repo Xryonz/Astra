@@ -1,10 +1,8 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,18 +41,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -65,15 +55,37 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.Tipo
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.platform.LocalDensity
 import com.composables.ui.components.ButtonStyle
+import com.composables.ui.theme.colors
+import com.composables.ui.theme.dialogShape
+import com.composables.ui.theme.overlayShadow
+import com.composables.ui.theme.panelColor
+import com.composables.ui.theme.scrimColor
+import com.composables.ui.theme.shadows
+import com.composables.ui.theme.shapes
+import com.composeunstyled.DialogOverlayScope
+import com.composeunstyled.DialogPanel
+import com.composeunstyled.DialogProperties
+import com.composeunstyled.DialogScope
 import com.composeunstyled.LocalContentColor
+import com.composeunstyled.Scrim
+import com.composeunstyled.UnstyledDialog
+import com.composeunstyled.theme.Theme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class TipoDeBotao { PRINCIPAL, SECUNDARIO, PERIGO }
@@ -133,79 +145,86 @@ internal fun Dialogo(
 ) {
     val reduzir = LocalReduceMotion.current
     val escopo = rememberCoroutineScope()
-    val presenca = remember { Animatable(if (reduzir || !animarEntrada) 1f else 0f) }
+    var aberto by remember { mutableStateOf(reduzir || !animarEntrada) }
     var fechando by remember { mutableStateOf(false) }
     var fechado by remember { mutableStateOf(false) }
     val aoFecharAgora by rememberUpdatedState(aoFechar)
-    LaunchedEffect(Unit) {
-        if (presenca.value < 1f) presenca.animateTo(1f, tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd))
-    }
+    LaunchedEffect(Unit) { aberto = true }
     val fechar: () -> Unit = {
         if (!fechando) {
             fechando = true
+            aberto = false
             if (reduzir) {
                 fechado = true
                 aoFecharAgora()
             } else {
                 escopo.launch {
-                    presenca.animateTo(0f, tween(SAIDA_DO_DIALOGO_MS, easing = EaseOutStd))
+                    delay(SAIDA_DO_DIALOGO_MS.toLong())
                     fechado = true
                     aoFecharAgora()
                 }
             }
         }
     }
-    val fecharAgora by rememberUpdatedState(fechar)
     if (fechado) return
-    Popup(
-        popupPositionProvider = CobrindoAJanela,
-        onDismissRequest = { if (dispensavel) fecharAgora() },
-        properties = PopupProperties(focusable = true),
+    UnstyledDialog(
+        visible = aberto,
+        onDismissRequest = fechar,
+        properties = DialogProperties(dismissOnBackPress = dispensavel, dismissOnClickOutside = dispensavel),
+        overlay = { VeuDoDialogo(reduzir) },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = presenca.value }
-                .background(Obsidian.void.copy(alpha = ESCURO_ATRAS_DO_DIALOGO))
-                .pointerInput(dispensavel) { detectTapGestures { if (dispensavel) fecharAgora() } }
-                .onPreviewKeyEvent { e ->
-                    if (dispensavel && e.type == KeyEventType.KeyDown && e.key == Key.Escape) {
-                        fecharAgora()
-                        true
-                    } else {
-                        false
-                    }
-                }
-                .padding(MARGEM_DA_JANELA),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                Modifier
-                    .graphicsLayer {
-                        val p = presenca.value
-                        val escala = ESCALA_DE_ENTRADA + (1f - ESCALA_DE_ENTRADA) * p
-                        scaleX = escala
-                        scaleY = escala
-                        translationY = (1f - p) * SUBIDA_DE_ENTRADA.toPx()
-                    }
-                    .width(largura.medida)
-                    .clip(FormaDoDialogo)
-                    .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderDim, FormaDoDialogo)
-                    .pointerInput(Unit) { detectTapGestures { } }
-                    .semantics { paneTitle = titulo }
-                    .verticalScroll(rememberScrollState())
-                    .padding(RESPIRO_DO_DIALOGO),
-            ) {
-                Text(
-                    titulo,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = DmSerif),
-                )
-                conteudo(fechar)
-            }
+        Box(Modifier.fillMaxSize().padding(MARGEM_DA_JANELA), contentAlignment = Alignment.Center) {
+            PainelDoDialogo(titulo, largura, reduzir) { conteudo(fechar) }
         }
     }
 }
+
+@Composable
+private fun DialogOverlayScope.VeuDoDialogo(reduzir: Boolean) {
+    Scrim(
+        scrimColor = Theme[colors][scrimColor],
+        enter = if (reduzir) EnterTransition.None else fadeIn(tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd)),
+        exit = if (reduzir) ExitTransition.None else fadeOut(tween(SAIDA_DO_DIALOGO_MS, easing = EaseOutStd)),
+    )
+}
+
+@Composable
+private fun DialogScope.PainelDoDialogo(
+    titulo: String,
+    largura: LarguraDoDialogo,
+    reduzir: Boolean,
+    conteudo: @Composable ColumnScope.() -> Unit,
+) {
+    val forma = Theme[shapes][dialogShape]
+    val subida = with(LocalDensity.current) { SUBIDA_DE_ENTRADA.roundToPx() }
+    DialogPanel(
+        modifier = Modifier
+            .width(largura.medida)
+            .dropShadow(forma, Theme[shadows][overlayShadow])
+            .clip(forma)
+            .background(Theme[colors][panelColor], forma),
+        paneTitle = titulo,
+        enter = if (reduzir) EnterTransition.None else entradaDoPainel(subida),
+        exit = if (reduzir) ExitTransition.None else saidaDoPainel(),
+    ) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(RESPIRO_DO_DIALOGO)) {
+            Text(
+                titulo,
+                style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = DmSerif),
+            )
+            conteudo()
+        }
+    }
+}
+
+private fun entradaDoPainel(subida: Int): EnterTransition =
+    fadeIn(tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd)) +
+        scaleIn(tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd), initialScale = ESCALA_DE_ENTRADA) +
+        slideInVertically(tween(ENTRADA_DO_DIALOGO_MS, easing = EaseOutStd)) { subida }
+
+private fun saidaDoPainel(): ExitTransition =
+    fadeOut(tween(SAIDA_DO_DIALOGO_MS, easing = EaseOutStd)) +
+        scaleOut(tween(SAIDA_DO_DIALOGO_MS, easing = EaseOutStd), targetScale = ESCALA_DE_ENTRADA)
 
 @Composable
 internal fun rememberFocoAoAbrir(): FocusRequester {
@@ -362,13 +381,11 @@ internal fun EscolhaDoDialogo(rotulo: String, ativa: Boolean, onClick: () -> Uni
     }
 }
 
-private val FormaDoDialogo = RoundedCornerShape(8.dp)
 private val FormaDoCampo = RoundedCornerShape(8.dp)
 private val RESPIRO_DO_DIALOGO = 20.dp
 private val MARGEM_DA_JANELA = 24.dp
 private val SUBIDA_DE_ENTRADA = 8.dp
 private val ALTURA_DA_ESCOLHA = 28.dp
-private const val ESCURO_ATRAS_DO_DIALOGO = 0.72f
 private const val ESCALA_DE_ENTRADA = 0.98f
 private const val ENTRADA_DO_DIALOGO_MS = 160
 private const val SAIDA_DO_DIALOGO_MS = 120

@@ -1,40 +1,30 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import com.composables.ui.components.ButtonStyle
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.composables.icons.lucide.LoaderCircle
-import com.composables.icons.lucide.Lucide
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
+import app.astra.desktop.ui.theme.FormaDoKit
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import kotlinx.coroutines.delay
+import com.composables.icons.lucide.LoaderCircle
+import com.composables.icons.lucide.Lucide
+import com.composables.ui.components.ButtonStyle
+import com.composables.ui.components.Tooltip
+import com.composables.ui.components.TooltipPanel
+import com.composables.ui.components.TooltipSide
+import com.composeunstyled.LocalContentColor
 
 private const val ESPERA_DICA_MS = 420L
 private const val VOLTA_DO_GIRO_MS = 900
@@ -50,13 +40,6 @@ fun BotaoIcone(
 ) {
     val interacao = remember { MutableInteractionSource() }
     val sobHover by interacao.collectIsHoveredAsState()
-    var mostrarDica by remember { mutableStateOf(false) }
-
-    LaunchedEffect(sobHover) {
-        if (!sobHover) { mostrarDica = false; return@LaunchedEffect }
-        delay(ESPERA_DICA_MS)
-        mostrarDica = true
-    }
 
     val corBase = when {
         danger -> Obsidian.danger
@@ -68,7 +51,7 @@ fun BotaoIcone(
         tween(120),
     )
 
-    Box {
+    DicaDoKit(dica, ligada = !ocupado, lado = TooltipSide.Bottom) {
         BotaoIconeDoKit(
             onClick = onClick,
             estilo = ButtonStyle.Outlined,
@@ -85,67 +68,31 @@ fun BotaoIcone(
                 LIcon(icone, tint = conteudo, size = 16.dp, rotulo = dica)
             }
         }
-        if (mostrarDica && !ocupado) {
-            val margem = with(LocalDensity.current) { 6.dp.roundToPx() }
-            Popup(popupPositionProvider = remember(margem) { AbaixoDoAlvo(AlinhamentoNoAlvo.CENTRO, margem) }) {
-                Box(
-                    Modifier
-                        .popupReveal(originX = 0.5f, originY = 0f)
-                        .clip(RoundedCornerShape(7.dp))
-                        .background(Obsidian.overlay)
-                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp)),
-                ) {
-                    Text(
-                        dica,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                    )
-                }
-            }
-        }
     }
 }
 
 @Composable
-fun DicaAcima(dica: String, sobHover: Boolean) {
-    var mostrar by remember { mutableStateOf(false) }
-    LaunchedEffect(sobHover) {
-        if (!sobHover) { mostrar = false; return@LaunchedEffect }
-        delay(ESPERA_DICA_MS)
-        mostrar = true
-    }
-    if (!mostrar) return
-
-    val margem = with(LocalDensity.current) { 8.dp.roundToPx() }
-    Popup(popupPositionProvider = remember(margem) { AcimaCentralizado(margem) }) {
-        Box(
-            Modifier
-                .popupReveal(originX = 0.5f, originY = 1f)
-                .clip(RoundedCornerShape(7.dp))
-                .background(Obsidian.overlay)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp)),
-        ) {
-            Text(
-                dica,
-                style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-            )
-        }
-    }
-}
-
-private class AcimaCentralizado(private val margem: Int) : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        val acima = anchorBounds.top - popupContentSize.height - margem
-        val y = if (acima >= 0) acima
-        else (anchorBounds.bottom + margem).coerceAtMost(windowSize.height - popupContentSize.height)
-        return IntOffset(x, y)
-    }
+fun DicaDoKit(
+    dica: String,
+    ligada: Boolean = true,
+    lado: TooltipSide = TooltipSide.Top,
+    alvo: @Composable () -> Unit,
+) {
+    val reduzir = LocalReduceMotion.current
+    Tooltip(
+        enabled = ligada,
+        side = lado,
+        sideOffset = 6.dp,
+        hoverDelayMillis = ESPERA_DICA_MS,
+        panel = {
+            TooltipPanel(
+                shape = FormaDoKit,
+                enter = if (reduzir) EnterTransition.None else null,
+                exit = if (reduzir) ExitTransition.None else null,
+            ) {
+                Text(dica, style = TextStyle(color = LocalContentColor.current, fontSize = 11.sp))
+            }
+        },
+        anchor = alvo,
+    )
 }

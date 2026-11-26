@@ -778,23 +778,24 @@ private fun CallSplitButton(
             val daTela = remember { MutableInteractionSource() }
             val sobreATela by daTela.collectIsHoveredAsState()
             val fundoDaTela = fundoDoBotao(tone, sobreATela)
-            Box(
-                Modifier
-                    .size(ALTURA_DO_BOTAO)
-                    .clickScale(daTela, formaDoFoco = esquerda)
-                    .clip(esquerda)
-                    .background(fundoDaTela)
-                    .hoverable(daTela)
-                    .clickable(
-                        interactionSource = daTela,
-                        indication = null,
-                        enabled = habilitado,
-                        onClick = onClick,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                LIcon(icon, tint = glifo, size = 20.dp, rotulo = rotulo)
-                DicaAcima(rotulo, sobreATela && habilitado)
+            DicaDoKit(rotulo, ligada = habilitado) {
+                Box(
+                    Modifier
+                        .size(ALTURA_DO_BOTAO)
+                        .clickScale(daTela, formaDoFoco = esquerda)
+                        .clip(esquerda)
+                        .background(fundoDaTela)
+                        .hoverable(daTela)
+                        .clickable(
+                            interactionSource = daTela,
+                            indication = null,
+                            enabled = habilitado,
+                            onClick = onClick,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LIcon(icon, tint = glifo, size = 20.dp, rotulo = rotulo)
+                }
             }
 
             Box(Modifier.width(1.dp).height(22.dp).background(Obsidian.borderMid))
@@ -802,24 +803,25 @@ private fun CallSplitButton(
             val daSeta = remember { MutableInteractionSource() }
             val sobreASeta by daSeta.collectIsHoveredAsState()
             val fundoDaSeta = fundoDoBotao(tone, sobreASeta || setaAberta)
-            Box(
-                Modifier
-                    .width(LARGURA_DA_SETA)
-                    .height(ALTURA_DO_BOTAO)
-                    .clickScale(daSeta, formaDoFoco = direita)
-                    .clip(direita)
-                    .background(fundoDaSeta)
-                    .hoverable(daSeta)
-                    .clickable(interactionSource = daSeta, indication = null, onClick = aoAbrirSeta),
-                contentAlignment = Alignment.Center,
-            ) {
-                LIcon(
-                    if (setaAberta) Lucide.ChevronDown else Lucide.ChevronUp,
-                    tint = if (setaAberta) Obsidian.accent else Obsidian.text3,
-                    size = 16.dp,
-                    rotulo = rotuloDaSeta,
-                )
-                DicaAcima(rotuloDaSeta, sobreASeta && !setaAberta)
+            DicaDoKit(rotuloDaSeta, ligada = !setaAberta) {
+                Box(
+                    Modifier
+                        .width(LARGURA_DA_SETA)
+                        .height(ALTURA_DO_BOTAO)
+                        .clickScale(daSeta, formaDoFoco = direita)
+                        .clip(direita)
+                        .background(fundoDaSeta)
+                        .hoverable(daSeta)
+                        .clickable(interactionSource = daSeta, indication = null, onClick = aoAbrirSeta),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LIcon(
+                        if (setaAberta) Lucide.ChevronDown else Lucide.ChevronUp,
+                        tint = if (setaAberta) Obsidian.accent else Obsidian.text3,
+                        size = 16.dp,
+                        rotulo = rotuloDaSeta,
+                    )
+                }
             }
         }
         Box(Modifier.matchParentSize().border(1.dp, borda, inteiro))
@@ -844,7 +846,7 @@ private fun CallIconButton(
         tween(140),
     )
     val bg = if (preenchido) fundoCheio else fundoDoBotao(tone, hovered)
-    Box {
+    DicaDoKit(rotulo, ligada = habilitado) {
         Box(
             Modifier
                 .size(ALTURA_DO_BOTAO)
@@ -858,7 +860,6 @@ private fun CallIconButton(
         ) {
             LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)
         }
-        DicaAcima(rotulo, hovered && habilitado)
     }
 }
 

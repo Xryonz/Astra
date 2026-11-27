@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,11 +99,6 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
                 style = TextStyle(color = Obsidian.text1, fontSize = 20.sp, fontFamily = DmSerif),
             )
         }
-        Spacer(Modifier.height(3.dp))
-        Text(
-            "entre em comunidades públicas do Astra",
-            style = Tipo.descricao,
-        )
         Spacer(Modifier.height(14.dp))
 
         Row(
@@ -291,18 +285,6 @@ private fun DiscoverEmptyMap(query: String) {
 @Composable
 internal fun DiscoverSidebarMap() {
     Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            DesenhoDaConstelacao(Modifier.size(width = 168.dp, height = 104.dp))
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "a rota leva ao palco ao lado",
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif, textAlign = TextAlign.Center),
-            )
-            Spacer(Modifier.height(5.dp))
-            Text(
-                "busque e entre em constelações públicas",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp, textAlign = TextAlign.Center),
-            )
-        }
+        DesenhoDaConstelacao(Modifier.size(width = 168.dp, height = 104.dp))
     }
 }

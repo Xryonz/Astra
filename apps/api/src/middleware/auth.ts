@@ -23,6 +23,17 @@ function extractBearer(authHeader: string | undefined): string | null {
   return match ? match[1] : null
 }
 
+export function temCredencialValida(req: Request): boolean {
+  const token = extractBearer(req.headers.authorization)
+  if (!token) return false
+  try {
+    verifyAccessToken(token)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = extractBearer(req.headers.authorization)
 

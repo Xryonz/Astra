@@ -19,6 +19,7 @@ import { sanitizeInputs } from './middleware/sanitize'
 import { globalLimiter } from './middleware/rateLimiter'
 import { reqContext } from './middleware/reqContext'
 import { httpMetrics } from './middleware/httpMetrics'
+import { corpoGrandeSoComLogin } from './middleware/corpoGrande'
 import { setupSocket } from './config/socket'
 import { initBot } from './lib/bot'
 import { IA_LIGADA, IA_PROVEDOR, MODELO_CONVERSA } from './lib/ia'
@@ -124,9 +125,9 @@ app.use(
 app.use(reqContext)
 app.use(httpMetrics)
 
-app.use('/api/profile', express.json({ limit: '16mb' }))
-app.use('/api/servers', express.json({ limit: '16mb' }))
-app.use('/api/bots', express.json({ limit: '16mb' }))
+app.use('/api/profile', corpoGrandeSoComLogin)
+app.use('/api/servers', corpoGrandeSoComLogin)
+app.use('/api/bots', corpoGrandeSoComLogin)
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use((req, _res, next) => {

@@ -173,7 +173,7 @@ fun OnboardingScreen(displayName: String, onDone: () -> Unit) {
                 Text(
                     "pular por agora",
                     style = Tipo.descricao,
-                    modifier = Modifier.clickable(interactionSource = skip, indication = null) {
+                    modifier = Modifier.apertoDoLink(skip).clickable(interactionSource = skip, indication = null) {
                         concluir()
                     },
                 )

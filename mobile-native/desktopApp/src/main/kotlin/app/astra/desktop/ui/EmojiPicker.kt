@@ -211,6 +211,7 @@ private fun CelulaEmojiPersonalizado(e: EmojiDto, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(34.dp)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)
@@ -234,6 +235,7 @@ private fun CelulaEmoji(glifo: String, tamanho: androidx.compose.ui.unit.Dp = 34
     Box(
         modifier = Modifier
             .size(tamanho)
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)

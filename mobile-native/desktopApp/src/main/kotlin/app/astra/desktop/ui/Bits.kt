@@ -79,6 +79,8 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 val FormaDeBotao = RoundedCornerShape(8.dp)
+val FormaDoTextoSolto = RoundedCornerShape(6.dp)
+val FolgaDoTextoSolto = 4.dp
 
 private const val APERTO_MS = 120
 private const val ENTRADA_DO_POP_MS = 240
@@ -100,6 +102,10 @@ fun Modifier.clickScale(
     return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
         .anelDeFoco(formaDoFoco, folgaDoFoco)
 }
+
+@Composable
+fun Modifier.apertoDoLink(interactionSource: MutableInteractionSource): Modifier =
+    clickScale(interactionSource, formaDoFoco = FormaDoTextoSolto, folgaDoFoco = FolgaDoTextoSolto)
 
 @Composable
 fun Modifier.veuDoAperto(

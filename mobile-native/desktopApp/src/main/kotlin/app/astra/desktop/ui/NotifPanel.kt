@@ -175,7 +175,10 @@ fun NotifPanel(
                     Text(
                         "marcar tudo",
                         style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
-                        modifier = Modifier.hoverable(src).clickable(interactionSource = src, indication = null) { readAll() },
+                        modifier = Modifier
+                            .apertoDoLink(src)
+                            .hoverable(src)
+                            .clickable(interactionSource = src, indication = null) { readAll() },
                     )
                 }
                 if (items.isNotEmpty()) {
@@ -189,6 +192,7 @@ fun NotifPanel(
                             fontSize = 11.sp,
                         ),
                         modifier = Modifier
+                            .apertoDoLink(srcLimpar)
                             .hoverable(srcLimpar)
                             .clickable(interactionSource = srcLimpar, indication = null) { limparTudo() },
                     )
@@ -261,6 +265,7 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp)
+            .veuDoAperto(src, forma = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(bg)
             .hoverable(src)

@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -84,20 +85,21 @@ fun ProfileAnchor(
     isMe: Boolean,
     onStartDm: (username: String, title: String) -> Unit,
     cargos: List<MemberRoleDto> = emptyList(),
+    forma: Shape = RoundedCornerShape(8.dp),
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
+    val toque = remember { MutableInteractionSource() }
     val acoes = LocalAcoesDoPerfil.current
     val densidade = LocalDensity.current
     val posicao = remember(densidade) {
         with(densidade) { AoLadoDaAncora(folgaPx = 12.dp.roundToPx(), margemPx = 12.dp.roundToPx()) }
     }
     Box(
-        Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-        ) { open = true },
+        Modifier
+            .veuDoAperto(toque, forma)
+            .clickable(interactionSource = toque, indication = null) { open = true },
     ) {
         content()
         if (open) {

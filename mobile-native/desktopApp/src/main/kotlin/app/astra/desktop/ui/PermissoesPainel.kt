@@ -141,11 +141,11 @@ fun PainelDePermissoes(
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp),
                 modifier = Modifier
                     .alpha(if (conferindo) 0.5f else 1f)
-                    .clip(RoundedCornerShape(7.dp))
+                    .padding(vertical = 3.dp)
+                    .apertoDoLink(src)
                     .clickable(interactionSource = src, indication = null, enabled = !conferindo) {
                         escopo.launch { conferirTudo() }
-                    }
-                    .padding(vertical = 3.dp),
+                    },
             )
         }
     }
@@ -261,6 +261,7 @@ private fun BotaoDaPermissao(
     val realce = if (destaque) Obsidian.accent else Obsidian.text2
     Box(
         Modifier
+            .clickScale(src, formaDoFoco = forma)
             .clip(forma)
             .background(if (ativo && hov) realce.copy(alpha = 0.12f) else Color.Transparent)
             .border(1.dp, if (ativo && destaque) Obsidian.accentDim else Obsidian.borderDim, forma)

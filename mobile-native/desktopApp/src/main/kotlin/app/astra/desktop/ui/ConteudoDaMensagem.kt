@@ -290,6 +290,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
         val hov by src.collectIsHoveredAsState()
         Row(
             modifier = Modifier
+                .veuDoAperto(src)
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (hov) Obsidian.hover else Obsidian.raised)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))

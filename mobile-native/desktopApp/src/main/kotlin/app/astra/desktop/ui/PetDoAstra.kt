@@ -392,6 +392,7 @@ fun PetDoAstra(
             Modifier
                 .offset { IntOffset((x - larguraPx / 2f).roundToInt(), (y - pesPx).roundToInt()) }
                 .size(with(densidadeLocal) { larguraPx.toDp() }, with(densidadeLocal) { alturaPx.toDp() })
+                .anelDeFoco()
                 .hoverable(sobHover)
                 .clickable(interactionSource = sobHover, indication = null) {
                     val agora = System.currentTimeMillis()

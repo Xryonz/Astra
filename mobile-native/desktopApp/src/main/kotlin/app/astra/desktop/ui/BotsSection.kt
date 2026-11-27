@@ -125,12 +125,13 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
         }
     }
 
+    val cantoDoCartao = 12.dp
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(cantoDoCartao))
             .background(Obsidian.raised)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(cantoDoCartao)),
     ) {
         Box {
             ProfileBanner(
@@ -143,6 +144,8 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
             )
             FotoEditavel(
                 forma = RectangleShape,
+                formaDoFoco = RoundedCornerShape(topStart = cantoDoCartao - 2.dp, topEnd = cantoDoCartao - 2.dp),
+                folgaDoFoco = (-2).dp,
                 rotulo = "trocar o banner da ${p.displayName}",
                 glifo = 22.dp,
                 acoes = {

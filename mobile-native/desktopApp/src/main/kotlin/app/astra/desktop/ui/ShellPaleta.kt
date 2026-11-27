@@ -171,6 +171,7 @@ private fun PaletteRow(r: QuickResult, active: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .veuDoAperto(src)
             .clip(RoundedCornerShape(8.dp))
             .background(if (active) Obsidian.active else if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)

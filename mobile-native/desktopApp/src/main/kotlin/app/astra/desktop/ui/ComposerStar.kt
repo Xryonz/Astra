@@ -79,6 +79,7 @@ private fun MolduraDoCompositor(
     Box(
         modifier = Modifier
             .size(28.dp)
+            .clickScale(src)
             .clip(RoundedCornerShape(8.dp))
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
@@ -101,12 +102,13 @@ private fun IconeDoCompositor(
 }
 
 @Composable
-private fun IconeVetorial(icone: ImageVector, onClick: () -> Unit) {
+private fun IconeVetorial(icone: ImageVector, rotulo: String, onClick: () -> Unit) {
     MolduraDoCompositor(onClick) { hov ->
         LIcon(
             icone,
             tint = if (hov) Obsidian.accent else Obsidian.text3,
             size = 15.dp,
+            rotulo = rotulo,
         )
     }
 }
@@ -128,8 +130,8 @@ internal fun ComposerPickerButton(
     Box {
         when (tipo) {
             Seletor.GIF -> IconeDoCompositor("GIF", tamanho = 9) { open = !open }
-            Seletor.FIGURINHA -> IconeVetorial(Lucide.Sticker) { open = !open }
-            Seletor.EMOJI -> IconeVetorial(Lucide.Smile) { open = !open }
+            Seletor.FIGURINHA -> IconeVetorial(Lucide.Sticker, "Figurinhas") { open = !open }
+            Seletor.EMOJI -> IconeVetorial(Lucide.Smile, "Emojis") { open = !open }
         }
         if (open) {
             Popup(
@@ -203,6 +205,7 @@ private fun MenuRow(icone: ImageVector, label: String, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .veuDoAperto(src, forma = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)

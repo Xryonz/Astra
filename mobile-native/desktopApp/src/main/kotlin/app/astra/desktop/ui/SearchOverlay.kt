@@ -272,6 +272,7 @@ private fun TabPill(label: String, active: Boolean, onClick: () -> Unit) {
         label,
         style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
         modifier = Modifier
+            .clickScale(src)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .hoverable(src)
@@ -288,6 +289,7 @@ private fun ScopeToggle(onlyHere: Boolean, onToggle: () -> Unit) {
         if (onlyHere) "só esta constelação" else "buscar em tudo",
         style = TextStyle(color = if (hov) Obsidian.text1 else Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .border(1.dp, if (onlyHere) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(7.dp))
             .hoverable(src)
@@ -304,6 +306,7 @@ private fun ResultRow(onClick: () -> Unit, content: @Composable RowScope.(hovere
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .veuDoAperto(src)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .hoverable(src)

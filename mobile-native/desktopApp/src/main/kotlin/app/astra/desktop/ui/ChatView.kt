@@ -807,6 +807,7 @@ private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .veuDoAperto(src, forma = RoundedCornerShape(7.dp))
                     .clip(RoundedCornerShape(7.dp))
                     .background(if (hov) Obsidian.hover else Color.Transparent)
                     .hoverable(src)
@@ -850,6 +851,7 @@ private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .veuDoAperto(src, forma = RoundedCornerShape(7.dp))
                     .clip(RoundedCornerShape(7.dp))
                     .background(if (hov) Obsidian.hover else Color.Transparent)
                     .hoverable(src)

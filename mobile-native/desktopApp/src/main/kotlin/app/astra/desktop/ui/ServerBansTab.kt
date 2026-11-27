@@ -122,6 +122,7 @@ private fun BanRow(ban: BanDto, busy: Boolean, onUnban: () -> Unit) {
         val hov by src.collectIsHoveredAsState()
         Box(
             Modifier
+                .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
                 .clip(RoundedCornerShape(7.dp))
                 .background(if (hov && !busy) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent)
                 .border(1.dp, Obsidian.accentDim, RoundedCornerShape(7.dp))

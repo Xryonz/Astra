@@ -186,6 +186,7 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
         Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
+            .veuDoAperto(src, forma = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(if (hov) Obsidian.hover else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
@@ -281,6 +282,7 @@ private fun RoleEditor(
             "‹ voltar",
             style = TextStyle(color = if (hov) Obsidian.text1 else Obsidian.text3, fontSize = 12.sp),
             modifier = Modifier
+                .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
                 .clip(RoundedCornerShape(7.dp))
                 .hoverable(src)
                 .clickable(interactionSource = src, indication = null, onClick = onBack)
@@ -472,6 +474,7 @@ private fun MemberRoleRow(m: ServerMemberDto, hasRole: Boolean, busy: Boolean, o
     Row(
         Modifier
             .fillMaxWidth()
+            .veuDoAperto(src)
             .clip(RoundedCornerShape(8.dp))
             .background(if (hov) Obsidian.hover else Color.Transparent)
             .hoverable(src)

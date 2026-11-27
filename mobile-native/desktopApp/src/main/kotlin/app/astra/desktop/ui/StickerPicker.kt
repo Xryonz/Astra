@@ -92,6 +92,7 @@ private fun CelulaDeFigurinha(fig: ServerStickerDto, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .veuDoAperto(src, forma = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(if (hov) Obsidian.hover else Obsidian.base)
             .hoverable(src)

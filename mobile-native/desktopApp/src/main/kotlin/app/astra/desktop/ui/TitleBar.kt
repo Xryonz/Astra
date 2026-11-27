@@ -312,6 +312,7 @@ private fun AcaoDaFaixa(rotulo: String, onClick: () -> Unit) {
             fontWeight = FontWeight.Medium,
         ),
         modifier = Modifier
+            .apertoDoLink(src)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
     )

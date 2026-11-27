@@ -799,8 +799,9 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
-            .padding(top = 10.dp, bottom = 2.dp)
+            .padding(top = 10.dp, bottom = 6.dp)
             .categoryDrag(name, dragCtx)
+            .veuDoAperto(interaction, forma = FormaDoTextoSolto, folga = FolgaDoTextoSolto)
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
         verticalAlignment = Alignment.CenterVertically,

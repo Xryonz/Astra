@@ -144,6 +144,7 @@ private fun BotaoDeChamada(
             Modifier
                 .size(58.dp)
                 .graphicsLayer { val s = if (hov) 1.06f else 1f; scaleX = s; scaleY = s }
+                .clickScale(src, formaDoFoco = CircleShape)
                 .clip(CircleShape)
                 .background(cor.copy(alpha = if (hov) 0.22f else 0.14f))
                 .border(1.dp, cor.copy(alpha = if (hov) 0.9f else 0.5f), CircleShape)

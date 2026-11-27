@@ -130,11 +130,12 @@ fun ProfileCard(
         { Column(Modifier.padding(start = recuoH, end = recuoH, bottom = 16.dp)) { conteudo() } }
     }
 
+    val cantoDoCartao = if (completo) 16.dp else 12.dp
     ComPeNoFundo(
         modifier
-            .clip(RoundedCornerShape(if (completo) 16.dp else 12.dp))
+            .clip(RoundedCornerShape(cantoDoCartao))
             .profileCardBackdrop(dados.bannerColor, aspectoBanner)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(if (completo) 16.dp else 12.dp)),
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(cantoDoCartao)),
         pe = peDoCartao,
     ) {
         Box {
@@ -152,6 +153,8 @@ fun ProfileCard(
             acoesDoBanner?.let { acoes ->
                 FotoEditavel(
                     forma = RectangleShape,
+                    formaDoFoco = RoundedCornerShape(topStart = cantoDoCartao - 2.dp, topEnd = cantoDoCartao - 2.dp),
+                    folgaDoFoco = (-2).dp,
                     rotulo = "editar o banner do perfil",
                     glifo = 22.dp,
                     acoes = acoes,

@@ -121,6 +121,7 @@ fun PollBlock(
                     "encerrar",
                     style = TextStyle(color = if (hov) Obsidian.danger else Obsidian.text3, fontSize = 10.sp),
                     modifier = Modifier
+                        .apertoDoLink(src)
                         .hoverable(src)
                         .clickable(interactionSource = src, indication = null, onClick = onClose),
                 )
@@ -155,6 +156,7 @@ private fun PollOptionRow(
     Box(
         Modifier
             .fillMaxWidth()
+            .veuDoAperto(src)
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.overlay)
             .border(1.dp, borda, RoundedCornerShape(8.dp))

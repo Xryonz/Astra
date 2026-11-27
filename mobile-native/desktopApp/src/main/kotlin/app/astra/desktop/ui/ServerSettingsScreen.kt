@@ -916,6 +916,7 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
         label,
         style = TextStyle(color = if (selected) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
         modifier = Modifier
+            .clickScale(src, formaDoFoco = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (selected) Obsidian.active else if (hov) Obsidian.hover else Obsidian.raised)
             .border(

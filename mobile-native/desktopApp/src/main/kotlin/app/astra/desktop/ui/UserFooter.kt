@@ -278,11 +278,11 @@ fun UserFooter(
         }
         Spacer(Modifier.width(9.dp))
         Box(Modifier.weight(1f)) {
+            val toqueDoNome = remember { MutableInteractionSource() }
             Column(
-                Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { statusOpen = true },
+                Modifier
+                    .veuDoAperto(toqueDoNome, forma = FormaDoTextoSolto, folga = FolgaDoTextoSolto)
+                    .clickable(interactionSource = toqueDoNome, indication = null) { statusOpen = true },
             ) {
                 Text(
                     text = name,

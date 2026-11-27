@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -301,7 +302,7 @@ internal fun MessageRow(
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             } else {
-                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
+                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm, forma = CircleShape) {
                     DesktopAvatar(
                         msg.authorAvatar,
                         msg.authorName,

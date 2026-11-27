@@ -349,7 +349,9 @@ private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
             Text(
                 action,
                 style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmSerif),
-                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onToggle),
+                modifier = Modifier
+                    .apertoDoLink(src)
+                    .clickable(interactionSource = src, indication = null, onClick = onToggle),
             )
         }
     }

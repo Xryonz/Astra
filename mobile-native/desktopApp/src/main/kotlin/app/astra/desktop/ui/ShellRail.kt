@@ -514,6 +514,7 @@ private fun CreateMenuRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .veuDoAperto(interaction, forma = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .hoverable(interaction)

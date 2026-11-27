@@ -39,6 +39,8 @@ fun FotoEditavel(
     modifier: Modifier = Modifier,
     glifo: Dp = 18.dp,
     rotulo: String = "editar imagem",
+    formaDoFoco: Shape = forma,
+    folgaDoFoco: Dp = 0.dp,
     conteudo: @Composable (hover: Boolean) -> Unit,
 ) {
     val fonte = remember { MutableInteractionSource() }
@@ -51,6 +53,7 @@ fun FotoEditavel(
 
     Box(
         modifier
+            .veuDoAperto(fonte, forma, formaDoFoco = formaDoFoco, folgaDoFoco = folgaDoFoco)
             .clip(forma)
             .hoverable(fonte)
             .clickable(interactionSource = fonte, indication = null, onClickLabel = rotulo) {

@@ -68,7 +68,6 @@ import missionsRouter from './routes/missions'
 import sessionsRouter from './routes/sessions'
 import emojisRouter from './routes/emojis'
 import channelNotifPrefsRouter from './routes/channelNotifPrefs'
-import crashesRouter from './routes/crashes'
 import { startReminderWorker } from './lib/reminders'
 import { HttpError } from './lib/errors'
 import { logger } from './lib/logger'
@@ -177,7 +176,6 @@ app.use('/api/missions', missionsRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/servers', emojisRouter)
 app.use('/api', channelNotifPrefsRouter)
-app.use('/api/falhas', crashesRouter)
 
 app.use(
   '/static',

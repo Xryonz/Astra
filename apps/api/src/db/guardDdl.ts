@@ -292,20 +292,7 @@ CREATE TABLE IF NOT EXISTS "BotPersona" (
 
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botDisabledCommands" text;
 
-CREATE TABLE IF NOT EXISTS "CrashReport" (
-  "id"         text PRIMARY KEY NOT NULL,
-  "instalacao" text NOT NULL,
-  "versao"     text NOT NULL,
-  "so"         text,
-  "placa"      text,
-  "tipo"       text NOT NULL,
-  "mensagem"   text,
-  "rastro"     text NOT NULL,
-  "arranque"   text,
-  "createdAt"  timestamp (3) NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS "CrashReport_createdAt_idx" ON "CrashReport" USING btree ("createdAt" DESC);
-CREATE INDEX IF NOT EXISTS "CrashReport_versao_tipo_idx" ON "CrashReport" USING btree ("versao", "tipo");
+DROP TABLE IF EXISTS "CrashReport";
 
 CREATE TABLE IF NOT EXISTS "AjusteDeDados" (
   "nome"    text PRIMARY KEY NOT NULL,

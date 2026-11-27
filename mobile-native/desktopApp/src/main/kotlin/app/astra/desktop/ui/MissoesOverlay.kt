@@ -263,7 +263,7 @@ private fun Secao(titulo: String, direita: String) {
             style = Tipo.secao,
         )
         Spacer(Modifier.weight(1f))
-        Text(direita, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono))
+        Text(direita, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
     }
 }
 

@@ -271,7 +271,7 @@ internal fun CartaoDaConstelacao(previa: InvitePreviewDto, fundo: Color = Obsidi
                     Spacer(Modifier.width(4.dp))
                     Text(
                         pessoasNaConstelacao(previa.count?.members ?: 0),
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, fontFamily = DmMono),
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
                     )
                 }
             }

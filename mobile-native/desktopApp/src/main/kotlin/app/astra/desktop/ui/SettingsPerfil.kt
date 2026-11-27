@@ -464,7 +464,7 @@ private fun ResizeBannerDialog(
                             )
                             Text(
                                 "@$username",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                             )
                         }
                         Spacer(Modifier.height(12.dp))
@@ -517,9 +517,14 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(5.dp)),
             )
             Spacer(Modifier.width(10.dp))
+            val rotuloDaCor = colorLabel(selected)
             Text(
-                colorLabel(selected),
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, fontFamily = DmMono),
+                rotuloDaCor,
+                style = TextStyle(
+                    color = Obsidian.text2,
+                    fontSize = 12.sp,
+                    fontFamily = DmMono.takeIf { rotuloDaCor.startsWith("#") },
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),

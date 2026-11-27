@@ -85,7 +85,6 @@ import androidx.compose.ui.zIndex
 import app.astra.desktop.PedidoDeFora
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.Selection
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
@@ -896,7 +895,7 @@ internal fun FaixaDaConstelacao(
                 Spacer(Modifier.width(5.dp))
                 Text(
                     "$online/$membros " + (if (membros == 1) "membro" else "membros") + " online",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

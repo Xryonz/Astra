@@ -225,7 +225,7 @@ internal fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
                 tint = cor, size = 12.dp,
             )
             Spacer(Modifier.width(7.dp))
-            Text(texto, style = TextStyle(color = cor, fontSize = 11.sp, fontFamily = DmMono))
+            Text(texto, style = TextStyle(color = cor, fontSize = 11.sp))
         }
         Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
     }

@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.shell.HISTORICO_DESTINOS
 import app.astra.desktop.shell.SEP_HISTORICO
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.SearchApi
@@ -334,7 +333,12 @@ private fun PersonResult(u: SearchUserDto, onClick: () -> Unit) = ResultRow(onCl
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
         Text(u.displayName ?: u.username, style = Tipo.corpo, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("@${u.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            "@${u.username}",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
     Text("sussurrar", style = TextStyle(color = Obsidian.accent, fontSize = 11.sp))
 }

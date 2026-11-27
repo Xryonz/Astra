@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -113,7 +112,7 @@ private fun CartaoDeMissao(m: MissaoConcluidaDto) {
                 Spacer(Modifier.width(3.dp))
                 Text(
                     "+${m.xp} esperando resgate",
-                    style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontFamily = DmMono),
+                    style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
                 )
             }
         }

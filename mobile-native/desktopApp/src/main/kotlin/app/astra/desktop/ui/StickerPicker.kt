@@ -32,7 +32,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.StickerApi
@@ -69,7 +68,7 @@ internal fun StickerPanel(serverId: String, onPick: (ServerStickerDto) -> Unit) 
                     "nenhuma figurinha aqui ainda.\nquem cuida da constelação\npode subir nas configurações.",
                     style = TextStyle(
                         color = Obsidian.text3, fontSize = 11.sp,
-                        fontFamily = DmMono, lineHeight = 17.sp, textAlign = TextAlign.Center,
+                        lineHeight = 17.sp, textAlign = TextAlign.Center,
                     ),
                 )
             }

@@ -581,7 +581,11 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
             Spacer(Modifier.width(9.dp))
             Text(
                 selected ?: "sem cor",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, fontFamily = DmMono),
+                style = TextStyle(
+                    color = Obsidian.text2,
+                    fontSize = 12.sp,
+                    fontFamily = DmMono.takeIf { selected != null },
+                ),
             )
         }
         if (open) {

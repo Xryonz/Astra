@@ -67,7 +67,6 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.EstadoNaBandeja
 import app.astra.desktop.prefs.DesktopPrefs
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -526,7 +525,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "@${me.username}",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                         )
                         if (!me.pronouns.isNullOrBlank()) {
                             Text(

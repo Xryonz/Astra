@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -465,7 +464,7 @@ private fun NomeELinha(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "@${dados.username}",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             )
             if (!dados.pronomes.isNullOrBlank()) {
                 Text("  ·  ${dados.pronomes}", style = Tipo.apoio)

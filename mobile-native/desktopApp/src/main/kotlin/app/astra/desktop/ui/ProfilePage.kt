@@ -270,7 +270,7 @@ private fun ColunaDeVinculos(
                     )
                     Text(
                         "nível ${p.nivel}",
-                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmMono),
+                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                     )
                 }
                 Spacer(Modifier.height(9.dp))
@@ -278,7 +278,7 @@ private fun ColunaDeVinculos(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "${p.noNivel} / ${p.paraOProximo} para o próximo",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
                 )
             }
             Spacer(Modifier.height(12.dp))

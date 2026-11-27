@@ -27,7 +27,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.BanDto
@@ -106,7 +105,7 @@ private fun BanRow(ban: BanDto, busy: Boolean, onUnban: () -> Unit) {
             )
             Text(
                 "@${ban.user.username}",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             ban.reason?.takeIf { it.isNotBlank() }?.let { reason ->

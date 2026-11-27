@@ -476,7 +476,11 @@ private fun OverviewSection(
         ) {
             Text(
                 server.inviteCode ?: "sem convite",
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmMono),
+                style = TextStyle(
+                    color = Obsidian.text1,
+                    fontSize = 13.sp,
+                    fontFamily = DmMono.takeIf { server.inviteCode != null },
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

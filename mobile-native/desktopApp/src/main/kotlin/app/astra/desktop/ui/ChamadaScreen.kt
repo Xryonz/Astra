@@ -30,7 +30,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.shell.ChamadaNaTela
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -107,7 +106,7 @@ fun ChamadaScreen(
                     chamada.video -> "está te chamando em vídeo"
                     else -> "está te chamando"
                 },
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, fontFamily = DmMono),
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
             )
 
             Spacer(Modifier.height(42.dp))
@@ -155,6 +154,6 @@ private fun BotaoDeChamada(
             LIcon(icone, tint = cor, size = 22.dp)
         }
         Spacer(Modifier.height(9.dp))
-        Text(rotulo, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono))
+        Text(rotulo, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
     }
 }

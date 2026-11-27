@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.EmojiDto
@@ -218,7 +217,6 @@ private fun MenuRow(icone: ImageVector, label: String, onClick: () -> Unit) {
             style = TextStyle(
                 color = if (hov) Obsidian.text1 else Obsidian.text2,
                 fontSize = 12.sp,
-                fontFamily = DmMono,
             ),
         )
     }

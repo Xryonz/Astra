@@ -824,7 +824,7 @@ private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto
                 Spacer(Modifier.width(7.dp))
                 Text(
                     "@" + m.user.username,
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

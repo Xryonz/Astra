@@ -9,6 +9,7 @@ import { encode as encodeBlurhash } from 'blurhash'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { uploadLimiter } from '../middleware/rateLimiter'
+import { umEnvioPorVez } from '../middleware/umEnvioPorVez'
 import { guardarSeNovo, storageMode } from '../lib/storage'
 import { env } from '../lib/env'
 
@@ -157,6 +158,7 @@ router.post(
   '/',
   requireAuth,
   uploadLimiter,
+  umEnvioPorVez,
   (req: Request, res: Response, next) => {
     upload.array('files', MAX_PER_REQUEST)(req, res, (err: any) => {
       if (err) {

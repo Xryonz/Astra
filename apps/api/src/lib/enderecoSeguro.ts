@@ -1,58 +1,41 @@
 import { lookup } from 'node:dns/promises'
 import net from 'node:net'
 
-const FAIXAS_V4_BLOQUEADAS: Array<[string, number]> = [
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.0.2.0', 24],
-  ['192.88.99.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15],
-  ['198.51.100.0', 24],
-  ['203.0.113.0', 24],
-  ['224.0.0.0', 4],
-  ['240.0.0.0', 4],
+const FAIXAS_BLOQUEADAS: Array<[string, number, 'ipv4' | 'ipv6']> = [
+  ['0.0.0.0', 8, 'ipv4'],
+  ['10.0.0.0', 8, 'ipv4'],
+  ['100.64.0.0', 10, 'ipv4'],
+  ['127.0.0.0', 8, 'ipv4'],
+  ['169.254.0.0', 16, 'ipv4'],
+  ['172.16.0.0', 12, 'ipv4'],
+  ['192.0.0.0', 24, 'ipv4'],
+  ['192.0.2.0', 24, 'ipv4'],
+  ['192.88.99.0', 24, 'ipv4'],
+  ['192.168.0.0', 16, 'ipv4'],
+  ['198.18.0.0', 15, 'ipv4'],
+  ['198.51.100.0', 24, 'ipv4'],
+  ['203.0.113.0', 24, 'ipv4'],
+  ['224.0.0.0', 4, 'ipv4'],
+  ['240.0.0.0', 4, 'ipv4'],
+  ['::', 128, 'ipv6'],
+  ['::1', 128, 'ipv6'],
+  ['fc00::', 7, 'ipv6'],
+  ['fe80::', 10, 'ipv6'],
+  ['ff00::', 8, 'ipv6'],
 ]
 
-function paraInteiro(ip: string): number {
-  return ip.split('.').reduce((acc, parte) => (acc << 8) + Number(parte), 0) >>> 0
-}
-
-export function ehV4Publico(ip: string): boolean {
-  const alvo = paraInteiro(ip)
-  return !FAIXAS_V4_BLOQUEADAS.some(([base, bits]) => {
-    const mascara = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0
-    return (alvo & mascara) === (paraInteiro(base) & mascara)
-  })
-}
-
-export function ehV6Publico(ip: string): boolean {
-  const cru = ip.toLowerCase().split('%')[0]
-  if (cru === '::' || cru === '::1') return false
-  if (cru.startsWith('fe80:')) return false
-  if (cru.startsWith('ff')) return false
-  const primeiro = parseInt(cru.split(':')[0] || '0', 16)
-  if ((primeiro & 0xfe00) === 0xfc00) return false
-  const mapeado = cru.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapeado) return ehV4Publico(mapeado[1])
-  return true
-}
+const BLOQUEADOS = new net.BlockList()
+for (const [base, bits, tipo] of FAIXAS_BLOQUEADAS) BLOQUEADOS.addSubnet(base, bits, tipo)
 
 export function semColchetes(host: string): string {
   return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
 }
 
 export function ehIpPublico(ip: string): boolean {
-  const cru = semColchetes(ip)
+  const cru = semColchetes(ip).split('%')[0]
   const versao = net.isIP(cru)
-  if (versao === 4) return ehV4Publico(cru)
-  if (versao === 6) return ehV6Publico(cru)
-  return false
+  if (versao === 0) return false
+  return !BLOQUEADOS.check(cru, versao === 4 ? 'ipv4' : 'ipv6')
 }
 
 export function urlUsavel(cru: string): URL | null {

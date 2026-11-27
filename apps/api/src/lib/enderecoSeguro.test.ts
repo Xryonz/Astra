@@ -31,6 +31,9 @@ describe('endereços que o servidor NÃO pode buscar', () => {
     expect(ehIpPublico('fd00::1')).toBe(false)
     expect(ehIpPublico('::ffff:127.0.0.1')).toBe(false)
     expect(ehIpPublico('::ffff:192.168.0.1')).toBe(false)
+    expect(ehIpPublico('::ffff:7f00:1')).toBe(false)
+    expect(ehIpPublico('::ffff:a9fe:a9fe')).toBe(false)
+    expect(ehIpPublico('febf::1')).toBe(false)
   })
 
   it('aceita endereço público de verdade', () => {
@@ -38,6 +41,7 @@ describe('endereços que o servidor NÃO pode buscar', () => {
     expect(ehIpPublico('8.8.8.8')).toBe(true)
     expect(ehIpPublico('172.32.0.1')).toBe(true)
     expect(ehIpPublico('2606:4700::1')).toBe(true)
+    expect(ehIpPublico('::ffff:8.8.8.8')).toBe(true)
   })
 
   it('não confunde vizinho de faixa com faixa privada', () => {
@@ -66,6 +70,12 @@ describe('urlUsavel', () => {
     expect(urlUsavel('http://127.0.0.1:8080/admin')).toBeNull()
     expect(urlUsavel('http://169.254.169.254/latest/meta-data/')).toBeNull()
     expect(urlUsavel('http://[::1]/')).toBeNull()
+  })
+
+  it('recusa o v4 interno disfarçado de v6, que o Node reescreve em hexadecimal na URL', () => {
+    expect(urlUsavel('http://[::ffff:127.0.0.1]/')).toBeNull()
+    expect(urlUsavel('http://[0:0:0:0:0:ffff:7f00:1]/')).toBeNull()
+    expect(urlUsavel('http://[::ffff:169.254.169.254]/latest/meta-data/')).toBeNull()
   })
 
   it('recusa lixo', () => {

@@ -8,6 +8,7 @@ import kotlin.concurrent.thread
 
 object CrashLog {
     private const val FILE = "falhas.txt"
+    private const val CODIGO_DOS_RELATOS_ANTIGOS = "instalacao.txt"
     @Volatile private var warned = false
 
     fun dataDir(): File {
@@ -25,16 +26,13 @@ object CrashLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
             runCatching { write(thread.name, e) }
-            runCatching { RelatoDeFalha.contar(e, rastroDe(e)) }
             runCatching { warn(e) }
             previous?.uncaughtException(thread, e)
         }
     }
 
-    private fun rastroDe(e: Throwable): String {
-        val sw = StringWriter()
-        e.printStackTrace(PrintWriter(sw))
-        return sw.toString()
+    fun apagarCodigoDosRelatosAntigos() {
+        runCatching { File(dataDir(), CODIGO_DOS_RELATOS_ANTIGOS).delete() }
     }
 
     private fun write(thread: String, e: Throwable) {

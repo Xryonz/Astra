@@ -40,8 +40,6 @@ object Placas {
 
     val todas: List<Placa> by lazy { descobrir() }
 
-    val daTela: Placa? get() = todas.firstOrNull { it.desenhaATela }
-
     fun porId(id: String?): Placa? = id?.let { alvo -> todas.firstOrNull { it.id == alvo } }
 
     private fun descobrir(): List<Placa> = Nativo.tentar("placas de vídeo") { enumerar() } ?: emptyList()

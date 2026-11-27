@@ -616,7 +616,6 @@
     <ID>MaxLineLength:ProfileCard.kt:Text(dados.bio.orEmpty(), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))</ID>
     <ID>MaxLineLength:ProfileCard.kt:Text(s.name.take(1).uppercase(), style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontFamily = DmSerif))</ID>
     <ID>MaxLineLength:ProfilePage.kt:Text(nome, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
-    <ID>MaxLineLength:RelatoDeFalha.kt:RelatoDeFalha$so = semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO)</ID>
     <ID>MaxLineLength:SearchOverlay.kt:.</ID>
     <ID>MaxLineLength:SearchOverlay.kt:Box</ID>
     <ID>MaxLineLength:SearchOverlay.kt:Text("@${u.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono), maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>

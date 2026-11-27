@@ -46,7 +46,7 @@ object NovidadesDaVersao {
 
 @Composable
 fun CartaoDeNovidades(versao: String, itens: List<String>, aoFechar: () -> Unit) {
-    Dialogo(titulo = "o que mudou na $versao", aoFechar = aoFechar, largura = LarguraDoDialogo.MEDIA) { fechar ->
+    Dialogo(titulo = "patch notes da $versao", aoFechar = aoFechar, largura = LarguraDoDialogo.MEDIA) { fechar ->
         val focoInicial = rememberFocoAoAbrir()
         Spacer(Modifier.height(14.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

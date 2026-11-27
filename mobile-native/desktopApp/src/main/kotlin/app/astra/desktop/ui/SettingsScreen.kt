@@ -60,7 +60,6 @@ import com.composables.icons.lucide.Accessibility
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Bot
 import com.composables.icons.lucide.ChartColumn
-import com.composables.icons.lucide.CircleAlert
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.Info
@@ -93,7 +92,6 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     PERMISSIONS("Permissões", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizações", Lucide.Info),
     BOTS("Bots", "aparência da Sparkle e da Sparxie", Lucide.Bot),
-    RELATOS("Relatos", "falhas enviadas pelos apps", Lucide.CircleAlert),
     DIAGNOSTICS("Diagnóstico", "o que o app está vendo agora", Lucide.CircleDot),
 }
 
@@ -102,7 +100,7 @@ private val abaDeDev: Boolean =
 
 private val abasVisiveis: List<SettingsTab> =
     SettingsTab.entries.filter {
-        (it != SettingsTab.DIAGNOSTICS || abaDeDev) && it != SettingsTab.BOTS && it != SettingsTab.RELATOS
+        (it != SettingsTab.DIAGNOSTICS || abaDeDev) && it != SettingsTab.BOTS
     }
 
 private val LARGURA_DA_PREVIA = 470.dp
@@ -220,7 +218,7 @@ fun SettingsScreen(
                     }.getOrDefault(false)
                 }
                 val abas = remember(ehDono) {
-                    if (ehDono) abasVisiveis + SettingsTab.BOTS + SettingsTab.RELATOS else abasVisiveis
+                    if (ehDono) abasVisiveis + SettingsTab.BOTS else abasVisiveis
                 }
                 Column(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()),
@@ -317,7 +315,6 @@ fun SettingsScreen(
                         SettingsTab.ABOUT -> AboutSection()
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
                         SettingsTab.BOTS -> BotsSection()
-                        SettingsTab.RELATOS -> RelatosSection()
                     }
                     }
                     }

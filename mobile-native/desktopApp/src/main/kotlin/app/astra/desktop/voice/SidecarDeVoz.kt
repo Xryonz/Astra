@@ -1,6 +1,5 @@
 package app.astra.desktop.voice
 
-import app.astra.desktop.RelatoDeFalha
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -17,10 +16,7 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.time.Duration
-import kotlin.time.TimeSource
 
 @Serializable
 data class ComandoDeVoz(
@@ -195,11 +191,7 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         while (vida.vale(geracao) && scope.isActive) {
             val exe = LocalizadorDoSidecar.caminho?.takeIf { it.isFile }
             if (exe == null) {
-                desistirDoMotor(
-                    "o astra-voz.exe não está na pasta do Astra",
-                    TIPO_MOTOR_SUMIU,
-                    "procurado em ${LocalizadorDoSidecar.caminho?.absolutePath ?: "nenhuma das pastas conhecidas"}",
-                )
+                desistirDoMotor("o astra-voz.exe não está na pasta do Astra")
                 return
             }
 
@@ -211,18 +203,13 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
                     partidasQueFalharam++
                     VoiceLog.nota("[voz] o motor não abriu (tentativa $partidasQueFalharam): ${desfecho.motivo}")
                     if (partidasQueFalharam >= TENTATIVAS_DE_ABRIR) {
-                        desistirDoMotor(
-                            "o Windows não deixou o motor abrir: ${desfecho.motivo}",
-                            TIPO_MOTOR_NAO_ABRIU,
-                            "$partidasQueFalharam partidas seguidas falharam",
-                        )
+                        desistirDoMotor("o Windows não deixou o motor abrir: ${desfecho.motivo}")
                         return
                     }
                 }
                 is Desfecho.Terminou -> {
                     partidasQueFalharam = 0
                     if (desfecho.codigo == 0) return
-                    relatarQueda(desfecho)
                     _eventos.tryEmit(
                         EventoDeVoz(
                             ev = "caiu",
@@ -237,19 +224,9 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         }
     }
 
-    private fun desistirDoMotor(detalhe: String, tipoDoRelato: String, rastro: String) {
+    private fun desistirDoMotor(detalhe: String) {
         VoiceLog.nota("[voz] desisti do motor de voz: $detalhe")
-        RelatoDeFalha.contarVoz(tipoDoRelato, detalhe, rastro)
         _eventos.tryEmit(EventoDeVoz(ev = "sem-motor", msg = detalhe))
-    }
-
-    private fun relatarQueda(desfecho: Desfecho.Terminou) {
-        RelatoDeFalha.contarVoz(
-            TIPO_MOTOR_CAIU,
-            "o motor de voz parou com o código ${hexDoCodigo(desfecho.codigo)} " +
-                "depois de ${desfecho.noAr.inWholeSeconds} s no ar",
-            desfecho.panicos.joinToString("\n").ifEmpty { "sem pânico registrado na saída do motor" },
-        )
     }
 
     private suspend fun rodarUmaVez(exe: File): Desfecho = withContext(Dispatchers.IO) {
@@ -263,17 +240,14 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         } catch (e: IOException) {
             return@withContext Desfecho.NaoAbriu(e.message ?: e.javaClass.simpleName)
         }
-        val partida = TimeSource.Monotonic.markNow()
         processo.set(p)
         vivos.add(p)
         entrada.set(p.outputStream.bufferedWriter())
 
-        val panicos = LocaisDePanico()
         val leitorDeErros = launch(Dispatchers.IO) {
             runCatching {
                 p.errorStream.bufferedReader().forEachLine {
                     VoiceLog.nota("[voz] $it")
-                    panicos.anotar(it)
                 }
             }
         }
@@ -285,7 +259,7 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         processo.compareAndSet(p, null)
         vivos.remove(p)
         leitorDeErros.join()
-        Desfecho.Terminou(codigo, partida.elapsedNow(), panicos.lista())
+        Desfecho.Terminou(codigo)
     }
 
     private fun lerEventos(saida: BufferedReader) {
@@ -302,16 +276,13 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     private sealed interface Desfecho {
         data class NaoAbriu(val motivo: String) : Desfecho
-        data class Terminou(val codigo: Int, val noAr: Duration, val panicos: List<String>) : Desfecho
+        data class Terminou(val codigo: Int) : Desfecho
     }
 
     companion object {
         private const val ESPERA_INICIAL_MS = 500L
         private const val ESPERA_MAXIMA_MS = 15_000L
         private const val TENTATIVAS_DE_ABRIR = 3
-        private const val TIPO_MOTOR_CAIU = "voz:caiu"
-        private const val TIPO_MOTOR_SUMIU = "voz:motor-sumiu"
-        private const val TIPO_MOTOR_NAO_ABRIU = "voz:motor-nao-abriu"
 
         private val vivos = java.util.concurrent.ConcurrentHashMap.newKeySet<Process>()
 
@@ -362,22 +333,6 @@ private class VidaDoMotor {
     @Synchronized
     fun terminou(minha: Int) {
         if (geracao == minha) ligado = false
-    }
-}
-
-private class LocaisDePanico {
-    private val locais = ConcurrentLinkedQueue<String>()
-
-    fun anotar(linha: String) {
-        val achado = PANICO.find(linha) ?: return
-        if (locais.size < MAXIMO) locais.add(linha.substring(0, achado.range.last + 1))
-    }
-
-    fun lista(): List<String> = locais.toList()
-
-    private companion object {
-        val PANICO = Regex("""panicked at .+?:\d+:\d+""")
-        const val MAXIMO = 3
     }
 }
 

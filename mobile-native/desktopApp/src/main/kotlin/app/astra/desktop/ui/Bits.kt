@@ -91,6 +91,7 @@ fun Modifier.clickScale(
     pressedScale: Float = 0.96f,
     formaDoFoco: Shape = RoundedCornerShape(8.dp),
     folgaDoFoco: Dp = 0.dp,
+    corDoFoco: Color = Obsidian.accent,
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
@@ -100,7 +101,7 @@ fun Modifier.clickScale(
         label = "clickScale",
     )
     return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
-        .anelDeFoco(formaDoFoco, folgaDoFoco)
+        .anelDeFoco(formaDoFoco, folgaDoFoco, corDoFoco)
 }
 
 @Composable
@@ -141,10 +142,13 @@ private fun alfaDeUmDegrau(hover: Color, active: Color, texto: Color): Float =
     (somaDosCanais(active) - somaDosCanais(hover)) / (somaDosCanais(texto) - somaDosCanais(hover))
 
 @Composable
-fun Modifier.anelDeFoco(forma: Shape = RoundedCornerShape(8.dp), folga: Dp = 0.dp): Modifier {
+fun Modifier.anelDeFoco(
+    forma: Shape = RoundedCornerShape(8.dp),
+    folga: Dp = 0.dp,
+    corDoFoco: Color = Obsidian.accent,
+): Modifier {
     var focado by remember { mutableStateOf(false) }
     val modoDeEntrada = LocalInputModeManager.current
-    val corDoFoco = Obsidian.accent
     return onFocusChanged { focado = it.isFocused }
         .drawWithContent {
             drawContent()

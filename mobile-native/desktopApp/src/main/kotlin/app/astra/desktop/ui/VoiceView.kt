@@ -49,8 +49,8 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
@@ -287,18 +287,12 @@ fun VoiceView(
 
         var settingsOpen by remember { mutableStateOf(false) }
         var transmissaoAvisada by remember { mutableStateOf(false) }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CallIconButton(
-                icon = if (micOn) Lucide.Mic else Lucide.MicOff,
-                tone = if (micOn) CallTone.Normal else CallTone.Danger,
-                rotulo = if (micOn) "Fechar o microfone" else "Abrir o microfone",
-                onClick = aoAlternarMudo,
-            )
-            CallIconButton(
-                icon = if (ensurdecido) Lucide.VolumeX else Lucide.Volume2,
-                tone = if (ensurdecido) CallTone.Danger else CallTone.Normal,
-                rotulo = if (ensurdecido) "Voltar a ouvir" else "Ensurdecer",
-                onClick = aoAlternarEnsurdecer,
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            ParDeAudio(
+                microfoneAberto = micOn,
+                ensurdecido = ensurdecido,
+                aoAlternarMudo = aoAlternarMudo,
+                aoAlternarEnsurdecer = aoAlternarEnsurdecer,
             )
             Box {
                 CallIconButton(
@@ -372,6 +366,7 @@ fun VoiceView(
                 val salaDePe = connected != null
                 CallSplitButton(
                     icon = Lucide.ScreenShare,
+                    texto = if (transmitindo) "transmitindo" else "transmitir",
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
                     rotulo = when {
                         transmitindo -> "Trocar ou parar a transmissão"
@@ -493,13 +488,7 @@ fun VoiceView(
                 }
             }
             Spacer(Modifier.width(8.dp))
-            CallIconButton(
-                icon = Lucide.PhoneOff,
-                tone = CallTone.Danger,
-                rotulo = "Sair da chamada",
-                onClick = onLeave,
-                preenchido = true,
-            )
+            BotaoDeSair(onClick = onLeave)
         }
     }
 }
@@ -762,46 +751,129 @@ private fun AcaoDaFaixa(rotulo: String, cor: Color, habilitado: Boolean, aoClica
     )
 }
 
-private enum class CallTone { Normal, Active, Danger }
+private enum class CallTone { Normal, Active }
 
 private val ALTURA_DO_BOTAO = 46.dp
 private val RAIO_DO_BOTAO = 23.dp
 private val LARGURA_DA_SETA = 30.dp
+private val LADO_DO_PEQUENO = 34.dp
+private val VAO_DO_ICONE = 8.dp
+private val RECUO_DO_ANEL = (-2).dp
 private const val INCHAR_DE_QUEM_FALA_MS = 180
-private const val TINTA_DE_PERIGO = 0.14f
-private const val TINTA_DE_PERIGO_ACESA = 0.22f
+private const val RESPOSTA_MS = 120
 
 @Composable
-private fun corDaBorda(tone: CallTone) = animateColorAsState(
-    when {
-        tone == CallTone.Active -> Obsidian.accent
-        !Obsidian.altoContraste -> Color.Transparent
-        tone == CallTone.Danger -> Obsidian.danger
-        else -> Obsidian.borderMid
-    },
-    tween(140),
-).value
+private fun corAnimada(alvo: Color) =
+    animateColorAsState(alvo, if (LocalReduceMotion.current) snap() else tween(RESPOSTA_MS)).value
+
+private fun corDaBorda(tone: CallTone) = when {
+    tone == CallTone.Active -> Obsidian.accent
+    Obsidian.altoContraste -> Obsidian.borderMid
+    else -> Color.Transparent
+}
 
 private fun corDoGlifo(tone: CallTone, habilitado: Boolean) = when {
     !habilitado -> Obsidian.text3.copy(alpha = 0.45f)
-    tone == CallTone.Danger -> Obsidian.danger
     tone == CallTone.Active -> Obsidian.accent
     else -> Obsidian.text2
 }
 
+private fun fundoPrincipal(aceso: Boolean) = if (aceso) Obsidian.active else Obsidian.hover
+
 @Composable
-private fun fundoDoBotao(tone: CallTone, aceso: Boolean) = animateColorAsState(
-    when {
-        tone == CallTone.Danger -> lerp(Obsidian.overlay, Obsidian.danger, if (aceso) TINTA_DE_PERIGO_ACESA else TINTA_DE_PERIGO)
-        aceso -> Obsidian.hover
-        else -> Obsidian.overlay
-    },
-    if (LocalReduceMotion.current) snap() else tween(140),
-).value
+private fun ParDeAudio(
+    microfoneAberto: Boolean,
+    ensurdecido: Boolean,
+    aoAlternarMudo: () -> Unit,
+    aoAlternarEnsurdecer: () -> Unit,
+) {
+    val inteiro = RoundedCornerShape(RAIO_DO_BOTAO)
+    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro).background(Obsidian.overlay)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MetadeDoPar(
+                icone = if (microfoneAberto) Lucide.Mic else Lucide.MicOff,
+                desligada = !microfoneAberto,
+                rotulo = if (microfoneAberto) "Fechar o microfone" else "Abrir o microfone",
+                forma = RoundedCornerShape(topStart = RAIO_DO_BOTAO, bottomStart = RAIO_DO_BOTAO),
+                onClick = aoAlternarMudo,
+            )
+            Box(Modifier.width(1.dp).height(22.dp).background(Obsidian.borderMid))
+            MetadeDoPar(
+                icone = if (ensurdecido) Lucide.VolumeX else Lucide.Volume2,
+                desligada = ensurdecido,
+                rotulo = if (ensurdecido) "Voltar a ouvir" else "Ensurdecer",
+                forma = RoundedCornerShape(topEnd = RAIO_DO_BOTAO, bottomEnd = RAIO_DO_BOTAO),
+                onClick = aoAlternarEnsurdecer,
+            )
+        }
+        Box(Modifier.matchParentSize().bordaNoAltoContraste(inteiro))
+    }
+}
+
+@Composable
+private fun MetadeDoPar(icone: ImageVector, desligada: Boolean, rotulo: String, forma: Shape, onClick: () -> Unit) {
+    val toque = remember { MutableInteractionSource() }
+    val sobre by toque.collectIsHoveredAsState()
+    val fundo = corAnimada(
+        when {
+            desligada && sobre -> Color.White
+            desligada -> Obsidian.text1
+            sobre -> Obsidian.hover
+            else -> Obsidian.overlay
+        },
+    )
+    Box(
+        Modifier
+            .size(ALTURA_DO_BOTAO)
+            .clickScale(
+                toque,
+                formaDoFoco = forma,
+                folgaDoFoco = RECUO_DO_ANEL,
+                corDoFoco = if (desligada) Obsidian.void else Obsidian.accent,
+            )
+            .clip(forma)
+            .background(fundo)
+            .hoverable(toque)
+            .clickable(interactionSource = toque, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icone, tint = if (desligada) Obsidian.void else Obsidian.text2, size = 20.dp, rotulo = rotulo)
+        DicaAcima(rotulo, sobre)
+    }
+}
+
+@Composable
+private fun BotaoDeSair(onClick: () -> Unit) {
+    val toque = remember { MutableInteractionSource() }
+    val sobre by toque.collectIsHoveredAsState()
+    val forma = RoundedCornerShape(RAIO_DO_BOTAO)
+    val rotulo = "Sair da chamada"
+    val tintaDoPerigo = if (sobre) TINTA_DO_PERIGO_ACESO else TINTA_DO_PERIGO
+    Box {
+        Row(
+            Modifier
+                .height(ALTURA_DO_BOTAO)
+                .clickScale(toque, formaDoFoco = forma)
+                .clip(forma)
+                .background(corAnimada(Obsidian.danger.copy(alpha = tintaDoPerigo)))
+                .bordaNoAltoContraste(forma)
+                .hoverable(toque)
+                .clickable(interactionSource = toque, indication = null, onClickLabel = rotulo, onClick = onClick)
+                .padding(horizontal = RESPIRO_DO_BOTAO),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LIcon(Lucide.PhoneOff, tint = Obsidian.danger, size = 20.dp)
+            Spacer(Modifier.width(VAO_DO_ICONE))
+            Text("sair", style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
+        }
+        DicaAcima(rotulo, sobre)
+    }
+}
 
 @Composable
 private fun CallSplitButton(
     icon: ImageVector,
+    texto: String,
     tone: CallTone,
     rotulo: String,
     rotuloDaSeta: String,
@@ -813,30 +885,34 @@ private fun CallSplitButton(
     val inteiro = RoundedCornerShape(RAIO_DO_BOTAO)
     val esquerda = RoundedCornerShape(topStart = RAIO_DO_BOTAO, bottomStart = RAIO_DO_BOTAO)
     val direita = RoundedCornerShape(topEnd = RAIO_DO_BOTAO, bottomEnd = RAIO_DO_BOTAO)
-    val borda = corDaBorda(tone)
-    val glifo = corDoGlifo(tone, habilitado)
+    val borda = corAnimada(corDaBorda(tone))
+    val corDoTexto = if (habilitado) Obsidian.text1 else corDoGlifo(tone, habilitado)
+    val corDoIcone = if (habilitado && tone == CallTone.Active) Obsidian.accent else corDoTexto
 
-    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro).background(Obsidian.overlay)) {
+    Box(Modifier.height(ALTURA_DO_BOTAO).clip(inteiro).background(Obsidian.hover)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val daTela = remember { MutableInteractionSource() }
             val sobreATela by daTela.collectIsHoveredAsState()
-            val fundoDaTela = fundoDoBotao(tone, sobreATela)
-            Box(
+            Row(
                 Modifier
-                    .size(ALTURA_DO_BOTAO)
-                    .clickScale(daTela, formaDoFoco = esquerda)
+                    .height(ALTURA_DO_BOTAO)
+                    .clickScale(daTela, formaDoFoco = esquerda, folgaDoFoco = RECUO_DO_ANEL)
                     .clip(esquerda)
-                    .background(fundoDaTela)
+                    .background(corAnimada(fundoPrincipal(sobreATela && habilitado)))
                     .hoverable(daTela)
                     .clickable(
                         interactionSource = daTela,
                         indication = null,
                         enabled = habilitado,
+                        onClickLabel = rotulo,
                         onClick = onClick,
-                    ),
-                contentAlignment = Alignment.Center,
+                    )
+                    .padding(horizontal = RESPIRO_DO_BOTAO),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                LIcon(icon, tint = glifo, size = 20.dp, rotulo = rotulo)
+                LIcon(icon, tint = corDoIcone, size = 20.dp, rotulo = rotulo.takeUnless { habilitado })
+                Spacer(Modifier.width(VAO_DO_ICONE))
+                Text(texto, style = TextStyle(color = corDoTexto, fontSize = 13.sp))
                 DicaAcima(rotulo, sobreATela && habilitado)
             }
 
@@ -844,12 +920,12 @@ private fun CallSplitButton(
 
             val daSeta = remember { MutableInteractionSource() }
             val sobreASeta by daSeta.collectIsHoveredAsState()
-            val fundoDaSeta = fundoDoBotao(tone, sobreASeta || setaAberta)
+            val fundoDaSeta = corAnimada(fundoPrincipal(sobreASeta || setaAberta))
             Box(
                 Modifier
                     .width(LARGURA_DA_SETA)
                     .height(ALTURA_DO_BOTAO)
-                    .clickScale(daSeta, formaDoFoco = direita)
+                    .clickScale(daSeta, formaDoFoco = direita, folgaDoFoco = RECUO_DO_ANEL)
                     .clip(direita)
                     .background(fundoDaSeta)
                     .hoverable(daSeta)
@@ -875,33 +951,25 @@ private fun CallIconButton(
     tone: CallTone,
     rotulo: String,
     onClick: () -> Unit,
-    habilitado: Boolean = true,
-    preenchido: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val border = corDaBorda(tone)
-    val fg = if (preenchido) Obsidian.void else corDoGlifo(tone, habilitado)
-    val fundoCheio by animateColorAsState(
-        if (hovered) Obsidian.danger else Obsidian.danger.copy(alpha = 0.82f),
-        tween(140),
-    )
-    val bg = if (preenchido) fundoCheio else fundoDoBotao(tone, hovered)
+    val fundo = corAnimada(if (hovered || tone == CallTone.Active) Obsidian.hover else Obsidian.overlay)
     Box {
         Box(
             Modifier
-                .size(ALTURA_DO_BOTAO)
-                .clickScale(interaction)
+                .size(LADO_DO_PEQUENO)
+                .clickScale(interaction, formaDoFoco = CircleShape)
                 .clip(CircleShape)
-                .background(bg)
-                .border(1.dp, border, CircleShape)
+                .background(fundo)
+                .bordaNoAltoContraste(CircleShape)
                 .hoverable(interaction)
-                .clickable(interactionSource = interaction, indication = null, enabled = habilitado, onClick = onClick),
+                .clickable(interactionSource = interaction, indication = null, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)
+            LIcon(icon, tint = corDoGlifo(tone, habilitado = true), size = 16.dp, rotulo = rotulo)
         }
-        DicaAcima(rotulo, hovered && habilitado)
+        DicaAcima(rotulo, hovered)
     }
 }
 

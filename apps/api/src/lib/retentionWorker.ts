@@ -1,10 +1,11 @@
 import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { servers, channels, messages, notifications, refreshTokens } from '../db/schema'
+import { servers, channels, messages, notifications, refreshTokens, crashReports } from '../db/schema'
 import { removerSeNinguemUsa } from './arquivoCompartilhado'
 import { logger } from './logger'
 
 const NOTIFICATION_TTL_DAYS = 30
+const RELATO_TTL_DIAS = 60
 const UM_DIA_MS = 24 * 60 * 60 * 1000
 
 const RUN_INTERVAL_MS = 5 * 60 * 1000
@@ -14,6 +15,13 @@ let ultimaLimpezaDeRenovacoes = 0
 export async function apagarRenovacoesVencidas(agora: number): Promise<number> {
   const apagadas = await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date(agora - UM_DIA_MS)))
   return apagadas.rowCount ?? 0
+}
+
+export async function apagarRelatosVencidos(agora: number): Promise<number> {
+  const apagados = await db
+    .delete(crashReports)
+    .where(lt(crashReports.createdAt, new Date(agora - RELATO_TTL_DIAS * UM_DIA_MS)))
+  return apagados.rowCount ?? 0
 }
 
 export function startRetentionWorker() {
@@ -80,6 +88,9 @@ export function startRetentionWorker() {
       if (delNotifs.length > 0) {
         logger.info('Retention', `apagou ${delNotifs.length} notifs lidas > ${NOTIFICATION_TTL_DAYS}d`)
       }
+
+      const relatos = await apagarRelatosVencidos(Date.now())
+      if (relatos > 0) logger.info('Retention', `apagou ${relatos} relatos de falha > ${RELATO_TTL_DIAS}d`)
 
       if (Date.now() - ultimaLimpezaDeRenovacoes >= UM_DIA_MS) {
         const apagadas = await apagarRenovacoesVencidas(Date.now())

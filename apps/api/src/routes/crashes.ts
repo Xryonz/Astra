@@ -16,7 +16,6 @@ const TETO_DA_MENSAGEM = 2_000
 const TETO_DO_TEXTO_LONGO = 12_000
 const PAGINA_PADRAO = 50
 const PAGINA_MAXIMA = 200
-const RETENCAO_DIAS = 60
 
 const RelatoSchema = z.object({
   instalacao: z.string().trim().min(8).max(64),
@@ -43,7 +42,6 @@ router.post(
     if (!dados.success) return res.status(400).json({ error: 'Relato inválido' })
 
     await db.insert(crashReports).values(dados.data)
-    await db.delete(crashReports).where(sql`"createdAt" < now() - interval '${sql.raw(String(RETENCAO_DIAS))} days'`)
     res.status(204).end()
   }),
 )

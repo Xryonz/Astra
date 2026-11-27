@@ -637,6 +637,9 @@ router.get('/google/callback', (req: Request, res: Response, next) => {
           })
           return res.redirect(`${loginUrl}?${q.toString()}${nonceTail}`)
         }
+        if (info?.code === 'email_not_confirmed') {
+          return res.redirect(`${loginUrl}?error=google_email_unconfirmed${nonceTail}`)
+        }
         return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
       try {

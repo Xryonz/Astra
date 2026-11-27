@@ -93,7 +93,8 @@ missões.
 - **Gradle**, **npm workspaces** e **Cargo**: a construção de cada projeto
 - **GitHub Actions**: integração contínua e publicação
 - **Biome**, **detekt** e **Clippy**: análise estática do TypeScript, do Kotlin e do Rust
-- **Vitest** e os testes nativos do Rust
+- **Vitest** e os testes nativos do Rust; **PGlite** (Postgres em memória) nos testes que rodam o SQL do
+  servidor num banco de verdade
 - **Python**: as provas de abertura do pacote
 - **Java**: as ferramentas de assinatura Ed25519 e as provas do shader
 - **Node.js** e **PowerShell**: scripts de conferência e de medição

@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.2",
+    "@electric-sql/pglite": "0.5.16",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",

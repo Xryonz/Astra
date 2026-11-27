@@ -494,7 +494,7 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
+                .veuDoAperto(hov, forma = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -672,7 +672,7 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
+                .veuDoAperto(hov, forma = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -720,7 +720,7 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickScale(rowHov)
+                                .veuDoAperto(rowHov)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (active) Obsidian.active else if (rh) Obsidian.hover else Color.Transparent)
                                 .hoverable(rowHov)

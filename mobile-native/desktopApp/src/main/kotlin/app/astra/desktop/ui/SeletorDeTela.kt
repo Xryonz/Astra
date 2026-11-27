@@ -196,7 +196,7 @@ private fun BotaoDeParar(aoClicar: () -> Unit) {
             .background(if (sobre) Obsidian.active else Obsidian.hover)
             .border(1.dp, Obsidian.danger.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
             .hoverable(interacao)
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
+            .veuDoAperto(interacao, forma = RoundedCornerShape(6.dp))
             .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -240,7 +240,7 @@ private fun CartaoDaFonte(
                 RoundedCornerShape(8.dp),
             )
             .hoverable(interacao)
-            .clickScale(interacao)
+            .veuDoAperto(interacao)
             .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
             .padding(8.dp),
     ) {

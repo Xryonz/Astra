@@ -274,7 +274,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
                 .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
-                .clickScale(fonte)
+                .veuDoAperto(fonte)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable(interactionSource = fonte, indication = null) {
                     if (cliqueToca) tocando = true else openImage(att.url)
@@ -345,7 +345,7 @@ private fun PreviaDeLink(url: String) {
     Row(
         Modifier
             .widthIn(max = 420.dp)
-            .clickScale(fonte)
+            .veuDoAperto(fonte)
             .clip(RoundedCornerShape(8.dp))
             .background(if (hover) Obsidian.hover else Obsidian.base)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))

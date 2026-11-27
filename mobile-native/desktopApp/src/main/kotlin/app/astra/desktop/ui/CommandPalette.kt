@@ -81,7 +81,7 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
+                        .veuDoAperto(interaction, forma = RoundedCornerShape(7.dp))
                         .clip(RoundedCornerShape(7.dp))
                         .background(if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent)
                         .hoverable(interaction)

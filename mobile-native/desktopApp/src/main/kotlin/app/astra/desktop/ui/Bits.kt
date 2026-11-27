@@ -11,6 +11,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -78,8 +80,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 val FormaDeBotao = RoundedCornerShape(8.dp)
 
-private const val APERTO_MS = 90
-private const val SOLTURA_MS = 320
+private const val APERTO_MS = 120
 private const val ENTRADA_DO_POP_MS = 240
 
 @Composable
@@ -91,15 +92,47 @@ fun Modifier.clickScale(
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
-    val duracao = if (pressed) APERTO_MS else SOLTURA_MS
     val escala = animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
-        animationSpec = tween(durationMillis = duracao, easing = EaseOutStd),
+        animationSpec = tween(durationMillis = APERTO_MS, easing = EaseOutStd),
         label = "clickScale",
     )
     return graphicsLayer { scaleX = escala.value; scaleY = escala.value }
         .anelDeFoco(formaDoFoco, folgaDoFoco)
 }
+
+@Composable
+fun Modifier.veuDoAperto(
+    interactionSource: MutableInteractionSource,
+    forma: Shape = RoundedCornerShape(8.dp),
+    folga: Dp = 0.dp,
+    formaDoFoco: Shape = forma,
+    folgaDoFoco: Dp = folga,
+    corDoVeu: Color = Obsidian.text1,
+): Modifier {
+    val apertado by interactionSource.collectIsPressedAsState()
+    val veu = corDoVeu.copy(alpha = alfaDeUmDegrau(Obsidian.hover, Obsidian.active, Obsidian.text1))
+    val presenca = animateFloatAsState(
+        targetValue = if (apertado) 1f else 0f,
+        animationSpec = if (LocalReduceMotion.current) snap() else tween(APERTO_MS, easing = EaseOutStd),
+        label = "veuDoAperto",
+    )
+    return anelDeFoco(formaDoFoco, folgaDoFoco).drawWithContent {
+        drawContent()
+        val presente = presenca.value
+        if (presente == 0f) return@drawWithContent
+        val folgaPx = folga.toPx()
+        val area = Size(size.width + folgaPx * 2, size.height + folgaPx * 2)
+        translate(-folgaPx, -folgaPx) {
+            drawOutline(forma.createOutline(area, layoutDirection, this), veu, alpha = presente)
+        }
+    }
+}
+
+private fun somaDosCanais(cor: Color) = cor.red + cor.green + cor.blue
+
+private fun alfaDeUmDegrau(hover: Color, active: Color, texto: Color): Float =
+    (somaDosCanais(active) - somaDosCanais(hover)) / (somaDosCanais(texto) - somaDosCanais(hover))
 
 @Composable
 fun Modifier.anelDeFoco(forma: Shape = RoundedCornerShape(8.dp), folga: Dp = 0.dp): Modifier {

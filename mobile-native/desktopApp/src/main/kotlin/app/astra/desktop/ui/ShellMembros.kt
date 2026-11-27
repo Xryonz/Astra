@@ -265,7 +265,7 @@ internal fun FriendsNavRow(active: Boolean, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
             .padding(top = 8.dp)
-            .clickScale(interaction)
+            .veuDoAperto(interaction)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .hoverable(interaction)

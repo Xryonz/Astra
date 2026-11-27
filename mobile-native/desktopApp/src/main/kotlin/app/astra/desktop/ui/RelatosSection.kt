@@ -73,7 +73,7 @@ private fun CartaoDoRelato(r: RelatoDto) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clickScale(fonte, pressedScale = 0.99f)
+            .veuDoAperto(fonte, forma)
             .clip(forma)
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, forma)

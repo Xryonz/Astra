@@ -355,7 +355,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
         modifier = Modifier
             .widthIn(max = 420.dp)
             .padding(bottom = 3.dp)
-            .clickScale(src, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = 2.dp)
+            .veuDoAperto(src, forma = RoundedCornerShape(6.dp), folga = 2.dp)
             .clickable(interactionSource = src, indication = null) { onJumpTo(ref.id) },
         verticalAlignment = Alignment.CenterVertically,
     ) {

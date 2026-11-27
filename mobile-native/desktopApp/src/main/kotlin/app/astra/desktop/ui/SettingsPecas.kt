@@ -209,7 +209,7 @@ internal fun NavRow(icon: ImageVector, label: String, sub: String, active: Boole
     Row(
         Modifier
             .fillMaxWidth()
-            .clickScale(interaction)
+            .veuDoAperto(interaction)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .border(1.dp, border, RoundedCornerShape(8.dp))
@@ -253,7 +253,7 @@ internal fun DeviceDropdown(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickScale(hov, formaDoFoco = RoundedCornerShape(9.dp))
+                .veuDoAperto(hov, forma = RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(9.dp))
                 .background(if (h) Obsidian.hover else Obsidian.raised)
                 .border(
@@ -316,7 +316,7 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .clickScale(hov, formaDoFoco = RoundedCornerShape(7.dp))
+            .veuDoAperto(hov, forma = RoundedCornerShape(7.dp))
             .clip(RoundedCornerShape(7.dp))
             .background(if (h) Obsidian.hover else Obsidian.overlay)
             .hoverable(hov)
@@ -383,7 +383,7 @@ internal fun InfoNote(title: String, body: String) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clickScale(fonte, formaDoFoco = RoundedCornerShape(9.dp))
+            .veuDoAperto(fonte, forma = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(Obsidian.overlay.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))

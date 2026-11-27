@@ -150,7 +150,7 @@ private fun LinhaDeCargo(cargo: RoleDto, marcado: Boolean, aoTocar: () -> Unit) 
     Row(
         Modifier
             .fillMaxWidth()
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(8.dp))
+            .veuDoAperto(interacao, forma = RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
             .background(if (marcado) Obsidian.active else if (hover) Obsidian.hover else Color.Transparent)
             .hoverable(interacao)

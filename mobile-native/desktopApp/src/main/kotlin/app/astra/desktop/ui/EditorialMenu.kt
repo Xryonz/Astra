@@ -185,7 +185,7 @@ private fun MenuRow(item: MenuEntry.Item, dismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickScale(interaction, formaDoFoco = RoundedCornerShape(6.dp))
+            .veuDoAperto(interaction, forma = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .hoverable(interaction)

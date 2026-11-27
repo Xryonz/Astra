@@ -158,7 +158,7 @@ private fun LinhaFixada(msg: ChannelMessageDto, alcancavel: Boolean, aoTocar: ()
     Column(
         Modifier
             .fillMaxWidth()
-            .then(if (alcancavel) Modifier.clickScale(interacao) else Modifier)
+            .then(if (alcancavel) Modifier.veuDoAperto(interacao) else Modifier)
             .clip(RoundedCornerShape(8.dp))
             .background(if (hover && alcancavel) Obsidian.hover else Obsidian.overlay)
             .hoverable(interacao, enabled = alcancavel)

@@ -720,7 +720,7 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickScale(src, formaDoFoco = RoundedCornerShape(9.dp))
+            .veuDoAperto(src, forma = RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
             .background(if (active) Obsidian.active else if (hov) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent)
             .hoverable(src)

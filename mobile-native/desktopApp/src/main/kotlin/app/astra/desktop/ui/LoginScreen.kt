@@ -377,7 +377,7 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickScale(src)
+            .veuDoAperto(src, forma = shape)
             .clip(shape)
             .background(if (hovered && active) Obsidian.active else Obsidian.hover)
             .hoverable(src)
@@ -496,7 +496,7 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickScale(interaction)
+            .veuDoAperto(interaction, forma = shape, corDoVeu = Obsidian.void)
             .clip(shape)
             .background(
                 when {

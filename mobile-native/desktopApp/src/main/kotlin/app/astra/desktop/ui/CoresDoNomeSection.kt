@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -276,7 +277,7 @@ private fun CabecaDaConstelacao(
     Row(
         Modifier
             .fillMaxWidth()
-            .clickScale(interacao)
+            .veuDoAperto(interacao, forma = RectangleShape, formaDoFoco = RoundedCornerShape(8.dp))
             .hoverable(interacao)
             .clickable(interactionSource = interacao, indication = null, onClick = aoAlternar)
             .padding(horizontal = 18.dp, vertical = 15.dp),

@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -397,7 +398,12 @@ private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickScale(hov, formaDoFoco = RoundedCornerShape(6.dp), folgaDoFoco = (-2).dp)
+                    .veuDoAperto(
+                        hov,
+                        forma = RectangleShape,
+                        formaDoFoco = RoundedCornerShape(6.dp),
+                        folgaDoFoco = (-2).dp,
+                    )
                     .hoverable(hov)
                     .background(bg)
                     .clickable(interactionSource = hov, indication = null) { onPick(s) }

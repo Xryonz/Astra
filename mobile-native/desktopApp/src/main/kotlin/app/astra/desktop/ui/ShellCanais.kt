@@ -114,7 +114,7 @@ internal fun OrbitItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
+                .veuDoAperto(interaction, forma = RoundedCornerShape(7.dp))
                 .clip(RoundedCornerShape(7.dp))
                 .background(itemBg)
                 .hoverable(interaction)

@@ -370,7 +370,12 @@ private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit
     val fonte = remember { MutableInteractionSource() }
     Row(
         modifier
-            .clickScale(fonte, formaDoFoco = RoundedCornerShape(13.dp), folgaDoFoco = 3.dp)
+            .veuDoAperto(
+                fonte,
+                forma = RoundedCornerShape(10.dp),
+                formaDoFoco = RoundedCornerShape(13.dp),
+                folgaDoFoco = 3.dp,
+            )
             .clip(RoundedCornerShape(10.dp))
             .background(if (active) Obsidian.accentDim else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, if (active) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(10.dp))

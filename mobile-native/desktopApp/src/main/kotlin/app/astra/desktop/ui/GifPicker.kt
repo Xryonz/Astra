@@ -131,7 +131,7 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1.4f)
-                            .clickScale(fonte)
+                            .veuDoAperto(fonte)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Obsidian.base)
                             .clickable(interactionSource = fonte, indication = null) { onPick(g) },

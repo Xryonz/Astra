@@ -219,7 +219,7 @@ internal fun DmList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
-                        .clickScale(interaction, formaDoFoco = RoundedCornerShape(7.dp))
+                        .veuDoAperto(interaction, forma = RoundedCornerShape(7.dp))
                         .clip(RoundedCornerShape(7.dp))
                         .background(itemBg)
                         .hoverable(interaction)
@@ -353,12 +353,13 @@ private fun LinhaDeConstelacao(
     onClick: () -> Unit,
 ) {
     val toque = remember { MutableInteractionSource() }
+    val parado = remember { MutableInteractionSource() }
     val sobre by toque.collectIsHoveredAsState()
     Row(
         Modifier
             .fillMaxWidth()
             .then(if (foco != null) Modifier.focusRequester(foco) else Modifier)
-            .clickScale(toque)
+            .veuDoAperto(if (ligada) toque else parado)
             .clip(RoundedCornerShape(8.dp))
             .background(if (sobre && ligada) Obsidian.hover else Color.Transparent)
             .hoverable(toque, enabled = ligada)

@@ -387,7 +387,7 @@ private fun OpcaoDePerfil(opcao: OpcaoDeDesempenho, escolhido: Boolean, aoEscolh
     Column(
         Modifier
             .fillMaxWidth()
-            .clickScale(fonte)
+            .veuDoAperto(fonte, forma)
             .clip(forma)
             .background(if (escolhido || sobre) Obsidian.active else Obsidian.hover)
             .border(1.dp, if (escolhido) Obsidian.accentDim else Obsidian.borderDim, forma)

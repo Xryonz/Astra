@@ -340,7 +340,7 @@ fun VoiceView(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickScale(fonteDoSom, formaDoFoco = RoundedCornerShape(6.dp))
+                                        .veuDoAperto(fonteDoSom, forma = RoundedCornerShape(6.dp))
                                         .clip(RoundedCornerShape(6.dp))
                                         .background(fundoDoSom)
                                         .hoverable(fonteDoSom)
@@ -564,7 +564,7 @@ private fun SeletorDeAparelho(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickScale(fonte)
+                .veuDoAperto(fonte)
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (sobre) Obsidian.hover else Obsidian.base)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
@@ -623,7 +623,7 @@ private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit
     Row(
         Modifier
             .fillMaxWidth()
-            .clickScale(interacao, formaDoFoco = RoundedCornerShape(6.dp))
+            .veuDoAperto(interacao, forma = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
             .background(fundo)
             .hoverable(interacao)
@@ -1123,7 +1123,7 @@ private fun ParticipantTile(
                 if (podeTrocar) {
                     Modifier
                         .hoverable(interacao)
-                        .clickScale(interacao, formaDoFoco = RoundedCornerShape(14.dp))
+                        .veuDoAperto(interacao, forma = RoundedCornerShape(14.dp))
                         .clickable(interactionSource = interacao, indication = null, onClick = aoEscolherTela)
                 } else Modifier,
             )

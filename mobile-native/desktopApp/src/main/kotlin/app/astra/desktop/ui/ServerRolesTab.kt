@@ -511,7 +511,7 @@ private fun PermissionRow(
         Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
-            .clickScale(fonte, folgaDoFoco = 4.dp)
+            .veuDoAperto(fonte, folga = 4.dp)
             .clickable(interactionSource = fonte, indication = null, enabled = enabled) { onChange(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

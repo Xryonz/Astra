@@ -195,7 +195,11 @@ fun ProfilePage(
                                         ),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickScale(src)
+                                            .veuDoAperto(
+                                                src,
+                                                forma = RoundedCornerShape(10.dp),
+                                                corDoVeu = Obsidian.void,
+                                            )
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(Obsidian.accent)
                                             .clickable(interactionSource = src, indication = null) {

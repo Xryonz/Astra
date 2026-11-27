@@ -51,10 +51,11 @@ benchmark = "1.5.0-alpha06"
 uiautomator = "2.3.0"
 testExtJunit = "1.2.1"
 profileinstaller = "1.4.1"
-# Lottie (animacoes de artistas) no Compose. A linha 2.2.x e a feita para o CMP
-# 1.11; a 2.3 ja pede o 1.12. "lite" = sem motor de expressoes, que os arquivos
+# Lottie (animacoes de artistas) no Compose. A linha 2.3 e a feita para o CMP
+# 1.12; a 2.2.x (CMP 1.11) quebra no Skiko 0.150 com NoSuchMethodError no
+# Matrix33.makeTranslate. "lite" = sem motor de expressoes, que os arquivos
 # do Astra nao usam.
-compottie = "2.2.4"
+compottie = "2.3.3"
 # Nucleus: so o modulo de avisos do Windows, usado aqui para carimbar a
 # identidade do Astra no atalho do menu Iniciar. O resto do framework pede o CMP 1.12.
 nucleus = "2.5.18"

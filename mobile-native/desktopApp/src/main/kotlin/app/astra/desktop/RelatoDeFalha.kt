@@ -56,7 +56,7 @@ object RelatoDeFalha {
     }
 
     fun contar(erro: Throwable, rastroCompleto: String) {
-        val versao = System.getProperty("astra.version") ?: return
+        val versao = versaoForaDaCopiaDeTeste() ?: return
         if (!reservarUmEnvio()) return
         thread(isDaemon = true, name = "astra-relato-de-falha") {
             runCatching { enviar(montar(versao, erro, rastroCompleto)) }
@@ -64,7 +64,7 @@ object RelatoDeFalha {
     }
 
     fun contarVoz(tipo: String, mensagem: String, rastro: String) {
-        val versao = System.getProperty("astra.version") ?: return
+        val versao = versaoForaDaCopiaDeTeste() ?: return
         if (!tiposDeVozJaEnviados.add(tipo)) return
         if (!reservarUmEnvio()) return
         thread(isDaemon = true, name = "astra-relato-de-voz") {
@@ -91,11 +91,14 @@ object RelatoDeFalha {
         true
     }
 
+    private fun versaoForaDaCopiaDeTeste(): String? =
+        System.getProperty("astra.version")?.takeUnless { Multi.ligado }
+
     private fun sistema(): String =
         semNome("${System.getProperty("os.name")} ${System.getProperty("os.version")}").take(TETO_CURTO)
 
     fun contarTroca(versaoAlvo: String) {
-        val versao = System.getProperty("astra.version") ?: return
+        val versao = versaoForaDaCopiaDeTeste() ?: return
         val diario = runCatching { File(CrashLog.dataDir(), DIARIO_DA_TROCA).readText() }.getOrDefault("")
         thread(isDaemon = true, name = "astra-relato-de-troca") {
             runCatching {

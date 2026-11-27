@@ -17,6 +17,9 @@ import java.security.SecureRandom
 object GoogleAuthFlow {
 
     private const val TIMEOUT_MS = 120_000L
+    private const val EMAIL_SEM_CONFIRMACAO =
+        "Já existe uma conta com este e-mail, ainda sem confirmação. Entre com a senha e confirme o e-mail; " +
+            "depois o login com Google passa a funcionar."
 
     suspend fun captureRefreshToken(): Result<String> = withContext(Dispatchers.IO) {
         val nonce = randomNonce()
@@ -41,6 +44,10 @@ object GoogleAuthFlow {
                     complete(deferred, Result.failure(Exception("Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro.")))
                     "unreg"
                 }
+                params["error"] == "google_email_unconfirmed" -> {
+                    complete(deferred, Result.failure(Exception(EMAIL_SEM_CONFIRMACAO)))
+                    "unconf"
+                }
                 else -> {
                     complete(deferred, Result.failure(Exception("Não foi possível entrar com o Google")))
                     "err"
@@ -50,13 +57,7 @@ object GoogleAuthFlow {
         }
         server.createContext("/done") { ex ->
             val s = parseQuery(ex.requestURI.rawQuery)["s"]
-            val msg = when (s) {
-                "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
-                "unreg" -> "Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro."
-                "nonce" -> "Não foi possível confirmar o login. Tente de novo."
-                else -> "Não foi possível entrar com o Google."
-            }
-            serveHtml(ex, page(msg, ok = s == "ok"))
+            serveHtml(ex, page(fraseDoFim(s), ok = s == "ok"))
         }
         server.start()
 
@@ -78,6 +79,14 @@ object GoogleAuthFlow {
             try { Thread.sleep(3000); server.stop(2) } catch (_: Exception) { runCatching { server.stop(0) } }
         }.apply { isDaemon = true }.start()
         out
+    }
+
+    private fun fraseDoFim(status: String?): String = when (status) {
+        "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
+        "unreg" -> "Ainda não existe cadastro no Astra com esta conta Google. Crie uma conta primeiro."
+        "unconf" -> EMAIL_SEM_CONFIRMACAO
+        "nonce" -> "Não foi possível confirmar o login. Tente de novo."
+        else -> "Não foi possível entrar com o Google."
     }
 
     private fun complete(d: CompletableDeferred<Result<String>>, r: Result<String>) {

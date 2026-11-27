@@ -20,6 +20,8 @@ import {
   type LinhaRevogada,
 } from '../lib/sessoes'
 import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
+import { removerOsSemUso } from '../lib/arquivoCompartilhado'
+import { logger } from '../lib/logger'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -551,6 +553,10 @@ router.post(
       .select({
         username: users.username,
         passwordHash: users.passwordHash,
+        avatarUrl: users.avatarUrl,
+        avatarFullUrl: users.avatarFullUrl,
+        bannerUrl: users.bannerUrl,
+        bannerFullUrl: users.bannerFullUrl,
       })
       .from(users)
       .where(eq(users.id, req.userId!))
@@ -576,6 +582,9 @@ router.post(
     const sessoesVivas = await virarLapide(req.userId!, u.passwordHash)
     if (!sessoesVivas) return res.status(401).json({ error: 'Senha incorreta' })
     await encerrarAoVivo(req.userId!, sessoesVivas)
+    await removerOsSemUso([u.avatarUrl, u.avatarFullUrl, u.bannerUrl, u.bannerFullUrl]).catch((e) =>
+      logger.warn('Conta', 'as fotos da conta apagada ficaram no bucket', e),
+    )
     res.json({ data: { apagada: true } })
   }),
 )

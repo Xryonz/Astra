@@ -6,7 +6,11 @@ import sharp from 'sharp'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
 
-const gravadas = vi.hoisted(() => ({ fotos: [] as string[] }))
+const gravadas = vi.hoisted(() => ({
+  fotos: [] as string[],
+  original: null as string | null,
+  removidas: [] as string[],
+}))
 
 vi.mock('../db', () => ({ db: {} }))
 vi.mock('../lib/redis', () => ({
@@ -30,7 +34,10 @@ vi.mock('../lib/storage', async (importOriginal) => {
     ...real,
     persistImagemDeExibicao: vi.fn(async (valor: string) => {
       gravadas.fotos.push(valor)
-      return { url: 'https://armazem.exemplo/foto.webp', original: null }
+      return { url: 'https://armazem.exemplo/foto.webp', original: gravadas.original }
+    }),
+    removeAttachment: vi.fn(async (url: string) => {
+      gravadas.removidas.push(url)
     }),
   }
 })
@@ -65,6 +72,8 @@ describe('POST /api/profile/foto', () => {
 
   beforeEach(() => {
     gravadas.fotos = []
+    gravadas.original = null
+    gravadas.removidas = []
   })
 
   it('recorta o GIF, grava o WebP animado e devolve a URL', async () => {
@@ -82,6 +91,21 @@ describe('POST /api/profile/foto', () => {
     const meta = await sharp(bytes, { animated: true }).metadata()
     expect(meta.pages).toBe(69)
     expect(meta.width).toBe(256)
+  })
+
+  it('a original que a rota não devolve sai do bucket na hora', async () => {
+    gravadas.original = 'https://armazem.exemplo/original.png'
+    const png = await sharp({ create: { width: 600, height: 600, channels: 3, background: { r: 9, g: 9, b: 9 } } })
+      .png()
+      .toBuffer()
+    const { status, json } = await recortar({
+      imagem: `data:image/png;base64,${png.toString('base64')}`,
+      recorte: { x: 0, y: 0, lado: 600 },
+    })
+
+    expect(status).toBe(200)
+    expect(json.data?.url).toBe('https://armazem.exemplo/foto.webp')
+    expect(gravadas.removidas).toEqual(['https://armazem.exemplo/original.png'])
   })
 
   it('enquadramento fora da imagem dá 422 e não grava nada', async () => {

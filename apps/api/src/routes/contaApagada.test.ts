@@ -3,6 +3,8 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 vi.mock('../db', async () => ({ db: (await import('../__tests__/bancoGravador')).bancoGravador }))
 vi.mock('../middleware/auth', () => ({
@@ -18,6 +20,16 @@ vi.mock('../lib/sessoes', async (importOriginal) => {
     ...real,
     encerrarAoVivo: async (_userId: string, sessoes: string[]) => {
       if (sessoes.length) gravador.anotar(`encerrou ${sessoes.join(',')}`)
+    },
+  }
+})
+vi.mock('../lib/storage', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../lib/storage')>()
+  const { gravador } = await import('../__tests__/bancoGravador')
+  return {
+    ...real,
+    removeAttachment: async (url: string) => {
+      gravador.anotar(`removeu ${url}`)
     },
   }
 })
@@ -75,5 +87,61 @@ describe('apagar a conta', () => {
     expect(lapide?.sql).toContain('"User"."passwordHash" = ')
     expect(lapide?.params).toContain(hashAtual)
     expect(gravador.passos.filter((passo) => passo.startsWith('db:delete'))).toEqual([])
+  })
+
+  it('a lapide tira as fotos grandes, as preferencias, os codigos de e-mail e o autor guardado nas mensagens', async () => {
+    gravador.responder('select:User', [{ username: 'pessoa', passwordHash: null }])
+    gravador.responder('update:User', [{ id: 'u1' }])
+    expect(await apagar({ confirmacao: 'pessoa' })).toBe(200)
+    expect(gravador.consulta('db:update User')?.valores).toMatchObject({
+      avatarFullUrl: null,
+      bannerFullUrl: null,
+      notificationPrefs: null,
+      preferences: null,
+      emailCode: null,
+      emailCodeExpiresAt: null,
+      pendingEmail: null,
+      pendingEmailCode: null,
+      pendingEmailExpiresAt: null,
+    })
+    const mensagens = gravador.consulta('db:update Message')
+    expect(mensagens?.valores).toEqual({ authorName: null, authorAvatarUrl: null })
+    expect(mensagens?.sql).toContain('"Message"."authorId" = ')
+    expect(mensagens?.params).toEqual(['u1'])
+    const avisos = gravador.consulta('db:update Notification')
+    expect(avisos?.sql).toContain('"Notification"."payload" like ')
+    expect(avisos?.params).toEqual(['%"authorId":"u1"%'])
+    const troca = new PgDialect().sqlToQuery((avisos!.valores as { payload: SQL }).payload)
+    expect(troca.sql).toBe('("Notification"."payload"::jsonb || $1::jsonb)::text')
+    expect(JSON.parse(troca.params[0] as string)).toEqual({
+      authorName: 'conta apagada',
+      authorUsername: null,
+      authorAvatar: null,
+    })
+  })
+
+  it('as fotos da conta saem do bucket depois de derrubar as sessoes, e a que outra conta usa fica', async () => {
+    gravador.responder(
+      'select:User',
+      [
+        {
+          username: 'pessoa',
+          passwordHash: null,
+          avatarUrl: 'https://b/foto.webp',
+          avatarFullUrl: 'https://b/foto.png',
+          bannerUrl: 'https://b/banner.webp',
+          bannerFullUrl: null,
+        },
+      ],
+      [],
+      [],
+      [{ id: 'u2' }],
+    )
+    gravador.responder('update:User', [{ id: 'u1' }])
+    gravador.responder('delete:RefreshToken', [{ id: 'r1', sessionId: 's1', revokedAt: null }])
+    expect(await apagar({ confirmacao: 'pessoa' })).toBe(200)
+    const removidas = gravador.passos.filter((passo) => passo.startsWith('removeu'))
+    expect(removidas).toEqual(['removeu https://b/foto.webp', 'removeu https://b/foto.png'])
+    expect(gravador.passos.indexOf('encerrou s1')).toBeLessThan(gravador.passos.indexOf('removeu https://b/foto.webp'))
   })
 })

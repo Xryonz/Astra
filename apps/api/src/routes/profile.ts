@@ -9,7 +9,9 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, RecortarFotoSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
-import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER } from '../lib/storage'
+import { persistImagemDeExibicao, isOwnStorageUrl, LADO_DO_BANNER, removeAttachment } from '../lib/storage'
+import { soltarFotosAntigas } from '../lib/arquivoCompartilhado'
+import { logger } from '../lib/logger'
 import { recortarFoto, AnimacaoGrandeDemais } from '../lib/recorteDeFoto'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
@@ -45,6 +47,20 @@ function isDataUriTooLarge(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   const bytes = url.length * 0.75
   return bytes > 10 * 1024 * 1024
+}
+
+async function fotosDaConta(userId: string) {
+  const [fotos] = await db
+    .select({
+      avatarUrl: users.avatarUrl,
+      avatarFullUrl: users.avatarFullUrl,
+      bannerUrl: users.bannerUrl,
+      bannerFullUrl: users.bannerFullUrl,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return fotos
 }
 
 router.get(
@@ -84,7 +100,8 @@ router.post(
       return res.status(422).json({ error: 'Não foi possível ler essa imagem.' })
     }
     if (!foto) return res.status(422).json({ error: 'O enquadramento ficou fora da imagem.' })
-    const { url } = await persistImagemDeExibicao(foto)
+    const { url, original } = await persistImagemDeExibicao(foto)
+    if (original) await removeAttachment(original)
     res.json({ data: { url } })
   }),
 )
@@ -133,6 +150,8 @@ router.patch(
       if (conflict) return res.status(409).json({ error: 'Username já está em uso' })
     }
 
+    const antes = avatarUrl !== undefined || bannerUrl !== undefined ? await fotosDaConta(req.userId!) : undefined
+
     const update: Record<string, unknown> = {}
     if (displayName !== undefined) update.displayName = displayName
     if (username !== undefined) update.username = username
@@ -140,12 +159,12 @@ router.patch(
     if (avatarUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(avatarUrl)
       update.avatarUrl = url
-      if (original !== null) update.avatarFullUrl = original
+      if (original !== null || url !== antes?.avatarUrl) update.avatarFullUrl = original
     }
     if (bannerUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(bannerUrl, LADO_DO_BANNER)
       update.bannerUrl = url
-      update.bannerFullUrl = original
+      if (original !== null || url !== antes?.bannerUrl) update.bannerFullUrl = original
     }
     if (bannerColor !== undefined) update.bannerColor = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme
@@ -184,6 +203,16 @@ router.patch(
       avatarUrl: user.avatarUrl,
       displayFont: user.displayFont,
     })
+    if (antes) {
+      const saiu = [
+        ...(avatarUrl !== undefined ? [antes.avatarUrl, antes.avatarFullUrl] : []),
+        ...(bannerUrl !== undefined ? [antes.bannerUrl, antes.bannerFullUrl] : []),
+      ]
+      const fotoDasMensagens = antes.avatarUrl !== user.avatarUrl ? antes.avatarUrl : null
+      await soltarFotosAntigas(req.userId!, fotoDasMensagens, saiu).catch((e) =>
+        logger.warn('Perfil', 'a foto antiga ficou no bucket', e),
+      )
+    }
     res.json({ data: { user } })
   }),
 )

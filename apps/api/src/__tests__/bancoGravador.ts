@@ -52,7 +52,7 @@ function cadeia(onde: string, operacao: string, tabela?: Table) {
           if (metodo === 'from') nome = getTableName(args[0] as Table)
           if (metodo === 'for') trava = String(args[0])
           if (metodo === 'where') condicao = args[0] as SQL
-          if (metodo === 'values') valores = args[0]
+          if (metodo === 'values' || metodo === 'set') valores = args[0]
           return comando
         }
       },

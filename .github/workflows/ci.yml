@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, astra-dev]
   pull_request:
-    branches: [main]
+    branches: [main, astra-dev]
 
 permissions:
   contents: read
@@ -41,7 +41,6 @@ jobs:
         run: npm test --workspace=@astra/api
 
       - name: Auditar dependencias
-        continue-on-error: true
         run: npm audit --audit-level=high
 
       - name: Conferir acentos no texto visivel

@@ -7,3 +7,40 @@ updates:
     target-branch: astra-dev
     schedule:
       interval: weekly
+
+  - package-ecosystem: npm
+    directory: /
+    target-branch: astra-dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: gradle
+    directory: /mobile-native
+    target-branch: astra-dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      gradle-menores:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /sidecar-voz-rs
+    target-branch: astra-dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      cargo-menores:
+        patterns: ["*"]
+        exclude-patterns: ["livekit*", "libwebrtc", "webrtc-sys*"]
+        update-types: [minor, patch]

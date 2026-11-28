@@ -20,7 +20,6 @@ import { PERMS, getMemberPerms, membrosQueVeemCanal, userCanSeeChannel } from '.
 import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
-import { messagesSentTotal } from '../lib/metrics'
 import { xpPorMensagem } from '../lib/xp'
 import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
@@ -362,7 +361,6 @@ export function createMessagesRouter(io: SocketServer) {
       }
 
       io.to(`channel:${channelId}`).emit('new_message', { ...msgWithReactions, clientNonce: clientNonce ?? null })
-      messagesSentTotal.inc({ kind: 'channel' })
 
       res.status(201).json({ data: msgWithReactions })
 

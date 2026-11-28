@@ -11,7 +11,6 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { messageLimiter } from '../middleware/rateLimiter'
 import { AttachmentSchema, MessageCursorSchema } from '@astra/types'
 import { notify } from '../lib/notifications'
-import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { haBloqueio } from '../lib/blocks'
 import { aceitaSussurroNovo, RECUSA_DE_SUSSURRO } from '../lib/privacidadeDm'
@@ -446,7 +445,6 @@ export function createDMRouter(io: SocketServer) {
       }
 
       entregarSussurro(io, conversationId, [req.userId, receiverId], 'new_dm', message)
-      messagesSentTotal.inc({ kind: 'dm' })
       res.status(201).json({ data: message })
 
       setImmediate(() => {

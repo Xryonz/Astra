@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dmConversations, directMessages } from '../db/schema'
 import { askBot, getBotId, handleBotCommand, sincronizaPersona } from './bot'
-import { messagesSentTotal } from './metrics'
 import { entregarSussurro } from './realtime'
 
 interface Pedido {
@@ -88,7 +87,6 @@ export async function responderNoSussurro({
       replyTo: null,
       author: autor,
     })
-    messagesSentTotal.inc({ kind: 'dm' })
 
     await db.update(dmConversations).set({ updatedAt: new Date() }).where(eq(dmConversations.id, conversationId))
   } catch (err) {

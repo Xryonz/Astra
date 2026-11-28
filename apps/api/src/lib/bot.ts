@@ -36,7 +36,6 @@ import {
   resumoDoDia,
 } from './botDiversao'
 import { chamarIa, gerarTexto, IA_LIGADA, MODELO_CONVERSA, MODELO_RESUMO, type BlocoIa, type FerramentaIa } from './ia'
-import { botInvocationsTotal, botTokensTotal } from './metrics'
 
 export const BOT_USERNAME = 'astra_bot'
 export const BOT_DISPLAYNAME = 'Astra'
@@ -248,14 +247,12 @@ export interface AskBotResult {
 
 export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotResult> {
   if (!IA_LIGADA) {
-    botInvocationsTotal.inc({ status: 'error' })
     return { text: 'Estou offline no momento (sem chave de API). Tente mais tarde.', toolsUsed: [] }
   }
 
   const estTokens = Math.ceil((userMessage.length + 4000) / 4)
   const tokCheck = await consumeTokens(ctx.userId, estTokens)
   if (!tokCheck.allowed) {
-    botInvocationsTotal.inc({ status: 'rate_limited' })
     return {
       text: `Você usou todo seu limite diário comigo (${100_000} tokens). Tente de novo amanhã.`,
       toolsUsed: [],
@@ -305,10 +302,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     if (res.usage) {
       const inTok = res.usage.input_tokens ?? 0
       const outTok = res.usage.output_tokens ?? 0
-      const cacheRd = res.usage.cache_read_input_tokens ?? 0
-      if (inTok) botTokensTotal.inc({ kind: 'input' }, inTok)
-      if (outTok) botTokensTotal.inc({ kind: 'output' }, outTok)
-      if (cacheRd) botTokensTotal.inc({ kind: 'cache_read' }, cacheRd)
       const realTokens = inTok + outTok
 
       const delta = Math.max(0, realTokens - estTokens)
@@ -374,7 +367,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     )
   }
 
-  botInvocationsTotal.inc({ status: truncated ?? 'ok' })
   return { text: finalText, toolsUsed, truncated }
 }
 

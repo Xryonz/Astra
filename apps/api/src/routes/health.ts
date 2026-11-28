@@ -5,8 +5,6 @@ import { env, release } from '../lib/env'
 import { isMailEnabled, mailFalta } from '../lib/mailer'
 import { storageMode, storageFalta } from '../lib/storage'
 import { IA_LIGADA, IA_PROVEDOR } from '../lib/ia'
-import { logger } from '../lib/logger'
-import { renderMetrics, metricsContentType } from '../lib/metrics'
 
 const PING_TIMEOUT_MS = 1500
 
@@ -61,23 +59,4 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     botIa: IA_PROVEDOR,
     checks: { db, redis: rd },
   })
-})
-
-healthRouter.get('/metrics', async (req, res) => {
-  if (env.NODE_ENV === 'production') {
-    if (!env.METRICS_TOKEN) {
-      return res.status(404).json({ error: 'metrics disabled' })
-    }
-    const auth = req.header('authorization') ?? ''
-    if (auth !== `Bearer ${env.METRICS_TOKEN}`) {
-      return res.status(401).json({ error: 'unauthorized' })
-    }
-  }
-  try {
-    res.setHeader('content-type', metricsContentType())
-    res.send(await renderMetrics())
-  } catch (e: any) {
-    logger.error('Metrics', 'render fail', e)
-    res.status(500).json({ error: 'metrics render failed' })
-  }
 })

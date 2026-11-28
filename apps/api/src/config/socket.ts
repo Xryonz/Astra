@@ -20,7 +20,6 @@ import {
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
-import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { xpPorMensagem } from '../lib/xp'
 import { comemorarNivel } from '../lib/botAvisos'
@@ -141,7 +140,6 @@ export function setupSocket(io: Server) {
 
     if (!userSockets.has(userId)) userSockets.set(userId, new Set())
     userSockets.get(userId)!.add(socket.id)
-    socketConnections.inc()
 
     socket.join(`user:${userId}`)
     void derrubarSeASessaoAcabou(socket)
@@ -158,7 +156,6 @@ export function setupSocket(io: Server) {
     })
 
     socket.on('heartbeat', () => {
-      socketEventsTotal.inc({ event: 'heartbeat', direction: 'in' })
       refreshPresence(userId)
     })
 
@@ -312,7 +309,6 @@ export function setupSocket(io: Server) {
           }
 
           io.to(`channel:${channelId}`).emit('new_message', payload2)
-          messagesSentTotal.inc({ kind: 'channel' })
           safeAck({ ok: true, msg: payload2 })
 
           void xpPorMensagem(userId).then((g) => {
@@ -459,7 +455,6 @@ export function setupSocket(io: Server) {
           }
 
           entregarSussurro(io, conversationId, [userId, receiverId], 'new_dm', message)
-          messagesSentTotal.inc({ kind: 'dm' })
           safeAck({ ok: true, msg: message })
 
           setImmediate(() => {
@@ -649,7 +644,6 @@ export function setupSocket(io: Server) {
           since: null,
         })
       }
-      socketConnections.dec()
     })
   })
 }

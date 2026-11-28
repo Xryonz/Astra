@@ -70,7 +70,7 @@ missões.
 - **LiveKit Server SDK**: o acesso às salas de voz
 - **Firebase Admin**: o envio das notificações do Android
 - **Helmet**, **CORS** e **express-rate-limit**: a proteção da API
-- **Sentry** e **prom-client**: erros e métricas
+- **Sentry**: os erros do servidor
 
 ### Serviços
 

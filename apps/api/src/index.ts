@@ -18,7 +18,6 @@ import { secureHeaders, hidePoweredBy } from './middleware/secureHeaders'
 import { sanitizeInputs } from './middleware/sanitize'
 import { globalLimiter } from './middleware/rateLimiter'
 import { reqContext } from './middleware/reqContext'
-import { httpMetrics } from './middleware/httpMetrics'
 import { corpoGrandeSoComLogin } from './middleware/corpoGrande'
 import { setupSocket } from './config/socket'
 import { initBot } from './lib/bot'
@@ -123,7 +122,6 @@ app.use(
 )
 
 app.use(reqContext)
-app.use(httpMetrics)
 
 app.use('/api/profile', corpoGrandeSoComLogin)
 app.use('/api/servers', corpoGrandeSoComLogin)

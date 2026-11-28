@@ -31,7 +31,6 @@ const EnvSchema = z.object({
   SENTRY_TRACES_SAMPLE: z.coerce.number().min(0).max(1).default(0.1),
   SENTRY_ENVIRONMENT: z.string().optional(),
 
-  METRICS_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
 
   RELEASE: z.string().optional(),

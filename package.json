@@ -6,13 +6,11 @@
     "packages/*"
   ],
   "scripts": {
-    "predev": "node scripts/predev.mjs",
     "dev": "npm run build -w packages/types && npm run dev -w apps/api",
     "dev:fast": "npm run dev -w apps/api",
     "build": "npm run build -w packages/types && npm run build -w apps/api",
     "build:api": "npm run build -w packages/types && npm run build -w apps/api",
-    "start:api": "node apps/api/dist/index.js",
-    "db:migrate": "npm run db:migrate -w apps/api"
+    "start:api": "node apps/api/dist/index.js"
   },
   "engines": {
     "node": "24.x"

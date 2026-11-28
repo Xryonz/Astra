@@ -2,6 +2,7 @@ import { Router, type Response } from 'express'
 import type { Request } from '../lib/requisicao'
 import multer from 'multer'
 import path from 'path'
+import os from 'os'
 import fs from 'fs'
 import crypto from 'crypto'
 import sharp from 'sharp'
@@ -80,10 +81,10 @@ const MAX_PER_REQUEST = 10
 
 const CHAVE_DOS_NOMES = crypto.createHmac('sha256', env.JWT_REFRESH_SECRET).update('nome-de-anexo').digest()
 
-const memoryStorage = multer.memoryStorage()
+const PASTA_DOS_ENVIOS = path.join(os.tmpdir(), 'astra-envios')
 
 const upload = multer({
-  storage: memoryStorage,
+  dest: PASTA_DOS_ENVIOS,
   limits: { fileSize: MAX_FILE_SIZE, files: MAX_PER_REQUEST },
   fileFilter: (_req, file, cb) => {
     if (!isMimeAllowed(file.mimetype)) return cb(new Error('TYPE_NOT_ALLOWED'))
@@ -108,7 +109,10 @@ async function makeBlurhash(input: Buffer): Promise<string | undefined> {
 const THUMB_PX = 1280
 const THUMB_MIN_PX = 1400
 
-async function maybeTranscode(file: Express.Multer.File): Promise<{
+async function maybeTranscode(
+  buffer: Buffer,
+  tipo: string,
+): Promise<{
   buffer: Buffer
   mime: string
   ext: string
@@ -117,19 +121,19 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
   blurhash?: string
   thumb?: Buffer
 }> {
-  const mime = file.mimetype.split(';')[0].toLowerCase()
+  const mime = tipo.split(';')[0].toLowerCase()
 
   if (!mime.startsWith('image/') || mime === 'image/gif' || mime === 'image/svg+xml') {
-    return { buffer: file.buffer, mime, ext: extForMime(mime) }
+    return { buffer, mime, ext: extForMime(mime) }
   }
 
   try {
-    const img = sharp(file.buffer, { failOn: 'none' })
+    const img = sharp(buffer, { failOn: 'none' })
     const meta = await img.metadata()
     const maiorLado = Math.max(meta.width ?? 0, meta.height ?? 0)
     let thumb: Buffer | undefined
     if (maiorLado >= THUMB_MIN_PX) {
-      thumb = await sharp(file.buffer, { failOn: 'none' })
+      thumb = await sharp(buffer, { failOn: 'none' })
         .rotate()
         .resize({ width: THUMB_PX, height: THUMB_PX, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 88, effort: 4, smartSubsample: true })
@@ -137,18 +141,71 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
     }
 
     return {
-      buffer: file.buffer,
+      buffer,
       mime,
       ext: extForMime(mime),
       width: meta.width,
       height: meta.height,
-      blurhash: await makeBlurhash(file.buffer),
+      blurhash: await makeBlurhash(buffer),
       thumb,
     }
   } catch (e) {
     console.warn('[upload] sharp falhou, fallback p/ original:', (e as Error).message)
-    return { buffer: file.buffer, mime, ext: extForMime(mime) }
+    return { buffer, mime, ext: extForMime(mime) }
   }
+}
+
+async function comecoDoArquivo(caminho: string): Promise<string> {
+  const arquivo = await fs.promises.open(caminho, 'r')
+  try {
+    const { buffer, bytesRead } = await arquivo.read(Buffer.alloc(64), 0, 64, 0)
+    return buffer.subarray(0, bytesRead).toString('latin1').toLowerCase().trimStart()
+  } finally {
+    await arquivo.close()
+  }
+}
+
+function pareceHtml(comeco: string): boolean {
+  return (
+    comeco.startsWith('<!doctype html') ||
+    comeco.startsWith('<html') ||
+    comeco.startsWith('<svg') ||
+    comeco.includes('<script')
+  )
+}
+
+async function guardarAnexo(f: Express.Multer.File) {
+  const processed = await maybeTranscode(await fs.promises.readFile(f.path), f.mimetype)
+  const id = crypto.createHmac('sha256', CHAVE_DOS_NOMES).update(processed.buffer).digest('hex')
+  const filename = `${id}${processed.ext}`
+  const [url, thumbUrl] = await Promise.all([
+    guardarSeNovo(filename, processed.buffer, processed.mime),
+    processed.thumb ? guardarSeNovo(`${id}_t.webp`, processed.thumb, 'image/webp') : Promise.resolve(undefined),
+  ])
+  return {
+    url,
+    thumbUrl,
+    type: processed.mime,
+    name: f.originalname,
+    size: processed.buffer.length,
+    width: processed.width,
+    height: processed.height,
+    blurhash: processed.blurhash,
+  }
+}
+
+async function processarEnvio(files: Express.Multer.File[]): Promise<{ status: number; corpo: unknown }> {
+  if (files.length === 0) return { status: 400, corpo: { error: 'Nenhum arquivo enviado' } }
+  for (const f of files) {
+    if (pareceHtml(await comecoDoArquivo(f.path))) return { status: 415, corpo: { error: 'Conteúdo não permitido' } }
+  }
+  const attachments = []
+  for (const f of files) attachments.push(await guardarAnexo(f))
+  return { status: 200, corpo: { data: { attachments } } }
+}
+
+async function apagarTemporarios(files: Express.Multer.File[]): Promise<void> {
+  await Promise.all(files.map((f) => fs.promises.rm(f.path, { force: true })))
 }
 
 const router = Router()
@@ -171,42 +228,8 @@ router.post(
   },
   asyncHandler(async (req: Request, res: Response) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? []
-    if (files.length === 0) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
-
-    for (const f of files) {
-      const head = f.buffer.subarray(0, 64).toString('latin1').toLowerCase().trimStart()
-      if (
-        head.startsWith('<!doctype html') ||
-        head.startsWith('<html') ||
-        head.startsWith('<svg') ||
-        head.includes('<script')
-      ) {
-        return res.status(415).json({ error: 'Conteúdo não permitido' })
-      }
-    }
-
-    const attachments = await Promise.all(
-      files.map(async (f) => {
-        const processed = await maybeTranscode(f)
-        const id = crypto.createHmac('sha256', CHAVE_DOS_NOMES).update(processed.buffer).digest('hex')
-        const filename = `${id}${processed.ext}`
-        const [url, thumbUrl] = await Promise.all([
-          guardarSeNovo(filename, processed.buffer, processed.mime),
-          processed.thumb ? guardarSeNovo(`${id}_t.webp`, processed.thumb, 'image/webp') : Promise.resolve(undefined),
-        ])
-        return {
-          url,
-          thumbUrl,
-          type: processed.mime,
-          name: f.originalname,
-          size: processed.buffer.length,
-          width: processed.width,
-          height: processed.height,
-          blurhash: processed.blurhash,
-        }
-      }),
-    )
-    res.json({ data: { attachments } })
+    const resposta = await processarEnvio(files).finally(() => apagarTemporarios(files))
+    res.status(resposta.status).json(resposta.corpo)
   }),
 )
 

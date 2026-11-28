@@ -153,11 +153,6 @@ class SessionStore {
 
     fun uiPref(key: String): String? = synchronized(uiLock) { uiPropsLocked().getProperty(key) }
 
-    fun todasUiPrefs(): Map<String, String> = synchronized(uiLock) {
-        val p = uiPropsLocked()
-        p.stringPropertyNames().associateWith { p.getProperty(it) }
-    }
-
     fun setUiPref(key: String, value: String?) = setUiPrefs(mapOf(key to value))
 
     fun setUiPrefs(valores: Map<String, String?>) {

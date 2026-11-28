@@ -76,9 +76,6 @@ class CallNaSala(
     private val _caminhoDaVoz = MutableStateFlow<LeituraDoCaminho?>(null)
     val caminhoDaVoz = _caminhoDaVoz.asStateFlow()
 
-    private val _caminhoDaTela = MutableStateFlow<LeituraDoCaminho?>(null)
-    val caminhoDaTela = _caminhoDaTela.asStateFlow()
-
     private val _mudosDaSala = MutableStateFlow<Set<String>>(emptySet())
     val mudosDaSala = _mudosDaSala.asStateFlow()
 
@@ -440,8 +437,6 @@ class CallNaSala(
                     if (ev.tipo == "voz") {
                         _caminhoDaVoz.value = leitura
                         resumo.perdaDaVoz(leitura.perda)
-                    } else {
-                        _caminhoDaTela.value = leitura
                     }
                 }
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()

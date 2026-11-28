@@ -33,6 +33,10 @@ export function verifyAccessToken(token: string): TokenPayload {
   return jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as TokenPayload
 }
 
+export function verifyAccessSignature(token: string): TokenPayload {
+  return jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'], ignoreExpiration: true }) as TokenPayload
+}
+
 export function verifyRefreshToken(token: string): RefreshPayload {
   return jwt.verify(token, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as RefreshPayload
 }

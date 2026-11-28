@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { eq } from 'drizzle-orm'
-import { verifyAccessToken } from '../lib/jwt'
+import { verifyAccessSignature, verifyAccessToken } from '../lib/jwt'
 import { isSessaoEncerrada, isTokenBlacklisted } from '../lib/redis'
 import { isMailEnabled } from '../lib/mailer'
 import { db } from '../db'
@@ -23,11 +23,11 @@ function extractBearer(authHeader: string | undefined): string | null {
   return match ? match[1] : null
 }
 
-export function temCredencialValida(req: Request): boolean {
+export function temCredencialAssinada(req: Request): boolean {
   const token = extractBearer(req.headers.authorization)
   if (!token) return false
   try {
-    verifyAccessToken(token)
+    verifyAccessSignature(token)
     return true
   } catch {
     return false
